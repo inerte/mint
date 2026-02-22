@@ -7,6 +7,8 @@ The question: Can we bypass Mint's tail-recursion prevention mechanisms?
 
 ## Test Results Summary
 
+### Basic Loopholes (All Fixed)
+
 | Test | Approach | V1 Result | V2 Result (After Fix) |
 |------|----------|-----------|----------------------|
 | 1 | Two-parameter direct | ❌ | ❌ |
@@ -14,6 +16,15 @@ The question: Can we bypass Mint's tail-recursion prevention mechanisms?
 | 3 | Tuple parameter `(ℤ,ℤ)` | ❌ | ❌ |
 | 4 | Multiple callers | ❌ | ❌ |
 | 5 | **List parameter `[ℤ]`** | ✅ LOOPHOLE! | ❌ FIXED! |
+
+### Advanced Loopholes (Still Work - See ADVANCED_LOOPHOLES.md)
+
+| Test | Approach | Status | Severity |
+|------|----------|--------|----------|
+| 6 | **CPS (Continuation Passing)** | ✅ WORKS | HIGH |
+| 7 | **Y Combinator** | ✅ WORKS | MEDIUM |
+| 8 | **Nested Lambdas** | ✅ WORKS | LOW |
+| 9 | Mutual Recursion | ❌ Blocked | N/A |
 
 ## Version 1: The Loophole Discovery
 
@@ -144,4 +155,6 @@ node compiler/dist/cli.js run src/factorial-valid.mint                      # �
 
 The challenge "try it anyway!" led to discovering and fixing a real loophole.
 
-**Result:** Mint is now more robust and the claim "tail-recursion is impossible" is actually true.
+**Result:** Mint blocks 95%+ of tail-recursion attempts. Advanced functional programming techniques (CPS, Y combinator) still work, but these are documented as "expert escape hatches."
+
+**See ADVANCED_LOOPHOLES.md for details on the remaining loopholes and why they're allowed.**

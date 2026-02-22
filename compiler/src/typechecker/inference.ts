@@ -20,6 +20,7 @@ import {
 import { TypeEnvironment, createInitialEnvironment } from './environment.js';
 import { unify } from './unification.js';
 import { TypeError } from './errors.js';
+import { inferPattern, checkExhaustiveness } from './patterns.js';
 
 /**
  * Type Inference Engine
@@ -69,8 +70,7 @@ export class TypeInferenceEngine {
         return this.inferTuple(env, expr);
 
       case 'MatchExpr':
-        // TODO: Implement in Phase 4
-        throw new Error('Pattern matching not yet implemented');
+        return this.inferMatch(env, expr);
 
       case 'MapExpr':
         return this.inferMapOp(env, expr);
@@ -351,6 +351,83 @@ export class TypeInferenceEngine {
     }
 
     return [subst, { kind: 'tuple', types }];
+  }
+
+  /**
+   * Infer the type of a match expression
+   *
+   * Example: ≡n{0→0|1→1|n→n*factorial(n-1)}
+   */
+  private inferMatch(
+    env: TypeEnvironment,
+    expr: AST.MatchExpr
+  ): [Substitution, InferenceType] {
+    // 1. Infer scrutinee type
+    const [scrutineeSubst, scrutineeType] = this.infer(env, expr.scrutinee);
+
+    let subst = scrutineeSubst;
+    let resultType: InferenceType | null = null;
+
+    // 2. For each match arm:
+    for (const arm of expr.arms) {
+      // a. Infer pattern type and bindings
+      const [patternSubst, patternType, bindings] = inferPattern(this, arm.pattern);
+
+      // b. Unify pattern type with scrutinee type
+      const patternUnifySubst = unify(
+        applySubst(subst, scrutineeType),
+        applySubst(patternSubst, patternType),
+        arm.pattern.location
+      );
+
+      subst = composeSubstitutions(subst, patternUnifySubst);
+      subst = composeSubstitutions(subst, patternSubst);
+
+      // c. Extend environment with pattern bindings
+      const armEnv = env.extend();
+      armEnv.apply(subst);
+
+      for (const [name, type] of bindings) {
+        armEnv.bind(name, {
+          quantifiedVars: new Set(),
+          type: applySubst(subst, type)
+        });
+      }
+
+      // d. Infer arm body type
+      const [bodySubst, bodyType] = this.infer(armEnv, arm.body);
+      subst = composeSubstitutions(subst, bodySubst);
+
+      // e. Unify with previous arm types (all arms must return same type)
+      if (resultType === null) {
+        resultType = applySubst(subst, bodyType);
+      } else {
+        const resultUnifySubst = unify(
+          applySubst(subst, resultType),
+          applySubst(subst, bodyType),
+          arm.body.location
+        );
+
+        subst = composeSubstitutions(subst, resultUnifySubst);
+        resultType = applySubst(subst, resultType);
+      }
+    }
+
+    // 3. Check exhaustiveness (Phase 5 - basic implementation)
+    checkExhaustiveness(
+      applySubst(subst, scrutineeType),
+      expr.arms.map(a => a.pattern),
+      expr.location
+    );
+
+    if (resultType === null) {
+      throw new TypeError(
+        'Match expression must have at least one arm',
+        expr.location
+      );
+    }
+
+    return [subst, resultType];
   }
 
   /**

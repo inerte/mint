@@ -26,6 +26,7 @@ export class CanonicalError extends Error {
 export function validateCanonicalForm(program: AST.Program): void {
   validateRecursiveFunctions(program);
   validateNoHelperFunctions(program);
+  validateCanonicalPatternMatching(program);
 }
 
 /**
@@ -400,5 +401,232 @@ function formatType(type: AST.Type): string {
       return `function`;
     default:
       return 'unknown';
+  }
+}
+
+/**
+ * Rule 3: Canonical Pattern Matching
+ *
+ * Pattern matches must use the most direct form possible:
+ * - ✅ Match on parameter value directly: ≡n{0→...|n→...}
+ * - ❌ Match on boolean when value matching works: ≡(n=0){⊤→...|⊥→...}
+ *
+ * Boolean/tuple matching allowed ONLY when value matching impossible:
+ * - ✅ Complex conditions: ≡(x>0,y>0){(⊤,⊤)→...}
+ * - ✅ Multiple parameters: ≡(x,y){...}
+ */
+function validateCanonicalPatternMatching(program: AST.Program): void {
+  for (const decl of program.declarations) {
+    if (decl.type === 'FunctionDecl') {
+      validatePatternMatchingInExpr(decl.body, decl.params);
+    }
+  }
+}
+
+/**
+ * Check if an expression uses non-canonical pattern matching
+ */
+function validatePatternMatchingInExpr(expr: AST.Expr, params: AST.Param[]): void {
+  switch (expr.type) {
+    case 'MatchExpr':
+      validateMatchExpr(expr, params);
+      // Recursively check match arms
+      for (const arm of expr.arms) {
+        validatePatternMatchingInExpr(arm.body, params);
+      }
+      // Check scrutinee
+      validatePatternMatchingInExpr(expr.scrutinee, params);
+      break;
+
+    case 'LambdaExpr':
+      validatePatternMatchingInExpr(expr.body, expr.params);
+      break;
+
+    case 'ApplicationExpr':
+      validatePatternMatchingInExpr(expr.func, params);
+      for (const arg of expr.args) {
+        validatePatternMatchingInExpr(arg, params);
+      }
+      break;
+
+    case 'BinaryExpr':
+      validatePatternMatchingInExpr(expr.left, params);
+      validatePatternMatchingInExpr(expr.right, params);
+      break;
+
+    case 'UnaryExpr':
+      validatePatternMatchingInExpr(expr.operand, params);
+      break;
+
+    case 'LetExpr':
+      validatePatternMatchingInExpr(expr.value, params);
+      validatePatternMatchingInExpr(expr.body, params);
+      break;
+
+    case 'ListExpr':
+      for (const elem of expr.elements) {
+        validatePatternMatchingInExpr(elem, params);
+      }
+      break;
+
+    case 'RecordExpr':
+      for (const field of expr.fields) {
+        validatePatternMatchingInExpr(field.value, params);
+      }
+      break;
+
+    case 'TupleExpr':
+      for (const elem of expr.elements) {
+        validatePatternMatchingInExpr(elem, params);
+      }
+      break;
+
+    case 'FieldAccessExpr':
+      validatePatternMatchingInExpr(expr.object, params);
+      break;
+
+    case 'IndexExpr':
+      validatePatternMatchingInExpr(expr.object, params);
+      validatePatternMatchingInExpr(expr.index, params);
+      break;
+
+    case 'PipelineExpr':
+      validatePatternMatchingInExpr(expr.left, params);
+      validatePatternMatchingInExpr(expr.right, params);
+      break;
+
+    case 'MapExpr':
+      validatePatternMatchingInExpr(expr.list, params);
+      validatePatternMatchingInExpr(expr.fn, params);
+      break;
+
+    case 'FilterExpr':
+      validatePatternMatchingInExpr(expr.list, params);
+      validatePatternMatchingInExpr(expr.predicate, params);
+      break;
+
+    case 'FoldExpr':
+      validatePatternMatchingInExpr(expr.list, params);
+      validatePatternMatchingInExpr(expr.fn, params);
+      validatePatternMatchingInExpr(expr.init, params);
+      break;
+
+    // Literals and identifiers don't contain pattern matches
+    case 'LiteralExpr':
+    case 'IdentifierExpr':
+      break;
+  }
+}
+
+/**
+ * Check if a match expression uses canonical pattern matching
+ */
+function validateMatchExpr(match: AST.MatchExpr, params: AST.Param[]): void {
+  const scrutinee = match.scrutinee;
+
+  // Check if scrutinee is a single parameter reference
+  if (scrutinee.type === 'IdentifierExpr' && params.length === 1 && scrutinee.name === params[0].name) {
+    // This is matching on the function parameter directly - CANONICAL
+    // ≡n{0→...|n→...}
+    return;
+  }
+
+  // Check if scrutinee is a boolean/comparison expression on a single parameter
+  if (isSingleParamComparison(scrutinee, params)) {
+    throw new CanonicalError(
+      `Non-canonical pattern matching: matching on boolean expression.\n` +
+      `\n` +
+      `Found: ≡(${formatScrutinee(scrutinee)}){...}\n` +
+      `\n` +
+      `Use direct value matching instead:\n` +
+      `  ≡${params[0].name}{0→...|${params[0].name}→...}\n` +
+      `\n` +
+      `Boolean matching is only allowed when value matching is impossible\n` +
+      `(e.g., complex conditions like ≡(x>0,y>0){...}).\n` +
+      `\n` +
+      `Mint enforces ONE way: use the most direct pattern matching form.`,
+      match.location
+    );
+  }
+
+  // Check if scrutinee is a tuple of boolean expressions on a single parameter
+  if (scrutinee.type === 'TupleExpr' && isTupleSingleParamComparisons(scrutinee, params)) {
+    throw new CanonicalError(
+      `Non-canonical pattern matching: tuple of boolean expressions on single parameter.\n` +
+      `\n` +
+      `Found: ≡(${formatTupleScrutinee(scrutinee)}){...}\n` +
+      `\n` +
+      `Use direct value matching instead:\n` +
+      `  ≡${params[0].name}{0→...|1→...|${params[0].name}→...}\n` +
+      `\n` +
+      `Tuple boolean matching is only allowed for multiple independent conditions\n` +
+      `(e.g., ≡(x>0,y>0){...} for two different variables).\n` +
+      `\n` +
+      `Mint enforces ONE way: use the most direct pattern matching form.`,
+      match.location
+    );
+  }
+}
+
+/**
+ * Check if expression is a comparison on a single parameter
+ * E.g., n=0, n>5, etc.
+ */
+function isSingleParamComparison(expr: AST.Expr, params: AST.Param[]): boolean {
+  if (params.length !== 1) return false;
+
+  if (expr.type === 'BinaryExpr') {
+    const isComparison = ['=', '≠', '<', '>', '≤', '≥'].includes(expr.operator);
+    if (!isComparison) return false;
+
+    // Check if either side is the parameter
+    const leftIsParam = expr.left.type === 'IdentifierExpr' && expr.left.name === params[0].name;
+    const rightIsParam = expr.right.type === 'IdentifierExpr' && expr.right.name === params[0].name;
+
+    return leftIsParam || rightIsParam;
+  }
+
+  return false;
+}
+
+/**
+ * Check if tuple contains comparisons all on the same single parameter
+ */
+function isTupleSingleParamComparisons(tuple: AST.TupleExpr, params: AST.Param[]): boolean {
+  if (params.length !== 1) return false;
+
+  return tuple.elements.every(elem => isSingleParamComparison(elem, params));
+}
+
+/**
+ * Format scrutinee for error message
+ */
+function formatScrutinee(expr: AST.Expr): string {
+  if (expr.type === 'BinaryExpr') {
+    return `${formatExpr(expr.left)}${expr.operator}${formatExpr(expr.right)}`;
+  }
+  return formatExpr(expr);
+}
+
+/**
+ * Format tuple scrutinee for error message
+ */
+function formatTupleScrutinee(tuple: AST.TupleExpr): string {
+  return tuple.elements.map(formatScrutinee).join(',');
+}
+
+/**
+ * Format expression for error message
+ */
+function formatExpr(expr: AST.Expr): string {
+  switch (expr.type) {
+    case 'IdentifierExpr':
+      return expr.name;
+    case 'LiteralExpr':
+      return String(expr.value);
+    case 'BinaryExpr':
+      return `${formatExpr(expr.left)}${expr.operator}${formatExpr(expr.right)}`;
+    default:
+      return '...';
   }
 }

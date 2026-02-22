@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "node --test",
+    "test": "npm run test:canonical",
+    "test:canonical": "cd .. && ./test-canonical.sh",
+    "pretest": "npm run build",
     "compile": "node dist/cli.js"
   },
   "keywords": [

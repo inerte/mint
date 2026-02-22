@@ -263,6 +263,11 @@ The **AI Interpretation Layer** provides:
   - Pattern matching with exhaustiveness checking
   - List operations (↦, ⊳, ⊕) as language constructs
   - Better error messages with precise source locations
+- ✅ Mutability checker (Immutable by default) - ✓ COMPLETED (2026-02-23)
+  - Explicit `mut` keyword for mutable parameters
+  - Compile-time prevention of illegal mutations
+  - Aliasing prevention for mutable values
+  - Clear error messages with source locations
 
 ### In Progress
 - 🔄 Type system specification (update for bidirectional)

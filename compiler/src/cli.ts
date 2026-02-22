@@ -183,15 +183,9 @@ function compileCommand(args: string[]) {
     if (showTypes) {
       console.log('\n✓ Type checked successfully\n');
       console.log('Inferred types:');
-      for (const [name, scheme] of types) {
-        const typeStr = formatType(scheme.type);
-        const quantifiedVars = Array.from(scheme.quantifiedVars);
-
-        if (quantifiedVars.length > 0) {
-          console.log(`  ${name} : ∀${quantifiedVars.map(id => `α${id}`).join(',')}. ${typeStr}`);
-        } else {
-          console.log(`  ${name} : ${typeStr}`);
-        }
+      for (const [name, type] of types) {
+        const typeStr = formatType(type);
+        console.log(`  ${name} : ${typeStr}`);
       }
       console.log();
     }

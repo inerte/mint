@@ -12,6 +12,8 @@ import { tokenToString } from './lexer/token.js';
 import { parse } from './parser/parser.js';
 import { compile } from './codegen/javascript.js';
 import { validateCanonicalForm } from './validator/canonical.js';
+import { typeCheck } from './typechecker/index.js';
+import { formatType } from './typechecker/errors.js';
 
 function main() {
   const args = process.argv.slice(2);
@@ -60,6 +62,8 @@ function main() {
       console.log('');
       console.log('Options:');
       console.log('  -o <file>         Specify custom output location');
+      console.log('  --show-types      Display inferred types after type checking');
+      console.log('  --skip-typecheck  Skip type checking (faster compilation)');
       break;
     default:
       console.error(`Unknown command: ${command}`);
@@ -171,6 +175,31 @@ function compileCommand(args: string[]) {
 
     // Validate canonical form (enforces ONE way)
     validateCanonicalForm(ast);
+
+    // Type check (unless --skip-typecheck flag)
+    const skipTypecheck = args.includes('--skip-typecheck');
+    const showTypes = args.includes('--show-types');
+
+    if (!skipTypecheck) {
+      const types = typeCheck(ast, source);
+
+      // If --show-types flag, display inferred types
+      if (showTypes) {
+        console.log('\n✓ Type checked successfully\n');
+        console.log('Inferred types:');
+        for (const [name, scheme] of types) {
+          const typeStr = formatType(scheme.type);
+          const quantifiedVars = Array.from(scheme.quantifiedVars);
+
+          if (quantifiedVars.length > 0) {
+            console.log(`  ${name} : ∀${quantifiedVars.map(id => `α${id}`).join(',')}. ${typeStr}`);
+          } else {
+            console.log(`  ${name} : ${typeStr}`);
+          }
+        }
+        console.log();
+      }
+    }
 
     const jsCode = compile(ast);
 

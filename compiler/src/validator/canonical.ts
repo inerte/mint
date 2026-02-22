@@ -43,13 +43,15 @@ function buildTypeDefinitionMap(program: AST.Program): Map<string, AST.TypeDef> 
 }
 
 /**
- * Rule 1: Recursive functions must have exactly ONE PRIMITIVE parameter
+ * Rule 1: Recursive functions must use canonical parameter patterns
  *
- * This makes accumulator-style tail recursion impossible:
- * ❌ λfactorial(n:ℤ,acc:ℤ)→ℤ=...       (2 parameters - rejected)
- * ❌ λfactorial(state:[ℤ])→ℤ=...       (list parameter - rejected)
- * ❌ λfactorial(state:(ℤ,ℤ))→ℤ=...     (tuple parameter - rejected)
- * ✅ λfactorial(n:ℤ)→ℤ=...             (1 primitive parameter - allowed)
+ * This blocks accumulator-style tail recursion while allowing legitimate
+ * multi-parameter algorithms (like GCD, power, ackermann).
+ *
+ * ❌ λfactorial(n:ℤ,acc:ℤ)→ℤ=...       (accumulator pattern - rejected)
+ * ❌ λfactorial(state:[ℤ])→ℤ=...       (collection encoding - rejected)
+ * ✅ λfactorial(n:ℤ)→ℤ=...             (single primitive - allowed)
+ * ✅ λgcd(a:ℤ,b:ℤ)→ℤ=...               (multi-param algorithm - allowed)
  */
 function validateRecursiveFunctions(program: AST.Program): void {
   // Build type definition map for resolving user-defined types
@@ -63,31 +65,42 @@ function validateRecursiveFunctions(program: AST.Program): void {
 
     if (!isRecursive) continue;
 
-    // Check 1: No multiple parameters
+    // Check 1: If multiple parameters, detect accumulator pattern
     if (decl.params.length > 1) {
-      throw new CanonicalError(
-        `Recursive function '${decl.name}' has ${decl.params.length} parameters.\n` +
-        `Recursive functions must have exactly ONE primitive parameter.\n` +
-        `This prevents accumulator-style tail recursion.\n` +
-        `\n` +
-        `Example canonical form:\n` +
-        `  λ${decl.name}(n:ℤ)→ℤ≡n{0→1|n→n*${decl.name}(n-1)}\n` +
-        `\n` +
-        `Mint enforces ONE way to write recursive functions.`,
-        decl.location
-      );
+      // Check if this looks like accumulator-passing style
+      const recursiveCalls = findRecursiveCalls(decl.body, decl.name);
+
+      for (const call of recursiveCalls) {
+        if (looksLikeAccumulatorPattern(call, decl.params)) {
+          throw new CanonicalError(
+            `Recursive function '${decl.name}' uses accumulator-passing style.\n` +
+            `\n` +
+            `Detected pattern: one parameter decrements while another accumulates.\n` +
+            `This is tail-call optimization, which Mint blocks.\n` +
+            `\n` +
+            `Use direct recursion instead:\n` +
+            `  λ${decl.name}(n:ℤ)→ℤ≡n{0→1|n→n*${decl.name}(n-1)}\n` +
+            `\n` +
+            `Note: Multi-parameter recursion IS allowed for algorithms like GCD\n` +
+            `where both parameters are legitimately transformed:\n` +
+            `  λgcd(a:ℤ,b:ℤ)→ℤ≡b{0→a|b→gcd(b,a%b)}\n` +
+            `\n` +
+            `Mint enforces ONE way to write each algorithm.`,
+            decl.location
+          );
+        }
+      }
     }
 
-    // Check 2: Parameter must be primitive type (not collection)
-    // This closes the loophole: state:[ℤ] encodes multiple values
-    if (decl.params.length === 1) {
-      const param = decl.params[0];
+    // Check 2: ALL parameters must be primitive types (not collections)
+    // This closes the loophole: state:[ℤ] or multi-field records encode multiple values
+    for (const param of decl.params) {
       if (param.typeAnnotation && isCollectionType(param.typeAnnotation, typeMap)) {
         throw new CanonicalError(
           `Recursive function '${decl.name}' has a collection-type parameter.\n` +
           `Parameter type: ${formatType(param.typeAnnotation)}\n` +
           `\n` +
-          `Recursive functions must have a PRIMITIVE parameter (ℤ, 𝕊, 𝔹, etc).\n` +
+          `Recursive functions must have PRIMITIVE parameters (ℤ, 𝕊, 𝔹, etc).\n` +
           `Collection types (lists, tuples, records) can encode multiple values,\n` +
           `which enables accumulator-style tail recursion.\n` +
           `\n` +
@@ -629,4 +642,157 @@ function formatExpr(expr: AST.Expr): string {
     default:
       return '...';
   }
+}
+
+/**
+ * Find all recursive calls in an expression
+ */
+function findRecursiveCalls(expr: AST.Expr, functionName: string): AST.ApplicationExpr[] {
+  const calls: AST.ApplicationExpr[] = [];
+
+  function visit(e: AST.Expr): void {
+    if (e.type === 'ApplicationExpr' && e.func.type === 'IdentifierExpr' && e.func.name === functionName) {
+      calls.push(e);
+    }
+
+    // Recursively visit sub-expressions
+    switch (e.type) {
+      case 'BinaryExpr':
+        visit(e.left);
+        visit(e.right);
+        break;
+      case 'UnaryExpr':
+        visit(e.operand);
+        break;
+      case 'ApplicationExpr':
+        visit(e.func);
+        e.args.forEach(visit);
+        break;
+      case 'MatchExpr':
+        visit(e.scrutinee);
+        e.arms.forEach(arm => visit(arm.body));
+        break;
+      case 'LetExpr':
+        visit(e.value);
+        visit(e.body);
+        break;
+      case 'LambdaExpr':
+        visit(e.body);
+        break;
+      case 'ListExpr':
+        e.elements.forEach(visit);
+        break;
+      case 'RecordExpr':
+        e.fields.forEach(f => visit(f.value));
+        break;
+      case 'TupleExpr':
+        e.elements.forEach(visit);
+        break;
+      case 'FieldAccessExpr':
+        visit(e.object);
+        break;
+      case 'IndexExpr':
+        visit(e.object);
+        visit(e.index);
+        break;
+      case 'PipelineExpr':
+        visit(e.left);
+        visit(e.right);
+        break;
+      case 'MapExpr':
+        visit(e.list);
+        visit(e.fn);
+        break;
+      case 'FilterExpr':
+        visit(e.list);
+        visit(e.predicate);
+        break;
+      case 'FoldExpr':
+        visit(e.list);
+        visit(e.fn);
+        visit(e.init);
+        break;
+    }
+  }
+
+  visit(expr);
+  return calls;
+}
+
+/**
+ * Check if a recursive call looks like accumulator-passing style
+ *
+ * Accumulator pattern: one param decrements (n-1), another accumulates (n*acc)
+ * Legitimate multi-param: both params transform (gcd(b, a%b))
+ *
+ * Heuristic: If one argument is just "param - constant" and another argument
+ * contains multiplication/addition with param names, likely accumulator.
+ */
+function looksLikeAccumulatorPattern(call: AST.ApplicationExpr, params: AST.Param[]): boolean {
+  if (call.args.length !== params.length) return false;
+  if (params.length < 2) return false;
+
+  const paramNames = new Set(params.map(p => p.name));
+
+  let hasDecrement = false;
+  let hasAccumulation = false;
+
+  for (let i = 0; i < call.args.length; i++) {
+    const arg = call.args[i];
+    const paramName = params[i].name;
+
+    // Check if this arg looks like a decrement: n-1, n-2, etc.
+    if (isDecrementPattern(arg, paramName)) {
+      hasDecrement = true;
+    }
+
+    // Check if this arg looks like accumulation: n*acc, acc+n, etc.
+    if (isAccumulationPattern(arg, paramNames)) {
+      hasAccumulation = true;
+    }
+  }
+
+  // If one param decrements and another accumulates, it's likely accumulator pattern
+  return hasDecrement && hasAccumulation;
+}
+
+/**
+ * Check if expression is a decrement pattern like n-1, n-2
+ */
+function isDecrementPattern(expr: AST.Expr, paramName: string): boolean {
+  if (expr.type === 'BinaryExpr' && expr.operator === '-') {
+    // Check if left side is the param and right side is a constant
+    return expr.left.type === 'IdentifierExpr' &&
+           expr.left.name === paramName &&
+           expr.right.type === 'LiteralExpr';
+  }
+  return false;
+}
+
+/**
+ * Check if expression contains accumulation pattern
+ * (multiplication or addition involving multiple param names)
+ */
+function isAccumulationPattern(expr: AST.Expr, paramNames: Set<string>): boolean {
+  if (expr.type === 'BinaryExpr' && (expr.operator === '*' || expr.operator === '+')) {
+    // Check if both sides reference parameter names
+    const leftHasParam = containsParamReference(expr.left, paramNames);
+    const rightHasParam = containsParamReference(expr.right, paramNames);
+    return leftHasParam && rightHasParam;
+  }
+  return false;
+}
+
+/**
+ * Check if expression contains a reference to any of the parameter names
+ */
+function containsParamReference(expr: AST.Expr, paramNames: Set<string>): boolean {
+  if (expr.type === 'IdentifierExpr') {
+    return paramNames.has(expr.name);
+  }
+  if (expr.type === 'BinaryExpr') {
+    return containsParamReference(expr.left, paramNames) ||
+           containsParamReference(expr.right, paramNames);
+  }
+  return false;
 }

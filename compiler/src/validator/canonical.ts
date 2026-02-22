@@ -82,6 +82,26 @@ function validateRecursiveFunctions(program: AST.Program): void {
         );
       }
     }
+
+    // Check 3: Return type cannot be a function (blocks CPS/continuation passing)
+    // This closes the CPS loophole: λfactorial(n:ℤ)→λ(ℤ)→ℤ
+    if (decl.returnType && decl.returnType.type === 'FunctionType') {
+      throw new CanonicalError(
+        `Recursive function '${decl.name}' returns a function type.\n` +
+        `Return type: ${formatType(decl.returnType)}\n` +
+        `\n` +
+        `This is Continuation Passing Style (CPS), which encodes\n` +
+        `an accumulator in the returned function.\n` +
+        `\n` +
+        `Recursive functions must return a VALUE, not a FUNCTION.\n` +
+        `\n` +
+        `Example canonical form:\n` +
+        `  λ${decl.name}(n:ℤ)→ℤ≡n{0→1|n→n*${decl.name}(n-1)}\n` +
+        `\n` +
+        `Mint enforces ONE way to write recursive functions.`,
+        decl.location
+      );
+    }
   }
 }
 

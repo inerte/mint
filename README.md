@@ -101,6 +101,9 @@ Unicode symbols for ultimate density:
 - `→` for returns/maps-to (1 char vs 2)
 - `≡` for pattern match (1 char vs 5+)
 - `ℤ` for integers, `ℝ` for reals, `𝔹` for bool, `𝕊` for string
+- `↦` for map (1 char vs 4)
+- `⊳` for filter (1 char vs 7)
+- `⊕` for fold/reduce (1 char vs 7)
 - `∈` for iteration "in"
 - `∅` for None/empty
 - `⊤` for true, `⊥` for false
@@ -146,6 +149,21 @@ Unicode symbols for ultimate density:
 t Option[T]=Some(T)|None
 t Result[T,E]=Ok(T)|Err(E)
 t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
+```
+
+### Built-in List Operations
+```mint
+# Map: ↦ - Apply function to each element
+[1,2,3,4,5]↦λx→x*2  # Result: [2,4,6,8,10]
+
+# Filter: ⊳ - Keep elements matching predicate
+[1,2,3,4,5]⊳λx→x%2=0  # Result: [2,4]
+
+# Fold: ⊕ - Reduce with function and initial value
+[1,2,3,4,5]⊕λ(acc,x)→acc+x⊕0  # Result: 15
+
+# Chained operations
+[1,2,3,4,5]↦λx→x*2⊳λx→x>5⊕λ(acc,x)→acc+x⊕0  # Result: 30
 ```
 
 ### Pipeline Operations
@@ -223,27 +241,32 @@ The **AI Interpretation Layer** provides:
 
 ## Project Status
 
-**Current Phase**: Proof of Concept (Week 1-2)
+**Current Phase**: Proof of Concept (Week 2-3)
 
 ### Completed
 - ✅ Language design and philosophy
 - ✅ Core syntax specification
 - ✅ Project structure
+- ✅ Lexer/Parser implementation
+- ✅ JavaScript code generator
+- ✅ Built-in list operations (↦ ⊳ ⊕)
+- ✅ Canonical form enforcement (100% - all loopholes blocked)
+- ✅ Comprehensive test suite (18 tests)
+- ✅ Pattern matching validation
+- ✅ Multi-parameter recursion (for legitimate algorithms like GCD)
 
 ### In Progress
-- 🔄 Grammar specification (EBNF)
 - 🔄 Type system specification
 - 🔄 Semantic map format
-- 🔄 Example programs
+- 🔄 Type checker with inference
 
 ### Upcoming
-- ⏳ Lexer/Parser implementation
-- ⏳ Type checker with inference
-- ⏳ JavaScript code generator
+- ⏳ Borrow checker
 - ⏳ Semantic map generator
 - ⏳ LSP server
 - ⏳ VS Code extension
 - ⏳ Token efficiency benchmarks
+- ⏳ LLM generation accuracy tests
 
 ## Installation (Future)
 

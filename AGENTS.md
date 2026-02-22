@@ -132,6 +132,18 @@ node compiler/dist/cli.js compile src/myprogram.mint -o custom/path.js
 [value,.recursive()]  # Construction with spread
 ```
 
+### Built-in List Operations (Language Constructs)
+```mint
+list↦fn              # Map: ↦ (apply fn to each element)
+list⊳predicate       # Filter: ⊳ (keep elements matching predicate)
+list⊕fn⊕init         # Fold: ⊕ (reduce with fn starting from init)
+
+# Example: sum of doubled even numbers
+[1,2,3,4,5]↦λx→x*2⊳λx→x%2=0⊕λ(acc,x)→acc+x⊕0  # Result: 30
+```
+
+**Note:** Map, filter, and fold are **language constructs**, not library functions. They compile directly to JavaScript's `.map()`, `.filter()`, and `.reduce()`.
+
 ## Common Patterns
 
 ### FizzBuzz
@@ -145,8 +157,19 @@ node compiler/dist/cli.js compile src/myprogram.mint -o custom/path.js
 λmain()→𝕊=fizzbuzz(15)
 ```
 
-### List Processing
+### List Processing (Using Built-in Operations)
 ```mint
+λdouble(x:ℤ)→ℤ=x*2
+λisEven(x:ℤ)→𝔹=x%2=0
+λsum(acc:ℤ,x:ℤ)→ℤ=acc+x
+
+# Chain operations: map → filter → fold
+λmain()→ℤ=[1,2,3,4,5]↦double⊳isEven⊕sum⊕0  # Result: 30
+```
+
+### Manual Recursion (When needed)
+```mint
+# Custom recursive list processing
 λmap[T,U](fn:λ(T)→U,list:[T])→[U]≡list{
   []→[]|
   [x,.xs]→[fn(x),.map(fn,xs)]
@@ -155,10 +178,22 @@ node compiler/dist/cli.js compile src/myprogram.mint -o custom/path.js
 
 ### Recursion with Base Case
 ```mint
+# Single parameter primitive recursion
 λfactorial(n:ℤ)→ℤ≡n{
   0→1|
   1→1|
   n→n*factorial(n-1)
+}
+
+# Multi-parameter algorithms (ALLOWED when both params transform)
+λgcd(a:ℤ,b:ℤ)→ℤ≡b{
+  0→a|
+  b→gcd(b,a%b)
+}
+
+λpower(base:ℤ,exp:ℤ)→ℤ≡exp{
+  0→1|
+  exp→base*power(base,exp-1)
 }
 ```
 

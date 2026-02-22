@@ -116,6 +116,12 @@ export class JavaScriptGenerator {
         return this.generateIndex(expr);
       case 'PipelineExpr':
         return this.generatePipeline(expr);
+      case 'MapExpr':
+        return this.generateMap(expr);
+      case 'FilterExpr':
+        return this.generateFilter(expr);
+      case 'FoldExpr':
+        return this.generateFold(expr);
       default:
         throw new Error(`Unsupported expression type: ${(expr as any).type}`);
     }
@@ -400,6 +406,25 @@ export class JavaScriptGenerator {
     }
 
     return `${left} ${pipeline.operator} ${right}`;
+  }
+
+  private generateMap(map: AST.MapExpr): string {
+    const list = this.generateExpression(map.list);
+    const fn = this.generateExpression(map.fn);
+    return `${list}.map(${fn})`;
+  }
+
+  private generateFilter(filter: AST.FilterExpr): string {
+    const list = this.generateExpression(filter.list);
+    const predicate = this.generateExpression(filter.predicate);
+    return `${list}.filter(${predicate})`;
+  }
+
+  private generateFold(fold: AST.FoldExpr): string {
+    const list = this.generateExpression(fold.list);
+    const fn = this.generateExpression(fold.fn);
+    const init = this.generateExpression(fold.init);
+    return `${list}.reduce(${fn}, ${init})`;
   }
 
   private emit(code: string): void {

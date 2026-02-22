@@ -60,6 +60,34 @@ This ensures **zero ambiguity** for LLM code generation and training data qualit
 - Canonical forms enforced by parser and type checker
 - Simpler implementation than Hindley-Milner for our use case
 
+## Mutability System: Immutable by Default
+
+**Paradigm:** Explicit mutability with compile-time checking
+
+**Why mutability tracking?**
+- Prevents logic errors (mutation of unintended values)
+- Prevents aliasing bugs (multiple mutable references)
+- Keeps syntax simple (just `mut` keyword)
+- Fits JS compilation target (no memory safety needed)
+
+**Mutability Rules:**
+```mint
+✅ CORRECT:
+λprocess(data:[ℤ])→ℤ=...              # Immutable (default)
+λsort(data:mut [ℤ])→𝕌=...             # Explicit mutation
+
+❌ ERRORS:
+λbad1(data:[ℤ])→𝕌=data↦!λ(x)→x*2     # Can't mutate immutable
+λbad2(x:mut [ℤ])→𝕌≡{let y=x; ...}    # Can't alias mutable
+```
+
+**Benefits:**
+- Catch mutation bugs at compile time
+- Clear intent (mut = will be modified)
+- Minimal syntax (one keyword vs Rust's &, &mut, lifetimes)
+- Works with garbage collection
+- Practical for JavaScript target
+
 ## Project Structure
 
 ```

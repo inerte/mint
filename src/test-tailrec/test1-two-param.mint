@@ -1,9 +1,9 @@
-// TEST: Two parameters (classic accumulator pattern)
-// EXPECTED: ❌ BLOCKED - "has 2 parameters"
+// TEST: Two parameters with accumulator pattern
+// EXPECTED: ❌ BLOCKED - "accumulator-passing style"
 
-λfactorial(n:ℤ,acc:ℤ)→ℤ≡n{
+λsum(n:ℤ,acc:ℤ)→ℤ≡n{
   0→acc|
-  n→factorial(n-1,n*acc)
+  n→sum(n-1,acc+n)
 }
 
-λmain()→ℤ=factorial(5,1)
+λmain()→ℤ=sum(5,0)

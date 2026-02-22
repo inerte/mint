@@ -75,8 +75,8 @@ echo ""
 echo "Tests that should be BLOCKED:"
 echo "─────────────────────────────────────────────────────────"
 
-test_should_fail "src/test-tailrec/test1-two-param.mint" "has 2 parameters"
-test_should_fail "src/test-tailrec/test2-three-param.mint" "has 3 parameters"
+test_should_fail "src/test-tailrec/test1-two-param.mint" "accumulator-passing style"
+test_should_fail "src/test-tailrec/test2-three-param.mint" "accumulator-passing style"
 test_should_fail "src/test-tailrec/test3-list-param.mint" "collection-type parameter"
 test_not_implemented "src/test-tailrec/test4-tuple-param.mint" "Tuple types not yet implemented"
 test_should_fail "src/test-tailrec/test5-record-two-fields.mint" "collection-type parameter"
@@ -87,6 +87,7 @@ test_not_implemented "src/test-tailrec/test10-map-param.mint" "Map literals not 
 test_should_fail "src/test-tailrec/test11-nested-list.mint" "collection-type parameter"
 test_should_fail "src/test-tailrec/test13-boolean-match-blocked.mint" "Non-canonical pattern matching"
 test_should_fail "src/test-tailrec/test14-tuple-boolean-blocked.mint" "tuple of boolean expressions"
+test_should_fail "src/test-tailrec/test18-factorial-acc-blocked.mint" "accumulator-passing style"
 
 echo ""
 echo "Tests that should be ALLOWED:"
@@ -95,6 +96,8 @@ echo "────────────────────────�
 test_should_pass "src/test-tailrec/test7-record-one-field-ok.mint"
 test_should_pass "src/test-tailrec/test12-valid-canonical.mint"
 test_should_pass "src/test-tailrec/test15-canonical-value-match.mint"
+test_should_pass "src/test-tailrec/test16-gcd-allowed.mint"
+test_should_pass "src/test-tailrec/test17-power-allowed.mint"
 
 echo ""
 echo "═══════════════════════════════════════════════════════════"

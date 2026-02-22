@@ -64,17 +64,18 @@ export function formatType(type: InferenceType): string {
   type = prune(type);
 
   switch (type.kind) {
-    case 'primitive':
+    case 'primitive': {
       // Use Mint Unicode symbols
-      switch (type.name) {
-        case 'Int': return 'ℤ';
-        case 'Float': return 'ℝ';
-        case 'Bool': return '𝔹';
-        case 'String': return '𝕊';
-        case 'Char': return 'ℂ';
-        case 'Unit': return '𝕌';
-      }
-      return type.name;
+      const nameMap: Record<string, string> = {
+        'Int': 'ℤ',
+        'Float': 'ℝ',
+        'Bool': '𝔹',
+        'String': '𝕊',
+        'Char': 'ℂ',
+        'Unit': '𝕌'
+      };
+      return nameMap[type.name] || type.name;
+    }
 
     case 'var':
       // Use Greek letters for type variables

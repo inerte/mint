@@ -4,7 +4,7 @@
  * Manages variable bindings and type schemes during type inference
  */
 
-import { TypeScheme, InferenceType, Substitution, TPrimitive, TFunction, collectFreeVars, applySubstToScheme } from './types.js';
+import { TypeScheme, InferenceType, Substitution, TPrimitive, collectFreeVars, applySubstToScheme } from './types.js';
 
 /**
  * Type environment (Γ in type theory notation)
@@ -269,10 +269,6 @@ function intType(): TPrimitive {
   return { kind: 'primitive', name: 'Int' };
 }
 
-function floatType(): TPrimitive {
-  return { kind: 'primitive', name: 'Float' };
-}
-
 function boolType(): TPrimitive {
   return { kind: 'primitive', name: 'Bool' };
 }
@@ -281,10 +277,13 @@ function stringType(): TPrimitive {
   return { kind: 'primitive', name: 'String' };
 }
 
-function charType(): TPrimitive {
-  return { kind: 'primitive', name: 'Char' };
-}
-
-function unitType(): TPrimitive {
-  return { kind: 'primitive', name: 'Unit' };
-}
+// Future: float, char, unit types when needed
+// function floatType(): TPrimitive {
+//   return { kind: 'primitive', name: 'Float' };
+// }
+// function charType(): TPrimitive {
+//   return { kind: 'primitive', name: 'Char' };
+// }
+// function unitType(): TPrimitive {
+//   return { kind: 'primitive', name: 'Unit' };
+// }

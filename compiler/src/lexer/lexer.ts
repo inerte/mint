@@ -405,6 +405,7 @@ export class Lexer {
       case 'i': return TokenType.IMPORT;
       case 'l': return TokenType.LET;
       case 'c': return TokenType.CONST;
+      case 'mut': return TokenType.MUT;
       default: return null;
     }
   }

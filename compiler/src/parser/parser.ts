@@ -110,11 +110,16 @@ export class Parser {
 
       // Type annotation is MANDATORY (canonical form)
       this.consume(TokenType.COLON, `Expected ":" after parameter "${name}". Type annotations are required (canonical form).`);
+
+      // Check for mut modifier
+      const isMutable = this.match(TokenType.MUT);
+
       const typeAnnotation = this.type();
 
       params.push({
         name,
         typeAnnotation,
+        isMutable,
         location: this.makeLocation(start, this.previous()),
       });
     } while (this.match(TokenType.COMMA));
@@ -776,10 +781,13 @@ export class Parser {
           const name = this.consume(TokenType.IDENTIFIER, 'Expected parameter').value;
           // Type annotation is MANDATORY (canonical form)
           this.consume(TokenType.COLON, `Expected ":" after lambda parameter "${name}". Type annotations are required (canonical form).`);
+          // Check for mut modifier
+          const isMutable = this.match(TokenType.MUT);
           const typeAnnotation = this.type();
           params.push({
             name,
             typeAnnotation,
+            isMutable,
             location: this.makeLocation(pStart, this.previous()),
           });
         } while (this.match(TokenType.COMMA));
@@ -790,10 +798,13 @@ export class Parser {
       const name = this.advance().value;
       // Single parameter lambda also requires type annotation
       this.consume(TokenType.COLON, `Expected ":" after lambda parameter "${name}". Type annotations are required (canonical form).`);
+      // Check for mut modifier
+      const isMutable = this.match(TokenType.MUT);
       const typeAnnotation = this.type();
       params.push({
         name,
         typeAnnotation,
+        isMutable,
         location: this.makeLocation(pStart, this.previous()),
       });
     }

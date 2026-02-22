@@ -85,6 +85,8 @@ test_should_fail "src/test-tailrec/test8-helper.mint" "only called by"
 test_should_fail "src/test-tailrec/test9-cps.mint" "returns a function type"
 test_not_implemented "src/test-tailrec/test10-map-param.mint" "Map literals not yet implemented"
 test_should_fail "src/test-tailrec/test11-nested-list.mint" "collection-type parameter"
+test_should_fail "src/test-tailrec/test13-boolean-match-blocked.mint" "Non-canonical pattern matching"
+test_should_fail "src/test-tailrec/test14-tuple-boolean-blocked.mint" "tuple of boolean expressions"
 
 echo ""
 echo "Tests that should be ALLOWED:"
@@ -92,6 +94,7 @@ echo "────────────────────────�
 
 test_should_pass "src/test-tailrec/test7-record-one-field-ok.mint"
 test_should_pass "src/test-tailrec/test12-valid-canonical.mint"
+test_should_pass "src/test-tailrec/test15-canonical-value-match.mint"
 
 echo ""
 echo "═══════════════════════════════════════════════════════════"
@@ -112,8 +115,10 @@ if [ $FAILED -eq 0 ]; then
   echo "  ✓ Nested collection recursion blocked"
   echo "  ✓ Helper function pattern blocked"
   echo "  ✓ CPS pattern blocked"
+  echo "  ✓ Boolean pattern matching blocked (when value matching works)"
+  echo "  ✓ Tuple boolean pattern matching blocked (single param)"
   echo "  ✓ Single-field records allowed"
-  echo "  ✓ Simple recursion allowed"
+  echo "  ✓ Canonical value matching allowed"
   exit 0
 else
   echo -e "${RED}Some tests failed! ✗${NC}"

@@ -1,31 +1,30 @@
 /**
- * Mint Type Checker - Public API
+ * Mint Type Checker - Public API (Bidirectional)
  *
  * Main entry point for type checking Mint programs
  */
 
 import * as AST from '../parser/ast.js';
-import { TypeInferenceEngine } from './inference.js';
+import { typeCheck as bidirectionalTypeCheck } from './bidirectional.js';
 import { TypeError } from './errors.js';
-import { TypeScheme } from './types.js';
+import { InferenceType } from './types.js';
 
 // Re-export types
 export { TypeError } from './errors.js';
-export type { TypeScheme, InferenceType } from './types.js';
+export type { InferenceType } from './types.js';
 
 /**
  * Type check a Mint program
  *
- * Returns a map of function names to their inferred type schemes
+ * Returns a map of function names to their inferred types
  * Throws TypeError if type checking fails
  */
 export function typeCheck(
   program: AST.Program,
   sourceCode?: string
-): Map<string, TypeScheme> {
+): Map<string, InferenceType> {
   try {
-    const engine = new TypeInferenceEngine();
-    return engine.inferProgram(program);
+    return bidirectionalTypeCheck(program, sourceCode || '');
   } catch (error) {
     if (error instanceof TypeError && sourceCode) {
       // Format error with source context

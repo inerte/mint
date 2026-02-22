@@ -52,6 +52,7 @@ export interface FunctionDecl {
 export interface Param {
   name: string;
   typeAnnotation: Type | null;
+  isMutable: boolean;           // NEW: tracks if parameter is mutable
   location: SourceLocation;
 }
 

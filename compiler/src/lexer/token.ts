@@ -25,6 +25,7 @@ export enum TokenType {
   IMPORT = 'IMPORT',           // i
   LET = 'LET',                 // l
   CONST = 'CONST',             // c
+  MUT = 'MUT',                 // mut
 
   // Type symbols
   TYPE_INT = 'TYPE_INT',       // ℤ

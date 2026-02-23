@@ -72,13 +72,9 @@ export class Lexer {
         this.error('Tab characters not allowed - use spaces');
         break;
 
-      // Comments
+      // Division operator
       case '/':
-        if (this.match('/')) {
-          this.lineComment();
-        } else {
-          this.addToken(TokenType.SLASH, '/', start);
-        }
+        this.addToken(TokenType.SLASH, '/', start);
         break;
 
       // Single-character tokens
@@ -253,6 +249,11 @@ export class Lexer {
         this.addToken(TokenType.FALSE, '⊥', start);
         break;
 
+      // Multi-line comments
+      case '⟦':
+        this.multiLineComment();
+        break;
+
       // String literals
       case '"':
         this.string();
@@ -274,11 +275,21 @@ export class Lexer {
     }
   }
 
-  private lineComment(): void {
-    // Consume until end of line
-    while (this.peek() !== '\n' && !this.isAtEnd()) {
+  private multiLineComment(): void {
+    // Consume everything until ⟧
+    while (!this.isAtEnd() && this.peek() !== '⟧') {
+      if (this.peek() === '\n') {
+        this.line++;
+        this.column = 0; // Will be incremented by advance()
+      }
       this.advance();
     }
+
+    if (this.isAtEnd()) {
+      this.error('Unterminated multi-line comment (missing ⟧)');
+    }
+
+    this.advance(); // Consume closing ⟧
   }
 
   private string(): void {

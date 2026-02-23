@@ -13,8 +13,8 @@ This prevents common logic errors at compile time while keeping syntax minimal�
 All values are immutable unless marked `mut`:
 
 ```mint
-λsum(list:[ℤ])→ℤ=list⊕λ(a,x)→a+x⊕0
-# list cannot be modified
+λsum(list:[ℤ])→ℤ=list⊕(λ(a:ℤ,x:ℤ)→ℤ=a+x)⊕0
+⟦ list cannot be modified ⟧
 ```
 
 ### Rule 2: Explicit Mutability
@@ -23,7 +23,7 @@ Use `mut` keyword for mutable parameters:
 
 ```mint
 λsort(list:mut [ℤ])→𝕌=quicksort_impl(list)
-# list will be modified in place
+⟦ list will be modified in place ⟧
 ```
 
 ### Rule 3: No Aliasing of Mutables
@@ -31,12 +31,12 @@ Use `mut` keyword for mutable parameters:
 Cannot create multiple references to mutable values:
 
 ```mint
-# ERROR: Cannot alias mutable
+⟦ ERROR: Cannot alias mutable ⟧
 λbad(x:mut [ℤ])→𝕌≡{
-  let y=x    # ERROR: Can't create alias
+  let y=x    ⟦ ERROR: Can't create alias ⟧
 }
 
-# OK: Direct use
+⟦ OK: Direct use ⟧
 λgood(x:mut [ℤ])→𝕌=modify(x)
 ```
 
@@ -45,8 +45,8 @@ Cannot create multiple references to mutable values:
 Functions that mutate use `!` suffix by convention:
 
 ```mint
-λsort!(list:mut [ℤ])→𝕌=...     # Mutates in place
-λsorted(list:[ℤ])→[ℤ]=...      # Returns new sorted list
+λsort!(list:mut [ℤ])→𝕌=...     ⟦ Mutates in place ⟧
+λsorted(list:[ℤ])→[ℤ]=...      ⟦ Returns new sorted list ⟧
 ```
 
 ## Examples

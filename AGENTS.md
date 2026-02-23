@@ -60,6 +60,36 @@ This ensures **zero ambiguity** for LLM code generation and training data qualit
 - Canonical forms enforced by parser and type checker
 - Simpler implementation than Hindley-Milner for our use case
 
+## Comments: Multi-line Only
+
+**Syntax:** `⟦ ... ⟧` (Mathematical white square brackets)
+
+**Rules:**
+- Comments can span multiple lines
+- Comments can be inserted anywhere (mid-expression, between tokens)
+- Comments are stripped during lexing (don't affect AST)
+- Only ONE comment syntax (canonical form)
+
+**Examples:**
+```mint
+⟦ This function computes factorial recursively ⟧
+λfactorial(n:ℤ)→ℤ≡n{
+  0→1|  ⟦ base case ⟧
+  1→1|
+  n→n*⟦ recursive call ⟧factorial(n-1)
+}
+
+⟦ Multi-line comment explaining
+   a complex algorithm step-by-step ⟧
+λprocess(data:[ℤ])→ℤ=data⊕(λ(a:ℤ,x:ℤ)→ℤ=a+x)⊕0
+```
+
+**Why multi-line only?**
+- Avoids having multiple comment syntaxes (`//` vs `⟦⟧`)
+- Fits canonical form philosophy (ONE way)
+- Can be used inline or multi-line (flexible)
+- Visually distinctive (Unicode brackets)
+
 ## Mutability System: Immutable by Default
 
 **Paradigm:** Explicit mutability with compile-time checking
@@ -73,12 +103,12 @@ This ensures **zero ambiguity** for LLM code generation and training data qualit
 **Mutability Rules:**
 ```mint
 ✅ CORRECT:
-λprocess(data:[ℤ])→ℤ=...              # Immutable (default)
-λsort(data:mut [ℤ])→𝕌=...             # Explicit mutation
+λprocess(data:[ℤ])→ℤ=...              ⟦ Immutable (default) ⟧
+λsort(data:mut [ℤ])→𝕌=...             ⟦ Explicit mutation ⟧
 
 ❌ ERRORS:
-λbad1(data:[ℤ])→𝕌=data↦!λ(x)→x*2     # Can't mutate immutable
-λbad2(x:mut [ℤ])→𝕌≡{let y=x; ...}    # Can't alias mutable
+λbad1(data:[ℤ])→𝕌=data↦!λ(x)→x*2     ⟦ Can't mutate immutable ⟧
+λbad2(x:mut [ℤ])→𝕌≡{let y=x; ...}    ⟦ Can't alias mutable ⟧
 ```
 
 **Benefits:**

@@ -4,7 +4,9 @@
 
 Mint uses **immutable by default** with explicit `mut` annotations for mutability.
 
-This prevents common logic errors at compile time while keeping syntax minimal—just one keyword instead of Rust's complex `&`, `&mut`, and lifetime system.
+**Purpose:** The `mut` keyword is primarily for **FFI type safety** - marking JavaScript functions that mutate their arguments. This prevents accidental aliasing bugs when calling JavaScript code.
+
+**Note:** Mint itself has NO mutating operations. All list operations (↦, ⊳, ⊕) are immutable. This preserves canonical forms - there's exactly ONE way to write each algorithm.
 
 ## Rules
 
@@ -40,13 +42,16 @@ Cannot create multiple references to mutable values:
 λgood(x:mut [ℤ])→𝕌=modify(x)
 ```
 
-### Rule 4: Mutation Tracking
+### Rule 4: FFI Mutation Tracking
 
-Functions that mutate use `!` suffix by convention:
+The `mut` keyword is used when calling JavaScript functions that mutate:
 
 ```mint
-λsort!(list:mut [ℤ])→𝕌=...     ⟦ Mutates in place ⟧
-λsorted(list:[ℤ])→[ℤ]=...      ⟦ Returns new sorted list ⟧
+e Array
+λsortJS(arr:mut [ℤ])→𝕌=Array.sort(arr)  ⟦ JS Array.sort mutates ⟧
+
+⟦ Pure Mint code uses immutable operations ⟧
+λsorted(list:[ℤ])→[ℤ]=list↦λ(x)→x  ⟦ Returns new sorted list ⟧
 ```
 
 ## Examples
@@ -54,11 +59,12 @@ Functions that mutate use `!` suffix by convention:
 ### Valid Code
 
 ```mint
-# Immutable list operations
+# Immutable list operations (canonical form)
 λdouble(list:[ℤ])→[ℤ]=list↦λ(x:ℤ)→ℤ=x*2
 
-# Explicit mutation
-λreverse!(list:mut [ℤ])→𝕌=reverse_impl!(list)
+# FFI with mutation
+e Array
+λsortArray(arr:mut [ℤ])→𝕌=Array.sort(arr)
 
 # Multiple immutable uses (OK)
 λprocess(data:[ℤ])→ℤ≡{
@@ -71,19 +77,16 @@ Functions that mutate use `!` suffix by convention:
 ### Errors Prevented
 
 ```mint
-# Error: Mutating immutable
-λbad1(list:[ℤ])→𝕌=list↦!λ(x)→x*2
-# Error: Cannot use mutating operation on immutable parameter
-
 # Error: Aliasing mutable
-λbad2(x:mut [ℤ])→𝕌≡{
+λbad1(x:mut [ℤ])→𝕌≡{
   let y=x    # Error: Cannot create alias of mutable value 'x'
 }
 
-# Error: Passing immutable to mutable parameter
-λbad3()→𝕌≡{
+# Error: Passing immutable to mutable parameter (FFI)
+e Array
+λbad2()→𝕌≡{
   let data=[1,2,3]
-  sort!(data)    # Error: Cannot pass immutable 'data' to mutable parameter
+  Array.sort(data)    # Error: Cannot pass immutable 'data' to mut parameter
 }
 ```
 
@@ -91,16 +94,18 @@ Functions that mutate use `!` suffix by convention:
 
 ### Problems It Prevents
 
-**1. Accidental Mutation:**
+**1. Accidental Mutation (FFI):**
 ```mint
+e Array
+
 # Without mutability checking:
 λprocess(data:[ℤ])→[ℤ]≡{
-  data↦!λ(x)→x*2;    # Oops! Modified input
+  Array.sort(data);    # Oops! Modified input
   data
 }
 
 # With mutability checking:
-# Compile error: Cannot mutate immutable parameter 'data'
+# Compile error: Cannot pass immutable 'data' to mut parameter
 ```
 
 **2. Aliasing Bugs:**
@@ -118,14 +123,12 @@ Functions that mutate use `!` suffix by convention:
 
 **3. Unclear Intent:**
 ```mint
-# Without mutability checking:
-λmysterious(data:[ℤ])→[ℤ]=???
-# Does this modify data or return new list?
+# Pure Mint code - always immutable
+λsorted(data:[ℤ])→[ℤ]=...        # Returns new list (canonical)
 
-# With mutability checking:
-λsorted(data:[ℤ])→[ℤ]=...        # Returns new list
-λsort!(data:mut [ℤ])→𝕌=...       # Modifies in place
-# Intent is crystal clear!
+# FFI - mut signals mutation
+e Array
+λsortArray(arr:mut [ℤ])→𝕌=Array.sort(arr)  # Mutates via FFI
 ```
 
 ## Comparison to Other Languages
@@ -217,54 +220,54 @@ Mutability Error: Cannot mutate immutable parameter 'list'
 
 ## Future Enhancements
 
-### Possible Extensions (Not Yet Implemented):
+### Planned: Effect Tracking
 
-**1. Mutable let bindings:**
+Effect tracking will be added to track side effects:
+
 ```mint
-let mut counter=0
-counter=counter+1  # Allow reassignment
+λread()→!IO 𝕊=...                    # IO effect
+λfetch(url:𝕊)→!Network Response=... # Network effect
 ```
 
-**2. Interior mutability (Cell/RefCell):**
-```mint
-let cell=Cell(5)
-cell.set(10)  # Controlled mutation
-```
+This helps prevent accidental side effects and documents function behavior clearly.
 
-**3. Effect tracking:**
-```mint
-λread()→!IO 𝕊=...                # IO effect
-λsort!(list:mut [ℤ])→!Mut 𝕌=...  # Mutation effect
-```
+### NOT Planned: Mutating Operations
 
-These features may be added later, but the current system is focused and practical.
+Mint will **not** have mutating list operations like `↦!` or `⊳!`.
+
+**Reason:** Violates canonical forms. Having both mutable and immutable versions creates ambiguity:
+- `list↦fn` vs `list↦!fn` - which should LLMs choose?
+
+Mint enforces **ONE way** to write each algorithm. All list operations are immutable.
 
 ## Best Practices
 
 ### When to Use Mutable Parameters
 
 **Use `mut` when:**
-- Algorithm requires in-place modification for performance
-- Operating on large data structures where copying is expensive
-- Building APIs that match JavaScript conventions (e.g., Array.sort)
+- Calling JavaScript functions that mutate (FFI)
+- Wrapping mutating JavaScript APIs
+- Interfacing with imperative JavaScript libraries
 
-**Don't use `mut` when:**
-- Default immutable approach is sufficient
-- Function can return a new value instead
-- Not sure—default to immutable
+**Don't use `mut` for:**
+- Pure Mint code (use immutable operations)
+- Performance optimization (not how Mint works)
+- Internal algorithms (canonical forms require immutable)
 
-### Naming Conventions
+### Example: FFI with Mutation
 
-**Mutating functions use `!` suffix:**
 ```mint
-λsort!(list:mut [ℤ])→𝕌=...       # In-place sort
-λsorted(list:[ℤ])→[ℤ]=...        # Returns sorted copy
-```
+e Array
+e console
 
-**This makes intent obvious at call sites:**
-```mint
-sort!(data)      # I know data will be modified
-let x=sorted(data)  # I know data is unchanged
+⟦ JavaScript's Array.sort mutates in place ⟧
+λsortAndLog(arr:mut [ℤ])→𝕌≡{
+  Array.sort(arr);
+  console.log(arr)
+}
+
+⟦ Pure Mint sorting returns new list ⟧
+λsorted(list:[ℤ])→[ℤ]=list↦λ(x)→x
 ```
 
 ## Summary

@@ -1,0 +1,89 @@
+{
+  "name": "mint-language",
+  "displayName": "Mint Language",
+  "description": "Language support for Mint - The Machine-First Programming Language",
+  "version": "0.1.0",
+  "publisher": "mint-lang",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mint-lang/mint"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "mint",
+    "functional",
+    "ai-first",
+    "machine-first"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:mint"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "mint",
+        "aliases": [
+          "Mint",
+          "mint"
+        ],
+        "extensions": [
+          ".mint"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mint",
+        "scopeName": "source.mint",
+        "path": "./syntaxes/mint.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Mint",
+      "properties": {
+        "mint.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the Mint language server."
+        },
+        "mint.lsp.path": {
+          "scope": "window",
+          "type": "string",
+          "default": "",
+          "description": "Custom path to the Mint LSP server. Leave empty to use bundled server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm build",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build": "tsc -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.7.2"
+  }
+}

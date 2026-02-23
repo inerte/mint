@@ -60,6 +60,38 @@ This ensures **zero ambiguity** for LLM code generation and training data qualit
 - Canonical forms enforced by parser and type checker
 - Simpler implementation than Hindley-Milner for our use case
 
+## JavaScript Interop (FFI)
+
+**Syntax:** `e module/path` (ONLY way)
+
+Mint can call JavaScript functions and import npm packages.
+
+**Examples:**
+```mint
+e console
+λmain()→𝕌=console.log("Hello from Mint!")
+
+e fs/promises
+λwriteFile(path:𝕊,content:𝕊)→𝕌=fs/promises.writeFile(path,content)
+
+e axios
+λfetch(url:𝕊)→𝕌=axios.get(url)
+```
+
+**Usage:**
+- Declare: `e module/path`
+- Use: `module/path.member(args)`
+- Full path is namespace (no conflicts)
+- Validated at link-time (catches typos before running)
+
+**Key Points:**
+- NO type annotations needed (validated structurally)
+- NO member lists (`e module{a,b}` ❌)
+- NO aliasing (`e module as m` ❌)
+- ONE canonical way
+
+See `docs/FFI.md` for full documentation.
+
 ## Comments: Multi-line Only
 
 **Syntax:** `⟦ ... ⟧` (Mathematical white square brackets)
@@ -284,6 +316,22 @@ node compiler/dist/cli.js compile src/myprogram.mint -o custom/path.js
 ```
 
 ## Mint Language Quick Reference
+
+### JavaScript Interop (FFI)
+```mint
+e module/path              # Import JavaScript module
+module/path.member(args)   # Call JavaScript function
+
+# Examples:
+e console
+console.log("Hello!")
+
+e fs/promises
+fs/promises.writeFile("file.txt", "content")
+
+e axios
+axios.get("https://api.example.com")
+```
 
 ### Function Definition
 ```mint

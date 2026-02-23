@@ -280,13 +280,19 @@ The **AI Interpretation Layer** provides:
   - Outputs .mint.map beside source files
   - Ready for enhancement via Claude Code CLI
 
+- ✅ LSP Server (Phase 1: Basic Infrastructure) - ✓ COMPLETED (2026-02-23)
+  - Server with document tracking and diagnostics
+  - Real-time error reporting (syntax, type, canonical violations)
+  - Hover provider showing semantic map content
+  - Unicode symbol completion (lambda → λ, arrow → →, etc.)
+  - Document symbols for outline view
+  - Built on vscode-languageserver protocol
+
 ### In Progress
-- 🔄 LSP server (next up!)
+- 🔄 VS Code extension (next up!)
 
 ### Upcoming
-- ⏳ LSP server
-- ⏳ VS Code extension
-- ⏳ VS Code extension
+- ⏳ VS Code extension integration
 - ⏳ Token efficiency benchmarks
 - ⏳ LLM generation accuracy tests
 

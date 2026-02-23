@@ -86,6 +86,10 @@ export class Parser {
 
     // Return type annotation is MANDATORY (canonical form)
     this.consume(TokenType.ARROW, `Expected "→" after parameters for function "${name}". Return type annotations are required (canonical form).`);
+
+    // Parse optional effect annotations: →!IO !Network Type
+    const effects = this.parseEffects();
+
     const returnType = this.type();
 
     // Canonical form: = required UNLESS body starts with ≡ (match expression)
@@ -104,6 +108,7 @@ export class Parser {
       type: 'FunctionDecl',
       name,
       params,
+      effects,
       returnType,
       body,
       location: this.makeLocation(start, this.previous()),
@@ -339,6 +344,31 @@ export class Parser {
   // TYPES
   // ============================================================================
 
+  /**
+   * Parse effect annotations: !IO !Network !Async !Error !Mut
+   * Returns array of effect names in order they appear
+   */
+  private parseEffects(): string[] {
+    const effects: string[] = [];
+    const validEffects = ['IO', 'Network', 'Async', 'Error', 'Mut'];
+
+    while (this.match(TokenType.BANG)) {
+      if (this.match(TokenType.UPPER_IDENTIFIER)) {
+        const effect = this.previous().value;
+
+        if (!validEffects.includes(effect)) {
+          throw this.error(`Invalid effect: ${effect}. Valid effects are: ${validEffects.join(', ')}`);
+        }
+
+        effects.push(effect);
+      } else {
+        throw this.error(`Expected effect name (${validEffects.join(', ')}) after "!"`);
+      }
+    }
+
+    return effects;
+  }
+
   private type(): AST.Type {
     // Primitive types
     if (this.match(TokenType.TYPE_INT)) {
@@ -387,7 +417,7 @@ export class Parser {
       };
     }
 
-    // Function type: λ(T1, T2)→R
+    // Function type: λ(T1, T2)→!IO !Network R
     if (this.match(TokenType.LAMBDA)) {
       const start = this.previous();
       this.consume(TokenType.LPAREN, 'Expected "("');
@@ -399,11 +429,16 @@ export class Parser {
       }
       this.consume(TokenType.RPAREN, 'Expected ")"');
       this.consume(TokenType.ARROW, 'Expected "→"');
+
+      // Parse optional effect annotations in function types
+      const effects = this.parseEffects();
+
       const returnType = this.type();
 
       return {
         type: 'FunctionType',
         paramTypes,
+        effects,
         returnType,
         location: this.makeLocation(start, this.previous()),
       };
@@ -862,6 +897,10 @@ export class Parser {
 
     // Return type annotation is MANDATORY (canonical form)
     this.consume(TokenType.ARROW, 'Expected "→" after lambda parameters. Return type annotations are required (canonical form).');
+
+    // Parse optional effect annotations: →!IO !Network Type
+    const effects = this.parseEffects();
+
     const returnType = this.type();
 
     // Canonical form: = required UNLESS body starts with ≡ (match expression)
@@ -879,6 +918,7 @@ export class Parser {
     return {
       type: 'LambdaExpr',
       params,
+      effects,
       returnType,
       body,
       location: this.makeLocation(start, this.previous()),

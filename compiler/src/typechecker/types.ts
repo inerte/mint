@@ -108,9 +108,9 @@ export type Substitution = Map<number, InferenceType>;
 
 /**
  * Effect system for tracking side effects
- * Future: will be used to track IO, Network, Async, etc.
+ * Tracks compile-time effects for function calls
  */
-export type EffectSet = Set<'IO' | 'Network' | 'Async' | 'Error'>;
+export type EffectSet = Set<'IO' | 'Network' | 'Async' | 'Error' | 'Mut'>;
 
 // ============================================================================
 // TYPE UTILITIES
@@ -319,7 +319,8 @@ export function astTypeToInferenceType(astType: AST.Type): InferenceType {
       return {
         kind: 'function',
         params: astType.paramTypes.map(astTypeToInferenceType),
-        returnType: astTypeToInferenceType(astType.returnType)
+        returnType: astTypeToInferenceType(astType.returnType),
+        effects: new Set(astType.effects as Array<'IO' | 'Network' | 'Async' | 'Error' | 'Mut'>)
       };
 
     case 'TypeVariable':

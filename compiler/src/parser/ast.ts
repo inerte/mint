@@ -45,6 +45,7 @@ export interface FunctionDecl {
   type: 'FunctionDecl';
   name: string;
   params: Param[];
+  effects: string[];            // Effect annotations: ['IO', 'Network', 'Async', 'Error', 'Mut']
   returnType: Type | null;
   body: Expr;
   location: SourceLocation;
@@ -160,6 +161,7 @@ export interface MapType {
 export interface FunctionType {
   type: 'FunctionType';
   paramTypes: Type[];
+  effects: string[];            // Effect annotations: ['IO', 'Network', 'Async', 'Error', 'Mut']
   returnType: Type;
   location: SourceLocation;
 }
@@ -224,6 +226,7 @@ export interface IdentifierExpr {
 export interface LambdaExpr {
   type: 'LambdaExpr';
   params: Param[];
+  effects: string[];            // Effect annotations: ['IO', 'Network', 'Async', 'Error', 'Mut']
   returnType: Type;  // Mandatory (canonical form)
   body: Expr;
   location: SourceLocation;

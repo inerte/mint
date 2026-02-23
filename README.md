@@ -268,15 +268,25 @@ The **AI Interpretation Layer** provides:
   - Compile-time prevention of illegal mutations
   - Aliasing prevention for mutable values
   - Clear error messages with source locations
+- ✅ Multi-line comments with ⟦ ... ⟧ brackets - ✓ COMPLETED (2026-02-23)
+  - Can span multiple lines
+  - Can be inserted anywhere (mid-expression)
+  - Stripped during lexing
+  - Canonical form (only ONE comment syntax)
+- ✅ Semantic map generator (Basic) - ✓ COMPLETED (2026-02-23)
+  - Auto-generated during compilation
+  - Extracts ranges, types, basic summaries from AST
+  - JSON format matching spec/sourcemap-format.md
+  - Outputs .mint.map beside source files
+  - Ready for enhancement via Claude Code CLI
 
 ### In Progress
+- 🔄 Semantic map enhancement (Claude Code CLI integration)
 - 🔄 Type system specification (update for bidirectional)
-- 🔄 Semantic map format
 
 ### Upcoming
-- ⏳ Borrow checker
-- ⏳ Semantic map generator
 - ⏳ LSP server
+- ⏳ VS Code extension
 - ⏳ VS Code extension
 - ⏳ Token efficiency benchmarks
 - ⏳ LLM generation accuracy tests

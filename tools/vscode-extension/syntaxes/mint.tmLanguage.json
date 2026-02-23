@@ -1,0 +1,160 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Mint",
+  "scopeName": "source.mint",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#literals"
+    },
+    {
+      "include": "#functions"
+    },
+    {
+      "include": "#strings"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.mint",
+          "begin": "⟦",
+          "end": "⟧",
+          "patterns": [
+            {
+              "name": "keyword.other.documentation.mint",
+              "match": "@\\w+"
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.mint",
+          "match": "\\b(λ|t|c|mut|let)\\b"
+        },
+        {
+          "name": "keyword.control.flow.mint",
+          "match": "≡"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arrow.mint",
+          "match": "→"
+        },
+        {
+          "name": "keyword.operator.match.mint",
+          "match": "≡"
+        },
+        {
+          "name": "keyword.operator.list.mint",
+          "match": "↦|⊳|⊕"
+        },
+        {
+          "name": "keyword.operator.membership.mint",
+          "match": "∈"
+        },
+        {
+          "name": "keyword.operator.arithmetic.mint",
+          "match": "[+\\-*/%]"
+        },
+        {
+          "name": "keyword.operator.comparison.mint",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.logical.mint",
+          "match": "&&|\\|\\||!"
+        },
+        {
+          "name": "keyword.operator.assignment.mint",
+          "match": "="
+        },
+        {
+          "name": "punctuation.separator.mint",
+          "match": "[,|]"
+        },
+        {
+          "name": "punctuation.section.mint",
+          "match": "[\\[\\]\\{\\}\\(\\)]"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.primitive.mint",
+          "match": "\\b(ℤ|ℝ|𝔹|𝕊|𝕌|ℂ)\\b"
+        },
+        {
+          "name": "constant.language.boolean.mint",
+          "match": "⊤|⊥"
+        },
+        {
+          "name": "constant.language.empty.mint",
+          "match": "∅"
+        },
+        {
+          "name": "entity.name.type.mint",
+          "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    },
+    "literals": {
+      "patterns": [
+        {
+          "name": "constant.numeric.mint",
+          "match": "\\b\\d+(\\.\\d+)?\\b"
+        },
+        {
+          "name": "constant.language.boolean.mint",
+          "match": "\\b(true|false|⊤|⊥)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.mint",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.mint",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.mint",
+          "match": "(?<=λ)\\w+(?=\\()"
+        },
+        {
+          "name": "entity.name.function.call.mint",
+          "match": "\\b[a-z_][a-zA-Z0-9_]*(?=\\()"
+        }
+      ]
+    }
+  }
+}

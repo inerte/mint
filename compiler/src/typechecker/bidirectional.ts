@@ -561,6 +561,7 @@ function synthesizeLambda(env: TypeEnvironment, expr: AST.LambdaExpr): Inference
   // Lambda has mandatory type annotations (enforced by parser)
   const paramTypes = expr.params.map(p => astTypeToInferenceType(p.typeAnnotation!));
   const returnType = astTypeToInferenceType(expr.returnType);
+  const effects = new Set(expr.effects as Array<'IO' | 'Network' | 'Async' | 'Error' | 'Mut'>);
 
   // Check body against declared return type
   const bodyEnv = env.extend(
@@ -568,10 +569,15 @@ function synthesizeLambda(env: TypeEnvironment, expr: AST.LambdaExpr): Inference
   );
   check(bodyEnv, expr.body, returnType);
 
+  // Check effects: infer from body and validate against declaration
+  const inferredEffects = inferEffects(bodyEnv, expr.body);
+  checkEffects(effects, inferredEffects, '(lambda)', expr.location);
+
   return {
     kind: 'function',
     params: paramTypes,
-    returnType
+    returnType,
+    effects
   };
 }
 
@@ -817,10 +823,12 @@ export function typeCheck(program: AST.Program, _source: string): Map<string, In
     if (decl.type === 'FunctionDecl') {
       const params = decl.params.map(p => astTypeToInferenceType(p.typeAnnotation!));
       const returnType = astTypeToInferenceType(decl.returnType!);
+      const effects = new Set(decl.effects as Array<'IO' | 'Network' | 'Async' | 'Error' | 'Mut'>);
       const funcType: InferenceType = {
         kind: 'function',
         params,
-        returnType
+        returnType,
+        effects
       };
       env.bind(decl.name, funcType);
       types.set(decl.name, funcType);
@@ -863,6 +871,158 @@ export function typeCheck(program: AST.Program, _source: string): Map<string, In
   return types;
 }
 
+// ============================================================================
+// EFFECT INFERENCE
+// ============================================================================
+
+/**
+ * Infer effects from an expression
+ * Returns the set of effects that the expression may perform
+ */
+function inferEffects(env: TypeEnvironment, expr: AST.Expr): Set<string> {
+  switch (expr.type) {
+    case 'LiteralExpr':
+    case 'IdentifierExpr':
+      // Pure expressions have no effects
+      return new Set();
+
+    case 'ApplicationExpr': {
+      // Get effects from the function being called
+      const funcType = synthesize(env, expr.func);
+      const funcEffects = funcType.kind === 'function' && funcType.effects
+        ? new Set(funcType.effects)
+        : new Set<string>();
+
+      // Union with effects from arguments
+      const argEffects = expr.args.flatMap(arg => Array.from(inferEffects(env, arg)));
+      return new Set([...funcEffects, ...argEffects]);
+    }
+
+    case 'LambdaExpr': {
+      // Lambda effects come from the body
+      return inferEffects(env, expr.body);
+    }
+
+    case 'LetExpr': {
+      // Union of binding and body effects
+      const bindingEffects = inferEffects(env, expr.value);
+      const bodyEffects = inferEffects(env, expr.body);
+      return new Set([...bindingEffects, ...bodyEffects]);
+    }
+
+    case 'MatchExpr': {
+      // Union of scrutinee and all arm effects
+      const scrutineeEffects = inferEffects(env, expr.scrutinee);
+      const armEffects = expr.arms.flatMap(arm => Array.from(inferEffects(env, arm.body)));
+      return new Set([...scrutineeEffects, ...armEffects]);
+    }
+
+    case 'IfExpr': {
+      // Union of condition, then, and else effects
+      const condEffects = inferEffects(env, expr.condition);
+      const thenEffects = inferEffects(env, expr.thenBranch);
+      const elseEffects = expr.elseBranch ? inferEffects(env, expr.elseBranch) : new Set<string>();
+      return new Set([...condEffects, ...thenEffects, ...elseEffects]);
+    }
+
+    case 'BinaryExpr':
+    case 'UnaryExpr': {
+      // Union of operand effects
+      const left = 'left' in expr ? inferEffects(env, expr.left) : new Set<string>();
+      const right = 'operand' in expr ? inferEffects(env, expr.operand) : new Set<string>();
+      return new Set([...left, ...right]);
+    }
+
+    case 'ListExpr': {
+      // Union of all element effects
+      const elementEffects = expr.elements.flatMap(el => Array.from(inferEffects(env, el)));
+      return new Set(elementEffects);
+    }
+
+    case 'TupleExpr': {
+      // Union of all element effects
+      const elementEffects = expr.elements.flatMap(el => Array.from(inferEffects(env, el)));
+      return new Set(elementEffects);
+    }
+
+    case 'RecordExpr': {
+      // Union of all field effects
+      const fieldEffects = expr.fields.flatMap(f => Array.from(inferEffects(env, f.value)));
+      return new Set(fieldEffects);
+    }
+
+    case 'MapExpr': {
+      // Union of list and function effects
+      const listEffects = inferEffects(env, expr.list);
+      const fnEffects = inferEffects(env, expr.fn);
+      return new Set([...listEffects, ...fnEffects]);
+    }
+
+    case 'FilterExpr': {
+      // Union of list and predicate effects
+      const listEffects = inferEffects(env, expr.list);
+      const predEffects = inferEffects(env, expr.predicate);
+      return new Set([...listEffects, ...predEffects]);
+    }
+
+    case 'FoldExpr': {
+      // Union of list, function, and init effects
+      const listEffects = inferEffects(env, expr.list);
+      const fnEffects = inferEffects(env, expr.fn);
+      const initEffects = inferEffects(env, expr.init);
+      return new Set([...listEffects, ...fnEffects, ...initEffects]);
+    }
+
+    case 'FieldAccessExpr': {
+      return inferEffects(env, expr.object);
+    }
+
+    case 'MemberAccessExpr': {
+      // FFI calls are assumed to have effects (trust mode)
+      // Could be refined later with FFI effect annotations
+      return new Set();
+    }
+
+    default:
+      // Unknown expression types are assumed pure
+      return new Set();
+  }
+}
+
+/**
+ * Check if inferred effects are a subset of declared effects
+ * Throws TypeError if function body has undeclared effects
+ */
+function checkEffects(
+  declaredEffects: Set<string>,
+  inferredEffects: Set<string>,
+  functionName: string,
+  location: AST.SourceLocation
+): void {
+  const undeclared: string[] = [];
+
+  for (const effect of inferredEffects) {
+    if (!declaredEffects.has(effect)) {
+      undeclared.push(effect);
+    }
+  }
+
+  if (undeclared.length > 0) {
+    const declaredList = declaredEffects.size > 0
+      ? Array.from(declaredEffects).map(e => `!${e}`).join(' ')
+      : '(pure)';
+    const undeclaredList = undeclared.map(e => `!${e}`).join(' ');
+
+    throw new TypeError(
+      `Effect mismatch in function "${functionName}":\n` +
+      `  Declared effects: ${declaredList}\n` +
+      `  Undeclared effects used: ${undeclaredList}\n` +
+      `  Add the missing effects to the function signature`,
+      location
+    );
+  }
+}
+
 function checkFunctionDecl(env: TypeEnvironment, decl: AST.FunctionDecl): void {
   // All type annotations are mandatory (enforced by parser)
   const paramTypes = decl.params.map(p => astTypeToInferenceType(p.typeAnnotation!));
@@ -875,6 +1035,11 @@ function checkFunctionDecl(env: TypeEnvironment, decl: AST.FunctionDecl): void {
 
   // Check body against declared return type
   check(bodyEnv, decl.body, returnType);
+
+  // Check effects: infer from body and validate against declaration
+  const declaredEffects = new Set(decl.effects);
+  const inferredEffects = inferEffects(bodyEnv, decl.body);
+  checkEffects(declaredEffects, inferredEffects, decl.name, decl.location);
 }
 
 function checkConstDecl(env: TypeEnvironment, decl: AST.ConstDecl, types: Map<string, InferenceType>): void {

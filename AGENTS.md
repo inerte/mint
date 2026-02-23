@@ -127,6 +127,68 @@ Mint enforces **canonical formatting** at compile-time. Every program has exactl
 - Canonical forms enforced by parser and type checker
 - Simpler implementation than Hindley-Milner for our use case
 
+## Effect Tracking: Compile-Time Side Effect Safety
+
+**Paradigm:** Explicit effect annotations (not inference)
+
+Mint tracks side effects at compile time to prevent bugs and document behavior clearly.
+
+**Syntax:** `→!Effect1 !Effect2 Type`
+
+**Valid effects:**
+- `!IO` - Console I/O, file system access, system calls
+- `!Network` - HTTP requests, network communication
+- `!Async` - Asynchronous operations, promises
+- `!Error` - Error-prone operations
+- `!Mut` - Mutation of data structures (future use)
+
+**Examples:**
+```mint
+⟦ Pure function (no effects) ⟧
+λadd(a:ℤ,b:ℤ)→ℤ=a+b
+
+⟦ Single effect ⟧
+e console
+λlog(msg:𝕊)→!IO 𝕌=console.log(msg)
+
+⟦ Multiple effects ⟧
+λprocessData()→!IO !Network 𝕊≡{
+  log("Starting");
+  fetchData()
+}
+
+⟦ Effect propagation - main must declare all effects ⟧
+λmain()→!IO !Network 𝕌=processData()
+```
+
+**Rules:**
+1. **Pure functions cannot call effectful functions** (compile error)
+2. **Effectful functions must declare all effects** (compile error if missing)
+3. **Effect subtyping:** Effectful can call pure (but not vice versa)
+
+**Why effect tracking?**
+- Prevents accidental side effects (catch bugs early)
+- Documents behavior explicitly (function signature shows what it does)
+- Helps LLM reasoning (AI sees effects in type signatures)
+- Preserves canonical forms (one signature per function)
+
+**Example errors:**
+```mint
+e console
+λlog(msg:𝕊)→!IO 𝕌=console.log(msg)
+
+⟦ ERROR: Pure calling effectful ⟧
+λbad()→𝕌=log("oops")
+# Effect mismatch in function "bad":
+#   Declared effects: (pure)
+#   Undeclared effects used: !IO
+
+⟦ FIX: Declare the effect ⟧
+λgood()→!IO 𝕌=log("works!")
+```
+
+See `examples/effect-demo.mint` for complete examples.
+
 ## JavaScript Interop (FFI)
 
 **Syntax:** `e module/path` (ONLY way)
@@ -459,7 +521,11 @@ axios.get("https://api.example.com")
 
 ### Function Definition
 ```mint
+⟦ Pure function ⟧
 λfunctionName(param:Type)→ReturnType=expression
+
+⟦ Function with effects ⟧
+λfunctionName(param:Type)→!Effect1 !Effect2 ReturnType=expression
 ```
 
 ### Pattern Matching

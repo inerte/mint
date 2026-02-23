@@ -1,0 +1,64 @@
+⟦
+  Effect Tracking Demo
+
+  Demonstrates Mint's compile-time effect tracking system.
+  Effects prevent accidental side effects by requiring explicit declarations.
+⟧
+
+e console
+
+⟦ ========================================================================
+   PURE FUNCTIONS (No Effects)
+   ======================================================================== ⟧
+
+⟦ Pure computation - no side effects ⟧
+λadd(a:ℤ,b:ℤ)→ℤ=a+b
+
+⟦ Pure transformation ⟧
+λdouble(x:ℤ)→ℤ=x*2
+
+⟦ Pure functions can call other pure functions ⟧
+λcomputeSum(a:ℤ,b:ℤ)→ℤ=add(a,b)
+
+⟦ ========================================================================
+   IO EFFECTS
+   ======================================================================== ⟧
+
+⟦ Single IO effect - console output ⟧
+λlog(msg:𝕊)→!IO 𝕌=console.log(msg)
+
+⟦ IO effect with computation ⟧
+λlogValue(x:ℤ)→!IO 𝕌=console.log(x)
+
+⟦ ========================================================================
+   MULTIPLE EFFECTS
+   ======================================================================== ⟧
+
+⟦ Network effect (simulated) ⟧
+λfetchData()→!Network 𝕊="network-data"
+
+⟦ Function with two declared effects ⟧
+λprocessAndLog()→!IO !Network 𝕌=log(fetchData())
+
+⟦ ========================================================================
+   EFFECT PROPAGATION
+   ======================================================================== ⟧
+
+⟦ Effectful functions can call pure functions ⟧
+λlogDoubled(x:ℤ)→!IO 𝕌=logValue(double(x))
+
+⟦ Main function with all effects ⟧
+λmain()→!IO !Network 𝕌=processAndLog()
+
+⟦ ========================================================================
+   COMPILE-TIME SAFETY
+
+   Effect tracking prevents bugs at compile time:
+
+   - Pure functions calling effectful functions: REJECTED
+   - Missing effect declarations: REJECTED
+   - All effects properly declared: ACCEPTED
+
+   The compiler ensures that every function signature accurately
+   documents all side effects it performs.
+   ======================================================================== ⟧

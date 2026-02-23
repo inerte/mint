@@ -70,12 +70,18 @@ Navigate your code with the outline view showing:
 
 ## Installation
 
-### From VSIX (Local Development)
-1. Download the `.vsix` file
+### Development Mode (Testing/Debugging)
+1. Open VS Code to `tools/vscode-extension` folder
+2. Open **Run and Debug** panel (Cmd+Shift+D)
+3. Click the **green play button ▶️** next to "Run Extension"
+4. In the Extension Development Host window, open a folder with `.mint` files
+
+### From VSIX (Installation)
+1. Build the extension: `cd tools/vscode-extension && pnpm package`
 2. Open VS Code
 3. Go to Extensions (`Cmd+Shift+X` / `Ctrl+Shift+X`)
 4. Click "..." menu → "Install from VSIX..."
-5. Select the downloaded `.vsix` file
+5. Select `mint-language-0.1.0.vsix`
 
 ### From Marketplace (Future)
 Search for "Mint Language" in the VS Code Extensions marketplace.

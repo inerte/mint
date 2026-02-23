@@ -5,7 +5,7 @@
  * - Lexer errors (invalid tokens, Unicode issues)
  * - Parser errors (syntax errors, malformed AST)
  * - Type checker errors (type mismatches, undefined functions)
- * - Canonical form violations (accumulator parameters, helper functions, etc.)
+ * - Canonical form violations (accumulator parameters, non-canonical patterns, etc.)
  */
 
 import { TextDocument } from 'vscode-languageserver-textdocument';

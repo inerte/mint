@@ -17,7 +17,7 @@ Beautiful syntax highlighting for Mint code with support for:
 Instant error checking as you type:
 - **Syntax errors** - Invalid tokens, malformed code
 - **Type errors** - Type mismatches, undefined functions
-- **Canonical form violations** - Accumulator patterns, helper functions
+- **Canonical form violations** - Accumulator patterns, non-canonical forms
 - **Mutability errors** - Illegal mutations, aliasing issues
 
 All errors show with precise locations and helpful messages.

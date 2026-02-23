@@ -37,19 +37,31 @@ Files:
 - Source: ${mintFile}
 - Basic map: ${mapFile}
 
+IMPORTANT - Mint Language Constraints:
+Read AGENTS.md to understand Mint's canonical form philosophy.
+
+Key constraints to remember:
+- Mint enforces ONE WAY to write code (canonical forms)
+- NO tail-call optimization, NO accumulator-passing style, NO iterative patterns
+- Only primitive recursion allowed (direct recursive calls)
+- Don't suggest "iterative version" or "tail-recursive version" - these are BLOCKED
+- Performance warnings should be Mint-appropriate (e.g., "inherent to primitive recursion")
+
 Read the basic semantic map. For each mapping:
 1. Extract the code snippet using the range offsets from the source file
 2. Analyze what it does, how it works, and performance characteristics
 3. Add rich documentation fields:
    - explanation: Detailed markdown explanation of the code
-   - complexity: Time/space complexity if applicable (e.g., "O(n) time, O(1) space")
-   - warnings: Array of edge cases, performance issues, or limitations
-   - examples: Array of usage examples showing input → output
-   - related: Array of related function/type names
+   - complexity: Time/space complexity (e.g., "O(n) time, O(n) space due to recursion")
+   - warnings: Edge cases, limitations (Mint-appropriate - don't suggest impossible alternatives)
+   - examples: Usage examples showing input → output
+   - related: Related function/type names
 
 Write the enhanced version back to ${mapFile}.
 
 Match the quality and style of examples in examples/fibonacci.mint.map and examples/list-operations.mint.map.
+
+Remember: Mint is a canonical-form language. Warnings should acknowledge this, not fight it.
 `.trim();
 }
 

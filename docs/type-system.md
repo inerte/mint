@@ -138,9 +138,19 @@ x : T ∈ Γ
 
 ## Implementation
 
+### Status: ✅ Completed (2026-02-22)
+
+The bidirectional type checker is fully implemented and integrated into the compiler pipeline.
+
+**Location:** `compiler/src/typechecker/`
+- `index.ts` - Main entry point
+- `types.ts` - Type representations
+- `errors.ts` - Error formatting
+- `bidirectional.ts` - Core type checking algorithm
+
 ### Current Phase: Monomorphic Types
 
-**Phase 1** (Current): All basic types without polymorphism
+**Phase 1** (Implemented): All basic types without polymorphism
 - Primitive types: `ℤ` (Int), `𝕊` (String), `𝔹` (Bool), `𝕌` (Unit)
 - Function types: `λ(T₁,...,Tₙ)→R`
 - List types: `[T]`

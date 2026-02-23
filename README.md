@@ -281,8 +281,7 @@ The **AI Interpretation Layer** provides:
   - Ready for enhancement via Claude Code CLI
 
 ### In Progress
-- 🔄 Semantic map enhancement (Claude Code CLI integration)
-- 🔄 Type system specification (update for bidirectional)
+- 🔄 LSP server (next up!)
 
 ### Upcoming
 - ⏳ LSP server

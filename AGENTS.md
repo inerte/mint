@@ -317,6 +317,50 @@ node compiler/dist/cli.js compile src/myprogram.mint -o custom/path.js
 
 ## Mint Language Quick Reference
 
+### Standard Library
+
+Mint includes a standard library with common utility functions and predicates.
+
+**List predicates:**
+```mint
+i stdlib/list_predicates{sorted_asc,all,any,contains}
+
+sorted_asc([1,2,3])           # Check if sorted ascending
+all(is_positive,[1,2,3])      # Check if all elements satisfy predicate
+any(is_even,[1,3,5])          # Check if any element satisfies predicate
+contains(3,[1,2,3,4])         # Check if element in list
+```
+
+**Numeric predicates:**
+```mint
+i stdlib/numeric_predicates{is_positive,is_even,is_prime}
+
+is_positive(5)                # Check if > 0
+is_even(4)                    # Check if divisible by 2
+is_prime(7)                   # Check if prime number
+in_range(5,1,10)              # Check if in range [min,max]
+```
+
+**Common patterns:**
+```mint
+# Validation
+λprocess(x:ℤ)→𝕊≡is_positive(x){
+  ⊥→"Error: Must be positive"|
+  ⊤→"Processing..."
+}
+
+# Filtering
+λget_primes(xs:[ℤ])→[ℤ]=xs⊳is_prime
+
+# Preconditions
+λbinary_search(xs:[ℤ],target:ℤ)→ℤ≡sorted_asc(xs){
+  ⊥→-1|
+  ⊤→search_impl(...)
+}
+```
+
+See `docs/STDLIB.md` for complete reference.
+
 ### JavaScript Interop (FFI)
 ```mint
 e module/path              # Import JavaScript module

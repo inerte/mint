@@ -4,6 +4,12 @@
    Part of Mint standard library - canonical implementations only.
 ⟧
 
+⟦ Helper: Get length of list (duplicated until module imports work) ⟧
+λlen(xs:[ℤ])→ℤ≡xs{
+  []→0|
+  [x,.rest]→1+len(rest)
+}
+
 ⟦ Check if list is sorted in ascending order ⟧
 λsorted_asc(xs:[ℤ])→𝔹≡xs{
   []→⊤|
@@ -34,8 +40,13 @@
   }
 }
 
-⟦ Check if index is valid for list
-   TODO: Requires len() function from stdlib ⟧
+⟦ Check if index is valid for list [0, len-1] ⟧
+λin_bounds(idx:ℤ,xs:[ℤ])→𝔹=in_bounds_helper(idx,xs)
+
+λin_bounds_helper(idx:ℤ,xs:[ℤ])→𝔹≡(idx≥0){
+  ⊤→idx<len(xs)|
+  ⊥→⊥
+}
 
 ⟦ Check if list is empty ⟧
 λis_empty(xs:[ℤ])→𝔹≡xs{

@@ -19,13 +19,26 @@ pnpm build
 ### Step 3: Install in VS Code
 
 **Option A: Development Mode (Recommended for testing)**
-1. Open VS Code to the `tools/vscode-extension` folder
-2. Open Extension Development Host using **one of these methods**:
-   - **Command Palette**: `Cmd+Shift+P` → "Debug Extension Host" → "Developer: Debug Extension Host In New Window"
-   - **Keyboard**: `F5` (if your keyboard has it)
-   - **Menu**: Run → Start Debugging
-3. This opens a new "Extension Development Host" window
-4. Create or open a `.mint` file to test
+
+1. **Open VS Code to the extension folder**:
+   - File → Open Folder...
+   - Navigate to: `/path/to/ai-pl/tools/vscode-extension`
+   - Click **Open**
+
+2. **Open the Run and Debug panel**:
+   - Click the **Run and Debug** icon in the left sidebar (▶️ with bug icon)
+   - Or press **Cmd+Shift+D** (Ctrl+Shift+D on Windows/Linux)
+
+3. **Launch the Extension Development Host**:
+   - At the top of the panel, you'll see "Run Extension" in the dropdown
+   - Click the **green play button ▶️** next to it
+   - This opens a new "Extension Development Host" window
+   - The debug toolbar will stay visible at the top
+
+4. **In the Extension Development Host window**:
+   - Open a folder with Mint files (File → Open Folder...)
+   - Or create a new `.mint` file (File → New File → Save as `test.mint`)
+   - The extension will activate automatically for `.mint` files
 
 **Option B: Install from VSIX**
 1. Package the extension:
@@ -130,14 +143,16 @@ pnpm watch
 ```
 
 Then launch Extension Development Host:
-- **Command Palette**: `Cmd+Shift+P` → "Debug Extension Host"
-- **Or**: Press `F5` (if available)
+1. Open **Run and Debug** panel (Cmd+Shift+D)
+2. Click the **green play button ▶️** next to "Run Extension"
 
 ### Debugging
 
 **Extension:**
 - Set breakpoints in `src/extension.ts`
-- Launch Extension Development Host (Command Palette → "Debug Extension Host")
+- Open Run and Debug panel (Cmd+Shift+D)
+- Click green play button ▶️ to launch Extension Development Host
+- Breakpoints will hit when the extension code executes
 
 **LSP Server:**
 1. In Extension Development Host, open Output panel

@@ -206,7 +206,8 @@ See `docs/FFI.md` for full documentation.
 λsort(data:mut [ℤ])→𝕌=...             ⟦ Explicit mutation ⟧
 
 ❌ ERRORS:
-λbad1(data:[ℤ])→𝕌=data↦!λ(x)→x*2     ⟦ Can't mutate immutable ⟧
+e Array
+λbad1(data:[ℤ])→𝕌=Array.sort(data)  ⟦ Can't pass immutable to mut param ⟧
 λbad2(x:mut [ℤ])→𝕌≡{let y=x; ...}    ⟦ Can't alias mutable ⟧
 ```
 

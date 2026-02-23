@@ -142,7 +142,6 @@ export function factorial(n) {
 ```
 
 **Not yet implemented:**
-- ⏳ Mutating operations (↦!, ⊳!) - Parser doesn't support syntax
 - ⏳ JavaScript source maps (.js.map) - Generates code but no source maps
 - ⏳ Standard library runtime - No JS runtime for stdlib (stdlib is pure Mint)
 
@@ -255,7 +254,7 @@ Parameter roles:
 - ✅ Type checking integration
 
 **What doesn't work yet:**
-- ⏳ Mutating operations (↦!, ⊳!) - Parser doesn't support syntax
+- N/A - Mutating operations intentionally not supported (violates canonical forms)
 
 ### New: Module System ✅ COMPLETE
 
@@ -314,19 +313,20 @@ Nothing currently in progress.
 
 ## TODO - Medium Priority 📋
 
-### Parser Enhancements
+### Effect Tracking (NEXT UP)
 
-- ⏳ **Mutating operations** - Parse `↦!`, `⊳!` syntax
-  - Documented but not implemented
-  - Performance optimization (not blocking)
-  - See: `/tmp/PARSER_GAPS_EXPLAINED.md`
-  - Estimated: 2-3 days
-
-- ⏳ **Effect tracking** - Parse `!IO`, `!Network` syntax
-  - Documented but not implemented
-  - Quality of life (not blocking)
-  - See: `/tmp/PARSER_GAPS_EXPLAINED.md`
-  - Estimated: 5-7 days (includes type system work)
+- ⏳ **Effect tracking** - Parse and check `!IO`, `!Network`, `!Async` syntax ⬅️ IMPLEMENTING NEXT
+  - Prevents accidental side effects
+  - Documents function behavior clearly
+  - Helps LLMs reason about code
+  - Does NOT violate canonical forms
+  - Estimated: 5-7 days
+  - Implementation phases:
+    1. Parser: Support `→!Effect Type` syntax
+    2. AST: Add effects to function types
+    3. Type system: Define EffectSet type
+    4. Type checker: Propagate and validate effects
+    5. Error messages: Clear effect violation errors
 
 ### Standard Library Expansion
 
@@ -447,15 +447,18 @@ Mint enforces canonical forms at **two levels:**
 
 **Result:** Byte-for-byte reproducibility - every program has exactly ONE valid representation.
 
-### Parser Gaps (Not Bugs)
+### Design Decisions
 
-See `/tmp/PARSER_GAPS_EXPLAINED.md` for details.
+**Mutating operations NOT supported:**
+- Mint does NOT have `↦!` or `⊳!` (mutating map/filter)
+- **Reason:** Violates canonical forms - having both mutable and immutable versions creates ambiguity
+- All list operations (↦, ⊳, ⊕) are immutable
+- The `mut` keyword is for FFI type safety only
 
-**Summary:**
-- Mutating operations (`↦!`, `⊳!`) - Documented, not implemented
-- Effect tracking (`!IO`, `!Network`) - Stub in type system, parser doesn't support syntax
-
-**These are future enhancements, not blocking issues.** Language is fully functional without them.
+**Effect tracking planned:**
+- Effect annotations (`!IO`, `!Network`, `!Async`) will be implemented
+- **Reason:** Prevents bugs, documents behavior, doesn't violate canonical forms
+- See Medium Priority section for implementation plan
 
 ## Risks & Mitigations
 

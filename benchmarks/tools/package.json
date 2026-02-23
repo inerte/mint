@@ -1,0 +1,16 @@
+{
+  "name": "@mint-lang/benchmarks",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Token efficiency benchmarking for Mint language",
+  "scripts": {
+    "compare": "node compare.ts"
+  },
+  "dependencies": {
+    "tiktoken": "^1.0.18"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.7.2"
+  }
+}

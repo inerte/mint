@@ -1,0 +1,3 @@
+λisEven(x:ℤ)→𝔹=x%2=0
+λfilterEven(xs:[ℤ])→[ℤ]=xs⊳isEven
+λmain()→[ℤ]=filterEven([1,2,3,4,5,6])

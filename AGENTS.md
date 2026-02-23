@@ -175,12 +175,13 @@ claude -p "Enhance semantic map..." --allowedTools Write Read
   "factorial": {
     "range": [0, 47],
     "summary": "Function: factorial",
-    "explanation": "Computes the factorial of n recursively using pattern matching. Base cases: 0! = 1 and 1! = 1. Recursive case: n! = n × (n-1)!",
+    "explanation": "Computes the factorial of n recursively using pattern matching. Base cases: 0! = 1 and 1! = 1. Recursive case: n! = n × (n-1)!. Uses primitive recursion (Mint's canonical form).",
     "type": "λ(ℤ)→ℤ",
-    "complexity": "O(n) time, O(n) space (call stack)",
+    "complexity": "O(n) time, O(n) space (call stack due to primitive recursion)",
     "warnings": [
       "Stack overflow for large n (typically n > 10000)",
-      "Consider iterative version for production use"
+      "O(n) stack depth is inherent to Mint's canonical primitive recursion",
+      "Not suitable for extremely large inputs"
     ],
     "examples": [
       "factorial(5) → 120",
@@ -204,6 +205,20 @@ Match the examples in `examples/*.mint.map`:
 - Performance characteristics
 - Real-world considerations
 - Concrete examples
+
+### CRITICAL: Mint-Appropriate Warnings
+
+**DON'T suggest impossible alternatives:**
+- ❌ "Consider iterative version" (Mint blocks iteration)
+- ❌ "Use tail-call optimization" (Mint blocks TCO)
+- ❌ "Add accumulator parameter" (Mint blocks accumulator-passing style)
+
+**DO provide Mint-appropriate guidance:**
+- ✅ "O(n) stack depth is inherent to Mint's canonical primitive recursion"
+- ✅ "Not suitable for extremely large inputs due to stack depth"
+- ✅ "Performance characteristic is fundamental to primitive recursion"
+
+**Remember:** Mint enforces canonical forms. ONE way to write each algorithm. Your warnings should acknowledge this, not fight it.
 
 ## Project Structure
 

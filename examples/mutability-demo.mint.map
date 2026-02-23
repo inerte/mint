@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "file": "mutability-demo.mint",
+  "generated_by": "mintc@0.1.0",
+  "generated_at": "2026-02-23T21:25:24.464Z",
+  "mappings": {
+    "main": {
+      "range": [
+        0,
+        42
+      ],
+      "summary": "Function: main",
+      "explanation": "Function with 0 parameter(s), returns ℤ",
+      "type": "λ()→ℤ"
+    }
+  },
+  "metadata": {
+    "category": "unknown",
+    "tested": false
+  }
+}

@@ -12,6 +12,7 @@ import { tokenToString } from './lexer/token.js';
 import { parse } from './parser/parser.js';
 import { compile } from './codegen/javascript.js';
 import { validateCanonicalForm } from './validator/canonical.js';
+import { validateSurfaceForm } from './validator/surface-form.js';
 import { validateExterns } from './validator/extern-validator.js';
 import { typeCheck } from './typechecker/index.js';
 import { formatType } from './typechecker/errors.js';
@@ -82,6 +83,10 @@ function lexCommand(args: string[]) {
 
   try {
     const source = readFileSync(filename, 'utf-8');
+
+    // Validate surface form (formatting) before tokenizing
+    validateSurfaceForm(source, filename);
+
     const tokens = tokenize(source);
 
     console.log(`Tokens for ${filename}:`);
@@ -113,6 +118,10 @@ function parseCommand(args: string[]) {
 
   try {
     const source = readFileSync(filename, 'utf-8');
+
+    // Validate surface form (formatting) before tokenizing
+    validateSurfaceForm(source, filename);
+
     const tokens = tokenize(source);
 
     console.log(`Parsing ${filename}...`);
@@ -171,6 +180,10 @@ async function compileCommand(args: string[]) {
 
   try {
     const source = readFileSync(filename, 'utf-8');
+
+    // Validate surface form (formatting) before tokenizing
+    validateSurfaceForm(source, filename);
+
     const tokens = tokenize(source);
     const ast = parse(tokens);
 
@@ -240,6 +253,10 @@ async function runCommand(args: string[]) {
   try {
     // Compile to .local/
     const source = readFileSync(filename, 'utf-8');
+
+    // Validate surface form (formatting) before tokenizing
+    validateSurfaceForm(source, filename);
+
     const tokens = tokenize(source);
     const ast = parse(tokens);
 

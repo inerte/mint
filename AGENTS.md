@@ -27,6 +27,73 @@ Mint is a **canonicalization-enforced** language. Every algorithm has exactly ON
 
 This ensures **zero ambiguity** for LLM code generation and training data quality.
 
+## Canonical Surface Forms: Byte-for-Byte Reproducibility
+
+Mint enforces **canonical formatting** at compile-time. Every program has exactly ONE valid textual representation.
+
+**Enforced formatting rules:**
+
+### 1. Final Newline (Required)
+```mint
+✅ VALID:
+λmain()→ℤ=1
+[newline here]
+
+❌ REJECTED:
+λmain()→ℤ=1[EOF without newline]
+# Error: File must end with a newline
+```
+
+### 2. No Trailing Whitespace
+```mint
+❌ REJECTED:
+λmain()→ℤ=1   [spaces here]
+# Error: Line 1 has trailing whitespace
+```
+
+### 3. Maximum One Blank Line
+```mint
+✅ VALID:
+λa()→ℤ=1
+
+λb()→ℤ=2
+
+❌ REJECTED:
+λa()→ℤ=1
+
+
+λb()→ℤ=2
+# Error: Multiple blank lines at line 2 (only one consecutive blank line allowed)
+```
+
+### 4. Equals Sign Placement (Context-Dependent)
+```mint
+✅ VALID - Regular expression (= required):
+λdouble(x:ℤ)→ℤ=x*2
+
+✅ VALID - Match expression (NO = allowed):
+λfactorial(n:ℤ)→ℤ≡n{0→1|n→n*factorial(n-1)}
+
+❌ REJECTED - Missing =:
+λdouble(x:ℤ)→ℤ x*2
+# Error: Expected "=" before function body (canonical form: λf()→T=...)
+
+❌ REJECTED - Unwanted = before match:
+λfactorial(n:ℤ)→ℤ=≡n{...}
+# Error: Unexpected "=" before match expression (canonical form: λf()→T≡...)
+```
+
+**Why enforce surface forms?**
+
+1. **Training data quality** - No syntactic variations polluting datasets
+2. **Deterministic generation** - LLMs generate exactly one form
+3. **Zero ambiguity** - Byte-for-byte reproducibility
+4. **Canonical philosophy** - One way extends from algorithms to formatting
+
+**Already enforced by lexer:**
+- ✅ Tab characters forbidden (use spaces)
+- ✅ Standalone `\r` forbidden (use `\n`)
+
 ## Type System: Bidirectional Type Checking
 
 **Paradigm:** Bidirectional type checking (not Hindley-Milner)

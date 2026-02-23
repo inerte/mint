@@ -2,7 +2,7 @@
   "version": 1,
   "file": "numeric_predicates.mint",
   "generated_by": "mintc@0.1.0",
-  "generated_at": "2026-02-23T19:45:58.330Z",
+  "generated_at": "2026-02-23T21:28:36.483Z",
   "mappings": {
     "is_positive": {
       "range": [
@@ -34,7 +34,7 @@
     "is_non_negative": {
       "range": [
         364,
-        394
+        391
       ],
       "summary": "Function: is_non_negative",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -42,8 +42,8 @@
     },
     "is_even": {
       "range": [
-        423,
-        446
+        420,
+        443
       ],
       "summary": "Function: is_even",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -51,8 +51,8 @@
     },
     "is_odd": {
       "range": [
-        474,
-        502
+        471,
+        499
       ],
       "summary": "Function: is_odd",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -60,8 +60,8 @@
     },
     "in_range": {
       "range": [
-        558,
-        613
+        555,
+        610
       ],
       "summary": "Function: in_range",
       "explanation": "Function with 3 parameter(s), returns 𝔹",
@@ -69,8 +69,8 @@
     },
     "in_range_helper": {
       "range": [
-        615,
-        681
+        612,
+        675
       ],
       "summary": "Function: in_range_helper",
       "explanation": "Function with 3 parameter(s), returns 𝔹",
@@ -78,24 +78,24 @@
     },
     "in_range_helper_arm_0": {
       "range": [
-        662,
-        665
+        659,
+        666
       ],
       "summary": "Match arm: true",
       "explanation": "Pattern matches true"
     },
     "in_range_helper_arm_1": {
       "range": [
-        669,
-        679
+        670,
+        673
       ],
       "summary": "Match arm: false",
       "explanation": "Pattern matches false"
     },
     "is_prime": {
       "range": [
-        711,
-        771
+        705,
+        765
       ],
       "summary": "Function: is_prime",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -103,32 +103,32 @@
     },
     "is_prime_arm_0": {
       "range": [
-        733,
-        736
+        727,
+        730
       ],
       "summary": "Match arm: 0",
       "explanation": "Pattern matches 0"
     },
     "is_prime_arm_1": {
       "range": [
-        740,
-        743
+        734,
+        737
       ],
       "summary": "Match arm: 1",
       "explanation": "Pattern matches 1"
     },
     "is_prime_arm_2": {
       "range": [
-        747,
-        769
+        741,
+        763
       ],
       "summary": "Match arm: n",
       "explanation": "Pattern matches n"
     },
     "is_prime_helper": {
       "range": [
-        812,
-        943
+        806,
+        937
       ],
       "summary": "Function: is_prime_helper",
       "explanation": "Function with 2 parameter(s), returns 𝔹",
@@ -136,16 +136,16 @@
     },
     "is_prime_helper_arm_0": {
       "range": [
-        869,
-        872
+        863,
+        866
       ],
       "summary": "Match arm: true",
       "explanation": "Pattern matches true"
     },
     "is_prime_helper_arm_1": {
       "range": [
-        876,
-        941
+        870,
+        935
       ],
       "summary": "Match arm: false",
       "explanation": "Pattern matches false"

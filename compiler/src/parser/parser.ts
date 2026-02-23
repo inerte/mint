@@ -88,8 +88,15 @@ export class Parser {
     this.consume(TokenType.ARROW, `Expected "→" after parameters for function "${name}". Return type annotations are required (canonical form).`);
     const returnType = this.type();
 
-    // Optional = before body (dense format can omit it)
-    this.match(TokenType.EQUAL);
+    // Canonical form: = required UNLESS body starts with ≡ (match expression)
+    const hasEqual = this.match(TokenType.EQUAL);
+    const isMatchExpr = this.check(TokenType.MATCH);
+
+    if (isMatchExpr && hasEqual) {
+      throw this.error(`Unexpected "=" before match expression (canonical form: λf()→T≡...)`);
+    } else if (!isMatchExpr && !hasEqual) {
+      throw this.error(`Expected "=" before function body (canonical form: λf()→T=...)`);
+    }
 
     const body = this.expression();
 
@@ -857,8 +864,15 @@ export class Parser {
     this.consume(TokenType.ARROW, 'Expected "→" after lambda parameters. Return type annotations are required (canonical form).');
     const returnType = this.type();
 
-    // Consume "=" before body (optional in some formats)
-    this.match(TokenType.EQUAL);
+    // Canonical form: = required UNLESS body starts with ≡ (match expression)
+    const hasEqual = this.match(TokenType.EQUAL);
+    const isMatchExpr = this.check(TokenType.MATCH);
+
+    if (isMatchExpr && hasEqual) {
+      throw this.error(`Unexpected "=" before match expression (canonical form: λ()→T≡...)`);
+    } else if (!isMatchExpr && !hasEqual) {
+      throw this.error(`Expected "=" before lambda body (canonical form: λ()→T=...)`);
+    }
 
     const body = this.expression();
 

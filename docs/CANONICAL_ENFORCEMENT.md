@@ -116,35 +116,40 @@ Use simple recursion without accumulator parameters.
 - `acc` → `[x]` (ACCUMULATOR, list grows)
 - **Result**: COMPILE ERROR ❌
 
-### Rule 2: No Helper Functions
+### Rule 2: Canonical Pattern Matching
 
-**Enforced by:** Compiler rejects functions only called by one other function
+**Enforced by:** Compiler requires most direct pattern matching form
 
-**Why:** Helper functions enable wrapper patterns (e.g., `factorial(n) = helper(n, 1)`)
+**Why:** Syntactic variations create training data ambiguity
+
+**BLOCKED:** Boolean pattern matching when value matching is possible
 
 **Example:**
 
 ```mint
-✅ COMPILES - single function:
-λfactorial(n:ℤ)→ℤ≡n{0→1|1→1|n→n*factorial(n-1)}
-λmain()→ℤ=factorial(5)
+❌ COMPILE ERROR - Boolean matching when value matching works:
+λisZero(n:ℤ)→𝔹≡(n=0){
+  ⊤→⊤|
+  ⊥→⊥
+}
 
-❌ COMPILE ERROR:
-λhelper(n:ℤ,acc:ℤ)→ℤ≡n{0→acc|n→helper(n-1,n*acc)}
-λfactorial(n:ℤ)→ℤ=helper(n,1)
-λmain()→ℤ=factorial(5)
+✅ COMPILES - Direct value matching:
+λisZero(n:ℤ)→𝔹≡n{
+  0→⊤|
+  _→⊥
+}
 ```
 
-**Error message:**
-```
-Error: Function 'helper' is only called by 'factorial'.
-Helper functions are not allowed.
+**ALLOWED:** Boolean tuples for complex multi-condition logic
 
-Options:
-  1. Inline 'helper' into 'factorial'
-  2. Export 'helper' and use it elsewhere
-
-Mint enforces ONE way: each function stands alone.
+```mint
+✅ COMPILES - Complex conditions (no simpler form exists):
+λclassify(x:ℤ,y:ℤ)→𝕊≡(x>0,y>0){
+  (⊤,⊤)→"quadrant 1"|
+  (⊤,⊥)→"quadrant 4"|
+  (⊥,⊤)→"quadrant 2"|
+  (⊥,⊥)→"quadrant 3"
+}
 ```
 
 ## Implementation
@@ -187,19 +192,19 @@ Source → Tokenize → Parse → Validate Canonical Form → Type Check → Cod
 
 ## Testing
 
-Test files in `src/`:
-- `factorial-valid.mint` - ✅ Compiles successfully
-- `factorial-invalid-accumulator.mint` - ❌ Rejects 2-parameter recursion
-- `factorial-invalid-helper.mint` - ❌ Rejects helper function pattern
+Test files in `src/test-tailrec/`:
+- `test12-valid-canonical.mint` - ✅ Compiles successfully (canonical form)
+- `test18-factorial-acc-blocked.mint` - ❌ Rejects accumulator-passing style
+- `test13-boolean-match-blocked.mint` - ❌ Rejects non-canonical pattern matching
 
 Try them:
 ```bash
 # This works
-node compiler/dist/cli.js run src/factorial-valid.mint
+node compiler/dist/cli.js run src/test-tailrec/test12-valid-canonical.mint
 
 # These fail with helpful errors
-node compiler/dist/cli.js compile src/factorial-invalid-accumulator.mint
-node compiler/dist/cli.js compile src/factorial-invalid-helper.mint
+node compiler/dist/cli.js compile src/test-tailrec/test18-factorial-acc-blocked.mint
+node compiler/dist/cli.js compile src/test-tailrec/test13-boolean-match-blocked.mint
 ```
 
 ## Philosophy

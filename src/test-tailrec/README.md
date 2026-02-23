@@ -24,8 +24,8 @@ This directory contains comprehensive tests to ensure ALL variations of tail-rec
 6. **test6-record-three-fields.mint** - Record with 3 fields
    - Status: ✅ BLOCKED - "collection-type parameter"
    
-7. **test8-helper.mint** - Helper function pattern
-   - Status: ✅ BLOCKED - "only called by"
+7. **test8-helper.mint** - Helper function pattern (NOW ALLOWED)
+   - Status: ✅ ALLOWED - Helper ban removed, utilities are allowed
    
 8. **test9-cps.mint** - Continuation Passing Style
    - Status: ✅ BLOCKED - "returns a function type"

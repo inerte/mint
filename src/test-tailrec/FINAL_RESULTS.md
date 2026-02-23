@@ -5,14 +5,14 @@
 | Test | Technique | Status | Why |
 |------|-----------|--------|-----|
 | 1 | Two parameters | ❌ BLOCKED | param count > 1 |
-| 2 | Helper function | ❌ BLOCKED | only 1 caller |
+| 2 | Helper function | ✅ ALLOWED | helper ban removed |
 | 3 | Tuple parameter | ❌ BLOCKED | parse error |
 | 4 | Multi-caller | ❌ BLOCKED | param count > 1 |
 | 5 | List parameter | ❌ BLOCKED | collection type |
 | 6 | **CPS** | ❌ **BLOCKED** | returns function |
 | 7 | **Y Combinator** | ❌ **BLOCKED** | returns function |
 | 8 | Nested lambdas | ✅ Works | Not recursive! |
-| 9 | Mutual recursion | ❌ BLOCKED | helper detection |
+| 9 | Mutual recursion | ✅ ALLOWED | helper ban removed |
 
 ## Enforcement Rules (Complete)
 
@@ -37,11 +37,11 @@
 ✅ λfactorial(n:ℤ)→ℤ=...
 ```
 
-### Rule 4: No Helpers
-✅ Functions can't be called by only one other function
+### Rule 4: Canonical Pattern Matching
+✅ Must use most direct pattern form
 ```
-❌ λhelper(n:ℤ)→ℤ=... called only by factorial
-✅ Each function stands alone
+❌ λisZero(n:ℤ)→𝔹≡(n=0){⊤→⊤|⊥→⊥}  // Boolean matching when value matching works
+✅ λisZero(n:ℤ)→𝔹≡n{0→⊤|_→⊥}        // Direct value matching
 ```
 
 ## What About Test 8 (Nested Lambdas)?
@@ -99,12 +99,13 @@ an accumulator in the returned function.
 Recursive functions must return a VALUE, not a FUNCTION.
 ```
 
-### Helper Function
+### Helper Function (BAN REMOVED)
 ```
-Error: Function 'helper' is only called by 'factorial'.
-Helper functions are not allowed.
+NOTE: Helper function ban has been removed.
+Utility functions are now allowed for code reuse, predicates, etc.
 
-Mint enforces ONE way: each function stands alone.
+Accumulators are still blocked via parameter role detection,
+which is sufficient to prevent tail-recursion alternatives.
 ```
 
 ## Verdict

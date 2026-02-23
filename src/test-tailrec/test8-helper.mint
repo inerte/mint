@@ -1,5 +1,5 @@
 // TEST: Helper function pattern (single param version)
-// EXPECTED: ❌ BLOCKED - "only called by"
+// EXPECTED: ✅ ALLOWED - Utility functions are now allowed (helper ban removed)
 
 λhelper(n:ℤ)→ℤ≡n{
   0→1|

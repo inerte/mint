@@ -466,29 +466,7 @@ Error: Accumulator-passing style detected in function 'factorial'.
        The parameter(s) [acc] are accumulators (grow during recursion).
 ```
 
-#### Rule 2: No auxiliary functions
-
-**Why:** Auxiliary functions enable alternative implementations via function composition
-
-**CS Terms:**
-- Blocks: Helper functions, auxiliary functions, wrapper patterns
-- Detects: Call graph analysis for single-caller detection
-- Enforces: Self-contained function definitions
-
-```mint
-✅ COMPILES - single function:
-λfactorial(n:ℤ)→ℤ≡n{0→1|1→1|n→n*factorial(n-1)}
-λmain()→ℤ=factorial(5)
-
-❌ COMPILE ERROR - helper pattern:
-λhelper(n:ℤ,acc:ℤ)→ℤ≡n{0→acc|n→helper(n-1,n*acc)}
-λfactorial(n:ℤ)→ℤ=helper(n,1)
-
-Error: Function 'helper' is only called by 'factorial'.
-       Helper functions are not allowed.
-```
-
-#### Rule 3: Canonical pattern matching only
+#### Rule 2: Canonical pattern matching only
 
 **Why:** Syntactic variations pollute training data
 
@@ -523,9 +501,9 @@ Like λ-calculus normal forms or term rewriting canonical forms, Mint ensures ea
 - ❌ BLOCKED: Mutual recursion
 
 **Functions:**
-- ✅ DO: Direct style (one function per algorithm)
-- ❌ BLOCKED: Helper functions / auxiliary functions
-- ❌ BLOCKED: Function composition for control flow
+- ✅ DO: Utility functions (is_valid, sorted, len)
+- ✅ DO: Predicate functions for contracts
+- ✅ DO: Code decomposition via helper functions
 - ❌ BLOCKED: Closure-based state encoding
 
 **Pattern Matching:**
@@ -542,10 +520,9 @@ Like λ-calculus normal forms or term rewriting canonical forms, Mint ensures ea
 - ❌ BLOCKED: Closure-based state
 
 **Code Organization:**
-- ✅ DO: Self-contained functions
+- ✅ DO: Functions in logical groups
 - ✅ DO: Programs in `src/`
 - ✅ DO: `main()` as entry point
-- ❌ BLOCKED: Helper function patterns
 - ❌ BLOCKED: Files scattered in root
 
 ### Examples
@@ -563,9 +540,6 @@ Like λ-calculus normal forms or term rewriting canonical forms, Mint ensures ea
 
 **If the user wants "both recursive and iterative", tell them:**
 > "Mint does NOT support tail-call optimization or accumulator-passing style. There is only primitive recursion (the canonical form)."
-
-**If the user wants "helper functions", tell them:**
-> "Mint does NOT support auxiliary functions. Each function must be self-contained."
 
 **If the user wants "boolean matching", tell them:**
 > "Mint requires direct value matching when possible. Boolean pattern matching is only allowed for complex conditions."

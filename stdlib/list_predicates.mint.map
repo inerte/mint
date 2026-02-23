@@ -2,12 +2,12 @@
   "version": 1,
   "file": "list_predicates.mint",
   "generated_by": "mintc@0.1.0",
-  "generated_at": "2026-02-23T19:45:58.005Z",
+  "generated_at": "2026-02-23T21:28:35.861Z",
   "mappings": {
     "sorted_asc": {
       "range": [
-        204,
-        285
+        225,
+        306
       ],
       "summary": "Function: sorted_asc",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -15,32 +15,32 @@
     },
     "sorted_asc_arm_0": {
       "range": [
-        232,
-        236
+        253,
+        257
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "sorted_asc_arm_1": {
       "range": [
-        240,
-        245
+        261,
+        266
       ],
       "summary": "Match arm: [_]",
       "explanation": "Pattern matches [_]"
     },
     "sorted_asc_arm_2": {
       "range": [
-        249,
-        283
+        270,
+        304
       ],
       "summary": "Match arm: [a]",
       "explanation": "Pattern matches [a]"
     },
     "sorted_asc_check": {
       "range": [
-        287,
-        402
+        308,
+        423
       ],
       "summary": "Function: sorted_asc_check",
       "explanation": "Function with 2 parameter(s), returns 𝔹",
@@ -48,24 +48,24 @@
     },
     "sorted_asc_check_arm_0": {
       "range": [
-        328,
-        332
+        349,
+        353
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "sorted_asc_check_arm_1": {
       "range": [
-        336,
-        400
+        357,
+        421
       ],
       "summary": "Match arm: [b]",
       "explanation": "Pattern matches [b]"
     },
     "sorted_desc": {
       "range": [
-        452,
-        535
+        473,
+        556
       ],
       "summary": "Function: sorted_desc",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -73,32 +73,32 @@
     },
     "sorted_desc_arm_0": {
       "range": [
-        481,
-        485
+        502,
+        506
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "sorted_desc_arm_1": {
       "range": [
-        489,
-        494
+        510,
+        515
       ],
       "summary": "Match arm: [_]",
       "explanation": "Pattern matches [_]"
     },
     "sorted_desc_arm_2": {
       "range": [
-        498,
-        533
+        519,
+        554
       ],
       "summary": "Match arm: [a]",
       "explanation": "Pattern matches [a]"
     },
     "sorted_desc_check": {
       "range": [
-        537,
-        654
+        558,
+        675
       ],
       "summary": "Function: sorted_desc_check",
       "explanation": "Function with 2 parameter(s), returns 𝔹",
@@ -106,24 +106,58 @@
     },
     "sorted_desc_check_arm_0": {
       "range": [
-        579,
-        583
+        600,
+        604
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "sorted_desc_check_arm_1": {
       "range": [
-        587,
-        652
+        608,
+        673
       ],
       "summary": "Match arm: [b]",
       "explanation": "Pattern matches [b]"
     },
+    "in_bounds": {
+      "range": [
+        725,
+        776
+      ],
+      "summary": "Function: in_bounds",
+      "explanation": "Function with 2 parameter(s), returns 𝔹",
+      "type": "λ(ℤ,[ℤ])→𝔹"
+    },
+    "in_bounds_helper": {
+      "range": [
+        778,
+        863
+      ],
+      "summary": "Function: in_bounds_helper",
+      "explanation": "Function with 2 parameter(s), returns 𝔹",
+      "type": "λ(ℤ,[ℤ])→𝔹"
+    },
+    "in_bounds_helper_arm_0": {
+      "range": [
+        823,
+        854
+      ],
+      "summary": "Match arm: true",
+      "explanation": "Pattern matches true"
+    },
+    "in_bounds_helper_arm_1": {
+      "range": [
+        858,
+        861
+      ],
+      "summary": "Match arm: false",
+      "explanation": "Pattern matches false"
+    },
     "is_empty": {
       "range": [
-        766,
-        805
+        892,
+        931
       ],
       "summary": "Function: is_empty",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -131,24 +165,24 @@
     },
     "is_empty_arm_0": {
       "range": [
-        792,
-        796
+        918,
+        922
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "is_empty_arm_1": {
       "range": [
-        800,
-        803
+        926,
+        929
       ],
       "summary": "Match arm: _",
       "explanation": "Pattern matches _"
     },
     "is_non_empty": {
       "range": [
-        838,
-        881
+        964,
+        1007
       ],
       "summary": "Function: is_non_empty",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -156,24 +190,24 @@
     },
     "is_non_empty_arm_0": {
       "range": [
-        868,
-        872
+        994,
+        998
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "is_non_empty_arm_1": {
       "range": [
-        876,
-        879
+        1002,
+        1005
       ],
       "summary": "Match arm: _",
       "explanation": "Pattern matches _"
     },
     "all": {
       "range": [
-        927,
-        1023
+        1053,
+        1149
       ],
       "summary": "Function: all",
       "explanation": "Function with 2 parameter(s), returns 𝔹",
@@ -181,24 +215,24 @@
     },
     "all_arm_0": {
       "range": [
-        960,
-        964
+        1086,
+        1090
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "all_arm_1": {
       "range": [
-        968,
-        1021
+        1094,
+        1147
       ],
       "summary": "Match arm: [x]",
       "explanation": "Pattern matches [x]"
     },
     "any": {
       "range": [
-        1070,
-        1166
+        1196,
+        1292
       ],
       "summary": "Function: any",
       "explanation": "Function with 2 parameter(s), returns 𝔹",
@@ -206,24 +240,24 @@
     },
     "any_arm_0": {
       "range": [
-        1103,
-        1107
+        1229,
+        1233
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "any_arm_1": {
       "range": [
-        1111,
-        1164
+        1237,
+        1290
       ],
       "summary": "Match arm: [x]",
       "explanation": "Pattern matches [x]"
     },
     "contains": {
       "range": [
-        1200,
-        1302
+        1326,
+        1428
       ],
       "summary": "Function: contains",
       "explanation": "Function with 2 parameter(s), returns 𝔹",
@@ -231,16 +265,16 @@
     },
     "contains_arm_0": {
       "range": [
-        1233,
-        1237
+        1359,
+        1363
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
     "contains_arm_1": {
       "range": [
-        1241,
-        1300
+        1367,
+        1426
       ],
       "summary": "Match arm: [x]",
       "explanation": "Pattern matches [x]"

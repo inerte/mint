@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "file": "ffi-demo.mint",
+  "generated_by": "mintc@0.1.0",
+  "generated_at": "2026-02-23T21:28:31.596Z",
+  "mappings": {
+    "greet": {
+      "range": [
+        54,
+        108
+      ],
+      "summary": "Function: greet",
+      "explanation": "Function with 1 parameter(s), returns 𝕌",
+      "type": "λ(𝕊)→𝕌"
+    },
+    "main": {
+      "range": [
+        110,
+        133
+      ],
+      "summary": "Function: main",
+      "explanation": "Function with 0 parameter(s), returns 𝕌",
+      "type": "λ()→𝕌"
+    }
+  },
+  "metadata": {
+    "category": "unknown",
+    "tested": false
+  }
+}

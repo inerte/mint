@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "file": "list_utils.mint",
+  "generated_by": "mintc@0.1.0",
+  "generated_at": "2026-02-23T21:28:36.171Z",
+  "mappings": {
+    "len": {
+      "range": [
+        170,
+        222
+      ],
+      "summary": "Function: len",
+      "explanation": "Function with 1 parameter(s), returns ℤ",
+      "type": "λ([ℤ])→ℤ"
+    },
+    "len_arm_0": {
+      "range": [
+        191,
+        195
+      ],
+      "summary": "Match arm: []",
+      "explanation": "Pattern matches []"
+    },
+    "len_arm_1": {
+      "range": [
+        199,
+        220
+      ],
+      "summary": "Match arm: [x]",
+      "explanation": "Pattern matches [x]"
+    },
+    "head": {
+      "range": [
+        282,
+        317
+      ],
+      "summary": "Function: head",
+      "explanation": "Function with 1 parameter(s), returns ℤ",
+      "type": "λ([ℤ])→ℤ"
+    },
+    "head_arm_0": {
+      "range": [
+        304,
+        315
+      ],
+      "summary": "Match arm: [x]",
+      "explanation": "Pattern matches [x]"
+    },
+    "tail": {
+      "range": [
+        381,
+        421
+      ],
+      "summary": "Function: tail",
+      "explanation": "Function with 1 parameter(s), returns [ℤ]",
+      "type": "λ([ℤ])→[ℤ]"
+    },
+    "tail_arm_0": {
+      "range": [
+        405,
+        419
+      ],
+      "summary": "Match arm: [x]",
+      "explanation": "Pattern matches [x]"
+    }
+  },
+  "metadata": {
+    "category": "unknown",
+    "tested": false
+  }
+}

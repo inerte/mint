@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "file": "factorial.mint",
+  "file": "comments-demo.mint",
   "generated_by": "mintc@0.1.0",
-  "generated_at": "2026-02-23T21:28:30.947Z",
+  "generated_at": "2026-02-23T21:25:22.986Z",
   "mappings": {
     "factorial": {
       "range": [
-        0,
-        47
+        162,
+        289
       ],
       "summary": "Function: factorial",
       "explanation": "Function with 1 parameter(s), returns ℤ",
@@ -15,27 +15,36 @@
     },
     "factorial_arm_0": {
       "range": [
-        20,
-        23
+        185,
+        188
       ],
       "summary": "Match arm: 0",
       "explanation": "Pattern matches 0"
     },
     "factorial_arm_1": {
       "range": [
-        24,
-        27
+        215,
+        218
       ],
       "summary": "Match arm: 1",
       "explanation": "Pattern matches 1"
     },
     "factorial_arm_2": {
       "range": [
-        28,
-        46
+        245,
+        287
       ],
       "summary": "Match arm: n",
       "explanation": "Pattern matches n"
+    },
+    "main": {
+      "range": [
+        433,
+        471
+      ],
+      "summary": "Function: main",
+      "explanation": "Function with 0 parameter(s), returns ℤ",
+      "type": "λ()→ℤ"
     }
   },
   "metadata": {

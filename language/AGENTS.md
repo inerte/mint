@@ -453,6 +453,19 @@ node language/compiler/dist/cli.js run src/myprogram.mint
 node language/compiler/dist/cli.js compile src/myprogram.mint -o custom/path.ts
 ```
 
+## Docs Sync (Required When Syntax Changes)
+
+When changing Mint syntax (declarations, operators, imports/exports, comments, tests, effects), update docs/examples in the same change.
+
+Minimum files to review:
+- `language/docs/syntax-reference.md` (canonical syntax surface)
+- `language/README.md` (top-level examples)
+- `language/AGENTS.md` (quick reference snippets)
+- relevant focused docs (`language/docs/type-system.md`, `language/docs/TESTING.md`, `language/docs/FFI.md`, etc.)
+
+Rule:
+- All ` ```mint ` code fences must contain valid Mint syntax, including Mint comments `⟦ ... ⟧` (never `#` or `//` in Mint examples).
+
 ## Mint Language Quick Reference
 
 ### Standard Library

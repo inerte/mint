@@ -206,6 +206,9 @@ export class Lexer {
       case '⊕':
         this.addToken(TokenType.FOLD, '⊕', start);
         break;
+      case '⧺':
+        this.addToken(TokenType.LIST_APPEND, '⧺', start);
+        break;
 
       // Unicode keywords
       case 'λ':

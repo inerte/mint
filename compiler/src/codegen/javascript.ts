@@ -1,7 +1,7 @@
 /**
- * Mint to JavaScript Code Generator
+ * Mint to TypeScript Code Generator
  *
- * Compiles Mint AST to runnable JavaScript (ES2022).
+ * Compiles Mint AST to runnable TypeScript (ES2022-compatible output).
  */
 
 import * as AST from '../parser/ast.js';
@@ -95,24 +95,24 @@ export class JavaScriptGenerator {
   private generateImport(importDecl: AST.ImportDecl): void {
     const modulePath = importDecl.modulePath.join('/');
 
-    // Convert slash to underscore for JavaScript identifier
+    // Convert slash to underscore for generated TypeScript identifier
     // stdlib/list_utils → stdlib_list_utils
     const jsName = importDecl.modulePath.join('_');
 
     // Always use full module path
     // Import resolution is simplest with absolute paths from project root
-    // i stdlib/list_utils → import * as stdlib_list_utils from './stdlib/list_utils.js'
+    // i stdlib/list_utils → import * as stdlib_list_utils from './stdlib/list_utils'
 
     // Always use namespace import (import * as name)
     // Works exactly like FFI: i stdlib/list_utils → import * as stdlib_list_utils
     // Use as: stdlib/list_utils.len(xs) → stdlib_list_utils.len(xs)
-    this.emit(`import * as ${jsName} from './${modulePath}.js';`);
+    this.emit(`import * as ${jsName} from './${modulePath}';`);
   }
 
   private generateExtern(externDecl: AST.ExternDecl): void {
     const modulePath = externDecl.modulePath.join('/');
 
-    // Convert slash to underscore for JavaScript identifier
+    // Convert slash to underscore for generated TypeScript identifier
     // fs/promises → fs_promises, axios → axios
     const jsName = externDecl.modulePath.join('_');
 
@@ -202,7 +202,7 @@ export class JavaScriptGenerator {
     const left = this.generateExpression(binary.left);
     const right = this.generateExpression(binary.right);
 
-    // Map Mint operators to JavaScript
+    // Map Mint operators to TypeScript/JavaScript
     const opMap: Record<string, string> = {
       '∧': '&&',
       '∨': '||',
@@ -210,15 +210,15 @@ export class JavaScriptGenerator {
       '=': '===',
       '≤': '<=',
       '≥': '>=',
-      '++': '+', // String/array concatenation
+      '++': '+', // String concatenation
       '^': '**', // Exponentiation
     };
 
     const op = opMap[binary.operator] || binary.operator;
 
     // Handle special operators
-    if (binary.operator === '++') {
-      // Array concatenation or string concatenation
+    if (binary.operator === '⧺') {
+      // List concatenation
       return `${left}.concat(${right})`;
     }
 
@@ -430,7 +430,7 @@ export class JavaScriptGenerator {
   }
 
   private generateMemberAccess(access: AST.MemberAccessExpr): string {
-    // Convert namespace path to JavaScript identifier
+    // Convert namespace path to generated TypeScript identifier
     // fs/promises → fs_promises, axios → axios
     const jsNamespace = access.namespace.join('_');
 
@@ -496,7 +496,7 @@ export class JavaScriptGenerator {
 }
 
 /**
- * Compile a Mint program to JavaScript
+ * Compile a Mint program to TypeScript
  */
 export function compile(program: AST.Program, sourceFile?: string): string {
   const generator = new JavaScriptGenerator(sourceFile);

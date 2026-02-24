@@ -189,11 +189,11 @@ e console
 
 See `examples/effect-demo.mint` for complete examples.
 
-## JavaScript Interop (FFI)
+## External Module Interop (FFI)
 
 **Syntax:** `e module/path` (ONLY way)
 
-Mint can call JavaScript functions and import npm packages.
+Mint can call external modules (including TypeScript/JavaScript packages) and npm packages.
 
 **Examples:**
 ```mint
@@ -220,6 +220,12 @@ e axios
 - ONE canonical way
 
 See `docs/FFI.md` for full documentation.
+
+**React/Browser apps (recommended pattern):**
+- Put deterministic domain policy/logic in Mint (`.mint`)
+- Compile Mint to generated TypeScript (`.ts`)
+- Use a separate `bridge.ts` / `bridge.tsx` for React hooks, JSX, browser events, and localStorage
+- Keep the bridge lintable/prettifiable; keep Mint canonical
 
 ## Comments: Multi-line Only
 
@@ -259,7 +265,7 @@ See `docs/FFI.md` for full documentation.
 - Prevents logic errors (mutation of unintended values)
 - Prevents aliasing bugs (multiple mutable references)
 - Keeps syntax simple (just `mut` keyword)
-- Fits JS compilation target (no memory safety needed)
+- Fits the TypeScript compilation target (no memory safety needed)
 
 **Mutability Rules:**
 ```mint
@@ -278,7 +284,7 @@ e Array
 - Clear intent (mut = will be modified)
 - Minimal syntax (one keyword vs Rust's &, &mut, lifetimes)
 - Works with garbage collection
-- Practical for JavaScript target
+- Practical for TypeScript target
 
 ## Semantic Maps: Machine Code, Human Explanations
 
@@ -390,7 +396,7 @@ ai-pl/
 ├── examples/         # Example Mint programs (committed to git)
 ├── .local/           # ALL compiled output (gitignored)
 │   ├── src/          # Compiled from src/
-│   └── *.js          # Compiled from root
+│   └── *.ts          # Compiled from root
 └── compiler/         # The Mint compiler (TypeScript)
 ```
 
@@ -400,15 +406,15 @@ ai-pl/
 
 **For new programs the user asks you to create:**
 - Put in `src/` directory: `src/program-name.mint`
-- Compiler outputs to `.local/src/program-name.js`
+- Compiler outputs to `.local/src/program-name.ts`
 
 **For quick tests or experiments:**
 - Put in root directory: `program-name.mint`
-- Compiler outputs to `.local/program-name.js`
+- Compiler outputs to `.local/program-name.ts`
 
 **For examples/documentation:**
 - Put in `examples/` directory: `examples/program-name.mint`
-- Compiler outputs beside source: `examples/program-name.js`
+- Compiler outputs beside source: `examples/program-name.ts`
 
 ### 2. All Runnable Programs MUST Have main()
 
@@ -428,10 +434,10 @@ Or for programs that just do side effects:
 **Smart defaults (PREFERRED):**
 ```bash
 node compiler/dist/cli.js compile src/myprogram.mint
-# Automatically outputs to: build/myprogram.js
+# Automatically outputs to: build/myprogram.ts
 
 node compiler/dist/cli.js compile myprogram.mint
-# Automatically outputs to: .local/myprogram.js
+# Automatically outputs to: .local/myprogram.ts
 ```
 
 **Run directly:**
@@ -442,7 +448,7 @@ node compiler/dist/cli.js run src/myprogram.mint
 
 **Custom output (rarely needed):**
 ```bash
-node compiler/dist/cli.js compile src/myprogram.mint -o custom/path.js
+node compiler/dist/cli.js compile src/myprogram.mint -o custom/path.ts
 ```
 
 ## Mint Language Quick Reference
@@ -503,10 +509,10 @@ i stdlib/numeric_predicates
 
 See `docs/STDLIB.md` for complete reference.
 
-### JavaScript Interop (FFI)
+### External Module Interop (FFI)
 ```mint
-e module/path              # Import JavaScript module
-module/path.member(args)   # Call JavaScript function
+e module/path              # Import external module
+module/path.member(args)   # Call external module function
 
 # Examples:
 e console
@@ -582,8 +588,8 @@ Err("not found")                    # Error value
 }
 
 λprocessResult(res:Result)→𝕊≡res{
-  Ok(value)→"Success: "+value|
-  Err(msg)→"Error: "+msg
+  Ok(value)→"Success: "++value|
+  Err(msg)→"Error: "++msg
 }
 ```
 
@@ -600,6 +606,17 @@ See `examples/sum-types-demo.mint` for comprehensive examples.
 [value,.recursive()]  # Construction with spread
 ```
 
+**Empty list typing (`[]`)**
+- `[]` requires a known expected list type (contextual typing)
+- Works in checked positions (e.g., function returns, match arms) when the return type is already `[T]`
+- Rejected when no element type can be determined
+
+### Concatenation
+```mint
+"Hello, "++"Mint"      # String concatenation (only for strings)
+[1,2]⧺[3,4]            # List concatenation (only for lists)
+```
+
 ### Built-in List Operations (Language Constructs)
 ```mint
 list↦fn              # Map: ↦ (apply fn to each element)
@@ -610,7 +627,7 @@ list⊕fn⊕init         # Fold: ⊕ (reduce with fn starting from init)
 [1,2,3,4,5]↦λx→x*2⊳λx→x%2=0⊕λ(acc,x)→acc+x⊕0  # Result: 30
 ```
 
-**Note:** Map, filter, and fold are **language constructs**, not library functions. They compile directly to JavaScript's `.map()`, `.filter()`, and `.reduce()`.
+**Note:** Map, filter, and fold are **language constructs**, not library functions. They compile directly to TypeScript/JavaScript array methods (`.map()`, `.filter()`, `.reduce()`).
 
 ## Common Patterns
 
@@ -829,13 +846,13 @@ node compiler/dist/cli.js run src/myprogram.mint
 
 # Or compile and inspect
 node compiler/dist/cli.js compile src/myprogram.mint
-cat build/myprogram.js
+cat build/myprogram.ts
 ```
 
 ## Don't
 
-- ❌ Don't create .js files manually - let the compiler generate them
-- ❌ Don't put compiled .js files in git - they're in .gitignore
+- ❌ Don't create .ts output files manually - let the compiler generate them
+- ❌ Don't put compiled output files in git unless the example/docs specifically commit generated `.ts`
 - ❌ Don't create files in root without reason - use src/
 - ❌ Don't write programs without main() if they need to run
 - ❌ Don't use multiple ways to solve the same problem

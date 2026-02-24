@@ -1,0 +1,21 @@
+{
+  "name": "@mint-lang/example-todo-react",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "mint:compile": "node ../../compiler/dist/cli.js compile mint/todo-domain.mint -o src/generated/todo-domain.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^7.1.2",
+    "@vitejs/plugin-react": "^5.0.0"
+  }
+}

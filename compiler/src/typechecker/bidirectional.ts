@@ -92,12 +92,20 @@ function check(env: TypeEnvironment, expr: AST.Expr, expectedType: InferenceType
   }
 
   switch (expr.type) {
+    case 'MatchExpr':
+      checkMatch(env, expr, expectedType);
+      return;
+
     case 'LambdaExpr':
       checkLambda(env, expr, expectedType);
       return;
 
     case 'LiteralExpr':
       checkLiteral(expr, expectedType);
+      return;
+
+    case 'ListExpr':
+      checkList(env, expr, expectedType);
       return;
 
     // For most expressions: synthesize then verify equality
@@ -115,6 +123,34 @@ function check(env: TypeEnvironment, expr: AST.Expr, expectedType: InferenceType
           expr.location
         );
       }
+  }
+}
+
+function checkMatch(env: TypeEnvironment, expr: AST.MatchExpr, expectedType: InferenceType): void {
+  const scrutineeType = synthesize(env, expr.scrutinee);
+
+  for (const arm of expr.arms) {
+    const bindings = checkPatternAndGetBindings(env, arm.pattern, scrutineeType);
+    const armEnv = env.extend(bindings);
+    check(armEnv, arm.body, expectedType);
+  }
+}
+
+function checkList(env: TypeEnvironment, expr: AST.ListExpr, expectedType: InferenceType): void {
+  if (expectedType.kind !== 'list') {
+    throw new TypeError(
+      `Type mismatch: expected ${formatType(expectedType)}, got list`,
+      expr.location
+    );
+  }
+
+  // Contextual typing for [] in checked positions.
+  if (expr.elements.length === 0) {
+    return;
+  }
+
+  for (const elem of expr.elements) {
+    check(env, elem, expectedType.elementType);
   }
 }
 
@@ -289,6 +325,23 @@ function synthesizeBinary(env: TypeEnvironment, expr: AST.BinaryExpr): Inference
     check(env, expr.left, { kind: 'primitive', name: 'String' });
     check(env, expr.right, { kind: 'primitive', name: 'String' });
     return { kind: 'primitive', name: 'String' };
+  }
+
+  // List concatenation: [T] → [T] → [T]
+  if (op === '⧺') {
+    if (leftType.kind !== 'list' || rightType.kind !== 'list') {
+      throw new TypeError(
+        `List concatenation (⧺) requires list operands, got ${formatType(leftType)} and ${formatType(rightType)}`,
+        expr.location
+      );
+    }
+    if (!typesEqual(leftType.elementType, rightType.elementType)) {
+      throw new TypeError(
+        `Cannot concatenate lists of different element types: ${formatType(leftType)} and ${formatType(rightType)}`,
+        expr.location
+      );
+    }
+    return leftType;
   }
 
   throw new TypeError(`Unknown operator: ${op}`, expr.location);
@@ -557,10 +610,60 @@ function synthesizeFold(env: TypeEnvironment, expr: AST.FoldExpr): InferenceType
   return initType;
 }
 
+function astTypeToInferenceTypeResolved(env: TypeEnvironment, astType: AST.Type): InferenceType {
+  const base = astTypeToInferenceType(astType);
+  return resolveTypeAliases(env, base);
+}
+
+function resolveTypeAliases(env: TypeEnvironment, type: InferenceType): InferenceType {
+  if (type.kind === 'constructor' && type.typeArgs.length === 0) {
+    const typeInfo = env.lookupType(type.name);
+    if (typeInfo && typeInfo.typeParams.length === 0) {
+      if (typeInfo.definition.type === 'ProductType') {
+        const fields = new Map<string, InferenceType>();
+        for (const field of typeInfo.definition.fields) {
+          fields.set(field.name, astTypeToInferenceTypeResolved(env, field.fieldType));
+        }
+        return { kind: 'record', fields, name: type.name };
+      }
+      if (typeInfo.definition.type === 'TypeAlias') {
+        return astTypeToInferenceTypeResolved(env, typeInfo.definition.aliasedType);
+      }
+    }
+  }
+
+  if (type.kind === 'list') {
+    return { kind: 'list', elementType: resolveTypeAliases(env, type.elementType) };
+  }
+
+  if (type.kind === 'tuple') {
+    return { kind: 'tuple', types: type.types.map(t => resolveTypeAliases(env, t)) };
+  }
+
+  if (type.kind === 'function') {
+    return {
+      kind: 'function',
+      params: type.params.map(p => resolveTypeAliases(env, p)),
+      returnType: resolveTypeAliases(env, type.returnType),
+      effects: type.effects
+    };
+  }
+
+  if (type.kind === 'record') {
+    const fields = new Map<string, InferenceType>();
+    for (const [name, fieldType] of type.fields) {
+      fields.set(name, resolveTypeAliases(env, fieldType));
+    }
+    return { kind: 'record', fields, name: type.name };
+  }
+
+  return type;
+}
+
 function synthesizeLambda(env: TypeEnvironment, expr: AST.LambdaExpr): InferenceType {
   // Lambda has mandatory type annotations (enforced by parser)
-  const paramTypes = expr.params.map(p => astTypeToInferenceType(p.typeAnnotation!));
-  const returnType = astTypeToInferenceType(expr.returnType);
+  const paramTypes = expr.params.map(p => astTypeToInferenceTypeResolved(env, p.typeAnnotation!));
+  const returnType = astTypeToInferenceTypeResolved(env, expr.returnType);
   const effects = new Set(expr.effects as Array<'IO' | 'Network' | 'Async' | 'Error' | 'Mut'>);
 
   // Check body against declared return type
@@ -639,8 +742,8 @@ function checkLambda(env: TypeEnvironment, expr: AST.LambdaExpr, expectedType: I
   }
 
   // Lambda must have type annotations (enforced by parser)
-  const paramTypes = expr.params.map(p => astTypeToInferenceType(p.typeAnnotation!));
-  const returnType = astTypeToInferenceType(expr.returnType);
+  const paramTypes = expr.params.map(p => astTypeToInferenceTypeResolved(env, p.typeAnnotation!));
+  const returnType = astTypeToInferenceTypeResolved(env, expr.returnType);
 
   // Verify annotations match expected type
   if (paramTypes.length !== expectedType.params.length) {
@@ -908,8 +1011,8 @@ export function typeCheck(program: AST.Program, _source: string): Map<string, In
         }
       }
     } else if (decl.type === 'FunctionDecl') {
-      const params = decl.params.map(p => astTypeToInferenceType(p.typeAnnotation!));
-      const returnType = astTypeToInferenceType(decl.returnType!);
+      const params = decl.params.map(p => astTypeToInferenceTypeResolved(env, p.typeAnnotation!));
+      const returnType = astTypeToInferenceTypeResolved(env, decl.returnType!);
       const effects = new Set(decl.effects as Array<'IO' | 'Network' | 'Async' | 'Error' | 'Mut'>);
       const funcType: InferenceType = {
         kind: 'function',
@@ -1112,8 +1215,8 @@ function checkEffects(
 
 function checkFunctionDecl(env: TypeEnvironment, decl: AST.FunctionDecl): void {
   // All type annotations are mandatory (enforced by parser)
-  const paramTypes = decl.params.map(p => astTypeToInferenceType(p.typeAnnotation!));
-  const returnType = astTypeToInferenceType(decl.returnType!);
+  const paramTypes = decl.params.map(p => astTypeToInferenceTypeResolved(env, p.typeAnnotation!));
+  const returnType = astTypeToInferenceTypeResolved(env, decl.returnType!);
 
   // Add parameters to environment
   const bodyEnv = env.extend(
@@ -1131,7 +1234,7 @@ function checkFunctionDecl(env: TypeEnvironment, decl: AST.FunctionDecl): void {
 
 function checkConstDecl(env: TypeEnvironment, decl: AST.ConstDecl, types: Map<string, InferenceType>): void {
   // Type annotation is mandatory (enforced by parser)
-  const annotatedType = astTypeToInferenceType(decl.typeAnnotation!);
+  const annotatedType = astTypeToInferenceTypeResolved(env, decl.typeAnnotation!);
 
   // Synthesize value type
   const valueType = synthesize(env, decl.value);

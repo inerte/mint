@@ -61,6 +61,7 @@ export enum TokenType {
   COMPOSE_BWD = 'COMPOSE_BWD', // <<
 
   APPEND = 'APPEND',           // ++
+  LIST_APPEND = 'LIST_APPEND', // ⧺
 
   // List operations (built-in language constructs)
   MAP = 'MAP',                 // ↦

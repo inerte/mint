@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "file": "todo-domain.mint",
+  "generated_by": "mintc@0.1.0",
+  "generated_at": "2026-02-24T00:47:14.733Z",
+  "mappings": {
+    "Todo": {
+      "range": [
+        0,
+        27
+      ],
+      "summary": "Type definition: Todo",
+      "explanation": "Type Todo"
+    },
+    "canAdd": {
+      "range": [
+        29,
+        54
+      ],
+      "summary": "Function: canAdd",
+      "explanation": "Function with 1 parameter(s), returns 𝔹",
+      "type": "λ(𝕊)→𝔹"
+    },
+    "addTodo": {
+      "range": [
+        56,
+        134
+      ],
+      "summary": "Function: addTodo",
+      "explanation": "Function with 3 parameter(s), returns [Todo]",
+      "type": "λ([Todo],ℤ,𝕊)→[Todo]"
+    },
+    "deleteTodo": {
+      "range": [
+        136,
+        217
+      ],
+      "summary": "Function: deleteTodo",
+      "explanation": "Function with 2 parameter(s), returns [Todo]",
+      "type": "λ([Todo],ℤ)→[Todo]"
+    },
+    "clearCompleted": {
+      "range": [
+        219,
+        287
+      ],
+      "summary": "Function: clearCompleted",
+      "explanation": "Function with 1 parameter(s), returns [Todo]",
+      "type": "λ([Todo])→[Todo]"
+    },
+    "toggleTodo": {
+      "range": [
+        289,
+        438
+      ],
+      "summary": "Function: toggleTodo",
+      "explanation": "Function with 2 parameter(s), returns [Todo]",
+      "type": "λ([Todo],ℤ)→[Todo]"
+    },
+    "editTodo": {
+      "range": [
+        440,
+        594
+      ],
+      "summary": "Function: editTodo",
+      "explanation": "Function with 3 parameter(s), returns [Todo]",
+      "type": "λ([Todo],ℤ,𝕊)→[Todo]"
+    },
+    "isVisible": {
+      "range": [
+        596,
+        690
+      ],
+      "summary": "Function: isVisible",
+      "explanation": "Function with 2 parameter(s), returns 𝔹",
+      "type": "λ(𝕊,𝔹)→𝔹"
+    },
+    "isVisible_arm_0": {
+      "range": [
+        636,
+        643
+      ],
+      "summary": "Match arm: all",
+      "explanation": "Pattern matches all"
+    },
+    "isVisible_arm_1": {
+      "range": [
+        647,
+        661
+      ],
+      "summary": "Match arm: active",
+      "explanation": "Pattern matches active"
+    },
+    "isVisible_arm_2": {
+      "range": [
+        665,
+        681
+      ],
+      "summary": "Match arm: completed",
+      "explanation": "Pattern matches completed"
+    },
+    "isVisible_arm_3": {
+      "range": [
+        685,
+        688
+      ],
+      "summary": "Match arm: _",
+      "explanation": "Pattern matches _"
+    },
+    "completedCount": {
+      "range": [
+        692,
+        786
+      ],
+      "summary": "Function: completedCount",
+      "explanation": "Function with 1 parameter(s), returns ℤ",
+      "type": "λ([Todo])→ℤ"
+    },
+    "remainingCount": {
+      "range": [
+        788,
+        842
+      ],
+      "summary": "Function: remainingCount",
+      "explanation": "Function with 2 parameter(s), returns ℤ",
+      "type": "λ(ℤ,ℤ)→ℤ"
+    }
+  },
+  "metadata": {
+    "category": "unknown",
+    "tested": false
+  }
+}

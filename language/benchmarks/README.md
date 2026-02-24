@@ -1,12 +1,12 @@
-# Mint Language Benchmarks
+# Sigil Language Benchmarks
 
-This directory contains benchmarks comparing Mint to other programming languages.
+This directory contains benchmarks comparing Sigil to other programming languages.
 
 ## Goal
 
-**Measure Mint's token efficiency for LLM training.**
+**Measure Sigil's token efficiency for LLM training.**
 
-Mint is designed to be machine-first with canonical forms. The primary metric is **LLM token count** (using OpenAI's tiktoken/GPT-4 tokenizer), which directly impacts:
+Sigil is designed to be machine-first with canonical forms. The primary metric is **LLM token count** (using OpenAI's tiktoken/GPT-4 tokenizer), which directly impacts:
 
 1. **Training dataset size** - Fewer tokens = more code fits in training data
 2. **Training cost** - Fewer tokens = cheaper to train
@@ -23,11 +23,11 @@ We use **tiktoken** (OpenAI's tokenizer) with the GPT-4 encoding (`cl100k_base`)
 - Industry standard for LLM token counting
 - Same tokenizer used for GPT-3.5/GPT-4 training
 - Reflects real-world LLM training costs
-- Handles Unicode correctly (important for Mint's symbols)
+- Handles Unicode correctly (important for Sigil's symbols)
 
 ### Comparison Languages
 
-- **Mint** - Our canonical form language
+- **Sigil** - Our canonical form language
 - **TypeScript** - Baseline (popular typed language)
 - **Python** - Common in ML/AI
 - **Rust** - Modern systems language
@@ -71,7 +71,7 @@ npm install tiktoken
 node benchmarks/tools/compare.ts benchmarks/algorithms/factorial
 
 # Output:
-# | Metric | Mint | Python | TypeScript |
+# | Metric | Sigil | Python | TypeScript |
 # |--------|------|--------|------------|
 # | LLM Tokens | 45 | 68 | 72 |
 # | Characters | 89 | 145 | 178 |
@@ -80,7 +80,7 @@ node benchmarks/tools/compare.ts benchmarks/algorithms/factorial
 
 ### Expected Results
 
-**Hypothesis:** Mint should have **20-40% fewer tokens** than TypeScript/Python due to:
+**Hypothesis:** Sigil should have **20-40% fewer tokens** than TypeScript/Python due to:
 
 1. **Dense Unicode operators** - `→` vs `function`, `≡` vs `switch/match`
 2. **Canonical forms** - ONE way to write each construct
@@ -89,14 +89,14 @@ node benchmarks/tools/compare.ts benchmarks/algorithms/factorial
 
 **Example (factorial):**
 ```
-Mint:       λfactorial(n:ℤ)→ℤ≡n{0→1|1→1|n→n*factorial(n-1)}
+Sigil:       λfactorial(n:ℤ)→ℤ≡n{0→1|1→1|n→n*factorial(n-1)}
 TypeScript: function factorial(n: number): number {
               if (n === 0 || n === 1) return 1;
               return n * factorial(n - 1);
             }
 ```
 
-Mint tokens: ~45
+Sigil tokens: ~45
 TypeScript tokens: ~72
 **Efficiency: 1.6x** (60% more compact)
 
@@ -104,7 +104,7 @@ TypeScript tokens: ~72
 
 ### Efficiency Ratio
 
-`Efficiency = Baseline Tokens / Mint Tokens`
+`Efficiency = Baseline Tokens / Sigil Tokens`
 
 - **1.0** - Same as baseline (TypeScript)
 - **1.5** - 50% more compact than baseline
@@ -112,7 +112,7 @@ TypeScript tokens: ~72
 
 ### Training Impact
 
-If Mint achieves **1.5x efficiency**:
+If Sigil achieves **1.5x efficiency**:
 - 50% more Sigil code fits in training data
 - 50% lower training costs for equivalent dataset size
 - 50% more context fits in LLM windows
@@ -121,7 +121,7 @@ If Mint achieves **1.5x efficiency**:
 
 Training on 1 billion lines of code:
 - TypeScript: ~50 billion tokens
-- Mint (1.5x): ~33 billion tokens
+- Sigil (1.5x): ~33 billion tokens
 - **Savings: 17 billion tokens** = massive cost reduction!
 
 ## Contributing
@@ -144,4 +144,4 @@ To add a new algorithm:
 
 - [tiktoken](https://github.com/openai/tiktoken) - OpenAI's tokenizer
 - [GPT-4 tokenizer](https://platform.openai.com/tokenizer) - Online token counter
-- Mint documentation: `/docs/philosophy.md`
+- Sigil documentation: `/docs/philosophy.md`

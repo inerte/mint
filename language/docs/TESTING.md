@@ -1,4 +1,4 @@
-# Mint Testing (First-Class)
+# Sigil Testing (First-Class)
 
 Sigil tests are language declarations, not a separate framework.
 
@@ -11,7 +11,7 @@ Sigil tests are language declarations, not a separate framework.
 
 ## Testing real modules (`src/...`)
 
-Use canonical Mint imports and explicit exports in the source module:
+Use canonical Sigil imports and explicit exports in the source module:
 
 ```sigil
 ⟦ src/math.sigil ⟧
@@ -54,10 +54,10 @@ Mocks are explicit, lexical, and automatically restored.
 
 - Allowed targets:
   - `extern` members (e.g. `axios.get`)
-  - Mint functions marked `mockable`
+  - Sigil functions marked `mockable`
 - Not allowed:
   - pure functions
-  - non-`mockable` Mint functions
+  - non-`mockable` Sigil functions
 
 ### `mockable` adapter function
 

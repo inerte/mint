@@ -1,12 +1,12 @@
-# Mint Type System: Bidirectional Type Checking
+# Sigil Type System: Bidirectional Type Checking
 
 ## Overview
 
-Mint uses **bidirectional type checking** instead of traditional Hindley-Milner type inference.
+Sigil uses **bidirectional type checking** instead of traditional Hindley-Milner type inference.
 
 ### Why Bidirectional?
 
-Mint's philosophy is **"ONE way to write it"**. Type annotations must be:
+Sigil's philosophy is **"ONE way to write it"**. Type annotations must be:
 - **Mandatory** on all function signatures
 - **Explicit** (no optional syntax)
 - **Canonical** (exactly one valid representation)
@@ -197,7 +197,7 @@ All these are **easier** to add with bidirectional typing than with Hindley-Miln
 | **Code size** | ~1,468 lines (inference + unification + patterns) | ~829 lines |
 | **Extensibility** | Hard to extend | Natural framework |
 | **Performance** | Good for inference | Excellent for checking |
-| **Fit for Mint** | Designed for different use case | Perfect fit |
+| **Fit for Sigil** | Designed for different use case | Perfect fit |
 
 ## Pattern Matching Type Checking
 
@@ -252,7 +252,7 @@ Type rules:
 
 ## Sum Types (Algebraic Data Types)
 
-Mint supports sum types (also called tagged unions or algebraic data types) for type-safe value representation.
+Sigil supports sum types (also called tagged unions or algebraic data types) for type-safe value representation.
 
 ### Syntax
 
@@ -421,7 +421,7 @@ See `examples/sum-types-demo.sigil` for comprehensive examples including:
 
 ## Concatenation Operators
 
-Mint uses distinct operators for distinct concatenation semantics:
+Sigil uses distinct operators for distinct concatenation semantics:
 
 - `++` for string concatenation (`𝕊 × 𝕊 → 𝕊`)
 - `⧺` for list concatenation (`[T] × [T] → [T]`)
@@ -491,12 +491,12 @@ The empty list literal `[]` does not synthesize an element type by itself.
 
 ## Summary
 
-Bidirectional type checking is the right choice for Mint because:
+Bidirectional type checking is the right choice for Sigil because:
 
 1. **Mandatory annotations** are a core principle → use a system designed for them
 2. **Simpler implementation** → less code, fewer bugs, easier to maintain
 3. **Better errors** → help developers understand and fix issues quickly
 4. **More extensible** → natural framework for future features
-5. **Perfect fit** → aligns with Mint's canonical form philosophy
+5. **Perfect fit** → aligns with Sigil's canonical form philosophy
 
 Like the canonical form refinement (blocking accumulators while allowing structural parameters), this is a case of **using the right tool for the job**.

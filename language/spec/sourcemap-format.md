@@ -1,4 +1,4 @@
-# Mint Semantic Source Map Format Specification
+# Sigil Semantic Source Map Format Specification
 
 Version: 1.0.0
 Last Updated: 2026-02-21
@@ -14,7 +14,7 @@ Traditional:     Source Code ────────────→ Minified Co
                 (human readable)        (machine optimized)
                         ↕ source map
 
-Mint:           Dense Code ──────────────→ Semantic Map
+Sigil:           Dense Code ──────────────→ Semantic Map
                 (machine optimized)      (human explanation)
 ```
 
@@ -258,7 +258,7 @@ t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
     "Option": {
       "range": [0, 27],
       "summary": "Represents an optional value that may or may not exist",
-      "explanation": "Option[T] is a sum type with two variants:\n- Some(T): Contains a value of type T\n- None: Represents absence of a value\n\nThis is Mint's safe alternative to null/undefined. All optional values must be explicitly handled.",
+      "explanation": "Option[T] is a sum type with two variants:\n- Some(T): Contains a value of type T\n- None: Represents absence of a value\n\nThis is Sigil's safe alternative to null/undefined. All optional values must be explicitly handled.",
       "examples": [
         "Some(5) : Option[ℤ]",
         "None : Option[𝕊]",
@@ -273,7 +273,7 @@ t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
     "Result": {
       "range": [28, 55],
       "summary": "Represents a computation that may succeed or fail",
-      "explanation": "Result[T,E] is a sum type for error handling:\n- Ok(T): Successful result containing value of type T\n- Err(E): Error case containing error of type E\n\nMint uses Result instead of exceptions for explicit error handling.",
+      "explanation": "Result[T,E] is a sum type for error handling:\n- Ok(T): Successful result containing value of type T\n- Err(E): Error case containing error of type E\n\nSigil uses Result instead of exceptions for explicit error handling.",
       "examples": [
         "Ok(42) : Result[ℤ,𝕊]",
         "Err(\"Division by zero\") : Result[ℤ,𝕊]",
@@ -523,7 +523,7 @@ Potential additions:
 
 - [JavaScript Source Maps](https://sourcemaps.info/spec.html) - Inspiration for this format
 - [LSP Specification](https://microsoft.github.io/language-server-protocol/) - IDE integration
-- [Mint Grammar](grammar.ebnf) - Language syntax
+- [Sigil Grammar](grammar.ebnf) - Language syntax
 
 ---
 

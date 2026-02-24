@@ -4,4 +4,4 @@ e console
 
 λgreet(name:𝕊)→𝕌=console.log("Hello, " ++ name ++ "!")
 
-λmain()→𝕌=greet("Mint")
+λmain()→𝕌=greet("Sigil")

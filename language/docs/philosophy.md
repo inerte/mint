@@ -1,12 +1,12 @@
-# Mint Language Philosophy
+# Sigil Language Philosophy
 
 ## The Machine-First Revolution
 
-### Why Mint Exists
+### Why Sigil Exists
 
 In 2026, **93% of code is AI-generated**. Yet our programming languages are still optimized for human authoring from the 1960s-2000s era. This is backwards.
 
-**Mint** inverts this priority: it's a language designed for machines (LLMs) to write, with AI-powered tools for humans to understand.
+**Sigil** inverts this priority: it's a language designed for machines (LLMs) to write, with AI-powered tools for humans to understand.
 
 ### The Core Insight
 
@@ -17,7 +17,7 @@ Human writes code → Machine executes
 Optimize for human writing (verbose keywords, flexible syntax, readability)
 ```
 
-Mint's design:
+Sigil's design:
 ```
 AI writes code → Machine executes
        ↓             ↑
@@ -49,7 +49,7 @@ const add = (a, b) => a + b;
 const add = new Function('a', 'b', 'return a + b');
 ```
 
-**Mint - ONE way:**
+**Sigil - ONE way:**
 ```sigil
 λadd(a:ℤ,b:ℤ)→ℤ=a+b
 ```
@@ -60,7 +60,7 @@ Multi-parameter recursion is allowed if parameters are **algorithmically structu
 
 **The Distinction:**
 - **Traditional FP**: Tail-call optimization via accumulators (imperative encoding)
-- **Mint**: Primitive recursion with multiple algorithmic inputs (pure structural)
+- **Sigil**: Primitive recursion with multiple algorithmic inputs (pure structural)
 
 **Examples:**
 
@@ -81,7 +81,7 @@ The real problem isn't multiple parameters - it's **accumulator-passing style**,
 
 Legitimate multi-parameter algorithms like GCD, binary search, and nth element have NO ambiguity - there's still only ONE way to write them in Sigil. They're not accumulator patterns; they're genuinely multi-input algorithms.
 
-This makes Mint **more principled** (precise distinction) while **more practical** (enables O(log n) algorithms) - a rare win-win.
+This makes Sigil **more principled** (precise distinction) while **more practical** (enables O(log n) algorithms) - a rare win-win.
 
 ### 2. Token Efficiency
 
@@ -154,7 +154,7 @@ This is the **killer feature** - semantic source maps.
 Code is human-readable → Minified for performance → Source maps for debugging
 ```
 
-**Mint approach:**
+**Sigil approach:**
 ```
 Code is machine-optimal → Semantic maps for humans → AI explanations on demand
 ```
@@ -187,8 +187,8 @@ Git: Commits both .sigil and .sigil.map
 - Machine code (we write C/Rust, compiler optimizes)
 - SQL execution plans (we write queries, optimizer decides)
 
-**Similarly - nobody writes Mint directly:**
-- AI writes Mint (machine-optimal)
+**Similarly - nobody writes Sigil directly:**
+- AI writes Sigil (machine-optimal)
 - Humans review via semantic maps (AI-generated explanations)
 - Everyone benefits: compact code, perfect understanding
 
@@ -201,7 +201,7 @@ Git: Commits both .sigil and .sigil.map
 **Rust:** Close! But designed for human experts (steep learning curve, syntax complexity)
 **Haskell:** Also close! But academic (type classes, monads, complex syntax)
 
-**Mint learns from all of these but optimizes differently.**
+**Sigil learns from all of these but optimizes differently.**
 
 ### Why Unicode Symbols?
 
@@ -256,7 +256,7 @@ Production tooling:
 - Package manager (sigilpm)
 - MCP server for documentation
 
-**Success metric:** Developers prefer AI-mediated Mint coding for new projects
+**Success metric:** Developers prefer AI-mediated Sigil coding for new projects
 
 ### Long Term (2028+)
 
@@ -277,21 +277,21 @@ For 50 years we optimized for humans to read code directly. Result: verbose lang
 
 **New paradigm:** Code optimized for execution. AI explains it to humans.
 
-This does **not** eliminate the need for human-facing references. Mint still needs a canonical syntax reference for:
+This does **not** eliminate the need for human-facing references. Sigil still needs a canonical syntax reference for:
 - debugging and review when AI output looks wrong
 - compiler/LSP/tooling contributors
 - grounding prompts and examples against the current language surface
 
 The key difference is that syntax docs are a **reference for verification and tooling**, not a primary hand-authoring workflow.
 
-Like assembly vs C vs Python - each level optimizes for different audience. Mint optimizes for AI.
+Like assembly vs C vs Python - each level optimizes for different audience. Sigil optimizes for AI.
 
 ### Types Should Be Mandatory and Explicit
 
 Dynamic typing: fast prototyping, runtime errors
 Explicit static typing: safe but verbose
 
-**Mint:** Bidirectional type checking with mandatory annotations - explicit, canonical, and machine-checkable.
+**Sigil:** Bidirectional type checking with mandatory annotations - explicit, canonical, and machine-checkable.
 
 ### One Right Way > Flexibility
 
@@ -301,7 +301,7 @@ Python's "multiple ways to do it" causes:
 - Code review bikeshedding
 - LLM uncertainty
 
-**Mint:** ONE way. Enforced by parser. No debates.
+**Sigil:** ONE way. Enforced by parser. No debates.
 
 ### AI Will Write Most Code Anyway
 
@@ -330,14 +330,14 @@ Why optimize for the 1%? Design for the majority use case.
 **Q: Why would anyone use this?**
 A: When 40% more code fits in context, LLMs generate better results. When types catch 80% of bugs, you ship faster. When AI explains everything, you understand faster.
 
-**Q: Can humans write Mint?**
+**Q: Can humans write Sigil?**
 A: Yes, like humans CAN write minified JavaScript. But why? Use AI.
 
 **Q: What if AI writes bad code?**
 A: Types catch most errors. Semantic maps explain what code does. Humans review and approve. Net result: fewer bugs than hand-written code.
 
 **Q: Is this just code golf?**
-A: No. Code golf sacrifices readability for brevity. Mint sacrifices DIRECT readability for brevity, but provides BETTER understanding via semantic maps.
+A: No. Code golf sacrifices readability for brevity. Sigil sacrifices DIRECT readability for brevity, but provides BETTER understanding via semantic maps.
 
 **Q: What about debugging?**
 A: Source maps! Dense code maps to semantic explanations. Debugger shows both. Like debugging minified JS with source maps.
@@ -347,6 +347,6 @@ A: No. It shifts work from writing syntax to describing intent, reviewing semant
 
 ---
 
-**Mint** - Fresh code for AI 🌿
+**Sigil** - Fresh code for AI 🌿
 
 *The first language designed for 99% AI generation, 100% human understanding*

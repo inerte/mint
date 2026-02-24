@@ -10,7 +10,7 @@
         42
       ],
       "summary": "Computes the greatest common divisor using Euclidean algorithm",
-      "explanation": "Implements the Euclidean algorithm for computing GCD recursively. The algorithm works by repeatedly replacing the larger number with the remainder of dividing the larger by the smaller.\n\nBase case: When b = 0, the GCD is a (since any number divides 0).\nRecursive case: When b ≠ 0, swap the numbers and take the modulo: gcd(b, a % b).\n\nThis is an example of **structural multi-parameter recursion** allowed in Mint: both parameters transform algorithmically (b becomes a, a%b becomes new b), rather than accumulating state.",
+      "explanation": "Implements the Euclidean algorithm for computing GCD recursively. The algorithm works by repeatedly replacing the larger number with the remainder of dividing the larger by the smaller.\n\nBase case: When b = 0, the GCD is a (since any number divides 0).\nRecursive case: When b ≠ 0, swap the numbers and take the modulo: gcd(b, a % b).\n\nThis is an example of **structural multi-parameter recursion** allowed in Sigil: both parameters transform algorithmically (b becomes a, a%b becomes new b), rather than accumulating state.",
       "type": "λ(ℤ,ℤ)→ℤ",
       "complexity": "O(log min(a,b)) time, O(log min(a,b)) space",
       "warnings": [

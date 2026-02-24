@@ -1,8 +1,8 @@
-# Mint Standard Library
+# Sigil Standard Library
 
 ## Overview
 
-The Mint standard library provides core utility functions and predicates for common programming tasks. All functions follow canonical form principles - exactly ONE way to solve each problem.
+The Sigil standard library provides core utility functions and predicates for common programming tasks. All functions follow canonical form principles - exactly ONE way to solve each problem.
 
 ## Current Status
 
@@ -37,7 +37,7 @@ i stdlib/list_utils
 
 ## Module Exports
 
-Mint modules use explicit exports. Standard library modules export the functions/types they expose via:
+Sigil modules use explicit exports. Standard library modules export the functions/types they expose via:
 
 ```sigil
 export λ...

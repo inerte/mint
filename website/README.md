@@ -1,4 +1,4 @@
-# Mint Website
+# Sigil Website
 
 This folder is reserved for the Sigil website (GitHub Pages target).
 

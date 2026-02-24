@@ -1,5 +1,5 @@
 ⟦ Factorial Function with Comments
-   This demonstrates how to use multi-line comments in Mint.
+   This demonstrates how to use multi-line comments in Sigil.
    Comments use white square brackets and can appear anywhere. ⟧
 
 λfactorial(n:ℤ)→ℤ≡n{

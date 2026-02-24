@@ -1,6 +1,6 @@
 # Canonical Form Enforcement
 
-Mint enforces "ONE way to do things" at the **compiler level**, not just through documentation.
+Sigil enforces "ONE way to do things" at the **compiler level**, not just through documentation.
 
 ## The Problem
 
@@ -12,7 +12,7 @@ Traditional languages allow multiple ways to write the same algorithm. For examp
 
 This creates ambiguity for LLMs, leading to inconsistent code generation.
 
-## Mint's Solution
+## Sigil's Solution
 
 **Make alternative patterns syntactically impossible.**
 
@@ -20,7 +20,7 @@ This creates ambiguity for LLMs, leading to inconsistent code generation.
 
 **Enforced by:** Compiler uses static analysis to classify each parameter's role in recursion.
 
-Mint allows multi-parameter recursion, but **parameters cannot be accumulators**.
+Sigil allows multi-parameter recursion, but **parameters cannot be accumulators**.
 
 #### Parameter Classification
 
@@ -95,7 +95,7 @@ Parameter roles:
   - acc: ACCUMULATOR (grows)
 
 The parameter(s) [acc] are accumulators (grow during recursion).
-Mint does NOT support tail-call optimization or accumulator-passing style.
+Sigil does NOT support tail-call optimization or accumulator-passing style.
 
 Accumulator pattern (FORBIDDEN):
   λfactorial(n:ℤ,acc:ℤ)→ℤ≡n{0→acc|n→factorial(n-1,n*acc)}
@@ -176,7 +176,7 @@ Source → Tokenize → Parse → Validate Canonical Form → Type Check → Cod
 - Human: *manually fixes*
 - Result: Inconsistent codebase
 
-### Mint Approach
+### Sigil Approach
 - Compiler: **REJECTS** alternative patterns
 - LLM: Gets compile error immediately
 - LLM: Generates canonical form
@@ -218,7 +218,7 @@ This is the key to machine-first programming languages. Instead of relying on:
 
 We make the language **fundamentally incapable** of expressing alternatives.
 
-Like how JavaScript can't express goto, or how Rust can't express null pointer dereference, Mint can't express multiple ways to solve the same problem.
+Like how JavaScript can't express goto, or how Rust can't express null pointer dereference, Sigil can't express multiple ways to solve the same problem.
 
 ## Future Extensions
 

@@ -256,7 +256,7 @@ Refined canonical form enforcement now enables:
 
 ### Summary
 
-The refinement makes Mint:
+The refinement makes Sigil:
 - **More principled**: Precise distinction between accumulator vs algorithmic parameters
 - **More practical**: O(log n) algorithms now possible
 - **Still canonical**: There's still exactly ONE way to write each algorithm

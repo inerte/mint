@@ -1,11 +1,11 @@
-# Mint Standard Library Specification
+# Sigil Standard Library Specification
 
 Version: 1.0.0
 Last Updated: 2026-02-21
 
 ## Overview
 
-The Mint standard library provides essential types and functions that are automatically available in every Mint program. The design philosophy emphasizes:
+The Sigil standard library provides essential types and functions that are automatically available in every Sigil program. The design philosophy emphasizes:
 
 1. **Minimal but complete** - Only include truly universal functionality
 2. **Functional-first** - Pure functions, immutability by default
@@ -15,13 +15,13 @@ The Mint standard library provides essential types and functions that are automa
 
 ## Automatic Imports
 
-The prelude is automatically imported into every Mint module. No explicit import needed.
+The prelude is automatically imported into every Sigil module. No explicit import needed.
 
 ## Core Types
 
 ### Option[T]
 
-Represents an optional value - Mint's null-safe alternative.
+Represents an optional value - Sigil's null-safe alternative.
 
 ```sigil
 t Option[T]=Some(T)|None
@@ -43,7 +43,7 @@ t Option[T]=Some(T)|None
 
 ### Result[T,E]
 
-Represents a computation that may fail - Mint's exception-free error handling.
+Represents a computation that may fail - Sigil's exception-free error handling.
 
 ```sigil
 t Result[T,E]=Ok(T)|Err(E)

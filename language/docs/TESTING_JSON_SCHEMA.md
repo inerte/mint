@@ -131,7 +131,7 @@ Field meanings:
 
 ### `assertion` Object (comparison tests)
 
-When a test body is a top-level comparison (e.g. `a=b`, `x<y`, `a≠b`), Mint emits assertion metadata so agents can localize the failing operands faster.
+When a test body is a top-level comparison (e.g. `a=b`, `x<y`, `a≠b`), Sigil emits assertion metadata so agents can localize the failing operands faster.
 
 ## `failure` Object
 

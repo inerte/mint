@@ -1,4 +1,4 @@
-# Mint Testing Framework Specification
+# Sigil Testing Framework Specification
 ## Test-Driven AI Development (TDAI)
 
 Version: 1.0.0
@@ -6,7 +6,7 @@ Last Updated: 2026-02-21
 
 ## Overview
 
-Mint introduces **Test-Driven AI Development (TDAI)** - a paradigm shift where:
+Sigil introduces **Test-Driven AI Development (TDAI)** - a paradigm shift where:
 1. **Humans describe intent** in natural language
 2. **AI generates comprehensive tests** from that intent
 3. **Humans review test explanations** (via semantic maps)
@@ -22,7 +22,7 @@ Mint introduces **Test-Driven AI Development (TDAI)** - a paradigm shift where:
 Human writes test (hard) → Human writes code (hard) → 2× human effort
 ```
 
-**Mint TDAI:**
+**Sigil TDAI:**
 ```
 Human writes intent (easy) → AI writes tests (fast) → Human reviews (easy)
 → AI writes code (fast) → Tests validate (automatic) → Human reviews results (easy)
@@ -561,7 +561,7 @@ src/fibonacci.sigil:
 - Human writes code (hard)
 - **2× human effort**
 
-### Mint TDAI
+### Sigil TDAI
 - Human writes intent (easy)
 - AI writes tests (fast, comprehensive)
 - Human reviews tests (easy - semantic maps explain)

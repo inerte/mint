@@ -6,24 +6,24 @@
 
 > **"Code optimized for machines to write, AI to explain, and humans to guide."**
 
-## What is Mint?
+## What is Sigil?
 
-**Mint** is a revolutionary programming language that inverts traditional programming language design priorities:
+**Sigil** is a revolutionary programming language that inverts traditional programming language design priorities:
 
 - **Traditional Languages**: Optimize for humans writing → machines execute
-- **Mint**: Optimize for machines (LLMs) writing → humans understand via AI interpretation
+- **Sigil**: Optimize for machines (LLMs) writing → humans understand via AI interpretation
 
 ### The Core Innovation
 
-Mint introduces **semantic source maps** (.sigil.map) - like TypeScript/JavaScript source maps, but for human understanding:
+Sigil introduces **semantic source maps** (.sigil.map) - like TypeScript/JavaScript source maps, but for human understanding:
 
 ```
-Mint Code (.sigil)     ← What runs (optimized for LLMs/execution)
+Sigil Code (.sigil)     ← What runs (optimized for LLMs/execution)
       ↕ (mapped by)
 Semantic Map (.map)   ← What humans read (optimized for understanding)
 ```
 
-**humans rarely write Mint directly.** Instead, they use AI to generate and modify code while reviewing semantic explanations.
+**humans rarely write Sigil directly.** Instead, they use AI to generate and modify code while reviewing semantic explanations.
 
 ## Quick Example
 
@@ -46,7 +46,7 @@ Semantic Map (.map)   ← What humans read (optimized for understanding)
 
 ## First-Class Testing (Agent-First)
 
-Mint includes first-class `test` declarations and a built-in test runner:
+Sigil includes first-class `test` declarations and a built-in test runner:
 
 ```bash
 # JSON output by default (machine-readable)
@@ -69,9 +69,9 @@ See `docs/TESTING.md`.
 
 ## Module System (Typed Imports)
 
-Mint-to-Mint imports are typechecked across modules (not trust-mode `any`).
+Sigil-to-Sigil imports are typechecked across modules (not trust-mode `any`).
 
-Canonical Mint imports:
+Canonical Sigil imports:
 
 ```sigil
 i src/todo-domain
@@ -86,7 +86,7 @@ export t Todo={...}
 export c VERSION:𝕊="1"
 ```
 
-- Only `src/...` and `stdlib/...` are valid Mint import roots
+- Only `src/...` and `stdlib/...` are valid Sigil import roots
 - Import cycles are compile errors
 - FFI (`e module/path`) remains trust-mode and link-time validated
 
@@ -224,7 +224,7 @@ t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
 **Measured with `tiktoken` (`cl100k_base`) vs TypeScript across 8 benchmark algorithms**  
 See `benchmarks/RESULTS.md` for methodology and per-algorithm code.
 
-| Algorithm | Mint Tokens | TypeScript Tokens | Improvement |
+| Algorithm | Sigil Tokens | TypeScript Tokens | Improvement |
 |----------|-------------:|------------------:|------------:|
 | factorial | 45 | 52 | +15.6% |
 | fibonacci | 45 | 60 | +33.3% |
@@ -245,7 +245,7 @@ See `benchmarks/RESULTS.md` for methodology and per-algorithm code.
 Developer writes code → Compiler checks → If error, developer fixes
 ```
 
-### Mint Workflow
+### Sigil Workflow
 ```
 Developer: "Create a function that validates email addresses"
 AI: [Generates dense code + semantic map]
@@ -423,10 +423,10 @@ Like XML vs JSON vs YAML - optimized for machine reading/writing, not human aest
 
 **The future of programming:**
 - Nobody writes transpiled JavaScript directly → toolchains do it
-- Nobody writes Mint directly → AI does it
+- Nobody writes Sigil directly → AI does it
 - Humans guide through natural language, AI generates optimal code
 - Semantic maps make it more understandable than hand-written code
 
 ---
 
-**Mint** - Fresh code for AI 🌿
+**Sigil** - Fresh code for AI 🌿

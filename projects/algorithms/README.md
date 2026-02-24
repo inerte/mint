@@ -1,4 +1,4 @@
-# Algorithms (Mint Project)
+# Algorithms (Sigil Project)
 
 Canonical pure-Sigil example project.
 

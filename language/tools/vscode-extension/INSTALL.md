@@ -36,7 +36,7 @@ pnpm build
    - The debug toolbar will stay visible at the top
 
 4. **In the Extension Development Host window**:
-   - Open a folder with Mint files (File → Open Folder...)
+   - Open a folder with Sigil files (File → Open Folder...)
    - Or create a new `.sigil` file (File → New File → Save as `test.sigil`)
    - The extension will activate automatically for `.sigil` files
 
@@ -105,7 +105,7 @@ Open the Outline view (View → Outline) to see:
 
 ### Extension not activating
 1. Check the Output panel: View → Output
-2. Select "Mint Language Server" from dropdown
+2. Select "Sigil Language Server" from dropdown
 3. Look for error messages
 
 ### LSP server not found
@@ -156,14 +156,14 @@ Then launch Extension Development Host:
 
 **LSP Server:**
 1. In Extension Development Host, open Output panel
-2. Select "Mint Language Server"
+2. Select "Sigil Language Server"
 3. Add `console.log()` statements in LSP server code
 4. Logs appear in Output panel
 
 ## Next Steps
 
 Once the extension is working:
-1. Test with real Mint files in `examples/` directory
+1. Test with real Sigil files in `examples/` directory
 2. Verify all LSP features work
 3. Report any issues or bugs
 4. Consider publishing to VS Code Marketplace

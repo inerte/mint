@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-Mint is a machine-first programming language optimized for AI code generation. This document tracks the implementation progress of the proof-of-concept compiler and tooling.
+Sigil is a machine-first programming language optimized for AI code generation. This document tracks the implementation progress of the proof-of-concept compiler and tooling.
 
 ## Completed ✅
 
@@ -148,7 +148,7 @@ export function factorial(n) {
 
 **Not yet implemented:**
 - ⏳ JavaScript source maps (.js.map) - Generates code but no source maps
-- ⏳ Standard library runtime - No JS runtime for stdlib (stdlib is pure Mint)
+- ⏳ Standard library runtime - No JS runtime for stdlib (stdlib is pure Sigil)
 
 ### Phase 7: Semantic Map Generator ✅ COMPLETE
 
@@ -188,7 +188,7 @@ Warning: Could not enhance semantic map (Claude Code CLI not available)
   - Function explanations, type signatures, complexity, warnings, examples
 
 - ✅ **tools/vscode-extension/** - Working VS Code extension
-  - Syntax highlighting for Mint
+  - Syntax highlighting for Sigil
   - LSP integration
   - Semantic overlay (AI-generated explanations on hover)
   - README.md and INSTALL.md
@@ -348,7 +348,7 @@ Nothing currently in progress.
 ### Research & Writing
 
 - ⏳ **docs/semantic-maps.md** - How to use semantic maps (LSP README covers basics)
-- ⏳ **Research paper draft** - "Mint: A Machine-First Language"
+- ⏳ **Research paper draft** - "Sigil: A Machine-First Language"
 
 ## TODO - Lower Priority 📝
 
@@ -358,7 +358,7 @@ Nothing currently in progress.
 - ⏳ **Go-to-definition** - Jump to definition
 - ⏳ **Refactoring** - Automated refactorings
 - ⏳ **Cursor integration** - Native Cursor editor support
-- ⏳ **Web playground** - Browser-based Mint editor/compiler
+- ⏳ **Web playground** - Browser-based Sigil editor/compiler
 
 ### Package Ecosystem
 
@@ -401,7 +401,7 @@ Stdlib Tests:        2/2 passing (100%)
 ### Token Efficiency (Estimated)
 
 Based on fibonacci.sigil example:
-- **Mint:** 37 tokens (dense format)
+- **Sigil:** 37 tokens (dense format)
 - **Python equivalent:** ~65 tokens (estimated)
 - **JavaScript equivalent:** ~70 tokens (estimated)
 - **Savings:** ~40-45% fewer tokens
@@ -435,7 +435,7 @@ The remaining criteria require benchmarking and validation, not implementation.
 **Actual implementation:** Bidirectional type checking
 
 **Rationale (from CLAUDE.md):**
-- Mint requires mandatory type annotations everywhere (canonical forms)
+- Sigil requires mandatory type annotations everywhere (canonical forms)
 - Hindley-Milner's strength is type inference with minimal annotations
 - Bidirectional is simpler and better suited for mandatory annotations
 - Better error messages: "expected X, got Y" with precise source locations
@@ -443,7 +443,7 @@ The remaining criteria require benchmarking and validation, not implementation.
 
 ### Canonical Forms
 
-Mint enforces canonical forms at **two levels:**
+Sigil enforces canonical forms at **two levels:**
 
 1. **Semantic (algorithms):**
    - Blocks: Tail-call optimization, accumulator-passing, CPS
@@ -460,7 +460,7 @@ Mint enforces canonical forms at **two levels:**
 ### Design Decisions
 
 **Mutating operations NOT supported:**
-- Mint does NOT have `↦!` or `⊳!` (mutating map/filter)
+- Sigil does NOT have `↦!` or `⊳!` (mutating map/filter)
 - **Reason:** Violates canonical forms - having both mutable and immutable versions creates ambiguity
 - All list operations (↦, ⊳, ⊕) are immutable
 - The `mut` keyword is for FFI type safety only
@@ -481,7 +481,7 @@ Mint enforces canonical forms at **two levels:**
 
 ### Risk: LLM Generation Accuracy
 
-**If:** LLMs can't achieve >99% syntax correctness with Mint
+**If:** LLMs can't achieve >99% syntax correctness with Sigil
 **Impact:** Core value proposition fails
 **Mitigation:** Iterative testing with GPT-4, Claude, DeepSeek. Adjust grammar based on results.
 **Status:** ⚠️ Needs testing (HIGH PRIORITY)
@@ -508,7 +508,7 @@ Mint enforces canonical forms at **two levels:**
    - Blocker for: Language value proposition
 
 2. **Test LLM Generation Accuracy** ⬅️ HIGHEST PRIORITY
-   - Can GPT-4/Claude/DeepSeek generate correct Mint?
+   - Can GPT-4/Claude/DeepSeek generate correct Sigil?
    - Estimated effort: 2-3 days
    - Blocker for: Core concept validation
 

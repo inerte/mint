@@ -11,13 +11,18 @@ import * as path from 'path';
  * Enhance semantic map with Claude Code CLI
  */
 export function enhanceWithClaude(mintFile: string, mapFile: string): void {
+  if (process.env.MINT_ENABLE_MAP_ENHANCE !== '1') {
+    return;
+  }
+
   const prompt = buildEnhancementPrompt(mintFile, mapFile);
 
   try {
     // Invoke Claude Code CLI to enhance the semantic map
     execSync(`claude -p "${escapePrompt(prompt)}" --allowedTools Write Read`, {
       stdio: 'pipe',  // Capture output silently
-      cwd: path.dirname(mintFile)
+      cwd: path.dirname(mintFile),
+      timeout: 5000,
     });
   } catch (error) {
     // If Claude Code is not available, silently continue

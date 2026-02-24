@@ -257,7 +257,7 @@ export type BinaryOperator =
   // Pipeline
   | '|>' | '>>' | '<<'
   // Concatenation
-  | '++';
+  | '++' | '⧺';
 
 export interface UnaryExpr {
   type: 'UnaryExpr';

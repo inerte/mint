@@ -15,7 +15,7 @@
 
 ### The Core Innovation
 
-Mint introduces **semantic source maps** (.mint.map) - like JavaScript source maps, but for human understanding:
+Mint introduces **semantic source maps** (.mint.map) - like TypeScript/JavaScript source maps, but for human understanding:
 
 ```
 Mint Code (.mint)     ← What runs (optimized for LLMs/execution)
@@ -250,7 +250,7 @@ The **AI Interpretation Layer** provides:
 - ✅ Core syntax specification
 - ✅ Project structure
 - ✅ Lexer/Parser implementation
-- ✅ JavaScript code generator
+- ✅ TypeScript code generator
 - ✅ Built-in list operations (↦ ⊳ ⊕)
 - ✅ Canonical form enforcement (refined - blocks accumulator patterns, allows legitimate multi-param)
 - ✅ Parameter classification via static analysis (structural, query, accumulator)
@@ -312,8 +312,8 @@ brew install mint-lang
 # Create new project
 mint new my-project
 
-# Compile to JavaScript
-mintc compile src/main.mint --output dist/main.js
+# Compile to TypeScript
+mintc compile src/main.mint --output dist/main.ts
 
 # Generate semantic maps
 mintc map generate src/**/*.mint
@@ -360,7 +360,7 @@ Inspired by:
 - Haskell's type inference and functional purity
 - OCaml's algebraic data types
 - Rust's borrow checker and ownership model
-- JavaScript source maps (the inspiration for semantic maps)
+- TypeScript/JavaScript source maps (the inspiration for semantic maps)
 
 ## Philosophy
 
@@ -369,7 +369,7 @@ Inspired by:
 Like XML vs JSON vs YAML - optimized for machine reading/writing, not human aesthetics. The difference is that we add an AI layer to make it understandable.
 
 **The future of programming:**
-- Nobody writes minified JavaScript directly → minifier does it
+- Nobody writes transpiled JavaScript directly → toolchains do it
 - Nobody writes Mint directly → AI does it
 - Humans guide through natural language, AI generates optimal code
 - Semantic maps make it more understandable than hand-written code

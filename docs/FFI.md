@@ -2,7 +2,7 @@
 
 ## Overview
 
-Mint can call JavaScript functions and import npm packages using `e` (extern) declarations.
+Mint can call external modules (including TypeScript/JavaScript packages) using `e` (extern) declarations.
 
 ## Syntax
 
@@ -43,7 +43,7 @@ Then use it:
 ```mint
 e axios
 
-λfetchUser(id:ℤ)→𝕌=axios.get("https://api.example.com/users/" ++ id)
+λfetchUser(id:ℤ)→𝕌=axios.get("https://api.example.com/users/" + id)
 
 λmain()→𝕌=fetchUser(123)
 ```
@@ -56,7 +56,7 @@ e axios
 e module/path
 ```
 
-Declares that you'll use a JavaScript module.
+Declares that you'll use an external module.
 
 ### 2. Usage
 
@@ -71,7 +71,7 @@ Access members using full namespace path + dot + member name.
 The compiler validates externals at **link-time**:
 - Loads the module (requires `npm install` first)
 - Checks if accessed members exist
-- Fails BEFORE writing `.js` if member not found
+- Fails BEFORE writing generated output if member not found
 
 This catches typos WITHOUT needing type annotations!
 
@@ -84,7 +84,7 @@ e fs/promises
 
 Compiles to:
 
-```javascript
+```ts
 import * as fs_promises from 'fs/promises';
 
 export function main() {
@@ -97,7 +97,7 @@ export function main() {
 - Full path becomes namespace: `e fs/promises` → use as `fs/promises.readFile`
 - No conflicts possible: `moduleA/utils` and `moduleB/utils` are different namespaces
 - Slash visible in Mint source (machines don't care about syntax aesthetics)
-- Converted to underscores in JavaScript: `fs_promises.readFile`
+- Converted to underscores in generated TypeScript: `fs_promises.readFile`
 
 ## Validation Examples
 
@@ -144,7 +144,7 @@ Future: Optional type declarations for better safety.
 
 ## Promises and Async
 
-FFI calls return whatever JavaScript returns, including Promises.
+FFI calls return whatever the external runtime returns, including Promises for JS/TS modules.
 
 Currently no `await` support (prints `Promise { <pending> }`).
 
@@ -221,6 +221,21 @@ e fs/promises
 
 Use contracts (future feature) to validate FFI inputs/outputs.
 
+### 4. React and Browser Apps (Bridge Pattern)
+
+Recommended frontend integration:
+
+- Put deterministic domain policy in Mint (`.mint`)
+- Compile Mint to generated TypeScript (`.ts`)
+- Use a separate `bridge.ts` / `bridge.tsx` for React hooks, JSX, browser events, and localStorage
+
+Why keep a separate bridge?
+
+- Linting/prettier/typechecking work normally
+- React stays idiomatic
+- Mint stays canonical and machine-first
+- UI/runtime glue is isolated from core logic
+
 ## Future Extensions
 
 - Async/await for Promise handling
@@ -231,4 +246,4 @@ Use contracts (future feature) to validate FFI inputs/outputs.
 
 ---
 
-**FFI unlocks the entire JavaScript ecosystem for Mint programs!** 🚀
+**FFI unlocks the TypeScript/JavaScript ecosystem for Mint programs!** 🚀

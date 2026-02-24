@@ -29,7 +29,7 @@ i stdlib/list_utils
 ⟦ Use with fully qualified names ⟧
 λmain()→𝕌=console.log(
   stdlib/list_predicates.sorted_asc([1,2,3]) ++ " " ++
-  stdlib/list_utils.len([1,2,3])
+  ("" + stdlib/list_utils.len([1,2,3]))
 )
 ```
 

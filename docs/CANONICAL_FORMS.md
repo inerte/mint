@@ -152,7 +152,7 @@ Surface form validation runs BEFORE tokenization:
 4. Parse
 5. Validate canonical form ← enforces algorithms
 6. Type check
-7. Compile to JavaScript
+7. Compile to TypeScript
 ```
 
 This ensures all canonical rules are checked early with clear error messages.

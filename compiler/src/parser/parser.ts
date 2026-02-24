@@ -587,10 +587,11 @@ export class Parser {
   private additive(): AST.Expr {
     let expr = this.multiplicative();
 
-    while (this.match(TokenType.PLUS, TokenType.MINUS, TokenType.APPEND)) {
+    while (this.match(TokenType.PLUS, TokenType.MINUS, TokenType.APPEND, TokenType.LIST_APPEND)) {
       const op = this.previous().type === TokenType.PLUS ? '+'
                 : this.previous().type === TokenType.MINUS ? '-'
-                : '++';
+                : this.previous().type === TokenType.APPEND ? '++'
+                : '⧺';
       const right = this.multiplicative();
       expr = {
         type: 'BinaryExpr',

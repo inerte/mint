@@ -226,7 +226,7 @@ Git: Commits both .mint and .mint.map
 **Response:** For humans, yes. For LLMs trained on millions of lines of Haskell/OCaml/F#? No. They excel at functional code.
 
 **Objection:** "Performance?"
-**Response:** We compile to JavaScript. V8 optimizes functional code well. For true performance-critical sections, escape hatches exist.
+**Response:** We compile to TypeScript (then standard toolchains transpile to JavaScript). Modern JS engines optimize functional code well. For true performance-critical sections, escape hatches exist.
 
 **Benefits:**
 - Easier to reason about (no hidden state)
@@ -239,7 +239,7 @@ Git: Commits both .mint and .mint.map
 ### Short Term (2026)
 
 Proof-of-concept:
-- Compiler to JavaScript
+- Compiler to TypeScript
 - Semantic map generator
 - VS Code extension
 - Token efficiency benchmarks
@@ -313,7 +313,7 @@ Why optimize for the 1%? Design for the majority use case.
 - MoonBit: AI-native language design
 
 **Concepts:**
-- JavaScript source maps: Mapping optimized code to source
+- TypeScript/JavaScript source maps: Mapping optimized code to source
 - Minification: Machine-optimal vs human-optimal
 - Language servers (LSP): AI-powered IDE integration
 - Model Context Protocol (MCP): LLM-queryable documentation

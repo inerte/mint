@@ -29,5 +29,7 @@
   ],
   "author": "",
   "license": "MIT",
-  "devDependencies": {}
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
 }

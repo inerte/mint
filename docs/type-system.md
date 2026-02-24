@@ -344,7 +344,7 @@ The type checker:
 
 ### Code Generation
 
-Sum types compile to JavaScript objects with `__tag` and `__fields`:
+Sum types compile to TypeScript/JavaScript objects with `__tag` and `__fields`:
 
 ```javascript
 // t Color=Red|Green|Blue compiles to:
@@ -419,20 +419,35 @@ See `examples/sum-types-demo.mint` for comprehensive examples including:
 - Pattern matching techniques
 - Practical use cases
 
-## String Coercion
+## Concatenation Operators
 
-The `+` operator has special handling for string concatenation:
+Mint uses distinct operators for distinct concatenation semantics:
+
+- `++` for string concatenation (`𝕊 × 𝕊 → 𝕊`)
+- `⧺` for list concatenation (`[T] × [T] → [T]`)
 
 ```mint
-λmain()→𝕊="factorial(5) = " + factorial(5)
+λgreet(name:𝕊)→𝕊="Hello, "++name
+λmerge(xs:[ℤ],ys:[ℤ])→[ℤ]=xs⧺ys
 ```
 
-If either operand is a string, `+` becomes string concatenation with automatic coercion:
-- `𝕊 + ℤ` ⇒ `𝕊` (coerce ℤ to 𝕊)
-- `ℤ + 𝕊` ⇒ `𝕊` (coerce ℤ to 𝕊)
-- `ℤ + ℤ` ⇒ `ℤ` (integer addition)
+This preserves canonical surface forms by avoiding one overloaded concat operator for different data kinds.
 
-This is the only implicit coercion in Mint.
+## Empty List Contextual Typing
+
+The empty list literal `[]` does not synthesize an element type by itself.
+
+- `[]` is valid when an expected list type is already known (contextual typing)
+- `[]` is rejected when there is no expected element type
+
+```mint
+λemptyInts()→[ℤ]=[]
+
+λreverse(xs:[ℤ])→[ℤ]≡xs{
+  []→[]|                 # OK: expected type is [ℤ]
+  [x,.rest]→reverse(rest)⧺[x]
+}
+```
 
 ## Examples
 

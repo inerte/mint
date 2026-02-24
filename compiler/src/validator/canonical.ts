@@ -156,7 +156,7 @@ function validateRecursiveFunctions(program: AST.Program): void {
           `Parameter: ${collectionParam.param.name}${collectionParam.param.typeAnnotation ? ':' + formatType(collectionParam.param.typeAnnotation) : ''}\n` +
           `\n` +
           `Structural recursion (ALLOWED):\n` +
-          `  λreverse(lst:[T])→[T]≡lst{[]→[]|[x,.xs]→reverse(xs)++[x]}\n` +
+          `  λreverse(lst:[T])→[T]≡lst{[]→[]|[x,.xs]→reverse(xs)⧺[x]}\n` +
           `  - Pattern matches on the collection\n` +
           `  - Destructures into pieces ([x,.xs])\n` +
           `  - Recurses on smaller piece (xs)\n` +
@@ -809,12 +809,12 @@ function isAccumulationExpression(
     }
 
     // String concatenation with params
-    if (operator === '++') {
+    if (operator === '⧺') {
       const leftHasParam = containsParamReference(left, allParamNames);
       const rightHasParam = containsParamReference(right, allParamNames);
 
       if (leftHasParam && rightHasParam) {
-        return true;  // acc++str pattern
+        return true;  // acc⧺xs pattern
       }
     }
   }

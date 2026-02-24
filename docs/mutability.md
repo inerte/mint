@@ -147,7 +147,7 @@ e Array
 - Systems programming requirements
 
 **Mint doesn't need it because:**
-- Compiles to JavaScript (garbage collected)
+- Compiles to TypeScript (transpiled to JavaScript, garbage collected)
 - No manual memory management
 - Goal is logic correctness, not memory safety
 
@@ -277,7 +277,7 @@ Mint's mutability system:
 - ✅ Prevents aliasing bugs
 - ✅ Makes intent clear (`mut` = will be modified)
 - ✅ Minimal syntax (just one keyword)
-- ✅ Practical for JavaScript target
+- ✅ Practical for TypeScript target
 - ✅ Fits canonical form philosophy
 
 It's the sweet spot between TypeScript (no checking) and Rust (complex borrow checking).

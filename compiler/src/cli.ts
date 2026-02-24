@@ -27,7 +27,7 @@ async function main() {
     console.error('Commands:');
     console.error('  lex <file>        Tokenize a Mint file');
     console.error('  parse <file>      Parse a Mint file and show AST');
-    console.error('  compile <file>    Compile a Mint file to JavaScript');
+    console.error('  compile <file>    Compile a Mint file to TypeScript');
     console.error('  run <file>        Compile and run a Mint file');
     console.error('  help              Show this help message');
     process.exit(1);
@@ -54,14 +54,14 @@ async function main() {
       console.log('Commands:');
       console.log('  lex <file>        Tokenize a Mint file and print tokens');
       console.log('  parse <file>      Parse a Mint file and show AST');
-      console.log('  compile <file>    Compile a Mint file to JavaScript');
+      console.log('  compile <file>    Compile a Mint file to TypeScript');
       console.log('  run <file>        Compile and run a Mint file');
       console.log('  help              Show this help message');
       console.log('');
       console.log('Output locations:');
-      console.log('  examples/*.mint   → examples/*.js (beside source)');
-      console.log('  src/*.mint        → .local/src/*.js');
-      console.log('  *.mint            → .local/*.js');
+      console.log('  examples/*.mint   → examples/*.ts (beside source)');
+      console.log('  src/*.mint        → .local/src/*.ts');
+      console.log('  *.mint            → .local/*.ts');
       console.log('');
       console.log('Options:');
       console.log('  -o <file>         Specify custom output location');
@@ -148,20 +148,20 @@ function parseCommand(args: string[]) {
  * Determine smart output location based on input file location
  */
 function getSmartOutputPath(inputFile: string): string {
-  // examples/*.mint → examples/*.js (beside source, for documentation)
+  // examples/*.mint → examples/*.ts (beside source, for documentation)
   if (inputFile.startsWith('examples/')) {
-    return inputFile.replace(/\.mint$/, '.js');
+    return inputFile.replace(/\.mint$/, '.ts');
   }
 
   // Everything else → .local/ (keeps root clean)
-  // src/**/*.mint → .local/src/**/*.js
-  // *.mint → .local/*.js
-  return `.local/${inputFile.replace(/\.mint$/, '.js')}`;
+  // src/**/*.mint → .local/src/**/*.ts
+  // *.mint → .local/*.ts
+  return `.local/${inputFile.replace(/\.mint$/, '.ts')}`;
 }
 
 async function compileCommand(args: string[]) {
   if (args.length === 0) {
-    console.error('Usage: mintc compile <file> [-o output.js]');
+    console.error('Usage: mintc compile <file> [-o output.ts]');
     process.exit(1);
   }
 
@@ -205,7 +205,7 @@ async function compileCommand(args: string[]) {
       console.log();
     }
 
-    const jsCode = compile(ast, filename);
+    const tsCode = compile(ast, filename);
 
     // Validate externals BEFORE writing file (link-time validation)
     await validateExterns(ast);
@@ -216,7 +216,7 @@ async function compileCommand(args: string[]) {
       mkdirSync(outputDir, { recursive: true });
     }
 
-    writeFileSync(outputFile, jsCode, 'utf-8');
+    writeFileSync(outputFile, tsCode, 'utf-8');
 
     console.log(`✓ Compiled ${filename} → ${outputFile}`);
 
@@ -227,7 +227,11 @@ async function compileCommand(args: string[]) {
 
     // Enhance with Claude Code CLI
     enhanceWithClaude(filename, mapFile);
-    console.log(`✓ Enhanced semantic map with AI documentation`);
+    if (process.env.MINT_ENABLE_MAP_ENHANCE === '1') {
+      console.log(`✓ Enhanced semantic map with AI documentation`);
+    } else {
+      console.log('✓ Skipped AI semantic map enhancement (set MINT_ENABLE_MAP_ENHANCE=1 to enable)');
+    }
   } catch (error) {
     if (error instanceof Error) {
       console.error(`Error: ${error.message}`);
@@ -247,8 +251,8 @@ async function runCommand(args: string[]) {
 
   const filename = args[0];
   const baseName = basename(filename, '.mint');
-  const outputFile = `.local/${baseName}.js`;
-  const runnerFile = `.local/${baseName}.run.js`;
+  const outputFile = `.local/${baseName}.ts`;
+  const runnerFile = `.local/${baseName}.run.ts`;
 
   try {
     // Compile to .local/
@@ -266,17 +270,17 @@ async function runCommand(args: string[]) {
     // Type check (should always happen!)
     typeCheck(ast, source);
 
-    const jsCode = compile(ast, filename);
+    const tsCode = compile(ast, filename);
 
     // Validate externals BEFORE writing file (link-time validation)
     await validateExterns(ast);
 
     // Ensure .local exists
     mkdirSync('.local', { recursive: true });
-    writeFileSync(outputFile, jsCode, 'utf-8');
+    writeFileSync(outputFile, tsCode, 'utf-8');
 
     // Create runner that calls main()
-    const runnerCode = `import { main } from './${baseName}.js';
+    const runnerCode = `import { main } from './${baseName}';
 
 if (typeof main !== 'function') {
   console.error('Error: No main() function found in ${filename}');
@@ -298,8 +302,8 @@ if (result !== undefined) {
     console.log(`✓ Compiled ${filename} → ${outputFile}`);
     console.log('');
 
-    // Run the wrapper with Node.js
-    const nodeProcess = spawn('node', [runnerFile], {
+    // Run the wrapper with Node + tsx loader (avoids tsx CLI IPC/daemon issues in sandboxed environments)
+    const nodeProcess = spawn('pnpm', ['exec', 'node', '--import', 'tsx', runnerFile], {
       stdio: 'inherit',
       shell: false,
     });
@@ -309,7 +313,12 @@ if (result !== undefined) {
     });
 
     nodeProcess.on('error', (error) => {
-      console.error(`Failed to run: ${error.message}`);
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        console.error('Failed to run: pnpm, node, and/or tsx is not available on PATH.');
+        console.error('Install tsx with: pnpm add -D tsx');
+      } else {
+        console.error(`Failed to run: ${error.message}`);
+      }
       process.exit(1);
     });
   } catch (error) {

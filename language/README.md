@@ -82,8 +82,8 @@ Canonical exports are explicit:
 
 ```mint
 export λaddTodo(...)→...
-export tTodo={...}
-export cVERSION:𝕊="1"
+export t Todo={...}
+export c VERSION:𝕊="1"
 ```
 
 - Only `src/...` and `stdlib/...` are valid Mint import roots
@@ -378,7 +378,7 @@ mint
 ## Documentation
 
 - [Philosophy](docs/philosophy.md) - Why machine-first?
-- [Syntax Guide](docs/syntax-guide.md) - Complete syntax reference
+- [Syntax Reference](docs/syntax-reference.md) - Canonical syntax reference
 - [Type System](docs/type-system.md) - Types and inference
 - [Semantic Maps](docs/semantic-maps.md) - How .mint.map works
 - [Specification](spec/) - Formal language specification

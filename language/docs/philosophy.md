@@ -277,6 +277,13 @@ For 50 years we optimized for humans to read code directly. Result: verbose lang
 
 **New paradigm:** Code optimized for execution. AI explains it to humans.
 
+This does **not** eliminate the need for human-facing references. Mint still needs a canonical syntax reference for:
+- debugging and review when AI output looks wrong
+- compiler/LSP/tooling contributors
+- grounding prompts and examples against the current language surface
+
+The key difference is that syntax docs are a **reference for verification and tooling**, not a primary hand-authoring workflow.
+
 Like assembly vs C vs Python - each level optimizes for different audience. Mint optimizes for AI.
 
 ### Types Should Be Mandatory and Explicit

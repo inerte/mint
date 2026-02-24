@@ -18,7 +18,7 @@ export interface TypeCheckOptions {
 }
 
 /**
- * Type check a Mint program
+ * Type check a Sigil program
  *
  * Returns a map of function names to their inferred types
  * Throws TypeError if type checking fails

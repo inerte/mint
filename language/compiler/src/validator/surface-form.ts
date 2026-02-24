@@ -3,7 +3,7 @@
  *
  * Enforces canonical surface forms (formatting) for Sigil programs.
  *
- * Mint's philosophy: **byte-for-byte reproducibility**.
+ * Sigil's philosophy: **byte-for-byte reproducibility**.
  * Every program has exactly ONE valid textual representation.
  *
  * This ensures:

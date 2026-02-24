@@ -1,5 +1,5 @@
 /**
- * Mint Semantic Map Generator
+ * Sigil Semantic Map Generator
  *
  * Main entry point for semantic map generation
  */

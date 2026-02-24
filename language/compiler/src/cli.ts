@@ -90,11 +90,11 @@ async function main() {
     console.error('Usage: sigilc <command> [options]');
     console.error('');
     console.error('Commands:');
-    console.error('  lex <file>        Tokenize a Mint file');
-    console.error('  parse <file>      Parse a Mint file and show AST');
-    console.error('  compile <file>    Compile a Mint file to TypeScript');
-    console.error('  run <file>        Compile and run a Mint file');
-    console.error('  test [path]       Run Mint tests from ./tests (JSON output by default)');
+    console.error('  lex <file>        Tokenize a Sigil file');
+    console.error('  parse <file>      Parse a Sigil file and show AST');
+    console.error('  compile <file>    Compile a Sigil file to TypeScript');
+    console.error('  run <file>        Compile and run a Sigil file');
+    console.error('  test [path]       Run Sigil tests from ./tests (JSON output by default)');
     console.error('  help              Show this help message');
     process.exit(1);
   }
@@ -121,15 +121,15 @@ async function main() {
       console.log('Sigil Compiler v0.1.0');
       console.log('');
       console.log('Commands:');
-      console.log('  lex <file>        Tokenize a Mint file and print tokens');
-      console.log('  parse <file>      Parse a Mint file and show AST');
-      console.log('  compile <file>    Compile a Mint file to TypeScript');
-      console.log('  run <file>        Compile and run a Mint file');
-      console.log('  test [path]       Run Mint tests from the current Mint project tests/ (JSON by default)');
+      console.log('  lex <file>        Tokenize a Sigil file and print tokens');
+      console.log('  parse <file>      Parse a Sigil file and show AST');
+      console.log('  compile <file>    Compile a Sigil file to TypeScript');
+      console.log('  run <file>        Compile and run a Sigil file');
+      console.log('  test [path]       Run Sigil tests from the current Sigil project tests/ (JSON by default)');
       console.log('  help              Show this help message');
       console.log('');
       console.log('Output locations:');
-      console.log('  Mint project files → <project>/.local/... (detected via sigil.json)');
+      console.log('  Sigil project files → <project>/.local/... (detected via sigil.json)');
       console.log('  Non-project files  → .local/... (legacy fallback)');
       console.log('');
       console.log('Options:');
@@ -166,18 +166,18 @@ function ensureNoTestsOutsideTestsDir(ast: ReturnType<typeof parse>, filename: s
   }
 }
 
-function isMintImportPath(modulePath: string): boolean {
+function isSigilImportPath(modulePath: string): boolean {
   return modulePath.startsWith('src/') || modulePath.startsWith('stdlib/');
 }
 
-function resolveMintImportToFile(
+function resolveSigilImportToFile(
   importerFile: string,
   importerProject: SigilProjectConfig | undefined,
   moduleId: string
 ): { moduleId: string; filePath: string; project?: SigilProjectConfig } {
   if (moduleId.startsWith('src/')) {
     if (!importerProject) {
-      throw new Error(`Project import '${moduleId}' requires a Mint project root (sigil.json). Importer: ${importerFile}`);
+      throw new Error(`Project import '${moduleId}' requires a Sigil project root (sigil.json). Importer: ${importerFile}`);
     }
     return {
       moduleId,
@@ -192,7 +192,7 @@ function resolveMintImportToFile(
       project: importerProject,
     };
   }
-  throw new Error(`Invalid Mint import '${moduleId}'. Canonical Mint imports are only 'src/...' and 'stdlib/...'`);
+  throw new Error(`Invalid Sigil import '${moduleId}'. Canonical Sigil imports are only 'src/...' and 'stdlib/...'`);
 }
 
 function buildModuleGraph(entryFile: string): ModuleGraph {
@@ -225,10 +225,10 @@ function buildModuleGraph(entryFile: string): ModuleGraph {
     for (const decl of ast.declarations) {
       if (decl.type !== 'ImportDecl') continue;
       const importedId = decl.modulePath.join('/');
-      if (!isMintImportPath(importedId)) continue;
-      const resolved = resolveMintImportToFile(absFile, project ?? undefined, importedId);
+      if (!isSigilImportPath(importedId)) continue;
+      const resolved = resolveSigilImportToFile(absFile, project ?? undefined, importedId);
       if (!existsSync(resolved.filePath)) {
-        throw new Error(`Mint import '${importedId}' not found for ${absFile}. Expected: ${resolved.filePath}`);
+        throw new Error(`Sigil import '${importedId}' not found for ${absFile}. Expected: ${resolved.filePath}`);
       }
       visit(resolved.filePath, resolved.moduleId, resolved.project);
     }
@@ -255,7 +255,7 @@ function buildImportedNamespacesForModule(
   for (const decl of module.ast.declarations) {
     if (decl.type !== 'ImportDecl') continue;
     const moduleId = decl.modulePath.join('/');
-    if (!isMintImportPath(moduleId)) continue;
+    if (!isSigilImportPath(moduleId)) continue;
     const nsType = exportedNamespaces.get(moduleId);
     if (nsType) {
       imported.set(moduleId, nsType);
@@ -333,7 +333,7 @@ async function compileModuleGraph(entryFile: string, rootOutputOverride?: string
   return { graph, moduleTypes, outputs, rootModule };
 }
 
-function collectMintFiles(rootPath: string): string[] {
+function collectSigilFiles(rootPath: string): string[] {
   const results: string[] = [];
   const st = statSync(rootPath);
   if (st.isFile()) {
@@ -346,7 +346,7 @@ function collectMintFiles(rootPath: string): string[] {
     const full = join(rootPath, entry);
     const est = statSync(full);
     if (est.isDirectory()) {
-      results.push(...collectMintFiles(full));
+      results.push(...collectSigilFiles(full));
     } else if (est.isFile() && full.endsWith('.sigil')) {
       results.push(full);
     }
@@ -690,7 +690,7 @@ async function testCommand(args: string[]) {
       process.exit(0);
     }
 
-    const files = collectMintFiles(rootPath).sort();
+    const files = collectSigilFiles(rootPath).sort();
     const started = Date.now();
     const allResults: any[] = [];
     let discovered = 0;

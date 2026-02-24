@@ -29,7 +29,7 @@ describe('Module system (exports + typed imports)', () => {
     assert.throws(() => parseProgram('export test \"x\" { ⊤ }\n'), /Cannot export test declarations/i);
   });
 
-  test('typed Mint import namespace allows exported member access', () => {
+  test('typed Sigil import namespace allows exported member access', () => {
     const ast = parseProgram(
       'i src/foo\n' +
       'test \"uses imported fn\" {\n' +
@@ -54,7 +54,7 @@ describe('Module system (exports + typed imports)', () => {
     );
   });
 
-  test('typed Mint import namespace rejects non-exported member access', () => {
+  test('typed Sigil import namespace rejects non-exported member access', () => {
     const ast = parseProgram(
       'i src/foo\n' +
       'test \"uses hidden fn\" {\n' +

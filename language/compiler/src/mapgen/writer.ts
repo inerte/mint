@@ -1,5 +1,5 @@
 /**
- * Mint Semantic Map Writer
+ * Sigil Semantic Map Writer
  *
  * Writes semantic maps to .sigil.map files
  */

@@ -1,5 +1,5 @@
 /**
- * Bidirectional Type Checking for Mint
+ * Bidirectional Type Checking for Sigil
  *
  * Uses two complementary modes:
  * - Synthesis (⇒): Infer type from expression structure (bottom-up)

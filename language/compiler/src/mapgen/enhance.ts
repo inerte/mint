@@ -50,7 +50,7 @@ Key constraints to remember:
 - NO tail-call optimization, NO accumulator-passing style, NO iterative patterns
 - Only primitive recursion allowed (direct recursive calls)
 - Don't suggest "iterative version" or "tail-recursive version" - these are BLOCKED
-- Performance warnings should be Mint-appropriate (e.g., "inherent to primitive recursion")
+- Performance warnings should be Sigil-appropriate (e.g., "inherent to primitive recursion")
 
 Read the basic semantic map. For each mapping:
 1. Extract the code snippet using the range offsets from the source file

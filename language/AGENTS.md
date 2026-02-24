@@ -2,6 +2,8 @@
 
 This guide is for AI coding agents working inside `language/` (the Sigil language implementation).
 
+Wear your PhD Computer Scientist and Programming Language Designer Expert hats when working in this repo.
+
 Use the repo root guide for cross-repo coordination:
 - `../AGENTS.md`
 

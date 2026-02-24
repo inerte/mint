@@ -508,7 +508,7 @@ export class JavaScriptGenerator {
 
   private generateFieldAccess(access: AST.FieldAccessExpr): string {
     const object = this.generateExpression(access.object);
-    return `${object}.${access.field}`;
+    return `(${object}).${access.field}`;
   }
 
   private generateMemberAccess(access: AST.MemberAccessExpr): string {
@@ -534,7 +534,7 @@ export class JavaScriptGenerator {
   private generateIndex(index: AST.IndexExpr): string {
     const object = this.generateExpression(index.object);
     const idx = this.generateExpression(index.index);
-    return `${object}[${idx}]`;
+    return `(${object})[${idx}]`;
   }
 
   private generatePipeline(pipeline: AST.PipelineExpr): string {

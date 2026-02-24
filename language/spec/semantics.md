@@ -1,17 +1,17 @@
-# Mint Operational Semantics
+# Sigil Operational Semantics
 
 Version: 1.0.0
 Last Updated: 2026-02-21
 
 ## Overview
 
-This document defines the **operational semantics** of Sigil - how programs execute and evaluate. Mint uses **eager evaluation** (call-by-value) with **immutable data** by default.
+This document defines the **operational semantics** of Sigil - how programs execute and evaluate. Sigil uses **eager evaluation** (call-by-value) with **immutable data** by default.
 
 ## Evaluation Strategy
 
 ### Call-by-Value (Eager Evaluation)
 
-Mint evaluates arguments **before** passing them to functions:
+Sigil evaluates arguments **before** passing them to functions:
 
 ```sigil
 λadd(x:ℤ,y:ℤ)→ℤ=x+y

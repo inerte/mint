@@ -1,7 +1,7 @@
 #!/bin/bash
 # Run all algorithm benchmarks
 
-echo "# Mint Language - Token Efficiency Benchmarks"
+echo "# Sigil Language - Token Efficiency Benchmarks"
 echo ""
 echo "Using tiktoken (GPT-4 tokenizer) to count LLM tokens."
 echo ""

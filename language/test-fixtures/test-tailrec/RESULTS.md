@@ -1,9 +1,9 @@
 # Tail-Recursion Constraint Testing Results
 
 ## Challenge
-User challenged: "Try it anyway! Let's see if you can be awesome and overcome Mint."
+User challenged: "Try it anyway! Let's see if you can be awesome and overcome Sigil."
 
-The question: Can we bypass Mint's tail-recursion prevention mechanisms?
+The question: Can we bypass Sigil's tail-recursion prevention mechanisms?
 
 ## Test Results Summary
 
@@ -96,7 +96,7 @@ which enables accumulator-style tail recursion.
 Example canonical form:
   λfactorial(n:ℤ)→ℤ≡n{0→1|n→n*factorial(n-1)}
 
-Mint enforces ONE way to write recursive functions.
+Sigil enforces ONE way to write recursive functions.
 ```
 
 ## The Verdict
@@ -121,7 +121,7 @@ Only primitive types (ℤ, 𝕊, 𝔹, etc) are allowed.
 - Led to stronger enforcement
 - Validated the "impossible" claim is now accurate
 
-**Mint's enforcement evolution:**
+**Sigil's enforcement evolution:**
 1. V1: Check parameter count → ❌ Incomplete (list loophole)
 2. V2: Check parameter count AND structure → ✅ Complete
 
@@ -155,6 +155,6 @@ node compiler/dist/cli.js run src/factorial-valid.sigil                      # �
 
 The challenge "try it anyway!" led to discovering and fixing a real loophole.
 
-**Result:** Mint blocks 95%+ of tail-recursion attempts. Advanced functional programming techniques (CPS, Y combinator) still work, but these are documented as "expert escape hatches."
+**Result:** Sigil blocks 95%+ of tail-recursion attempts. Advanced functional programming techniques (CPS, Y combinator) still work, but these are documented as "expert escape hatches."
 
 **See ADVANCED_LOOPHOLES.md for details on the remaining loopholes and why they're allowed.**

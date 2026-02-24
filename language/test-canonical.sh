@@ -67,7 +67,7 @@ test_not_implemented() {
 }
 
 echo "═══════════════════════════════════════════════════════════"
-echo "  Mint Canonical Form Enforcement - Test Suite"
+echo "  Sigil Canonical Form Enforcement - Test Suite"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
 

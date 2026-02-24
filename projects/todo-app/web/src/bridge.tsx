@@ -17,7 +17,7 @@ type SigilDomain = {
   remainingCount: (total: number, completed: number) => number;
 };
 
-const sigil = sigilRaw as unknown as MintDomain;
+const sigil = sigilRaw as unknown as SigilDomain;
 const STORAGE_KEY = 'sigil.todo-react.v1';
 
 type PersistedState = { todos: Todo[]; nextId: number };
@@ -79,7 +79,7 @@ function TodoApp(): JSX.Element {
   return (
     <div className="todo-shell">
       <header className="todo-header">
-        <h1>Mint TODO (React + TS Bridge)</h1>
+        <h1>Sigil TODO (React + TS Bridge)</h1>
         <p>Mint owns deterministic list transforms. React + TypeScript own UI, events, and localStorage.</p>
       </header>
       <div className="todo-controls">

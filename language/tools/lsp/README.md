@@ -1,4 +1,4 @@
-# Mint Language Server (LSP)
+# Sigil Language Server (LSP)
 
 Language Server Protocol implementation for the Sigil programming language.
 

@@ -1,4 +1,4 @@
-# Mint Language for VS Code
+# Sigil Language for VS Code
 
 Official VS Code extension for the Sigil programming language.
 
@@ -84,14 +84,14 @@ Navigate your code with the outline view showing:
 5. Select `sigil-language-0.1.0.vsix`
 
 ### From Marketplace (Future)
-Search for "Mint Language" in the VS Code Extensions marketplace.
+Search for "Sigil Language" in the VS Code Extensions marketplace.
 
 ## Requirements
 
 - VS Code 1.75.0 or higher
 - Node.js 16.0 or higher (for LSP server)
 
-The extension includes a bundled Mint Language Server (LSP).
+The extension includes a bundled Sigil Language Server (LSP).
 
 ## Extension Settings
 
@@ -102,7 +102,7 @@ This extension contributes the following settings:
   - `messages` - Trace messages
   - `verbose` - Verbose tracing
 
-* `sigil.lsp.path`: Custom path to Mint LSP server
+* `sigil.lsp.path`: Custom path to Sigil LSP server
   - Leave empty to use bundled server
   - Set to custom path for development
 
@@ -131,7 +131,7 @@ This extension contributes the following settings:
 
 ### Language server not starting
 
-Check the Output panel (View → Output) and select "Mint Language Server" to see error messages.
+Check the Output panel (View → Output) and select "Sigil Language Server" to see error messages.
 
 ### No syntax highlighting
 
@@ -181,4 +181,4 @@ MIT - See LICENSE file
 
 ---
 
-**Mint** - Fresh code for AI 🌿
+**Sigil** - Fresh code for AI 🌿

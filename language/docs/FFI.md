@@ -1,8 +1,8 @@
-# Mint FFI (Foreign Function Interface)
+# Sigil FFI (Foreign Function Interface)
 
 ## Overview
 
-Mint can call external modules (including TypeScript/JavaScript packages) using `e` (extern) declarations.
+Sigil can call external modules (including TypeScript/JavaScript packages) using `e` (extern) declarations.
 
 ## Syntax
 
@@ -19,7 +19,7 @@ That's it. Exactly ONE way to do FFI (canonical form).
 ```sigil
 e console
 
-λmain()→𝕌=console.log("Hello from Mint!")
+λmain()→𝕌=console.log("Hello from Sigil!")
 ```
 
 ### Node.js Built-ins
@@ -29,7 +29,7 @@ e fs/promises
 
 λwriteFile(path:𝕊,content:𝕊)→𝕌=fs/promises.writeFile(path,content)
 
-λmain()→𝕌=writeFile("output.txt","Hello, Mint!")
+λmain()→𝕌=writeFile("output.txt","Hello, Sigil!")
 ```
 
 ### NPM Packages
@@ -226,14 +226,14 @@ Use contracts (future feature) to validate FFI inputs/outputs.
 Recommended frontend integration:
 
 - Put deterministic domain policy in Sigil (`.sigil`)
-- Compile Mint to generated TypeScript (`.ts`)
+- Compile Sigil to generated TypeScript (`.ts`)
 - Use a separate `bridge.ts` / `bridge.tsx` for React hooks, JSX, browser events, and localStorage
 
 Why keep a separate bridge?
 
 - Linting/prettier/typechecking work normally
 - React stays idiomatic
-- Mint stays canonical and machine-first
+- Sigil stays canonical and machine-first
 - UI/runtime glue is isolated from core logic
 
 ## Future Extensions
@@ -242,7 +242,7 @@ Why keep a separate bridge?
 - Type annotations for FFI declarations
 - Method chaining syntax
 - Class/object interop
-- Callback conversions (JS → Mint functions)
+- Callback conversions (JS → Sigil functions)
 
 ---
 

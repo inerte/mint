@@ -1,13 +1,13 @@
-# Mint Syntax Reference
+# Sigil Syntax Reference
 
-This is a **canonical syntax reference** for Mint.
+This is a **canonical syntax reference** for Sigil.
 
 It exists for:
 - reviewing generated Sigil code
 - building tools (compiler, LSP, editors)
 - grounding AI prompts against the current language surface
 
-It is not a style guide for multiple alternatives, because Mint intentionally has one canonical form.
+It is not a style guide for multiple alternatives, because Sigil intentionally has one canonical form.
 
 ## Scope
 
@@ -24,14 +24,14 @@ For formatting/canonical whitespace rules, see:
 
 ## Source Files
 
-- Mint source files use `.sigil`
+- Sigil source files use `.sigil`
 - Files should end with a final newline
 - Tests live in project `./tests`
 - App/library code lives in project `./src`
 
 ## Comments
 
-Mint uses one comment syntax only:
+Sigil uses one comment syntax only:
 
 ```sigil
 ⟦ This is a comment ⟧
@@ -42,7 +42,7 @@ Mint uses one comment syntax only:
 }
 ```
 
-- `#`, `//`, and `/* ... */` are not Mint comments
+- `#`, `//`, and `/* ... */` are not Sigil comments
 
 ## Declarations
 
@@ -90,7 +90,7 @@ mockable λfetchUser(id:ℤ)→!Network 𝕊="real"
 
 ## Exported declarations (explicit)
 
-Only explicitly exported top-level declarations are visible to other Mint modules.
+Only explicitly exported top-level declarations are visible to other Sigil modules.
 
 Canonical export forms:
 
@@ -137,9 +137,9 @@ c GREETING:𝕊="hello"
 
 ## Imports and externs
 
-## Mint imports (`i`)
+## Sigil imports (`i`)
 
-Mint-to-Mint imports are namespace imports only.
+Sigil-to-Sigil imports are namespace imports only.
 
 ```sigil
 i src/todo-domain
@@ -153,7 +153,7 @@ src/todo-domain.completedCount(todos)
 stdlib/list_utils.len([1,2,3])
 ```
 
-Canonical Mint import roots:
+Canonical Sigil import roots:
 - `src/...`
 - `stdlib/...`
 

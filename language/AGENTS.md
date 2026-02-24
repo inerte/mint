@@ -4,7 +4,7 @@
 
 ## Language Philosophy: Canonical Forms Only
 
-Mint is a **canonicalization-enforced** language. Every algorithm has exactly ONE valid representation.
+Sigil is a **canonicalization-enforced** language. Every algorithm has exactly ONE valid representation.
 
 **Blocked Techniques (Compile-Time Errors):**
 - Tail-call optimization (TCO)
@@ -133,7 +133,7 @@ Sigil enforces **canonical formatting** at compile-time. Every program has exact
 
 **Paradigm:** Explicit effect annotations (not inference)
 
-Mint tracks side effects at compile time to prevent bugs and document behavior clearly.
+Sigil tracks side effects at compile time to prevent bugs and document behavior clearly.
 
 **Syntax:** `→!Effect1 !Effect2 Type`
 
@@ -225,9 +225,9 @@ See `docs/FFI.md` for full documentation.
 
 **React/Browser apps (recommended pattern):**
 - Put deterministic domain policy/logic in Sigil (`.sigil`)
-- Compile Mint to generated TypeScript (`.ts`)
+- Compile Sigil to generated TypeScript (`.ts`)
 - Use a separate `bridge.ts` / `bridge.tsx` for React hooks, JSX, browser events, and localStorage
-- Keep the bridge lintable/prettifiable; keep Mint canonical
+- Keep the bridge lintable/prettifiable; keep Sigil canonical
 
 ## Comments: Multi-line Only
 
@@ -345,12 +345,12 @@ claude -p "Enhance semantic map..." --allowedTools Write Read
   "factorial": {
     "range": [0, 47],
     "summary": "Function: factorial",
-    "explanation": "Computes the factorial of n recursively using pattern matching. Base cases: 0! = 1 and 1! = 1. Recursive case: n! = n × (n-1)!. Uses primitive recursion (Mint's canonical form).",
+    "explanation": "Computes the factorial of n recursively using pattern matching. Base cases: 0! = 1 and 1! = 1. Recursive case: n! = n × (n-1)!. Uses primitive recursion (Sigil's canonical form).",
     "type": "λ(ℤ)→ℤ",
     "complexity": "O(n) time, O(n) space (call stack due to primitive recursion)",
     "warnings": [
       "Stack overflow for large n (typically n > 10000)",
-      "O(n) stack depth is inherent to Mint's canonical primitive recursion",
+      "O(n) stack depth is inherent to Sigil's canonical primitive recursion",
       "Not suitable for extremely large inputs"
     ],
     "examples": [
@@ -376,15 +376,15 @@ Match the examples in `examples/*.sigil.map`:
 - Real-world considerations
 - Concrete examples
 
-### CRITICAL: Mint-Appropriate Warnings
+### CRITICAL: Sigil-Appropriate Warnings
 
 **DON'T suggest impossible alternatives:**
-- ❌ "Consider iterative version" (Mint blocks iteration)
-- ❌ "Use tail-call optimization" (Mint blocks TCO)
-- ❌ "Add accumulator parameter" (Mint blocks accumulator-passing style)
+- ❌ "Consider iterative version" (Sigil blocks iteration)
+- ❌ "Use tail-call optimization" (Sigil blocks TCO)
+- ❌ "Add accumulator parameter" (Sigil blocks accumulator-passing style)
 
-**DO provide Mint-appropriate guidance:**
-- ✅ "O(n) stack depth is inherent to Mint's canonical primitive recursion"
+**DO provide Sigil-appropriate guidance:**
+- ✅ "O(n) stack depth is inherent to Sigil's canonical primitive recursion"
 - ✅ "Not suitable for extremely large inputs due to stack depth"
 - ✅ "Performance characteristic is fundamental to primitive recursion"
 
@@ -402,7 +402,7 @@ ai-pl/
 └── compiler/         # The Sigil compiler (TypeScript)
 ```
 
-## When Writing Mint Programs
+## When Writing Sigil Programs
 
 ### 1. Choose the Right Location
 
@@ -737,7 +737,7 @@ The Sigil compiler uses **static analysis** to reject non-canonical code:
 
 **Accumulator parameters are FORBIDDEN** (parameters that only grow/accumulate during recursion).
 
-**Why:** Accumulator-passing style is tail-call optimization, which Mint blocks to enforce canonical forms.
+**Why:** Accumulator-passing style is tail-call optimization, which Sigil blocks to enforce canonical forms.
 
 **Allowed:** Multi-parameter recursion where ALL parameters are:
 - **STRUCTURAL**: Decrease/decompose during recursion (n-1, xs from [x,.xs], a%b)
@@ -785,7 +785,7 @@ Error: Accumulator-passing style detected in function 'factorial'.
 
 ### Why Canonical Forms?
 
-**Human preference does NOT matter.** Mint optimizes for machine learning, not human ergonomics.
+**Human preference does NOT matter.** Sigil optimizes for machine learning, not human ergonomics.
 
 **Training Data Quality:**
 - ❌ Syntactic ambiguity → inconsistent code generation
@@ -794,9 +794,9 @@ Error: Accumulator-passing style detected in function 'factorial'.
 - ✅ Canonical forms → deterministic, unambiguous synthesis
 
 **CS Foundation:**
-Like λ-calculus normal forms or term rewriting canonical forms, Mint ensures each semantic concept has exactly one syntactic representation.
+Like λ-calculus normal forms or term rewriting canonical forms, Sigil ensures each semantic concept has exactly one syntactic representation.
 
-### What Mint Supports (and Blocks)
+### What Sigil Supports (and Blocks)
 
 **Recursion:**
 - ✅ DO: Primitive recursion (direct recursive calls)
@@ -853,7 +853,7 @@ Like λ-calculus normal forms or term rewriting canonical forms, Mint ensures ea
 
 ## Testing Your Code
 
-After writing a Mint program:
+After writing a Sigil program:
 
 ```bash
 # Compile and run

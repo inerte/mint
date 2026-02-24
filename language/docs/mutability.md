@@ -1,12 +1,12 @@
-# Mint Mutability System
+# Sigil Mutability System
 
 ## Overview
 
-Mint uses **immutable by default** with explicit `mut` annotations for mutability.
+Sigil uses **immutable by default** with explicit `mut` annotations for mutability.
 
 **Purpose:** The `mut` keyword is primarily for **FFI type safety** - marking JavaScript functions that mutate their arguments. This prevents accidental aliasing bugs when calling JavaScript code.
 
-**Note:** Mint itself has NO mutating operations. All list operations (↦, ⊳, ⊕) are immutable. This preserves canonical forms - there's exactly ONE way to write each algorithm.
+**Note:** Sigil itself has NO mutating operations. All list operations (↦, ⊳, ⊕) are immutable. This preserves canonical forms - there's exactly ONE way to write each algorithm.
 
 ## Rules
 
@@ -137,7 +137,7 @@ e Array
 |----------|----------|------------|---------------|
 | **Rust** | Borrow checker with `&`, `&mut`, lifetimes | High | Yes (prevents use-after-free) |
 | **TypeScript** | No mutability tracking | None | No |
-| **Mint** | `mut` keyword with aliasing prevention | Low | No (relies on JS GC) |
+| **Sigil** | `mut` keyword with aliasing prevention | Low | No (relies on JS GC) |
 
 ### Why Not Full Borrow Checking?
 
@@ -146,14 +146,14 @@ e Array
 - Prevents use-after-free, double-free, data races
 - Systems programming requirements
 
-**Mint doesn't need it because:**
+**Sigil doesn't need it because:**
 - Compiles to TypeScript (transpiled to JavaScript, garbage collected)
 - No manual memory management
 - Goal is logic correctness, not memory safety
 
 **Key Insight:**
 Rust's borrow checker solves **memory safety**.
-Mint's mutability checker solves **logic correctness**.
+Sigil's mutability checker solves **logic correctness**.
 
 Different problems require different solutions.
 
@@ -169,7 +169,7 @@ let x = &data;                                     // Borrow
 let y = &mut data;                                 // Mutable borrow
 ```
 
-**Mint's simpler approach:**
+**Sigil's simpler approach:**
 ```sigil
 λprocess(data:[ℤ])→ℤ=...           ⟦ Immutable by default ⟧
 λmodify(data:mut [ℤ])→𝕌=...        ⟦ Explicit mut ⟧
@@ -179,7 +179,7 @@ let y = &mut data;                                 // Mutable borrow
 
 ### Canonical Forms
 
-Mint enforces canonical forms—one way to do each thing.
+Sigil enforces canonical forms—one way to do each thing.
 
 **No tail-call optimization:**
 ```sigil
@@ -201,7 +201,7 @@ Mutability fits this philosophy: either mutable or immutable, no third option.
 
 ## Error Messages
 
-Mint provides clear, actionable error messages:
+Sigil provides clear, actionable error messages:
 
 ```
 Mutability Error: Cannot create alias of mutable value 'x'
@@ -233,12 +233,12 @@ This helps prevent accidental side effects and documents function behavior clear
 
 ### NOT Planned: Mutating Operations
 
-Mint will **not** have mutating list operations like `↦!` or `⊳!`.
+Sigil will **not** have mutating list operations like `↦!` or `⊳!`.
 
 **Reason:** Violates canonical forms. Having both mutable and immutable versions creates ambiguity:
 - `list↦fn` vs `list↦!fn` - which should LLMs choose?
 
-Mint enforces **ONE way** to write each algorithm. All list operations are immutable.
+Sigil enforces **ONE way** to write each algorithm. All list operations are immutable.
 
 ## Best Practices
 
@@ -251,7 +251,7 @@ Mint enforces **ONE way** to write each algorithm. All list operations are immut
 
 **Don't use `mut` for:**
 - Pure Sigil code (use immutable operations)
-- Performance optimization (not how Mint works)
+- Performance optimization (not how Sigil works)
 - Internal algorithms (canonical forms require immutable)
 
 ### Example: FFI with Mutation
@@ -272,7 +272,7 @@ e console
 
 ## Summary
 
-Mint's mutability system:
+Sigil's mutability system:
 - ✅ Prevents mutation bugs at compile time
 - ✅ Prevents aliasing bugs
 - ✅ Makes intent clear (`mut` = will be modified)

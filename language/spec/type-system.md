@@ -1,11 +1,11 @@
-# Mint Type System Specification
+# Sigil Type System Specification
 
 Version: 1.0.0
 Last Updated: 2026-02-21
 
 ## Overview
 
-Mint uses a **bidirectional type checking system** with:
+Sigil uses a **bidirectional type checking system** with:
 - Algebraic data types (sum types + product types)
 - Effect tracking
 - Borrow checking (ownership and lifetimes)
@@ -17,12 +17,12 @@ Mint uses a **bidirectional type checking system** with:
 
 ### Bidirectional Checking
 
-Mint alternates between:
+Sigil alternates between:
 
 1. **Synthesis (⇒)**: infer a type from expression structure
 2. **Checking (⇐)**: verify an expression against an expected type
 
-Mint does not rely on Hindley-Milner/Algorithm W as its primary typing strategy.
+Sigil does not rely on Hindley-Milner/Algorithm W as its primary typing strategy.
 
 ### Inference Rules
 

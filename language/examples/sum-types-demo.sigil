@@ -1,6 +1,6 @@
 ⟦ Sum Types Demo - Option and Result
 
-This example demonstrates Mint's sum type system with practical examples.
+This example demonstrates Sigil's sum type system with practical examples.
 
 Sum types (also called tagged unions or algebraic data types) allow you to define
 types that can be one of several variants. They're essential for type-safe error

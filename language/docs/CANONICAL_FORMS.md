@@ -2,7 +2,7 @@
 
 ## Philosophy: Zero Ambiguity
 
-Mint enforces **canonical forms** at every level - from algorithms to formatting. Every valid Mint program has exactly ONE syntactic representation.
+Sigil enforces **canonical forms** at every level - from algorithms to formatting. Every valid Sigil program has exactly ONE syntactic representation.
 
 This ensures:
 - **Training data quality**: No syntactic variations polluting LLM datasets
@@ -237,10 +237,10 @@ These will be added only if they improve deterministic generation for AI models.
 - Linters enforce conventions
 - Still allows variations
 
-**Mint:**
+**Sigil:**
 - Compiler enforces ONE way
 - No style debates
 - No linter needed
 - Perfect training data for AI
 
-This is fundamental to Mint's mission: be the first language designed for AI code generation from the ground up.
+This is fundamental to Sigil's mission: be the first language designed for AI code generation from the ground up.

@@ -27,6 +27,8 @@ export enum TokenType {
   LET = 'LET',                 // l
   CONST = 'CONST',             // c
   MUT = 'MUT',                 // mut
+  MOCKABLE = 'MOCKABLE',       // mockable
+  WITH_MOCK = 'WITH_MOCK',     // with_mock
 
   // Type symbols
   TYPE_INT = 'TYPE_INT',       // ℤ

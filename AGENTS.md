@@ -849,6 +849,39 @@ node compiler/dist/cli.js compile src/myprogram.mint
 cat build/myprogram.ts
 ```
 
+First-class Mint tests (agent-first, JSON default):
+
+```bash
+# Run all tests from ./tests (JSON to stdout by default)
+node compiler/dist/cli.js test
+
+# Human-readable output
+node compiler/dist/cli.js test --human
+
+# Filter by test description substring (great for agent TDD loops)
+node compiler/dist/cli.js test --match "toggle"
+```
+
+Testing rules:
+- Test declarations are only allowed under `./tests` (canonical project layout)
+- Test files may include regular Mint declarations plus `test` declarations
+- Test bodies must evaluate to `𝔹`
+- Effectful tests must declare effects explicitly (`test "..." →!IO { ... }`)
+- Use `mockable` + `with_mock(...) { ... }` for explicit scoped mocks
+- `mintc test` runs test files in parallel by default (JSON output remains deterministically ordered)
+
+Example:
+
+```mint
+mockable λping()→!IO 𝕊="real"
+
+test "ping can be mocked" →!IO {
+  with_mock(ping, λ()→!IO 𝕊="fake") {
+    ping()="fake"
+  }
+}
+```
+
 ## Don't
 
 - ❌ Don't create .ts output files manually - let the compiler generate them

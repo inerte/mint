@@ -44,6 +44,29 @@ Semantic Map (.map)   ← What humans read (optimized for understanding)
 
 **40-60% fewer tokens than Python/JavaScript** - More code fits in LLM context windows!
 
+## First-Class Testing (Agent-First)
+
+Mint includes first-class `test` declarations and a built-in test runner:
+
+```bash
+# JSON output by default (machine-readable)
+node compiler/dist/cli.js test
+
+# Human-readable output
+node compiler/dist/cli.js test --human
+
+# Run a subset by description substring
+node compiler/dist/cli.js test --match "toggle"
+```
+
+- Tests must live under `./tests`
+- Test bodies return `𝔹`
+- Effectful tests declare effects explicitly
+- Scoped mocking is built-in via `mockable` + `with_mock(...) { ... }`
+- Test files run in parallel by default (JSON results are output in stable order)
+
+See `docs/TESTING.md`.
+
 ## Why Machine-First Design?
 
 ### The Paradigm Shift

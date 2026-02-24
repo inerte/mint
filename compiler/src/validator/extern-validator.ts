@@ -178,6 +178,11 @@ function collectMemberAccesses(
         visitExpr(expr.fn);
         visitExpr(expr.init);
         break;
+      case 'WithMockExpr':
+        visitExpr(expr.target);
+        visitExpr(expr.replacement);
+        visitExpr(expr.body);
+        break;
       case 'LambdaExpr':
         visitExpr(expr.body);
         break;

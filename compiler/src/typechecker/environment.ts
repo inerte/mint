@@ -16,6 +16,11 @@ export interface TypeInfo {
   definition: AST.TypeDef;     // The type definition (SumType, ProductType, or TypeAlias)
 }
 
+export interface BindingMeta {
+  isMockableFunction?: boolean;
+  isExternNamespace?: boolean;
+}
+
 /**
  * Type environment (Γ in type theory notation)
  *
@@ -24,11 +29,13 @@ export interface TypeInfo {
  */
 export class TypeEnvironment {
   private bindings: Map<string, InferenceType>;
+  private bindingMeta: Map<string, BindingMeta>;
   private typeRegistry: Map<string, TypeInfo>;  // NEW: user-defined types
   private parent?: TypeEnvironment;
 
   constructor(parent?: TypeEnvironment) {
     this.bindings = new Map();
+    this.bindingMeta = new Map();
     this.typeRegistry = new Map();
     this.parent = parent;
   }
@@ -55,6 +62,19 @@ export class TypeEnvironment {
    */
   bind(name: string, type: InferenceType): void {
     this.bindings.set(name, type);
+  }
+
+  bindWithMeta(name: string, type: InferenceType, meta: BindingMeta): void {
+    this.bindings.set(name, type);
+    this.bindingMeta.set(name, meta);
+  }
+
+  lookupMeta(name: string): BindingMeta | undefined {
+    const local = this.bindingMeta.get(name);
+    if (local) {
+      return local;
+    }
+    return this.parent?.lookupMeta(name);
   }
 
   /**

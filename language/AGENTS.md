@@ -1,5 +1,9 @@
 # Claude Code Instructions for Sigil Programming Language
 
+Sigil is a programming language for Claude Code and other AI Agents. When working on this repo, wear your PhD Computer Science and Programming Language Design Expert hats.
+
+It has zero syntax variations (enforced at complike time) and avoids allowing Claude Code to do things in multiple ways.
+
 ⟦ Repo split note: this file lives under `language/` in the monorepo. Canonical user Sigil projects live under `projects/` and should use `sigil.json`, `src/`, and `tests/`. ⟧
 
 ## Language Philosophy: Canonical Forms Only
@@ -142,7 +146,6 @@ Sigil tracks side effects at compile time to prevent bugs and document behavior 
 - `!Network` - HTTP requests, network communication
 - `!Async` - Asynchronous operations, promises
 - `!Error` - Error-prone operations
-- `!Mut` - Mutation of data structures (future use)
 
 **Examples:**
 ```sigil
@@ -207,7 +210,7 @@ async function read(path) {
 ### Trade-offs
 
 **Performance:**
-- Slight overhead for pure functions (microseconds per call)
+- Slight overhead for pure functions
 - V8 heavily optimizes async/await
 - Negligible impact for I/O-bound code
 
@@ -224,7 +227,6 @@ async function read(path) {
 
 When generating Sigil code or semantic maps:
 
-- **Document that async overhead is intentional** - Not a performance bug
 - **Don't suggest "iterative versions"** - Sigil blocks iteration, everything is async anyway
 - **All Sigil functions return Promises** in the generated JavaScript
 - **This is a design choice**, not a limitation
@@ -540,6 +542,15 @@ Sigil includes a standard library with common utility functions and predicates.
 i stdlib⋅list_predicates
 i stdlib⋅numeric_predicates
 i stdlib⋅list_utils
+i stdlib⋅string_ops
+i stdlib⋅string_predicates
+```
+
+**Length operator (`#`):**
+```sigil
+#"hello"                                              ⟦ → 5 (string length) ⟧
+#[1,2,3]                                              ⟦ → 3 (list length) ⟧
+#""                                                   ⟦ → 0 (empty string) ⟧
 ```
 
 **List predicates:**
@@ -560,9 +571,29 @@ stdlib⋅numeric_predicates.in_range(5,1,10)           ⟦ Check if in range [mi
 
 **List utilities:**
 ```sigil
-stdlib⋅list_utils.len([1,2,3])                       ⟦ Get list length ⟧
 stdlib⋅list_utils.head([1,2,3])                      ⟦ Get first element ⟧
 stdlib⋅list_utils.tail([1,2,3])                      ⟦ Get all but first ⟧
+⟦ Note: Use # operator for length instead of stdlib⋅list_utils.len ⟧
+```
+
+**String operations:**
+```sigil
+stdlib⋅string_ops.char_at("hello",0)                 ⟦ Get character at index ⟧
+stdlib⋅string_ops.substring("hello world",6,11)      ⟦ Extract substring ⟧
+stdlib⋅string_ops.take("hello",3)                    ⟦ First n characters ⟧
+stdlib⋅string_ops.drop("hello",2)                    ⟦ Drop first n characters ⟧
+stdlib⋅string_ops.to_upper("hello")                  ⟦ Convert to uppercase ⟧
+stdlib⋅string_ops.to_lower("WORLD")                  ⟦ Convert to lowercase ⟧
+stdlib⋅string_ops.trim("  hello  ")                  ⟦ Remove whitespace ⟧
+stdlib⋅string_ops.split("a,b,c",",")                 ⟦ Split by delimiter ⟧
+stdlib⋅string_ops.index_of("hello","e")              ⟦ Find substring (-1 if not found) ⟧
+stdlib⋅string_ops.replace_all("hi hi","hi","bye")    ⟦ Replace all occurrences ⟧
+```
+
+**String predicates:**
+```sigil
+stdlib⋅string_predicates.starts_with("# Title","# ") ⟦ Check prefix ⟧
+stdlib⋅string_predicates.ends_with("test.sigil",".sigil") ⟦ Check suffix ⟧
 ```
 
 **Common patterns:**

@@ -1,7 +1,7 @@
 /**
- * Hover provider for Mint Language Server
+ * Hover provider for Sigil Language Server
  *
- * Shows semantic map content when hovering over Mint code:
+ * Shows semantic map content when hovering over Sigil code:
  * - Function explanations with complexity analysis
  * - Type information
  * - Warnings and examples
@@ -53,15 +53,15 @@ export function onHover(
 }
 
 /**
- * Load semantic map file for a Mint document
+ * Load semantic map file for a Sigil document
  */
 function loadSemanticMap(documentUri: string): SemanticMap | null {
   try {
     // Convert URI to file path
     const filePath = fileURLToPath(documentUri);
 
-    // Replace .mint with .mint.map
-    const mapPath = filePath.replace(/\.mint$/, '.mint.map');
+    // Replace .sigil with .sigil.map
+    const mapPath = filePath.replace(/\.sigil$/, '.sigil.map');
 
     // Read and parse semantic map
     const mapContent = readFileSync(mapPath, 'utf-8');
@@ -124,7 +124,7 @@ function formatMappingAsMarkdown(mapping: Mapping): string {
 
   // Examples
   if (mapping.examples && mapping.examples.length > 0) {
-    md += `**Examples:**\n\`\`\`mint\n`;
+    md += `**Examples:**\n\`\`\`sigil\n`;
     md += mapping.examples.join('\n');
     md += '\n\`\`\`\n\n';
   }

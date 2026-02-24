@@ -1,5 +1,5 @@
 /**
- * Mint Type Checker - Type Environment (Bidirectional)
+ * Sigil Type Checker - Type Environment (Bidirectional)
  *
  * Manages variable bindings during type checking.
  * Simplified from HM version - no type schemes, direct InferenceType bindings.

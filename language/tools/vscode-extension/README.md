@@ -1,11 +1,11 @@
 # Mint Language for VS Code
 
-Official VS Code extension for the Mint programming language.
+Official VS Code extension for the Sigil programming language.
 
 ## Features
 
 ### 🎨 Syntax Highlighting
-Beautiful syntax highlighting for Mint code with support for:
+Beautiful syntax highlighting for Sigil code with support for:
 - Unicode symbols (λ, →, ≡, ℤ, 𝕊, 𝔹, etc.)
 - Function definitions
 - Pattern matching
@@ -23,7 +23,7 @@ Instant error checking as you type:
 All errors show with precise locations and helpful messages.
 
 ### 💡 Intelligent Hover
-Hover over any Mint code to see AI-generated documentation:
+Hover over any Sigil code to see AI-generated documentation:
 - Function explanations
 - Type signatures
 - Complexity analysis (Big-O)
@@ -74,7 +74,7 @@ Navigate your code with the outline view showing:
 1. Open VS Code to `tools/vscode-extension` folder
 2. Open **Run and Debug** panel (Cmd+Shift+D)
 3. Click the **green play button ▶️** next to "Run Extension"
-4. In the Extension Development Host window, open a folder with `.mint` files
+4. In the Extension Development Host window, open a folder with `.sigil` files
 
 ### From VSIX (Installation)
 1. Build the extension: `cd tools/vscode-extension && pnpm package`
@@ -108,8 +108,8 @@ This extension contributes the following settings:
 
 ## Quick Start
 
-1. Create a new file with `.mint` extension
-2. Start writing Mint code:
+1. Create a new file with `.sigil` extension
+2. Start writing Sigil code:
 
 ```mint
 λfactorial(n:ℤ)→ℤ≡n{
@@ -135,7 +135,7 @@ Check the Output panel (View → Output) and select "Mint Language Server" to se
 
 ### No syntax highlighting
 
-Ensure the file has `.mint` extension. VS Code detects the language by file extension.
+Ensure the file has `.sigil` extension. VS Code detects the language by file extension.
 
 ### Unicode symbols not showing
 
@@ -146,7 +146,7 @@ Ensure your editor font supports Unicode characters. Recommended fonts:
 
 ## Development
 
-See the main Mint repository for development instructions:
+See the main Sigil repository for development instructions:
 https://github.com/mint-lang/mint
 
 ### Building from source

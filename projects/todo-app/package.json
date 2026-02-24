@@ -1,10 +1,10 @@
 {
-  "name": "@mint-lang/example-todo-react",
+  "name": "@sigil-lang/example-todo-react",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "mint:compile": "node ../../language/compiler/dist/cli.js compile src/todo-domain.mint -o web/src/generated/todo-domain.ts",
+    "sigil:compile": "node ../../language/compiler/dist/cli.js compile src/todo-domain.sigil -o web/src/generated/todo-domain.ts",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"

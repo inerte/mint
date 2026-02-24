@@ -79,7 +79,7 @@ State accumulation (FORBIDDEN):
 
 The real problem isn't multiple parameters - it's **accumulator-passing style**, which encodes imperative iteration in functional recursion. That creates ambiguity (recursive vs iterative implementations).
 
-Legitimate multi-parameter algorithms like GCD, binary search, and nth element have NO ambiguity - there's still only ONE way to write them in Mint. They're not accumulator patterns; they're genuinely multi-input algorithms.
+Legitimate multi-parameter algorithms like GCD, binary search, and nth element have NO ambiguity - there's still only ONE way to write them in Sigil. They're not accumulator patterns; they're genuinely multi-input algorithms.
 
 This makes Mint **more principled** (precise distinction) while **more practical** (enables O(log n) algorithms) - a rare win-win.
 
@@ -161,8 +161,8 @@ Code is machine-optimal → Semantic maps for humans → AI explanations on dema
 
 **File Structure:**
 ```
-fibonacci.mint       # Dense executable code: λfibonacci(n:ℤ)→ℤ≡n{...}
-fibonacci.mint.map   # JSON: {"fibonacci": {"explanation": "Computes nth Fibonacci..."}}
+fibonacci.sigil       # Dense executable code: λfibonacci(n:ℤ)→ℤ≡n{...}
+fibonacci.sigil.map   # JSON: {"fibonacci": {"explanation": "Computes nth Fibonacci..."}}
 ```
 
 **IDE Features:**
@@ -177,7 +177,7 @@ Developer: "Create email validation function"
 AI: [Generates dense code + semantic map]
 AI: "I've created validate_email(email:𝕊)→𝔹!Error that checks..."
 Developer: Reviews semantic map (never touches dense syntax)
-Git: Commits both .mint and .mint.map
+Git: Commits both .sigil and .sigil.map
 ```
 
 ## The Analogy
@@ -262,7 +262,7 @@ Production tooling:
 
 **The future of programming:**
 
-1. **Natural language specs** → AI generates Mint code
+1. **Natural language specs** → AI generates Sigil code
 2. **AI pair programming** → Modify code via conversation
 3. **Perfect understanding** → Semantic maps better than comments
 4. **Massive context** → 2× more code in LLM windows

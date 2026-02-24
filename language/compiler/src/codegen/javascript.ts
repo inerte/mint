@@ -47,7 +47,7 @@ export class JavaScriptGenerator {
     }
 
     if (this.testMetaEntries.length > 0) {
-      this.emit(`export const __mint_tests = [`);
+      this.emit(`export const __sigil_tests = [`);
       this.indent++;
       for (const entry of this.testMetaEntries) {
         this.emit(`${entry},`);
@@ -619,12 +619,12 @@ export class JavaScriptGenerator {
     this.emit(`return null;`);
     this.indent--;
     this.emit(`}`);
-    this.emit(`function __mint_test_bool_result(ok) {`);
+    this.emit(`function __sigil_test_bool_result(ok) {`);
     this.indent++;
     this.emit(`return ok === true ? { ok: true } : { ok: false, failure: { kind: 'assert_false', message: 'Test body evaluated to ⊥' } };`);
     this.indent--;
     this.emit(`}`);
-    this.emit(`function __mint_test_compare_result(op, leftFn, rightFn) {`);
+    this.emit(`function __sigil_test_compare_result(op, leftFn, rightFn) {`);
     this.indent++;
     this.emit(`const actual = leftFn();`);
     this.emit(`const expected = rightFn();`);
@@ -681,10 +681,10 @@ export class JavaScriptGenerator {
     if (expr.type === 'BinaryExpr' && ['=', '≠', '<', '>', '≤', '≥'].includes(expr.operator)) {
       const left = this.generateExpression(expr.left);
       const right = this.generateExpression(expr.right);
-      return `__mint_test_compare_result(${JSON.stringify(expr.operator)}, () => ${left}, () => ${right})`;
+      return `__sigil_test_compare_result(${JSON.stringify(expr.operator)}, () => ${left}, () => ${right})`;
     }
     const body = this.generateExpression(expr);
-    return `__mint_test_bool_result(${body})`;
+    return `__sigil_test_bool_result(${body})`;
   }
 
   private generateAssertionMetadata(expr: AST.Expr): string {

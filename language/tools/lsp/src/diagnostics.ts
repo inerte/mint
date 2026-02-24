@@ -1,7 +1,7 @@
 /**
- * Diagnostics provider for Mint Language Server
+ * Diagnostics provider for Sigil Language Server
  *
- * Integrates with the Mint compiler to provide real-time error checking:
+ * Integrates with the Sigil compiler to provide real-time error checking:
  * - Lexer errors (invalid tokens, Unicode issues)
  * - Parser errors (syntax errors, malformed AST)
  * - Type checker errors (type mismatches, undefined functions)
@@ -15,10 +15,10 @@ import {
   DiagnosticSeverity,
 } from 'vscode-languageserver/node.js';
 
-import { MintError } from './types.js';
+import { SigilError } from './types.js';
 
 /**
- * Validate a Mint document and send diagnostics to the client
+ * Validate a Sigil document and send diagnostics to the client
  */
 export async function validateDocument(
   document: TextDocument,
@@ -60,7 +60,7 @@ export async function validateDocument(
   } catch (importError: any) {
     // Compiler not available - log warning but don't fail
     connection.console.warn(
-      `Failed to load Mint compiler: ${importError.message}`
+      `Failed to load Sigil compiler: ${importError.message}`
     );
   }
 
@@ -72,10 +72,10 @@ export async function validateDocument(
 }
 
 /**
- * Convert a Mint compiler error to an LSP diagnostic
+ * Convert a Sigil compiler error to an LSP diagnostic
  */
 function errorToDiagnostic(
-  error: MintError,
+  error: SigilError,
   document: TextDocument
 ): Diagnostic | null {
   // Extract error location
@@ -100,6 +100,6 @@ function errorToDiagnostic(
     severity: DiagnosticSeverity.Error,
     range,
     message: error.message || 'Unknown error',
-    source: 'mint',
+    source: 'sigil',
   };
 }

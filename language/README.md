@@ -1,4 +1,4 @@
-# Mint Programming Language
+# Sigil Programming Language
 ## "Minimal Interpreted" - A Machine-First Language for the AI Era
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -15,10 +15,10 @@
 
 ### The Core Innovation
 
-Mint introduces **semantic source maps** (.mint.map) - like TypeScript/JavaScript source maps, but for human understanding:
+Mint introduces **semantic source maps** (.sigil.map) - like TypeScript/JavaScript source maps, but for human understanding:
 
 ```
-Mint Code (.mint)     ← What runs (optimized for LLMs/execution)
+Mint Code (.sigil)     ← What runs (optimized for LLMs/execution)
       ↕ (mapped by)
 Semantic Map (.map)   ← What humans read (optimized for understanding)
 ```
@@ -27,7 +27,7 @@ Semantic Map (.map)   ← What humans read (optimized for understanding)
 
 ## Quick Example
 
-### What's Stored (Dense Format - fibonacci.mint)
+### What's Stored (Dense Format - fibonacci.sigil)
 ```mint
 λfibonacci(n:ℤ)→ℤ≡n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 ```
@@ -111,7 +111,7 @@ Developers interact via the **AI Interpretation Layer**:
 - **LSP** that shows semantic explanations on hover
 - **AI assistants** that write/edit the dense code
 - **Visual debugging** tools with natural language explanations
-- **Semantic maps** (.mint.map) that persist AI-generated documentation
+- **Semantic maps** (.sigil.map) that persist AI-generated documentation
 
 ## Design Principles
 
@@ -254,23 +254,23 @@ AI: "I've created validate_email(email:𝕊)→𝔹!Error. It checks:
      - Has characters before and after @
      - Domain has at least one dot"
 Developer: Reviews semantic map, approves
-Git: Commits both .mint and .mint.map
+Git: Commits both .sigil and .sigil.map
 ```
 
 ## Semantic Source Maps
 
-Every `.mint` file has a corresponding `.mint.map` file:
+Every `.sigil` file has a corresponding `.sigil.map` file:
 
-**fibonacci.mint** (what executes):
+**fibonacci.sigil** (what executes):
 ```mint
 λfibonacci(n:ℤ)→ℤ≡n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 ```
 
-**fibonacci.mint.map** (human interpretation):
+**fibonacci.sigil.map** (human interpretation):
 ```json
 {
   "version": 1,
-  "file": "fibonacci.mint",
+  "file": "fibonacci.sigil",
   "mappings": {
     "function": {
       "range": [0, 67],
@@ -287,7 +287,7 @@ Every `.mint` file has a corresponding `.mint.map` file:
 
 The **AI Interpretation Layer** provides:
 
-- **Hover tooltips**: Instant semantic explanations (from .mint.map)
+- **Hover tooltips**: Instant semantic explanations (from .sigil.map)
 - **Unicode input helpers**: Type `lambda` → auto-insert `λ`
 - **Semantic view panel**: Detailed explanations of selected code
 - **Natural language queries**: "What does line 47 do?"
@@ -330,7 +330,7 @@ The **AI Interpretation Layer** provides:
   - Auto-generated during compilation
   - Extracts ranges, types, basic summaries from AST
   - JSON format matching spec/sourcemap-format.md
-  - Outputs .mint.map beside source files
+  - Outputs .sigil.map beside source files
   - Ready for enhancement via Claude Code CLI
 
 - ✅ LSP Server (Phase 1: Basic Infrastructure) - ✓ COMPLETED (2026-02-23)
@@ -345,7 +345,7 @@ The **AI Interpretation Layer** provides:
   - Full VS Code extension with LSP client
   - Syntax highlighting (TextMate grammar)
   - Language configuration (brackets, auto-closing, comments)
-  - Extension activation for .mint files
+  - Extension activation for .sigil files
   - Ready to package and install
 
 ### In Progress
@@ -359,17 +359,17 @@ The **AI Interpretation Layer** provides:
 ## Installation (Future)
 
 ```bash
-# Install Mint compiler
+# Install Sigil compiler
 brew install mint-lang
 
 # Create new project
 mint new my-project
 
 # Compile to TypeScript
-mintc compile src/main.mint --output dist/main.ts
+sigilc compile src/main.sigil --output dist/main.ts
 
 # Generate semantic maps
-mintc map generate src/**/*.mint
+sigilc map generate src/**/*.sigil
 
 # Run REPL
 mint
@@ -380,7 +380,7 @@ mint
 - [Philosophy](docs/philosophy.md) - Why machine-first?
 - [Syntax Reference](docs/syntax-reference.md) - Canonical syntax reference
 - [Type System](docs/type-system.md) - Types and inference
-- [Semantic Maps](docs/semantic-maps.md) - How .mint.map works
+- [Semantic Maps](docs/semantic-maps.md) - How .sigil.map works
 - [Specification](spec/) - Formal language specification
 
 ## Contributing

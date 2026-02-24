@@ -520,7 +520,7 @@ t Result[T,E]=Ok(T)|Err(E)
 }
 ```
 
-**See also:** `examples/sum-types-demo.mint` for comprehensive examples.
+**See also:** `examples/sum-types-demo.sigil` for comprehensive examples.
 
 ## Future Additions
 
@@ -577,4 +577,4 @@ This ensures predicates are useful TODAY while setting foundation for formal ver
 **See also:**
 - `spec/stdlib-spec.md` - Full standard library specification
 - `examples/` - Example programs using predicates
-- `AGENTS.md` - Mint language guide
+- `AGENTS.md` - Sigil language guide

@@ -4,7 +4,7 @@ Welcome to Mint - the machine-first programming language! This guide will help y
 
 ## What Works Now
 
-✅ **Lexer** - Fully implemented and tested. Tokenizes Unicode Mint code.
+✅ **Lexer** - Fully implemented and tested. Tokenizes Unicode Sigil code.
 ✅ **Parser** - Complete recursive descent parser. Builds Abstract Syntax Trees (AST).
 ⏳ **Type Checker** - Coming next (Hindley-Milner type inference)
 ⏳ **Code Generator** - Coming soon (compile to JavaScript)
@@ -29,7 +29,7 @@ pnpm install
 
 3. **Build the compiler:**
 ```bash
-pnpm --filter @mint-lang/compiler build
+pnpm --filter @sigil-lang/compiler build
 # Or from compiler directory:
 cd compiler && pnpm build
 ```
@@ -39,12 +39,12 @@ cd compiler && pnpm build
 ### Tokenize an example file:
 
 ```bash
-node compiler/dist/cli.js lex examples/fibonacci.mint
+node compiler/dist/cli.js lex examples/fibonacci.sigil
 ```
 
 Output:
 ```
-Tokens for examples/fibonacci.mint:
+Tokens for examples/fibonacci.sigil:
 
 LAMBDA(λ) at 1:1
 IDENTIFIER(fibonacci) at 1:2
@@ -57,35 +57,35 @@ Total tokens: 37
 
 ```bash
 # Factorial function
-node compiler/dist/cli.js lex examples/factorial.mint
+node compiler/dist/cli.js lex examples/factorial.sigil
 
 # Type definitions
-node compiler/dist/cli.js lex examples/types.mint
+node compiler/dist/cli.js lex examples/types.sigil
 
 # List operations (map, filter, reduce)
-node compiler/dist/cli.js lex examples/list-operations.mint
+node compiler/dist/cli.js lex examples/list-operations.sigil
 
 # HTTP handler
-node compiler/dist/cli.js lex examples/http-handler.mint
+node compiler/dist/cli.js lex examples/http-handler.sigil
 ```
 
 ## Exploring Mint Code
 
 ### Example 1: Fibonacci (Dense Format)
 
-**examples/fibonacci.mint:**
+**examples/fibonacci.sigil:**
 ```mint
 λfibonacci(n:ℤ)→ℤ≡n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 ```
 
-**What it means** (from fibonacci.mint.map):
+**What it means** (from fibonacci.sigil.map):
 > Computes the nth Fibonacci number recursively.
 > Base cases: F(0)=0, F(1)=1
 > Recursive case: F(n) = F(n-1) + F(n-2)
 
 ### Example 2: Type Definitions
 
-**examples/types.mint:**
+**examples/types.sigil:**
 ```mint
 t Option[T]=Some(T)|None
 t Result[T,E]=Ok(T)|Err(E)
@@ -100,7 +100,7 @@ t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
 
 ### Example 3: HTTP Handler
 
-**examples/http-handler.mint:**
+**examples/http-handler.sigil:**
 ```mint
 λhandle_request(req:Request)→Result[Response,Error]≡req.path{
   "/users"→get_users(req)|
@@ -157,13 +157,13 @@ The VS Code extension will let you type ASCII and auto-convert:
 
 ## Reading Semantic Maps
 
-Each `.mint` file has a corresponding `.mint.map` file with AI-generated explanations.
+Each `.sigil` file has a corresponding `.sigil.map` file with AI-generated explanations.
 
-**Example:** Open `examples/fibonacci.mint.map` to see:
+**Example:** Open `examples/fibonacci.sigil.map` to see:
 ```json
 {
   "version": 1,
-  "file": "fibonacci.mint",
+  "file": "fibonacci.sigil",
   "mappings": {
     "fibonacci": {
       "summary": "Computes the nth Fibonacci number recursively",
@@ -183,7 +183,7 @@ Each `.mint` file has a corresponding `.mint.map` file with AI-generated explana
 ⚠️ **Type checker not yet implemented** - no type inference yet
 ⚠️ **Code generator not yet implemented** - can't run programs yet (coming soon!)
 ⚠️ **No IDE extension yet** - use text editors manually
-⚠️ **Semantic map generator not built** - .mint.map files are hand-written examples
+⚠️ **Semantic map generator not built** - .sigil.map files are hand-written examples
 
 ## Project Structure
 
@@ -200,8 +200,8 @@ ai-pl/
 ├── docs/
 │   └── philosophy.md      # Why machine-first?
 ├── examples/
-│   ├── fibonacci.mint     # Example programs
-│   ├── fibonacci.mint.map # Semantic explanations
+│   ├── fibonacci.sigil     # Example programs
+│   ├── fibonacci.sigil.map # Semantic explanations
 │   └── ...
 ├── compiler/
 │   ├── src/
@@ -215,7 +215,7 @@ ai-pl/
 
 ## Next Steps
 
-1. **Explore examples** - Read the `.mint` files and their `.mint.map` explanations
+1. **Explore examples** - Read the `.sigil` files and their `.sigil.map` explanations
 2. **Study the grammar** - See `spec/grammar.ebnf` for complete syntax
 3. **Read the philosophy** - Understand why Mint is designed this way (`docs/philosophy.md`)
 4. **Watch this space** - Parser, type checker, and code generator coming soon!
@@ -229,7 +229,7 @@ While the POC is in active development, here are areas where research/input woul
    - Is there a measurable difference in token count?
 
 2. **LLM Generation Testing**
-   - Can current LLMs generate syntactically correct Mint code?
+   - Can current LLMs generate syntactically correct Sigil code?
    - What prompt engineering works best?
 
 3. **Alternative Syntax Explorations**

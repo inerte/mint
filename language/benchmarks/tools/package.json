@@ -1,8 +1,8 @@
 {
-  "name": "@mint-lang/benchmarks",
+  "name": "@sigil-lang/benchmarks",
   "version": "0.1.0",
   "type": "module",
-  "description": "Token efficiency benchmarking for Mint language",
+  "description": "Token efficiency benchmarking for Sigil language",
   "scripts": {
     "compare": "node compare.ts"
   },

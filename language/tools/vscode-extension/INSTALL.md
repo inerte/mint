@@ -1,4 +1,4 @@
-# Installing the Mint VS Code Extension
+# Installing the Sigil VS Code Extension
 
 ## Quick Install (Recommended)
 
@@ -37,8 +37,8 @@ pnpm build
 
 4. **In the Extension Development Host window**:
    - Open a folder with Mint files (File → Open Folder...)
-   - Or create a new `.mint` file (File → New File → Save as `test.mint`)
-   - The extension will activate automatically for `.mint` files
+   - Or create a new `.sigil` file (File → New File → Save as `test.sigil`)
+   - The extension will activate automatically for `.sigil` files
 
 **Option B: Install from VSIX**
 1. Package the extension:
@@ -59,7 +59,7 @@ pnpm build
 
 ### 1. Create a Test File
 
-Create `test.mint`:
+Create `test.sigil`:
 ```mint
 ⟦ Factorial function using primitive recursion ⟧
 λfactorial(n:ℤ)→ℤ≡n{
@@ -118,7 +118,7 @@ cd tools/lsp && pnpm build
 ```
 
 ### No syntax highlighting
-- Ensure file has `.mint` extension
+- Ensure file has `.sigil` extension
 - Reload VS Code: Cmd+Shift+P → "Reload Window"
 
 ### Unicode symbols not showing

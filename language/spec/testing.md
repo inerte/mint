@@ -50,10 +50,10 @@ TestDecl = "test" , StringLiteral , "{" , Expr , "}" ;
 ### Example
 
 ```mint
-// fibonacci.mint
+// fibonacci.sigil
 λfibonacci(n:ℤ)→ℤ≡n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 
-// tests/fibonacci.test.mint
+// tests/fibonacci.test.sigil
 test "fibonacci base cases"{
   assert_eq(0,fibonacci(0))∧
   assert_eq(1,fibonacci(1))
@@ -83,20 +83,20 @@ test "fibonacci edge cases"{
 ```
 project/
   src/
-    fibonacci.mint           # Implementation
-    fibonacci.mint.map       # Semantic map (AI explanations)
+    fibonacci.sigil           # Implementation
+    fibonacci.sigil.map       # Semantic map (AI explanations)
   tests/
-    fibonacci.test.mint      # Tests
-    fibonacci.test.mint.map  # Test explanations (what each test validates)
+    fibonacci.test.sigil      # Tests
+    fibonacci.test.sigil.map  # Test explanations (what each test validates)
     fibonacci.spec.txt       # Natural language spec (optional)
 ```
 
 ### Auto-Discovery
 
 ```bash
-mintc test                   # Finds all .test.mint files
-mintc test fibonacci         # Run tests for fibonacci module
-mintc test --watch           # Continuous testing
+sigilc test                   # Finds all .test.sigil files
+sigilc test fibonacci         # Run tests for fibonacci module
+sigilc test --watch           # Continuous testing
 ```
 
 ## Assertion API
@@ -219,13 +219,13 @@ test "fetch_url handles timeout"{
 
 ### Test Explanations
 
-Every `.test.mint` file has a corresponding `.test.mint.map` that explains what each test validates:
+Every `.test.sigil` file has a corresponding `.test.sigil.map` that explains what each test validates:
 
-**fibonacci.test.mint.map:**
+**fibonacci.test.sigil.map:**
 ```json
 {
   "version": 1,
-  "file": "fibonacci.test.mint",
+  "file": "fibonacci.test.sigil",
   "generated_by": "claude-opus-4.6",
   "generated_at": "2026-02-21T10:00:00Z",
   "mappings": {
@@ -296,14 +296,14 @@ Every `.test.mint` file has a corresponding `.test.mint.map` that explains what 
 
 ```bash
 # Step 1: Human describes intent
-$ mintc generate fibonacci --desc "computes nth fibonacci number"
+$ sigilc generate fibonacci --desc "computes nth fibonacci number"
 
 AI: Generating comprehensive test suite...
-    ✓ Created: tests/fibonacci.test.mint (4 tests, 8 assertions, 2 properties)
-    ✓ Created: tests/fibonacci.test.mint.map (explanations)
+    ✓ Created: tests/fibonacci.test.sigil (4 tests, 8 assertions, 2 properties)
+    ✓ Created: tests/fibonacci.test.sigil.map (explanations)
 
 # Step 2: Human reviews test explanations
-$ mintc review tests/fibonacci.test.mint.map
+$ sigilc review tests/fibonacci.test.sigil.map
 
 [IDE shows formatted explanation]
 📝 Test Suite: fibonacci
@@ -325,11 +325,11 @@ Coverage: 4 tests, 8 assertions, 200 property checks
 Estimated execution time: <10ms
 
 # Step 3: Human approves or requests changes
-$ mintc approve tests/fibonacci.test.mint
+$ sigilc approve tests/fibonacci.test.sigil
 
 AI: Tests approved. Generating implementation...
-    ✓ Created: src/fibonacci.mint
-    ✓ Created: src/fibonacci.mint.map
+    ✓ Created: src/fibonacci.sigil
+    ✓ Created: src/fibonacci.sigil.map
     Running tests...
 
     ✓ test fibonacci base cases (2/2 passed)
@@ -340,7 +340,7 @@ AI: Tests approved. Generating implementation...
     All tests passing! Implementation complete.
 
 # Step 4: Human reviews semantic map of implementation
-$ mintc review src/fibonacci.mint.map
+$ sigilc review src/fibonacci.sigil.map
 
 [Shows AI explanation of generated code]
 λfibonacci(n:ℤ)→ℤ
@@ -351,11 +351,11 @@ Complexity: "O(2^n) time, O(n) space"
 Warnings: ["Inefficient for large n", "Consider memoization"]
 
 # Step 5: Done! Or iterate...
-$ mintc optimize fibonacci --criteria "improve time complexity"
+$ sigilc optimize fibonacci --criteria "improve time complexity"
 
 AI: Adding memoization...
-    ✓ Updated: src/fibonacci.mint (now O(n) time)
-    ✓ Updated: tests/fibonacci.test.mint (added performance tests)
+    ✓ Updated: src/fibonacci.sigil (now O(n) time)
+    ✓ Updated: tests/fibonacci.test.sigil (added performance tests)
 
     ✓ All tests still passing
     ✓ New performance test: fibonacci(100) completes in <1ms
@@ -367,28 +367,28 @@ AI: Adding memoization...
 
 ```bash
 # Run all tests
-mintc test
+sigilc test
 
 # Run specific test file
-mintc test fibonacci
+sigilc test fibonacci
 
 # Run with verbose output
-mintc test --verbose
+sigilc test --verbose
 
 # Run with coverage report
-mintc test --coverage
+sigilc test --coverage
 
 # Watch mode (re-run on file changes)
-mintc test --watch
+sigilc test --watch
 
 # Generate tests from spec
-mintc test generate fibonacci --spec "computes nth fibonacci number"
+sigilc test generate fibonacci --spec "computes nth fibonacci number"
 
 # Generate implementation from tests
-mintc generate fibonacci --from-tests tests/fibonacci.test.mint
+sigilc generate fibonacci --from-tests tests/fibonacci.test.sigil
 
 # AI fixes failing tests
-mintc fix fibonacci --tests
+sigilc fix fibonacci --tests
 ```
 
 ### Test Output
@@ -411,7 +411,7 @@ Time: 49ms
   ✗ assert_eq(1,fibonacci(1))
     Expected: 1
     Actual: 0
-    Location: tests/fibonacci.test.mint:3:3
+    Location: tests/fibonacci.test.sigil:3:3
 
 Tests: 0 passed, 1 failed, 1 total
 Time: 1ms
@@ -419,7 +419,7 @@ Time: 1ms
 
 **With AI explanations:**
 ```bash
-$ mintc test --explain-failures
+$ sigilc test --explain-failures
 
 ✗ test fibonacci base cases
 
@@ -529,10 +529,10 @@ test "memoized fibonacci is faster"{
 ### Coverage Analysis
 
 ```bash
-$ mintc test --coverage
+$ sigilc test --coverage
 
 Coverage Report:
-  fibonacci.mint
+  fibonacci.sigil
     Lines:      10/10 (100%)
     Branches:   3/3 (100%)
     Functions:  1/1 (100%)
@@ -545,7 +545,7 @@ Overall: 100% coverage
 ### Coverage Visualization
 
 ```
-src/fibonacci.mint:
+src/fibonacci.sigil:
   1: λfibonacci(n:ℤ)→ℤ≡n{        ✓ Executed
   2:   0→0|                      ✓ Executed (2 times)
   3:   1→1|                      ✓ Executed (2 times)

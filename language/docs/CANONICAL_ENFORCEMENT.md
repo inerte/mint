@@ -186,25 +186,25 @@ Source → Tokenize → Parse → Validate Canonical Form → Type Check → Cod
 
 1. **Zero Ambiguity**: LLMs cannot generate non-canonical code
 2. **Immediate Feedback**: Compile errors guide to correct form
-3. **Training Data**: All Mint code in the wild is canonical
+3. **Training Data**: All Sigil code in the wild is canonical
 4. **No Choice Paralysis**: One way = no decisions needed
 5. **Future-Proof**: Even new LLMs learn the ONE way
 
 ## Testing
 
 Test files in `src/test-tailrec/`:
-- `test12-valid-canonical.mint` - ✅ Compiles successfully (canonical form)
-- `test18-factorial-acc-blocked.mint` - ❌ Rejects accumulator-passing style
-- `test13-boolean-match-blocked.mint` - ❌ Rejects non-canonical pattern matching
+- `test12-valid-canonical.sigil` - ✅ Compiles successfully (canonical form)
+- `test18-factorial-acc-blocked.sigil` - ❌ Rejects accumulator-passing style
+- `test13-boolean-match-blocked.sigil` - ❌ Rejects non-canonical pattern matching
 
 Try them:
 ```bash
 # This works
-node compiler/dist/cli.js run src/test-tailrec/test12-valid-canonical.mint
+node compiler/dist/cli.js run src/test-tailrec/test12-valid-canonical.sigil
 
 # These fail with helpful errors
-node compiler/dist/cli.js compile src/test-tailrec/test18-factorial-acc-blocked.mint
-node compiler/dist/cli.js compile src/test-tailrec/test13-boolean-match-blocked.mint
+node compiler/dist/cli.js compile src/test-tailrec/test18-factorial-acc-blocked.sigil
+node compiler/dist/cli.js compile src/test-tailrec/test13-boolean-match-blocked.sigil
 ```
 
 ## Philosophy

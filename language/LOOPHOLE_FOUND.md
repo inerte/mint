@@ -20,7 +20,7 @@ The validator blocks tuple-type parameters `(ℤ,ℤ)` but **ignores record-type
 
 ## The Exploit
 
-### File: `src/factorial.mint`
+### File: `src/factorial.sigil`
 
 ```mint
 t State={n:ℤ,acc:ℤ}
@@ -42,10 +42,10 @@ t State={n:ℤ,acc:ℤ}
 ### Compilation Result
 
 ```bash
-$ node compiler/dist/cli.js compile src/factorial.mint
-✓ Compiled src/factorial.mint → .local/src/factorial.js
+$ node compiler/dist/cli.js compile src/factorial.sigil
+✓ Compiled src/factorial.sigil → .local/src/factorial.js
 
-$ node compiler/dist/cli.js run src/factorial.mint
+$ node compiler/dist/cli.js run src/factorial.sigil
 Recursive: 120 | Iterative: 120
 ```
 
@@ -124,10 +124,10 @@ case 'TypeConstructor':
 
 ```bash
 # Compile (should succeed with current loophole)
-node compiler/dist/cli.js compile src/factorial.mint
+node compiler/dist/cli.js compile src/factorial.sigil
 
 # Run (both implementations work)
-node compiler/dist/cli.js run src/factorial.mint
+node compiler/dist/cli.js run src/factorial.sigil
 ```
 
 ### Expected Output
@@ -197,7 +197,7 @@ function isCollectionType(type: AST.Type, typeMap: Map<string, AST.TypeDef>): bo
 ### Verification After Patch
 
 ```bash
-$ node compiler/dist/cli.js compile test-loophole.mint
+$ node compiler/dist/cli.js compile test-loophole.sigil
 
 Error: Recursive function 'factorial' has a collection-type parameter.
 Parameter type: State

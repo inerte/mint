@@ -1,7 +1,7 @@
 {
-  "name": "@mint-lang/lsp",
+  "name": "@sigil-lang/lsp",
   "version": "0.1.0",
-  "description": "Language Server Protocol implementation for Mint",
+  "description": "Language Server Protocol implementation for Sigil",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {

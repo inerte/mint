@@ -1,4 +1,4 @@
-# Canonical Forms in Mint
+# Canonical Forms in Sigil
 
 ## Philosophy: Zero Ambiguity
 
@@ -194,7 +194,7 @@ All files must pass surface form validation:
 
 ```bash
 # This will fail if formatting is wrong
-node compiler/dist/cli.js compile myfile.mint
+node compiler/dist/cli.js compile myfile.sigil
 
 # Common failures:
 # - Missing final newline → add newline at end
@@ -205,7 +205,7 @@ node compiler/dist/cli.js compile myfile.mint
 
 ## For AI Agents and LLMs
 
-**When generating Mint code:**
+**When generating Sigil code:**
 
 1. Always end files with `\n`
 2. Never add trailing spaces

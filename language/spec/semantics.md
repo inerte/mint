@@ -5,7 +5,7 @@ Last Updated: 2026-02-21
 
 ## Overview
 
-This document defines the **operational semantics** of Mint - how programs execute and evaluate. Mint uses **eager evaluation** (call-by-value) with **immutable data** by default.
+This document defines the **operational semantics** of Sigil - how programs execute and evaluate. Mint uses **eager evaluation** (call-by-value) with **immutable data** by default.
 
 ## Evaluation Strategy
 
@@ -616,7 +616,7 @@ g(f(x))
 
 ### Determinism
 
-**Theorem**: Mint programs are **deterministic** - same input always produces same output (for pure functions).
+**Theorem**: Sigil programs are **deterministic** - same input always produces same output (for pure functions).
 
 **Proof sketch**:
 - Evaluation order is fixed (left-to-right, innermost-first)
@@ -633,7 +633,7 @@ g(f(x))
 
 ### Termination
 
-**Non-theorem**: Mint programs are **not guaranteed to terminate**.
+**Non-theorem**: Sigil programs are **not guaranteed to terminate**.
 
 Counter-example:
 ```mint

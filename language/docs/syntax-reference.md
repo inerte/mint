@@ -3,7 +3,7 @@
 This is a **canonical syntax reference** for Mint.
 
 It exists for:
-- reviewing generated Mint code
+- reviewing generated Sigil code
 - building tools (compiler, LSP, editors)
 - grounding AI prompts against the current language surface
 
@@ -24,7 +24,7 @@ For formatting/canonical whitespace rules, see:
 
 ## Source Files
 
-- Mint source files use `.mint`
+- Mint source files use `.sigil`
 - Files should end with a final newline
 - Tests live in project `./tests`
 - App/library code lives in project `./src`

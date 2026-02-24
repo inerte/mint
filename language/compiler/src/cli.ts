@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Mint Compiler CLI
+ * Sigil Compiler CLI
  */
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'fs';
@@ -21,44 +21,44 @@ import type { InferenceType } from './typechecker/types.js';
 import type * as AST from './parser/ast.js';
 import { generateSemanticMap, enhanceWithClaude } from './mapgen/index.js';
 
-type MintProjectLayout = {
+type SigilProjectLayout = {
   src: string;
   tests: string;
   out: string;
 };
 
-type MintProjectConfig = {
+type SigilProjectConfig = {
   root: string;
-  layout: MintProjectLayout;
+  layout: SigilProjectLayout;
 };
 
-type LoadedMintModule = {
+type LoadedSigilModule = {
   id: string; // canonical module id (src/foo, stdlib/bar) or file path fallback for roots
   filePath: string;
   source: string;
   ast: ReturnType<typeof parse>;
-  project?: MintProjectConfig;
+  project?: SigilProjectConfig;
 };
 
 type ModuleGraph = {
-  modules: Map<string, LoadedMintModule>;
+  modules: Map<string, LoadedSigilModule>;
   topoOrder: string[]; // dependency-first
 };
 
 const LANGUAGE_ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-function defaultProjectLayout(): MintProjectLayout {
+function defaultProjectLayout(): SigilProjectLayout {
   return { src: 'src', tests: 'tests', out: '.local' };
 }
 
-function findMintProjectRoot(startPath: string): string | null {
+function findSigilProjectRoot(startPath: string): string | null {
   let current = resolve(startPath);
   if (existsSync(current) && !statSync(current).isDirectory()) {
     current = dirname(current);
   }
 
   while (true) {
-    if (existsSync(join(current, 'mint.json'))) {
+    if (existsSync(join(current, 'sigil.json'))) {
       return current;
     }
     const parent = dirname(current);
@@ -67,10 +67,10 @@ function findMintProjectRoot(startPath: string): string | null {
   }
 }
 
-function getMintProjectConfig(startPath: string): MintProjectConfig | null {
-  const root = findMintProjectRoot(startPath);
+function getSigilProjectConfig(startPath: string): SigilProjectConfig | null {
+  const root = findSigilProjectRoot(startPath);
   if (!root) return null;
-  const raw = JSON.parse(readFileSync(join(root, 'mint.json'), 'utf-8')) as any;
+  const raw = JSON.parse(readFileSync(join(root, 'sigil.json'), 'utf-8')) as any;
   const layout = {
     ...defaultProjectLayout(),
     ...(raw.layout ?? {})
@@ -87,7 +87,7 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    console.error('Usage: mintc <command> [options]');
+    console.error('Usage: sigilc <command> [options]');
     console.error('');
     console.error('Commands:');
     console.error('  lex <file>        Tokenize a Mint file');
@@ -118,7 +118,7 @@ async function main() {
       await testCommand(args.slice(1));
       break;
     case 'help':
-      console.log('Mint Compiler v0.1.0');
+      console.log('Sigil Compiler v0.1.0');
       console.log('');
       console.log('Commands:');
       console.log('  lex <file>        Tokenize a Mint file and print tokens');
@@ -129,15 +129,15 @@ async function main() {
       console.log('  help              Show this help message');
       console.log('');
       console.log('Output locations:');
-      console.log('  Mint project files → <project>/.local/... (detected via mint.json)');
+      console.log('  Mint project files → <project>/.local/... (detected via sigil.json)');
       console.log('  Non-project files  → .local/... (legacy fallback)');
       console.log('');
       console.log('Options:');
       console.log('  -o <file>         Specify custom output location');
       console.log('  --show-types      Display inferred types after type checking');
-      console.log('  --json            JSON test output (default for mintc test)');
+      console.log('  --json            JSON test output (default for sigilc test)');
       console.log('  --human           Human-readable test output');
-      console.log('  --match <text>    Filter tests by substring (mintc test)');
+      console.log('  --match <text>    Filter tests by substring (sigilc test)');
       break;
     default:
       console.error(`Unknown command: ${command}`);
@@ -146,7 +146,7 @@ async function main() {
 }
 
 function getTestsRootForPath(pathHint: string): string {
-  const project = getMintProjectConfig(pathHint) ?? getMintProjectConfig(process.cwd());
+  const project = getSigilProjectConfig(pathHint) ?? getSigilProjectConfig(process.cwd());
   if (project) {
     return join(project.root, project.layout.tests);
   }
@@ -172,23 +172,23 @@ function isMintImportPath(modulePath: string): boolean {
 
 function resolveMintImportToFile(
   importerFile: string,
-  importerProject: MintProjectConfig | undefined,
+  importerProject: SigilProjectConfig | undefined,
   moduleId: string
-): { moduleId: string; filePath: string; project?: MintProjectConfig } {
+): { moduleId: string; filePath: string; project?: SigilProjectConfig } {
   if (moduleId.startsWith('src/')) {
     if (!importerProject) {
-      throw new Error(`Project import '${moduleId}' requires a Mint project root (mint.json). Importer: ${importerFile}`);
+      throw new Error(`Project import '${moduleId}' requires a Mint project root (sigil.json). Importer: ${importerFile}`);
     }
     return {
       moduleId,
-      filePath: join(importerProject.root, `${moduleId}.mint`),
+      filePath: join(importerProject.root, `${moduleId}.sigil`),
       project: importerProject,
     };
   }
   if (moduleId.startsWith('stdlib/')) {
     return {
       moduleId,
-      filePath: join(LANGUAGE_ROOT_DIR, `${moduleId}.mint`),
+      filePath: join(LANGUAGE_ROOT_DIR, `${moduleId}.sigil`),
       project: importerProject,
     };
   }
@@ -196,12 +196,12 @@ function resolveMintImportToFile(
 }
 
 function buildModuleGraph(entryFile: string): ModuleGraph {
-  const modules = new Map<string, LoadedMintModule>();
+  const modules = new Map<string, LoadedSigilModule>();
   const topoOrder: string[] = [];
   const visiting = new Set<string>();
   const visitStack: string[] = [];
 
-  const visit = (filePath: string, logicalId?: string, inheritedProject?: MintProjectConfig): void => {
+  const visit = (filePath: string, logicalId?: string, inheritedProject?: SigilProjectConfig): void => {
     const absFile = resolve(filePath);
     const moduleKey = logicalId ?? absFile;
     if (modules.has(moduleKey)) return;
@@ -219,8 +219,8 @@ function buildModuleGraph(entryFile: string): ModuleGraph {
     const ast = parse(tokens);
     ensureNoTestsOutsideTestsDir(ast, absFile);
     validateCanonicalForm(ast);
-    const project = getMintProjectConfig(absFile) ?? inheritedProject;
-    const mod: LoadedMintModule = { id: moduleKey, filePath: absFile, source, ast, project: project ?? undefined };
+    const project = getSigilProjectConfig(absFile) ?? inheritedProject;
+    const mod: LoadedSigilModule = { id: moduleKey, filePath: absFile, source, ast, project: project ?? undefined };
 
     for (const decl of ast.declarations) {
       if (decl.type !== 'ImportDecl') continue;
@@ -248,7 +248,7 @@ function declIsExported(decl: AST.Declaration): boolean {
 }
 
 function buildImportedNamespacesForModule(
-  module: LoadedMintModule,
+  module: LoadedSigilModule,
   exportedNamespaces: Map<string, InferenceType>
 ): Map<string, InferenceType> {
   const imported = new Map<string, InferenceType>();
@@ -289,7 +289,7 @@ function typeCheckModuleGraph(graph: ModuleGraph): Map<string, Map<string, Infer
   return moduleTypes;
 }
 
-function getModuleOutputPath(entryFile: string, mod: LoadedMintModule, rootProject?: MintProjectConfig, rootOutputOverride?: string): string {
+function getModuleOutputPath(entryFile: string, mod: LoadedSigilModule, rootProject?: SigilProjectConfig, rootOutputOverride?: string): string {
   if (rootOutputOverride && resolve(mod.filePath) === resolve(entryFile)) {
     return rootOutputOverride;
   }
@@ -305,12 +305,12 @@ async function compileModuleGraph(entryFile: string, rootOutputOverride?: string
   graph: ModuleGraph;
   moduleTypes: Map<string, Map<string, InferenceType>>;
   outputs: Map<string, string>;
-  rootModule: LoadedMintModule;
+  rootModule: LoadedSigilModule;
 }> {
   const graph = buildModuleGraph(entryFile);
   const moduleTypes = typeCheckModuleGraph(graph);
   const rootModule = graph.modules.get(resolve(entryFile)) ?? graph.modules.get(entryFile) ?? (() => { throw new Error('Root module missing'); })();
-  const rootProject = getMintProjectConfig(entryFile) ?? undefined;
+  const rootProject = getSigilProjectConfig(entryFile) ?? undefined;
   const outputs = new Map<string, string>();
 
   for (const moduleId of graph.topoOrder) {
@@ -337,7 +337,7 @@ function collectMintFiles(rootPath: string): string[] {
   const results: string[] = [];
   const st = statSync(rootPath);
   if (st.isFile()) {
-    if (rootPath.endsWith('.mint')) {
+    if (rootPath.endsWith('.sigil')) {
       results.push(rootPath);
     }
     return results;
@@ -347,7 +347,7 @@ function collectMintFiles(rootPath: string): string[] {
     const est = statSync(full);
     if (est.isDirectory()) {
       results.push(...collectMintFiles(full));
-    } else if (est.isFile() && full.endsWith('.mint')) {
+    } else if (est.isFile() && full.endsWith('.sigil')) {
       results.push(full);
     }
   }
@@ -356,7 +356,7 @@ function collectMintFiles(rootPath: string): string[] {
 
 function lexCommand(args: string[]) {
   if (args.length === 0) {
-    console.error('Usage: mintc lex <file>');
+    console.error('Usage: sigilc lex <file>');
     process.exit(1);
   }
 
@@ -391,7 +391,7 @@ function lexCommand(args: string[]) {
 
 function parseCommand(args: string[]) {
   if (args.length === 0) {
-    console.error('Usage: mintc parse <file>');
+    console.error('Usage: sigilc parse <file>');
     process.exit(1);
   }
 
@@ -430,26 +430,26 @@ function parseCommand(args: string[]) {
  * Determine smart output location based on input file location
  */
 function getSmartOutputPath(inputFile: string): string {
-  const project = getMintProjectConfig(inputFile);
+  const project = getSigilProjectConfig(inputFile);
   if (project && isPathWithin(project.root, resolve(process.cwd(), inputFile))) {
     const relToProject = relative(project.root, resolve(process.cwd(), inputFile)).replace(/\\/g, '/');
-    return join(project.root, project.layout.out, relToProject.replace(/\.mint$/, '.ts'));
+    return join(project.root, project.layout.out, relToProject.replace(/\.sigil$/, '.ts'));
   }
 
-  // examples/*.mint → examples/*.ts (beside source, for documentation)
+  // examples/*.sigil → examples/*.ts (beside source, for documentation)
   if (inputFile.startsWith('examples/')) {
-    return inputFile.replace(/\.mint$/, '.ts');
+    return inputFile.replace(/\.sigil$/, '.ts');
   }
 
   // Everything else → .local/ (keeps root clean)
-  // src/**/*.mint → .local/src/**/*.ts
-  // *.mint → .local/*.ts
-  return `.local/${inputFile.replace(/\.mint$/, '.ts')}`;
+  // src/**/*.sigil → .local/src/**/*.ts
+  // *.sigil → .local/*.ts
+  return `.local/${inputFile.replace(/\.sigil$/, '.ts')}`;
 }
 
 async function compileCommand(args: string[]) {
   if (args.length === 0) {
-    console.error('Usage: mintc compile <file> [-o output.ts]');
+    console.error('Usage: sigilc compile <file> [-o output.ts]');
     process.exit(1);
   }
 
@@ -492,16 +492,16 @@ async function compileCommand(args: string[]) {
     console.log(`✓ Compiled ${filename} → ${outputFile}`);
 
     // Generate semantic map
-    const mapFile = filename.replace('.mint', '.mint.map');
+    const mapFile = filename.replace('.sigil', '.sigil.map');
     generateSemanticMap(ast, types, source, mapFile);
     console.log(`✓ Generated basic semantic map → ${mapFile}`);
 
     // Enhance with Claude Code CLI
     enhanceWithClaude(filename, mapFile);
-    if (process.env.MINT_ENABLE_MAP_ENHANCE === '1') {
+    if (process.env.SIGIL_ENABLE_MAP_ENHANCE === '1') {
       console.log(`✓ Enhanced semantic map with AI documentation`);
     } else {
-      console.log('✓ Skipped AI semantic map enhancement (set MINT_ENABLE_MAP_ENHANCE=1 to enable)');
+      console.log('✓ Skipped AI semantic map enhancement (set SIGIL_ENABLE_MAP_ENHANCE=1 to enable)');
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -528,7 +528,7 @@ async function compileToTypeScriptFile(filename: string, outputFile?: string): P
 
 async function runCommand(args: string[]) {
   if (args.length === 0) {
-    console.error('Usage: mintc run <file>');
+    console.error('Usage: sigilc run <file>');
     process.exit(1);
   }
 
@@ -596,7 +596,7 @@ if (result !== undefined) {
 }
 
 async function runGeneratedTestModule(moduleFile: string, matchText: string | null): Promise<any> {
-  const runnerDir = join(dirname(moduleFile), '__mint_test');
+  const runnerDir = join(dirname(moduleFile), '__sigil_test');
   mkdirSync(runnerDir, { recursive: true });
   const unique = `${process.pid}_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
   const runnerFile = `${runnerDir}/${basename(moduleFile, '.ts')}.${unique}.runner.ts`;
@@ -604,7 +604,7 @@ async function runGeneratedTestModule(moduleFile: string, matchText: string | nu
   const runnerCode =
     `const moduleUrl = ${JSON.stringify(moduleUrl)};\n` +
     `const discoverMod = await import(moduleUrl);\n` +
-    `const tests = Array.isArray(discoverMod.__mint_tests) ? discoverMod.__mint_tests : [];\n` +
+    `const tests = Array.isArray(discoverMod.__sigil_tests) ? discoverMod.__sigil_tests : [];\n` +
     `const matchText = ${JSON.stringify(matchText)};\n` +
     `const selected = matchText ? tests.filter((t) => String(t.name).includes(matchText)) : tests;\n` +
     `const results = [];\n` +
@@ -613,7 +613,7 @@ async function runGeneratedTestModule(moduleFile: string, matchText: string | nu
     `  const start = Date.now();\n` +
     `  try {\n` +
     `    const freshMod = await import(moduleUrl + '?mint_test=' + encodeURIComponent(String(t.id)) + '&ts=' + Date.now() + '_' + Math.random());\n` +
-    `    const freshTests = Array.isArray(freshMod.__mint_tests) ? freshMod.__mint_tests : [];\n` +
+    `    const freshTests = Array.isArray(freshMod.__sigil_tests) ? freshMod.__sigil_tests : [];\n` +
     `    const freshTest = freshTests.find((x) => x.id === t.id);\n` +
     `    if (!freshTest) { throw new Error('Test not found in isolated module reload: ' + String(t.id)); }\n` +
     `    const value = await freshTest.fn();\n` +
@@ -671,13 +671,13 @@ async function testCommand(args: string[]) {
 
   try {
     if (!pathIsUnderTests(rootPath)) {
-      throw new Error(`mintc test only accepts paths under ./tests. Got: ${rootPath}`);
+      throw new Error(`sigilc test only accepts paths under ./tests. Got: ${rootPath}`);
     }
 
     if (!existsSync(rootPath)) {
       const empty = {
         formatVersion: 1,
-        command: 'mintc test',
+        command: 'sigilc test',
         ok: true,
         summary: { files: 0, discovered: 0, selected: 0, passed: 0, failed: 0, errored: 0, skipped: 0, durationMs: 0 },
         results: []
@@ -726,7 +726,7 @@ async function testCommand(args: string[]) {
     const errored = allResults.filter(r => r.status === 'error').length;
     const payload = {
       formatVersion: 1,
-      command: 'mintc test',
+      command: 'sigilc test',
       ok: failed === 0 && errored === 0,
       summary: {
         files: files.length,
@@ -757,7 +757,7 @@ async function testCommand(args: string[]) {
     if (jsonMode) {
       process.stdout.write(JSON.stringify({
         formatVersion: 1,
-        command: 'mintc test',
+        command: 'sigilc test',
         ok: false,
         summary: { files: 0, discovered: 0, selected: 0, passed: 0, failed: 0, errored: 1, skipped: 0, durationMs: 0 },
         results: [],

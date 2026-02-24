@@ -33,8 +33,8 @@ export function generateSemanticMap(
   // 3. Build complete semantic map
   const map: SemanticMap = {
     version: 1,
-    file: path.basename(outputFile.replace('.mint.map', '.mint')),
-    generated_by: 'mintc@0.1.0',
+    file: path.basename(outputFile.replace('.sigil.map', '.sigil')),
+    generated_by: 'sigilc@0.1.0',
     generated_at: new Date().toISOString(),
     mappings,
     metadata: {

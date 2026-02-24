@@ -25,7 +25,7 @@ function findImplementations(algorithmDir: string): string[] {
     const fullPath = path.join(algorithmDir, entry);
     const ext = path.extname(entry);
 
-    if (['.mint', '.ts', '.py', '.rs', '.hs'].includes(ext)) {
+    if (['.sigil', '.ts', '.py', '.rs', '.hs'].includes(ext)) {
       files.push(fullPath);
     }
   }

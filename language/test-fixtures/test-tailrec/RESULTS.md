@@ -109,7 +109,7 @@ Found loophole: List parameter encoding bypassed the validator.
 ### Version 2 (After Fix)
 **Loophole CLOSED.** ✅
 
-**Final Status:** Tail-recursion is now **truly impossible** in Mint.
+**Final Status:** Tail-recursion is now **truly impossible** in Sigil.
 
 All collection types (lists, tuples, maps) are blocked as recursive function parameters.
 Only primitive types (ℤ, 𝕊, 𝔹, etc) are allowed.
@@ -141,14 +141,14 @@ Only primitive types (ℤ, 𝕊, 𝔹, etc) are allowed.
 
 ```bash
 # All should fail except valid
-node compiler/dist/cli.js compile src/test-tailrec/test1-two-param.mint     # ❌
-node compiler/dist/cli.js compile src/test-tailrec/test2-helper.mint        # ❌
-node compiler/dist/cli.js compile src/test-tailrec/test3-tuple.mint         # ❌
-node compiler/dist/cli.js compile src/test-tailrec/test4-multi-caller.mint  # ❌
-node compiler/dist/cli.js compile src/test-tailrec/test5-list.mint          # ❌ (NOW FIXED!)
+node compiler/dist/cli.js compile src/test-tailrec/test1-two-param.sigil     # ❌
+node compiler/dist/cli.js compile src/test-tailrec/test2-helper.sigil        # ❌
+node compiler/dist/cli.js compile src/test-tailrec/test3-tuple.sigil         # ❌
+node compiler/dist/cli.js compile src/test-tailrec/test4-multi-caller.sigil  # ❌
+node compiler/dist/cli.js compile src/test-tailrec/test5-list.sigil          # ❌ (NOW FIXED!)
 
 # Only this should work
-node compiler/dist/cli.js run src/factorial-valid.mint                      # ✅ 120
+node compiler/dist/cli.js run src/factorial-valid.sigil                      # ✅ 120
 ```
 
 ## Thank You!

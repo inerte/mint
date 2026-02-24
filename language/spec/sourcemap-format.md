@@ -5,7 +5,7 @@ Last Updated: 2026-02-21
 
 ## Overview
 
-Semantic source maps (.mint.map) are the **killer feature** of Mint. They provide AI-generated human-readable explanations of dense Mint code, similar to how JavaScript source maps connect minified code to original source.
+Semantic source maps (.sigil.map) are the **killer feature** of Sigil. They provide AI-generated human-readable explanations of dense Sigil code, similar to how JavaScript source maps connect minified code to original source.
 
 ## Philosophy
 
@@ -20,14 +20,14 @@ Mint:           Dense Code ──────────────→ Semanti
 
 ## File Format
 
-Semantic maps are JSON files with the `.mint.map` extension, stored alongside `.mint` source files.
+Semantic maps are JSON files with the `.sigil.map` extension, stored alongside `.sigil` source files.
 
 ### Basic Structure
 
 ```json
 {
   "version": 1,
-  "file": "example.mint",
+  "file": "example.sigil",
   "generated_by": "claude-opus-4.6",
   "generated_at": "2026-02-21T10:00:00Z",
   "mappings": {
@@ -57,7 +57,7 @@ Semantic maps are JSON files with the `.mint.map` extension, stored alongside `.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `version` | integer | Yes | Schema version (currently 1) |
-| `file` | string | Yes | Name of the .mint file this maps to |
+| `file` | string | Yes | Name of the .sigil file this maps to |
 | `generated_by` | string | Yes | AI model that generated this map |
 | `generated_at` | ISO8601 timestamp | Yes | When this map was generated |
 | `mappings` | object | Yes | Map of identifiers/ranges to explanations |
@@ -114,16 +114,16 @@ Recommended `category` values:
 
 ### Example 1: Simple Function
 
-**fibonacci.mint:**
+**fibonacci.sigil:**
 ```mint
 λfibonacci(n:ℤ)→ℤ≡n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 ```
 
-**fibonacci.mint.map:**
+**fibonacci.sigil.map:**
 ```json
 {
   "version": 1,
-  "file": "fibonacci.mint",
+  "file": "fibonacci.sigil",
   "generated_by": "claude-opus-4.6",
   "generated_at": "2026-02-21T10:00:00Z",
   "mappings": {
@@ -178,16 +178,16 @@ Recommended `category` values:
 
 ### Example 2: HTTP Handler
 
-**handler.mint:**
+**handler.sigil:**
 ```mint
 λhandle_request(req:Request)→Response!Error≡req.path{"/users"→get_users(req)|"/health"→Ok(Response{status:200,body:"OK"})|_→Err(Error{code:404,msg:"Not found"})}
 ```
 
-**handler.mint.map:**
+**handler.sigil.map:**
 ```json
 {
   "version": 1,
-  "file": "handler.mint",
+  "file": "handler.sigil",
   "generated_by": "claude-opus-4.6",
   "generated_at": "2026-02-21T10:00:00Z",
   "mappings": {
@@ -240,18 +240,18 @@ Recommended `category` values:
 
 ### Example 3: Type Definition
 
-**types.mint:**
+**types.sigil:**
 ```mint
 t Option[T]=Some(T)|None
 t Result[T,E]=Ok(T)|Err(E)
 t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
 ```
 
-**types.mint.map:**
+**types.sigil.map:**
 ```json
 {
   "version": 1,
-  "file": "types.mint",
+  "file": "types.sigil",
   "generated_by": "claude-opus-4.6",
   "generated_at": "2026-02-21T10:00:00Z",
   "mappings": {
@@ -309,16 +309,16 @@ t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
 
 ### Example 4: Complex Algorithm
 
-**quicksort.mint:**
+**quicksort.sigil:**
 ```mint
 λquicksort[T](list:[T],cmp:λ(T,T)→𝔹)→[T]≡list{[]→[]|[p,.rest]→l smaller=filter(λx→cmp(x,p),rest);l greater=filter(λx→¬cmp(x,p),rest);quicksort(smaller,cmp)++[p]++quicksort(greater,cmp)}
 ```
 
-**quicksort.mint.map:**
+**quicksort.sigil.map:**
 ```json
 {
   "version": 1,
-  "file": "quicksort.mint",
+  "file": "quicksort.sigil",
   "generated_by": "claude-opus-4.6",
   "generated_at": "2026-02-21T10:00:00Z",
   "mappings": {

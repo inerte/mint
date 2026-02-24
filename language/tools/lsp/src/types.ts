@@ -1,8 +1,8 @@
 /**
- * LSP-specific type definitions for Mint Language Server
+ * LSP-specific type definitions for Sigil Language Server
  */
 
-export interface MintError {
+export interface SigilError {
   message: string;
   location?: {
     start: { offset: number; line: number; column: number };

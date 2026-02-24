@@ -1,4 +1,4 @@
-# `mintc test` JSON Output Schema (Format Version 1)
+# `sigilc test` JSON Output Schema (Format Version 1)
 
 This document defines the machine-readable JSON emitted by:
 
@@ -6,7 +6,7 @@ This document defines the machine-readable JSON emitted by:
 node language/compiler/dist/cli.js test
 ```
 
-JSON is the default output mode for Mint tests (agent-first design).
+JSON is the default output mode for Sigil tests (agent-first design).
 
 ## Contract
 
@@ -19,7 +19,7 @@ JSON is the default output mode for Mint tests (agent-first design).
 ```json
 {
   "formatVersion": 1,
-  "command": "mintc test",
+  "command": "sigilc test",
   "ok": true,
   "summary": {
     "files": 4,
@@ -43,7 +43,7 @@ JSON is the default output mode for Mint tests (agent-first design).
 
 ### `command`
 - Type: `string`
-- Current value: `"mintc test"`
+- Current value: `"sigilc test"`
 
 ### `ok`
 - Type: `boolean`
@@ -65,7 +65,7 @@ Example:
 {
   "error": {
     "kind": "runner_error",
-    "message": "mintc test only accepts paths under ./tests. Got: src"
+    "message": "sigilc test only accepts paths under ./tests. Got: src"
   }
 }
 ```
@@ -86,21 +86,21 @@ Example:
 ```
 
 Field meanings:
-- `files`: number of `.mint` test files executed
+- `files`: number of `.sigil` test files executed
 - `discovered`: total tests discovered before filtering
 - `selected`: tests selected after `--match` filtering
 - `passed`: tests returning `⊤`
 - `failed`: tests returning `⊥`
 - `errored`: tests that threw exceptions / runner execution errors at test level
 - `skipped`: reserved (currently always `0`)
-- `durationMs`: total wall-clock duration for the `mintc test` command
+- `durationMs`: total wall-clock duration for the `sigilc test` command
 
 ## `TestResult` Object
 
 ```json
 {
-  "id": "tests/todo-domain.mint::todo add prepends item",
-  "file": "tests/todo-domain.mint",
+  "id": "tests/todo-domain.sigil::todo add prepends item",
+  "file": "tests/todo-domain.sigil",
   "name": "todo add prepends item",
   "status": "pass",
   "durationMs": 0,

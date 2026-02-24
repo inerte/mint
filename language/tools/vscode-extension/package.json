@@ -1,12 +1,12 @@
 {
-  "name": "mint-language",
-  "displayName": "Mint Language",
-  "description": "Language support for Mint - The Machine-First Programming Language",
+  "name": "sigil-language",
+  "displayName": "Sigil Language",
+  "description": "Language support for Sigil - The Machine-First Programming Language",
   "version": "0.1.0",
-  "publisher": "mint-lang",
+  "publisher": "sigil-lang",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mint-lang/mint"
+    "url": "https://github.com/sigil-lang/sigil"
   },
   "engines": {
     "vscode": "^1.75.0"
@@ -15,41 +15,41 @@
     "Programming Languages"
   ],
   "keywords": [
-    "mint",
+    "sigil",
     "functional",
     "ai-first",
     "machine-first"
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onLanguage:mint"
+    "onLanguage:sigil"
   ],
   "contributes": {
     "languages": [
       {
-        "id": "mint",
+        "id": "sigil",
         "aliases": [
-          "Mint",
-          "mint"
+          "Sigil",
+          "sigil"
         ],
         "extensions": [
-          ".mint"
+          ".sigil"
         ],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "mint",
-        "scopeName": "source.mint",
-        "path": "./syntaxes/mint.tmLanguage.json"
+        "language": "sigil",
+        "scopeName": "source.sigil",
+        "path": "./syntaxes/sigil.tmLanguage.json"
       }
     ],
     "configuration": {
       "type": "object",
-      "title": "Mint",
+      "title": "Sigil",
       "properties": {
-        "mint.trace.server": {
+        "sigil.trace.server": {
           "scope": "window",
           "type": "string",
           "enum": [
@@ -58,13 +58,13 @@
             "verbose"
           ],
           "default": "off",
-          "description": "Traces the communication between VS Code and the Mint language server."
+          "description": "Traces the communication between VS Code and the Sigil language server."
         },
-        "mint.lsp.path": {
+        "sigil.lsp.path": {
           "scope": "window",
           "type": "string",
           "default": "",
-          "description": "Custom path to the Mint LSP server. Leave empty to use bundled server."
+          "description": "Custom path to the Sigil LSP server. Leave empty to use bundled server."
         }
       }
     }

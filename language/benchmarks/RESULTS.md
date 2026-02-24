@@ -166,7 +166,7 @@ For large-scale datasets (100B+ lines), savings compound significantly.
 
 GPT-4 context: 128K tokens
 - TypeScript code fits: ~2,344 average algorithms
-- Mint code fits: ~2,596 average algorithms
+- Sigil code fits: ~2,596 average algorithms
 - **+10.7% more code** in same context
 
 ## Methodology Notes

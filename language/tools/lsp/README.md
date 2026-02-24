@@ -1,6 +1,6 @@
 # Mint Language Server (LSP)
 
-Language Server Protocol implementation for the Mint programming language.
+Language Server Protocol implementation for the Sigil programming language.
 
 ## Features
 
@@ -13,7 +13,7 @@ Language Server Protocol implementation for the Mint programming language.
 Errors appear as you type with precise source locations.
 
 ### ✅ Hover Tooltips (Semantic Maps!)
-Hover over any Mint code to see AI-generated documentation:
+Hover over any Sigil code to see AI-generated documentation:
 - Function explanations
 - Type signatures
 - Complexity analysis
@@ -104,13 +104,13 @@ See `tools/vscode-extension/` (upcoming) for the official VS Code integration.
 ```
 server.ts          Main LSP server, connection setup
 diagnostics.ts     Real-time error checking via compiler
-hover.ts           Load .mint.map files, format as markdown
+hover.ts           Load .sigil.map files, format as markdown
 completion.ts      Unicode symbol autocomplete
 symbols.ts         Document outline from AST
 types.ts           TypeScript type definitions
 ```
 
-All features integrate with the existing Mint compiler:
+All features integrate with the existing Sigil compiler:
 - `compiler/dist/lexer/lexer.js` - Tokenization
 - `compiler/dist/parser/parser.js` - Parsing
 - `compiler/dist/typechecker/index.js` - Type checking

@@ -110,7 +110,7 @@ which is sufficient to prevent tail-recursion alternatives.
 
 ## Verdict
 
-**Tail recursion is NOW IMPOSSIBLE in Mint.**
+**Tail recursion is NOW IMPOSSIBLE in Sigil.**
 
 ✅ **8/9 tests blocked (89%)**
 ✅ All RECURSIVE techniques blocked (100%)
@@ -139,25 +139,25 @@ which is sufficient to prevent tail-recursion alternatives.
 
 ```bash
 # ALL should fail except test8 (which isn't recursive)
-node compiler/dist/cli.js run src/test-tailrec/test1-two-param.mint        # ❌
-node compiler/dist/cli.js run src/test-tailrec/test2-helper.mint           # ❌
-node compiler/dist/cli.js run src/test-tailrec/test3-tuple.mint            # ❌
-node compiler/dist/cli.js run src/test-tailrec/test4-multi-caller.mint     # ❌
-node compiler/dist/cli.js run src/test-tailrec/test5-list.mint             # ❌
-node compiler/dist/cli.js run src/test-tailrec/test6-cps.mint              # ❌ NOW BLOCKED!
-node compiler/dist/cli.js run src/test-tailrec/test7-y-combinator.mint     # ❌ NOW BLOCKED!
-node compiler/dist/cli.js run src/test-tailrec/test8-nested-lambdas.mint   # ✅ (not recursive)
-node compiler/dist/cli.js run src/test-tailrec/test9-mutual-recursion.mint # ❌
+node compiler/dist/cli.js run src/test-tailrec/test1-two-param.sigil        # ❌
+node compiler/dist/cli.js run src/test-tailrec/test2-helper.sigil           # ❌
+node compiler/dist/cli.js run src/test-tailrec/test3-tuple.sigil            # ❌
+node compiler/dist/cli.js run src/test-tailrec/test4-multi-caller.sigil     # ❌
+node compiler/dist/cli.js run src/test-tailrec/test5-list.sigil             # ❌
+node compiler/dist/cli.js run src/test-tailrec/test6-cps.sigil              # ❌ NOW BLOCKED!
+node compiler/dist/cli.js run src/test-tailrec/test7-y-combinator.sigil     # ❌ NOW BLOCKED!
+node compiler/dist/cli.js run src/test-tailrec/test8-nested-lambdas.sigil   # ✅ (not recursive)
+node compiler/dist/cli.js run src/test-tailrec/test9-mutual-recursion.sigil # ❌
 
 # Valid canonical form still works
-node compiler/dist/cli.js run src/factorial-valid.mint                     # ✅ 120
+node compiler/dist/cli.js run src/factorial-valid.sigil                     # ✅ 120
 ```
 
 ## Conclusion
 
 **There are NO recursive escape hatches.**
 **There are NO "expert" workarounds.**
-**There is ONLY ONE way to write recursive functions in Mint.**
+**There is ONLY ONE way to write recursive functions in Sigil.**
 
 The language enforces this at the compiler level.
 
@@ -175,19 +175,19 @@ The canonical form validator has been refined with **static analysis** to distin
 
 | Test | Algorithm | Status | Parameter Roles |
 |------|-----------|--------|-----------------|
-| test16-gcd-allowed.mint | GCD | ✅ **COMPILES** | a: structural, b: structural |
-| test17-power-allowed.mint | Power | ✅ **COMPILES** | base: query, exp: structural |
-| hanoi.mint | Towers of Hanoi | ✅ **COMPILES** | All params swap algorithmically |
-| test21-nth-allowed.mint | Nth element | ✅ **COMPILES** | list: structural, n: structural |
-| test22-zip-allowed.mint | Append lists | ✅ **COMPILES** | xs: structural, ys: query |
+| test16-gcd-allowed.sigil | GCD | ✅ **COMPILES** | a: structural, b: structural |
+| test17-power-allowed.sigil | Power | ✅ **COMPILES** | base: query, exp: structural |
+| hanoi.sigil | Towers of Hanoi | ✅ **COMPILES** | All params swap algorithmically |
+| test21-nth-allowed.sigil | Nth element | ✅ **COMPILES** | list: structural, n: structural |
+| test22-zip-allowed.sigil | Append lists | ✅ **COMPILES** | xs: structural, ys: query |
 
 ### ❌ STILL BLOCKED (Accumulator Patterns)
 
 | Test | Algorithm | Status | Why Blocked |
 |------|-----------|--------|-------------|
-| test18-factorial-acc-blocked.mint | Factorial + acc | ❌ **BLOCKED** | acc: ACCUMULATOR (grows) |
-| test1-two-param.mint | Sum + acc | ❌ **BLOCKED** | acc: ACCUMULATOR (grows) |
-| test19-list-accumulator.mint | Reverse + acc | ❌ **BLOCKED** | acc: ACCUMULATOR (list builds) |
+| test18-factorial-acc-blocked.sigil | Factorial + acc | ❌ **BLOCKED** | acc: ACCUMULATOR (grows) |
+| test1-two-param.sigil | Sum + acc | ❌ **BLOCKED** | acc: ACCUMULATOR (grows) |
+| test19-list-accumulator.sigil | Reverse + acc | ❌ **BLOCKED** | acc: ACCUMULATOR (list builds) |
 
 ### Updated Rules
 
@@ -212,16 +212,16 @@ The parameter(s) [acc] are accumulators (grow during recursion).
 
 ```bash
 # NEWLY ALLOWED (efficient algorithms):
-node compiler/dist/cli.js run src/test-tailrec/test16-gcd-allowed.mint        # ✅ 6
-node compiler/dist/cli.js run src/test-tailrec/test17-power-allowed.mint      # ✅ 1024
-node compiler/dist/cli.js run src/hanoi.mint                                   # ✅ Solves Hanoi
-node compiler/dist/cli.js run src/test-tailrec/test21-nth-allowed.mint        # ✅ 30
-node compiler/dist/cli.js run src/test-tailrec/test22-zip-allowed.mint        # ✅ [1,2,3,4,5,6]
+node compiler/dist/cli.js run src/test-tailrec/test16-gcd-allowed.sigil        # ✅ 6
+node compiler/dist/cli.js run src/test-tailrec/test17-power-allowed.sigil      # ✅ 1024
+node compiler/dist/cli.js run src/hanoi.sigil                                   # ✅ Solves Hanoi
+node compiler/dist/cli.js run src/test-tailrec/test21-nth-allowed.sigil        # ✅ 30
+node compiler/dist/cli.js run src/test-tailrec/test22-zip-allowed.sigil        # ✅ [1,2,3,4,5,6]
 
 # STILL BLOCKED (accumulators):
-node compiler/dist/cli.js run src/test-tailrec/test18-factorial-acc-blocked.mint  # ❌ accumulator
-node compiler/dist/cli.js run src/test-tailrec/test1-two-param.mint               # ❌ accumulator
-node compiler/dist/cli.js run src/test-tailrec/test19-list-accumulator.mint       # ❌ accumulator
+node compiler/dist/cli.js run src/test-tailrec/test18-factorial-acc-blocked.sigil  # ❌ accumulator
+node compiler/dist/cli.js run src/test-tailrec/test1-two-param.sigil               # ❌ accumulator
+node compiler/dist/cli.js run src/test-tailrec/test19-list-accumulator.sigil       # ❌ accumulator
 ```
 
 ### Performance Unlocked

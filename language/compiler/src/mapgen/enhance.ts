@@ -11,7 +11,7 @@ import * as path from 'path';
  * Enhance semantic map with Claude Code CLI
  */
 export function enhanceWithClaude(mintFile: string, mapFile: string): void {
-  if (process.env.MINT_ENABLE_MAP_ENHANCE !== '1') {
+  if (process.env.SIGIL_ENABLE_MAP_ENHANCE !== '1') {
     return;
   }
 
@@ -64,7 +64,7 @@ Read the basic semantic map. For each mapping:
 
 Write the enhanced version back to ${mapFile}.
 
-Match the quality and style of examples in examples/fibonacci.mint.map and examples/list-operations.mint.map.
+Match the quality and style of examples in examples/fibonacci.sigil.map and examples/list-operations.sigil.map.
 
 Remember: Mint is a canonical-form language. Warnings should acknowledge this, not fight it.
 `.trim();

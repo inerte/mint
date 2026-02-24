@@ -53,7 +53,7 @@ export function countTokens(filepath: string): TokenMetrics {
   const filename = path.basename(filepath);
 
   const languageMap: Record<string, string> = {
-    '.mint': 'Mint',
+    '.sigil': 'Sigil',
     '.ts': 'TypeScript',
     '.js': 'JavaScript',
     '.py': 'Python',

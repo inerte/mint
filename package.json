@@ -1,8 +1,8 @@
 {
-  "name": "mint-lang",
+  "name": "sigil-lang",
   "version": "0.1.0",
   "type": "module",
-  "description": "Mint - A machine-first programming language optimized for AI code generation",
+  "description": "Sigil - A machine-first programming language optimized for AI code generation",
   "private": true,
   "workspaces": [
     "language/compiler",
@@ -10,16 +10,16 @@
     "projects/todo-app"
   ],
   "scripts": {
-    "build": "pnpm --filter @mint-lang/compiler build",
+    "build": "pnpm --filter @sigil-lang/compiler build",
     "test": "pnpm -r test",
     "lex": "node language/compiler/dist/cli.js lex",
-    "mint:test:algorithms": "node language/compiler/dist/cli.js test projects/algorithms/tests",
-    "mint:test:todo": "node language/compiler/dist/cli.js test projects/todo-app/tests"
+    "sigil:test:algorithms": "node language/compiler/dist/cli.js test projects/algorithms/tests",
+    "sigil:test:todo": "node language/compiler/dist/cli.js test projects/todo-app/tests"
   },
   "packageManager": "pnpm@9.0.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/mint-lang"
+    "url": "https://github.com/yourusername/sigil-lang"
   },
   "keywords": [
     "programming-language",

@@ -1,5 +1,5 @@
 /**
- * Mint Type Checker - Public API (Bidirectional)
+ * Sigil Type Checker - Public API (Bidirectional)
  *
  * Main entry point for type checking Mint programs
  */

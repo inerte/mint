@@ -1,6 +1,6 @@
 # Mint Testing (First-Class)
 
-Mint tests are language declarations, not a separate framework.
+Sigil tests are language declarations, not a separate framework.
 
 ## Canonical layout
 
@@ -14,12 +14,12 @@ Mint tests are language declarations, not a separate framework.
 Use canonical Mint imports and explicit exports in the source module:
 
 ```mint
-⟦ src/math.mint ⟧
+⟦ src/math.sigil ⟧
 export λdouble(x:ℤ)→ℤ=x*2
 ```
 
 ```mint
-⟦ tests/math.mint ⟧
+⟦ tests/math.sigil ⟧
 i src/math
 
 test "double 2" {
@@ -85,7 +85,7 @@ Test files run in parallel by default (results are sorted deterministically in f
 node language/compiler/dist/cli.js test
 
 # Run a file or subdirectory under ./tests
-node language/compiler/dist/cli.js test projects/algorithms/tests/basic-testing.mint
+node language/compiler/dist/cli.js test projects/algorithms/tests/basic-testing.sigil
 
 # Filter by test description substring
 node language/compiler/dist/cli.js test --match "cache"
@@ -96,7 +96,7 @@ node language/compiler/dist/cli.js test --human
 
 ## JSON output (default)
 
-`mintc test` prints a single JSON object to stdout with:
+`sigilc test` prints a single JSON object to stdout with:
 
 - `formatVersion`
 - `ok`

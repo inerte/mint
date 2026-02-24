@@ -1,7 +1,7 @@
 /**
- * Mint Language Server
+ * Sigil Language Server
  *
- * Provides LSP features for the Mint programming language:
+ * Provides LSP features for the Sigil programming language:
  * - Real-time diagnostics (syntax, type, canonical form errors)
  * - Hover tooltips with semantic map content
  * - Unicode symbol completion
@@ -28,7 +28,7 @@ import { onDocumentSymbol } from './symbols.js';
 // Create LSP connection using stdio
 const connection = createConnection(ProposedFeatures.all);
 
-// Document manager - tracks open .mint files
+// Document manager - tracks open .sigil files
 const documents = new TextDocuments(TextDocument);
 
 // Server initialization
@@ -52,14 +52,14 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   return {
     capabilities,
     serverInfo: {
-      name: 'Mint Language Server',
+      name: 'Sigil Language Server',
       version: '0.1.0',
     },
   };
 });
 
 connection.onInitialized(() => {
-  connection.console.log('Mint Language Server initialized');
+  connection.console.log('Sigil Language Server initialized');
 });
 
 // Validate document when content changes
@@ -81,4 +81,4 @@ connection.onDocumentSymbol(params => onDocumentSymbol(params, documents));
 documents.listen(connection);
 connection.listen();
 
-connection.console.log('Mint Language Server started');
+connection.console.log('Sigil Language Server started');

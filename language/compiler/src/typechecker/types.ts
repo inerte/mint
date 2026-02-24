@@ -1,5 +1,5 @@
 /**
- * Mint Type Checker - Core Type System
+ * Sigil Type Checker - Core Type System
  *
  * Internal type representations used during type inference.
  * These are distinct from AST types and optimized for unification and substitution.

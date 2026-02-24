@@ -1,4 +1,4 @@
-# Mint Programming Language - Implementation Status
+# Sigil Programming Language - Implementation Status
 
 **Last Updated:** 2026-02-23 (Major audit - reflects actual implementation)
 
@@ -13,7 +13,7 @@ Mint is a machine-first programming language optimized for AI code generation. T
 - ✅ **README.md** - Project philosophy and overview
 - ✅ **spec/grammar.ebnf** - Complete formal grammar with Unicode symbols
 - ✅ **spec/type-system.md** - Bidirectional type checking specification
-- ✅ **spec/sourcemap-format.md** - Semantic source map (.mint.map) format
+- ✅ **spec/sourcemap-format.md** - Semantic source map (.sigil.map) format
 - ✅ **spec/stdlib-spec.md** - Standard library design and function signatures
 - ✅ **docs/philosophy.md** - Detailed design philosophy and rationale
 - ✅ **docs/type-system.md** - Bidirectional type system guide
@@ -26,20 +26,20 @@ Mint is a machine-first programming language optimized for AI code generation. T
 ### Phase 2: Example Programs ✅ COMPLETE
 
 Original examples:
-- ✅ **examples/fibonacci.mint** + .map - Recursive Fibonacci with semantic explanations
-- ✅ **examples/factorial.mint** + .map - Factorial function example
-- ✅ **examples/list-operations.mint** + .map - map, filter, reduce functions
-- ✅ **examples/http-handler.mint** + .map - HTTP routing example
-- ✅ **examples/types.mint** + .map - Type definitions (Option, Result, User, Color, Tree)
+- ✅ **examples/fibonacci.sigil** + .map - Recursive Fibonacci with semantic explanations
+- ✅ **examples/factorial.sigil** + .map - Factorial function example
+- ✅ **examples/list-operations.sigil** + .map - map, filter, reduce functions
+- ✅ **examples/http-handler.sigil** + .map - HTTP routing example
+- ✅ **examples/types.sigil** + .map - Type definitions (Option, Result, User, Color, Tree)
 
 Additional examples:
-- ✅ **examples/list-length.mint** + .map - List length calculation
-- ✅ **examples/list-reverse.mint** - List reversal
-- ✅ **examples/mutability-demo.mint** + .map - Mutability system demonstration
-- ✅ **examples/mutability-errors.mint** + .map - Common mutability errors
-- ✅ **examples/comments-demo.mint** + .map - Comment syntax examples
-- ✅ **examples/ffi-demo.mint** + .map - JavaScript FFI examples
-- ✅ **examples/effect-demo.mint** - Effect tracking system demonstration
+- ✅ **examples/list-length.sigil** + .map - List length calculation
+- ✅ **examples/list-reverse.sigil** - List reversal
+- ✅ **examples/mutability-demo.sigil** + .map - Mutability system demonstration
+- ✅ **examples/mutability-errors.sigil** + .map - Common mutability errors
+- ✅ **examples/comments-demo.sigil** + .map - Comment syntax examples
+- ✅ **examples/ffi-demo.sigil** + .map - JavaScript FFI examples
+- ✅ **examples/effect-demo.sigil** - Effect tracking system demonstration
 
 **Total:** 12 examples (10 with semantic maps)
 
@@ -63,7 +63,7 @@ Additional examples:
   - All patterns (literals, identifiers, wildcards, constructors, lists, records, tuples)
 
 - ✅ **compiler/src/parser/parser.ts** - Full recursive descent parser (1200+ lines)
-  - Parses all Mint language constructs
+  - Parses all Sigil language constructs
   - Handles dense syntax features:
     - Context-dependent `=` before function bodies (required for regular expressions, forbidden before match)
     - Generic type parameters `λfunc[T,U](...)`
@@ -77,7 +77,7 @@ Additional examples:
 
 - ✅ **compiler/src/parser/index.ts** - Parser API
 
-- ✅ **CLI parse command** - `mintc parse <file>`
+- ✅ **CLI parse command** - `sigilc parse <file>`
   - **All 11 example files parse successfully (100% pass rate)**
 
 ### Phase 5: Compiler - Type Checker ✅ COMPLETE
@@ -105,7 +105,7 @@ Additional examples:
 
 **Live test:**
 ```bash
-$ node compiler/dist/cli.js run factorial.mint
+$ node compiler/dist/cli.js run factorial.sigil
 120  # factorial(5) = 120 ✓
 ```
 
@@ -114,7 +114,7 @@ $ node compiler/dist/cli.js run factorial.mint
   - Parser supports `→!Effect1 !Effect2 Type` syntax
   - Type checker infers and validates effects
   - Clear compile-time error messages for effect mismatches
-  - See `examples/effect-demo.mint` for usage
+  - See `examples/effect-demo.sigil` for usage
 - ⏳ Boolean pattern matching - Type checker rejects (may be intentional per canonical forms)
 
 ### Phase 6: Compiler - Code Generator ✅ COMPLETE
@@ -131,7 +131,7 @@ $ node compiler/dist/cli.js run factorial.mint
 
 **Verified working:**
 ```javascript
-// Generated from factorial.mint:
+// Generated from factorial.sigil:
 export function factorial(n) {
   return (() => {
   const __match = n;
@@ -161,21 +161,21 @@ export function factorial(n) {
 
 **Verified working:**
 ```bash
-$ node compiler/dist/cli.js compile test.mint
-✓ Compiled test.mint → .local/test.js
-✓ Generated basic semantic map → test.mint.map
+$ node compiler/dist/cli.js compile test.sigil
+✓ Compiled test.sigil → .local/test.js
+✓ Generated basic semantic map → test.sigil.map
 Warning: Could not enhance semantic map (Claude Code CLI not available)
 ✓ Enhanced semantic map with AI documentation
 ```
 
-**Generated .mint.map files exist for:**
+**Generated .sigil.map files exist for:**
 - ✅ All 11 examples/
 - ✅ All 3 stdlib/ modules
 - ✅ All test files
 
 **Features:**
 - ✅ AST → explanations (extracts nodes and generates mappings)
-- ✅ Map generation (creates .mint.map files)
+- ✅ Map generation (creates .sigil.map files)
 - ✅ AI enhancement (Claude API integration when available)
 - ✅ Map validation (maps match code structure)
 - ✅ Batch processing (generates for entire projects)
@@ -200,27 +200,27 @@ Warning: Could not enhance semantic map (Claude Code CLI not available)
 
 ### Phase 9: Standard Library Implementation ⚠️ PARTIALLY COMPLETE
 
-- ✅ **stdlib/numeric_predicates.mint** + .map - Predicates for numbers
+- ✅ **stdlib/numeric_predicates.sigil** + .map - Predicates for numbers
   - is_positive, is_negative, is_even, is_odd, is_prime, in_range
-- ✅ **stdlib/list_predicates.mint** + .map - Predicates for lists
+- ✅ **stdlib/list_predicates.sigil** + .map - Predicates for lists
   - sorted_asc, sorted_desc, all, any, contains, in_bounds
-- ✅ **stdlib/list_utils.mint** + .map - List utility functions
+- ✅ **stdlib/list_utils.sigil** + .map - List utility functions
   - len, head, tail
-- ✅ **stdlib/test_numeric_predicates.mint** + .map - Tests
-- ✅ **stdlib/test_list_predicates.mint** + .map - Tests
+- ✅ **stdlib/test_numeric_predicates.sigil** + .map - Tests
+- ✅ **stdlib/test_list_predicates.sigil** + .map - Tests
 
 **Live test:**
 ```bash
-$ node compiler/dist/cli.js run stdlib/test_numeric_predicates.mint
+$ node compiler/dist/cli.js run stdlib/test_numeric_predicates.sigil
 is_positive(5): true
 ```
 
 **Not yet implemented:**
-- ⏳ stdlib/prelude.mint - Core types and functions
-- ⏳ stdlib/collections.mint - Advanced collections (Set, Queue, Stack)
-- ⏳ stdlib/io.mint - File I/O operations
-- ⏳ stdlib/json.mint - JSON parsing/serialization
-- ⏳ stdlib/http.mint - HTTP client/server
+- ⏳ stdlib/prelude.sigil - Core types and functions
+- ⏳ stdlib/collections.sigil - Advanced collections (Set, Queue, Stack)
+- ⏳ stdlib/io.sigil - File I/O operations
+- ⏳ stdlib/json.sigil - JSON parsing/serialization
+- ⏳ stdlib/http.sigil - HTTP client/server
 
 ### New: Canonical Form Validators ✅ COMPLETE
 
@@ -240,7 +240,7 @@ is_positive(5): true
 
 **Live test:**
 ```bash
-$ node compiler/dist/cli.js compile test_accumulator.mint
+$ node compiler/dist/cli.js compile test_accumulator.sigil
 Error: Accumulator-passing style detected in function 'factorial'.
 Parameter roles:
   - n: structural (decreases)
@@ -309,7 +309,7 @@ Nothing currently in progress.
 ### Documentation (USER-FACING)
 
 - ⏳ **docs/syntax-guide.md** - Complete syntax reference
-  - Users need this to write Mint code
+  - Users need this to write Sigil code
   - Estimated: 2-3 days
 
 - ⏳ **GETTING_STARTED.md update** - Reflect actual state
@@ -325,7 +325,7 @@ Nothing currently in progress.
   - ✅ Type checker: `inferEffects()` tracks effects through expression trees
   - ✅ Type checker: `checkEffects()` validates declared vs. inferred effects
   - ✅ Error messages: Clear "effect mismatch" errors with suggestions
-  - ✅ Documentation: Updated AGENTS.md and created effect-demo.mint
+  - ✅ Documentation: Updated AGENTS.md and created effect-demo.sigil
   - Prevents accidental side effects at compile time
   - Documents function behavior explicitly in signatures
   - Helps LLMs reason about code effects
@@ -340,10 +340,10 @@ Nothing currently in progress.
 
 ### Standard Library Expansion
 
-- ⏳ **stdlib/io.mint** - File I/O operations
-- ⏳ **stdlib/json.mint** - JSON parsing/serialization
-- ⏳ **stdlib/http.mint** - HTTP client/server
-- ⏳ **stdlib/collections.mint** - Set, Queue, Stack
+- ⏳ **stdlib/io.sigil** - File I/O operations
+- ⏳ **stdlib/json.sigil** - JSON parsing/serialization
+- ⏳ **stdlib/http.sigil** - HTTP client/server
+- ⏳ **stdlib/collections.sigil** - Set, Queue, Stack
 
 ### Research & Writing
 
@@ -400,7 +400,7 @@ Stdlib Tests:        2/2 passing (100%)
 
 ### Token Efficiency (Estimated)
 
-Based on fibonacci.mint example:
+Based on fibonacci.sigil example:
 - **Mint:** 37 tokens (dense format)
 - **Python equivalent:** ~65 tokens (estimated)
 - **JavaScript equivalent:** ~70 tokens (estimated)
@@ -412,7 +412,7 @@ Based on fibonacci.mint example:
 
 To consider the proof-of-concept successful:
 
-- [x] ✅ Lexer tokenizes all Mint code correctly
+- [x] ✅ Lexer tokenizes all Sigil code correctly
 - [x] ✅ Parser produces valid AST for all examples
 - [x] ✅ Type checker infers types for all examples
 - [x] ✅ Code generator produces runnable JavaScript
@@ -468,7 +468,7 @@ Mint enforces canonical forms at **two levels:**
 **Effect tracking implemented:**
 - ✅ Effect annotations (`!IO`, `!Network`, `!Async`, `!Error`, `!Mut`) fully working
 - **Reason:** Prevents bugs, documents behavior, doesn't violate canonical forms
-- See `examples/effect-demo.mint` for comprehensive examples
+- See `examples/effect-demo.sigil` for comprehensive examples
 
 ## Risks & Mitigations
 
@@ -514,7 +514,7 @@ Mint enforces canonical forms at **two levels:**
 
 3. **Write Syntax Guide** - Critical user documentation
    - Estimated effort: 2-3 days
-   - Blocker for: Users writing Mint code
+   - Blocker for: Users writing Sigil code
 
 4. **Expand Standard Library** - io, json, http modules
    - Estimated effort: 5-7 days
@@ -529,7 +529,7 @@ Mint enforces canonical forms at **two levels:**
 - **Repository:** `/Users/jnobreganetto/Documents/GitHub/ai-pl`
 - **Compiler:** `compiler/` (TypeScript, 6,600+ lines)
 - **Specs:** `spec/` (EBNF, markdown)
-- **Examples:** `examples/` (11 .mint + .mint.map files)
+- **Examples:** `examples/` (11 .sigil + .sigil.map files)
 - **Docs:** `docs/` (12 comprehensive guides)
 - **Stdlib:** `stdlib/` (3 modules, 2 tests)
 - **Tools:** `tools/` (LSP, VS Code extension)

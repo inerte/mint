@@ -1,7 +1,7 @@
 /**
  * Mint Semantic Map Writer
  *
- * Writes semantic maps to .mint.map files
+ * Writes semantic maps to .sigil.map files
  */
 
 import { writeFileSync } from 'fs';

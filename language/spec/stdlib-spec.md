@@ -605,7 +605,7 @@ Planned for future stdlib versions:
 
 - [Type System](type-system.md) - Type inference and checking
 - [Grammar](grammar.ebnf) - Language syntax
-- Implementation: stdlib/prelude.mint
+- Implementation: stdlib/prelude.sigil
 
 ---
 

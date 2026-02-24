@@ -1,7 +1,7 @@
 /**
- * Document symbols provider for Mint Language Server
+ * Document symbols provider for Sigil Language Server
  *
- * Provides outline view of Mint source files:
+ * Provides outline view of Sigil source files:
  * - Functions with type signatures
  * - Type declarations
  * - Hierarchical structure
@@ -101,7 +101,7 @@ function formatFunctionSignature(funcDecl: any): string {
 }
 
 /**
- * Format type annotation as Mint syntax
+ * Format type annotation as Sigil syntax
  */
 function formatType(type: any): string {
   if (!type) return '?';

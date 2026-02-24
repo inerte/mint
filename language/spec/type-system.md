@@ -359,7 +359,7 @@ l w=&mut x;    (* ERROR - cannot have &mut while & exists *)
 
 ### Lifetimes
 
-Lifetimes are inferred automatically (no explicit annotation in Mint v1.0):
+Lifetimes are inferred automatically (no explicit annotation in Sigil v1.0):
 
 ```mint
 λfirst[T](list:&[T])→Option[&T]=≡list{

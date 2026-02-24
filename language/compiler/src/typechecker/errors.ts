@@ -1,5 +1,5 @@
 /**
- * Mint Type Checker - Error Reporting
+ * Sigil Type Checker - Error Reporting
  *
  * Type error messages optimized for clarity (both for LLMs and humans)
  */
@@ -57,7 +57,7 @@ export class TypeError extends Error {
 /**
  * Format a type for display in error messages
  *
- * Uses Mint Unicode symbols (ℤ, 𝔹, 𝕊) for readability
+ * Uses Sigil Unicode symbols (ℤ, 𝔹, 𝕊) for readability
  */
 export function formatType(type: InferenceType): string {
   // Follow instances (dereferencing)
@@ -65,7 +65,7 @@ export function formatType(type: InferenceType): string {
 
   switch (type.kind) {
     case 'primitive': {
-      // Use Mint Unicode symbols
+      // Use Sigil Unicode symbols
       const nameMap: Record<string, string> = {
         'Int': 'ℤ',
         'Float': 'ℝ',

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "file": "factorial.mint",
-  "generated_by": "mintc@0.1.0",
-  "generated_at": "2026-02-23T05:24:40.399Z",
+  "file": "factorial.sigil",
+  "generated_by": "sigilc@0.1.0",
+  "generated_at": "2026-02-24T04:22:29.377Z",
   "mappings": {
     "factorial": {
       "range": [

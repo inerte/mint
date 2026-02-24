@@ -96,7 +96,7 @@ export function main() {
 
 - Full path becomes namespace: `e fs/promises` → use as `fs/promises.readFile`
 - No conflicts possible: `moduleA/utils` and `moduleB/utils` are different namespaces
-- Slash visible in Mint source (machines don't care about syntax aesthetics)
+- Slash visible in Sigil source (machines don't care about syntax aesthetics)
 - Converted to underscores in generated TypeScript: `fs_promises.readFile`
 
 ## Validation Examples
@@ -194,7 +194,7 @@ Use functional APIs or wrapper functions.
 
 ## Best Practices
 
-### 1. Wrap FFI in Mint Functions
+### 1. Wrap FFI in Sigil Functions
 
 ```mint
 e console
@@ -225,7 +225,7 @@ Use contracts (future feature) to validate FFI inputs/outputs.
 
 Recommended frontend integration:
 
-- Put deterministic domain policy in Mint (`.mint`)
+- Put deterministic domain policy in Sigil (`.sigil`)
 - Compile Mint to generated TypeScript (`.ts`)
 - Use a separate `bridge.ts` / `bridge.tsx` for React hooks, JSX, browser events, and localStorage
 
@@ -246,4 +246,4 @@ Why keep a separate bridge?
 
 ---
 
-**FFI unlocks the TypeScript/JavaScript ecosystem for Mint programs!** 🚀
+**FFI unlocks the TypeScript/JavaScript ecosystem for Sigil programs!** 🚀

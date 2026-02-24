@@ -113,7 +113,7 @@ TypeScript tokens: ~72
 ### Training Impact
 
 If Mint achieves **1.5x efficiency**:
-- 50% more Mint code fits in training data
+- 50% more Sigil code fits in training data
 - 50% lower training costs for equivalent dataset size
 - 50% more context fits in LLM windows
 
@@ -129,7 +129,7 @@ Training on 1 billion lines of code:
 To add a new algorithm:
 
 1. Create directory: `benchmarks/algorithms/<name>/`
-2. Implement in all languages: `<name>.mint`, `<name>.ts`, `<name>.py`, etc.
+2. Implement in all languages: `<name>.sigil`, `<name>.ts`, `<name>.py`, etc.
 3. Run comparison: `node benchmarks/tools/compare.ts benchmarks/algorithms/<name>`
 4. Document results
 

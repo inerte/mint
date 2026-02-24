@@ -58,7 +58,7 @@ Implemented:
 
 Added string coercion:
 - `𝕊 + ℤ` or `ℤ + 𝕊` automatically becomes string concatenation
-- Only implicit coercion in Mint (canonical, unambiguous)
+- Only implicit coercion in Sigil (canonical, unambiguous)
 - Allows: `"factorial(5) = " + factorial(5)`
 
 Documentation:
@@ -104,9 +104,9 @@ Error: Literal type mismatch: expected ℤ, got 𝕊
 
 All test programs compile and run correctly:
 ```bash
-✓ src/factorial.mint → factorial(5) = 120
-✓ src/gcd.mint → gcd(48, 18) = 6
-✓ src/hanoi.mint → Tower of Hanoi solution
+✓ src/factorial.sigil → factorial(5) = 120
+✓ src/gcd.sigil → gcd(48, 18) = 6
+✓ src/hanoi.sigil → Tower of Hanoi solution
 ```
 
 Type inference works:

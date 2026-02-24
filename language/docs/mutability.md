@@ -50,7 +50,7 @@ The `mut` keyword is used when calling JavaScript functions that mutate:
 e Array
 λsortJS(arr:mut [ℤ])→𝕌=Array.sort(arr)  ⟦ JS Array.sort mutates ⟧
 
-⟦ Pure Mint code uses immutable operations ⟧
+⟦ Pure Sigil code uses immutable operations ⟧
 λsorted(list:[ℤ])→[ℤ]=list↦λ(x)→x  ⟦ Returns new sorted list ⟧
 ```
 
@@ -123,7 +123,7 @@ e Array
 
 **3. Unclear Intent:**
 ```mint
-⟦ Pure Mint code - always immutable ⟧
+⟦ Pure Sigil code - always immutable ⟧
 λsorted(data:[ℤ])→[ℤ]=...        ⟦ Returns new list (canonical) ⟧
 
 ⟦ FFI - mut signals mutation ⟧
@@ -250,7 +250,7 @@ Mint enforces **ONE way** to write each algorithm. All list operations are immut
 - Interfacing with imperative JavaScript libraries
 
 **Don't use `mut` for:**
-- Pure Mint code (use immutable operations)
+- Pure Sigil code (use immutable operations)
 - Performance optimization (not how Mint works)
 - Internal algorithms (canonical forms require immutable)
 
@@ -266,7 +266,7 @@ e console
   console.log(arr)
 }
 
-⟦ Pure Mint sorting returns new list ⟧
+⟦ Pure Sigil sorting returns new list ⟧
 λsorted(list:[ℤ])→[ℤ]=list↦λ(x)→x
 ```
 

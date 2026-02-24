@@ -1,5 +1,5 @@
 /**
- * Mint Compiler - Main exports
+ * Sigil Compiler - Main exports
  */
 
 export { Lexer, LexerError, tokenize } from './lexer/lexer.js';

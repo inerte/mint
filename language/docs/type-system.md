@@ -77,7 +77,7 @@ Bidirectional type checking provides **excellent error messages**:
 Error: Type mismatch in function 'main'
   Expected: ℤ
   Got: 𝕊
-  Location: factorial.mint:2:16
+  Location: factorial.sigil:2:16
 
   2 | λmain()→ℤ="hello"
     |                ^
@@ -413,7 +413,7 @@ t Result[T,E]=Ok(T)|Err(E)
 
 ### Examples
 
-See `examples/sum-types-demo.mint` for comprehensive examples including:
+See `examples/sum-types-demo.sigil` for comprehensive examples including:
 - Simple enums (Color)
 - Generic Option and Result types
 - Pattern matching techniques

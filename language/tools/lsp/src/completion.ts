@@ -1,7 +1,7 @@
 /**
- * Completion provider for Mint Language Server
+ * Completion provider for Sigil Language Server
  *
- * Provides autocomplete for Unicode symbols used in Mint:
+ * Provides autocomplete for Unicode symbols used in Sigil:
  * - λ (lambda) for functions
  * - → (arrow) for function returns
  * - ≡ (equivalent) for pattern matching

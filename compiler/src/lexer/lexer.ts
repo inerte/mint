@@ -421,6 +421,8 @@ export class Lexer {
       case 'l': return TokenType.LET;
       case 'c': return TokenType.CONST;
       case 'mut': return TokenType.MUT;
+      case 'mockable': return TokenType.MOCKABLE;
+      case 'with_mock': return TokenType.WITH_MOCK;
       default: return null;
     }
   }

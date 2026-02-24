@@ -9,18 +9,40 @@ import * as AST from '../parser/ast.js';
 export class JavaScriptGenerator {
   private indent = 0;
   private output: string[] = [];
+  private sourceFile?: string;
+  private testMetaEntries: string[] = [];
+  private mockableFunctions = new Set<string>();
 
-  constructor(_sourceFile?: string) {
-    // sourceFile parameter reserved for future use (e.g., relative imports)
+  constructor(sourceFile?: string) {
+    this.sourceFile = sourceFile;
   }
 
   generate(program: AST.Program): string {
     this.output = [];
     this.indent = 0;
+    this.testMetaEntries = [];
+    this.mockableFunctions = new Set(
+      program.declarations
+        .filter((d): d is AST.FunctionDecl => d.type === 'FunctionDecl' && d.isMockable)
+        .map(d => d.name)
+    );
+
+    this.emitMockRuntimeHelpers();
 
     // Generate code for all declarations
     for (const decl of program.declarations) {
       this.generateDeclaration(decl);
+      this.output.push('\n');
+    }
+
+    if (this.testMetaEntries.length > 0) {
+      this.emit(`export const __mint_tests = [`);
+      this.indent++;
+      for (const entry of this.testMetaEntries) {
+        this.emit(`${entry},`);
+      }
+      this.indent--;
+      this.emit(`];`);
       this.output.push('\n');
     }
 
@@ -53,7 +75,9 @@ export class JavaScriptGenerator {
   private generateFunction(func: AST.FunctionDecl): void {
     // Function signature
     const params = func.params.map(p => p.name).join(', ');
-    this.emit(`export function ${func.name}(${params}) {`);
+    const implName = func.isMockable ? `__mint_impl_${func.name}` : func.name;
+
+    this.emit(`function ${implName}(${params}) {`);
     this.indent++;
 
     // Function body
@@ -62,6 +86,18 @@ export class JavaScriptGenerator {
 
     this.indent--;
     this.emit('}');
+
+    if (func.isMockable) {
+      const key = this.mockKeyForFunction(func.name);
+      this.emit(`export function ${func.name}(${params}) {`);
+      this.indent++;
+      this.emit(`return __mint_call("${key}", ${implName}, [${params}]);`);
+      this.indent--;
+      this.emit('}');
+    } else {
+      // Re-export non-mockable functions with canonical public name
+      this.emit(`export { ${func.name} };`);
+    }
   }
 
   private generateTypeDecl(decl: AST.TypeDecl): void {
@@ -122,13 +158,17 @@ export class JavaScriptGenerator {
   }
 
   private generateTest(test: AST.TestDecl): void {
+    const fnName = `test_${this.sanitizeName(test.description)}`;
     this.emit(`// Test: ${test.description}`);
-    this.emit(`export function test_${this.sanitizeName(test.description)}() {`);
+    this.emit(`export function ${fnName}() {`);
     this.indent++;
-    const bodyCode = this.generateExpression(test.body);
+    const bodyCode = this.generateTestBodyResult(test.body);
     this.emit(`return ${bodyCode};`);
     this.indent--;
     this.emit('}');
+    const testId = `${this.sourceFile ?? '<unknown>'}::${test.description}`;
+    const assertionMeta = this.generateAssertionMetadata(test.body);
+    this.testMetaEntries.push(`{ id: ${JSON.stringify(testId)}, name: ${JSON.stringify(test.description)}, fn: ${fnName}, location: ${JSON.stringify(test.location)}, declaredEffects: ${JSON.stringify(test.effects)}, assertion: ${assertionMeta} }`);
   }
 
   private generateExpression(expr: AST.Expr): string {
@@ -161,6 +201,8 @@ export class JavaScriptGenerator {
         return this.generateFieldAccess(expr);
       case 'MemberAccessExpr':
         return this.generateMemberAccess(expr);
+      case 'WithMockExpr':
+        return this.generateWithMock(expr);
       case 'IndexExpr':
         return this.generateIndex(expr);
       case 'PipelineExpr':
@@ -193,8 +235,18 @@ export class JavaScriptGenerator {
   }
 
   private generateApplication(app: AST.ApplicationExpr): string {
-    const func = this.generateExpression(app.func);
     const args = app.args.map(arg => this.generateExpression(arg)).join(', ');
+    if (app.func.type === 'MemberAccessExpr') {
+      const func = this.generateMemberAccess(app.func);
+      const key = this.mockKeyForExtern(app.func);
+      return `__mint_call(${JSON.stringify(key)}, ${func}, [${args}])`;
+    }
+    if (app.func.type === 'IdentifierExpr' && this.mockableFunctions.has(app.func.name)) {
+      const func = this.generateExpression(app.func);
+      const key = this.mockKeyForFunction(app.func.name);
+      return `__mint_call(${JSON.stringify(key)}, ${func}, [${args}])`;
+    }
+    const func = this.generateExpression(app.func);
     return `${func}(${args})`;
   }
 
@@ -438,6 +490,17 @@ export class JavaScriptGenerator {
     return `${jsNamespace}.${access.member}`;
   }
 
+  private generateWithMock(expr: AST.WithMockExpr): string {
+    const replacement = this.generateExpression(expr.replacement);
+    const body = this.generateExpression(expr.body);
+    const key = this.mockKeyForTarget(expr.target);
+    if (expr.target.type === 'MemberAccessExpr') {
+      const actualFn = this.generateMemberAccess(expr.target);
+      return `__mint_with_mock_extern(${JSON.stringify(key)}, ${actualFn}, ${replacement}, () => ${body})`;
+    }
+    return `__mint_with_mock(${JSON.stringify(key)}, ${replacement}, () => ${body})`;
+  }
+
   private generateIndex(index: AST.IndexExpr): string {
     const object = this.generateExpression(index.object);
     const idx = this.generateExpression(index.index);
@@ -492,6 +555,132 @@ export class JavaScriptGenerator {
 
   private sanitizeName(name: string): string {
     return name.replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+
+  private mockKeyForExtern(expr: AST.MemberAccessExpr): string {
+    return `extern:${expr.namespace.join('/')}.${expr.member}`;
+  }
+
+  private mockKeyForFunction(name: string): string {
+    return `fn:${this.sourceFile ?? '<unknown>'}:${name}`;
+  }
+
+  private mockKeyForTarget(target: AST.Expr): string {
+    if (target.type === 'MemberAccessExpr') {
+      return this.mockKeyForExtern(target);
+    }
+    if (target.type === 'IdentifierExpr') {
+      return this.mockKeyForFunction(target.name);
+    }
+    throw new Error(`Unsupported with_mock target expression: ${target.type}`);
+  }
+
+  private emitMockRuntimeHelpers(): void {
+    this.emit(`const __mint_mocks = new Map();`);
+    this.emit(`function __mint_preview(value) {`);
+    this.indent++;
+    this.emit(`try { return JSON.stringify(value); } catch { return String(value); }`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`function __mint_diff_hint(actual, expected) {`);
+    this.indent++;
+    this.emit(`if (Array.isArray(actual) && Array.isArray(expected)) {`);
+    this.indent++;
+    this.emit(`if (actual.length !== expected.length) { return { kind: 'array_length', actualLength: actual.length, expectedLength: expected.length }; }`);
+    this.emit(`for (let i = 0; i < actual.length; i++) { if (actual[i] !== expected[i]) { return { kind: 'array_first_diff', index: i, actual: __mint_preview(actual[i]), expected: __mint_preview(expected[i]) }; } }`);
+    this.emit(`return null;`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`if (actual && expected && typeof actual === 'object' && typeof expected === 'object') {`);
+    this.indent++;
+    this.emit(`const actualKeys = Object.keys(actual).sort();`);
+    this.emit(`const expectedKeys = Object.keys(expected).sort();`);
+    this.emit(`if (actualKeys.join('|') !== expectedKeys.join('|')) { return { kind: 'object_keys', actualKeys, expectedKeys }; }`);
+    this.emit(`for (const k of actualKeys) { if (actual[k] !== expected[k]) { return { kind: 'object_field', field: k, actual: __mint_preview(actual[k]), expected: __mint_preview(expected[k]) }; } }`);
+    this.emit(`return null;`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`return null;`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`function __mint_test_bool_result(ok) {`);
+    this.indent++;
+    this.emit(`return ok === true ? { ok: true } : { ok: false, failure: { kind: 'assert_false', message: 'Test body evaluated to ⊥' } };`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`function __mint_test_compare_result(op, leftFn, rightFn) {`);
+    this.indent++;
+    this.emit(`const actual = leftFn();`);
+    this.emit(`const expected = rightFn();`);
+    this.emit(`let ok = false;`);
+    this.emit(`switch (op) {`);
+    this.indent++;
+    this.emit(`case '=': ok = actual === expected; break;`);
+    this.emit(`case '≠': ok = actual !== expected; break;`);
+    this.emit(`case '<': ok = actual < expected; break;`);
+    this.emit(`case '>': ok = actual > expected; break;`);
+    this.emit(`case '≤': ok = actual <= expected; break;`);
+    this.emit(`case '≥': ok = actual >= expected; break;`);
+    this.emit(`default: throw new Error('Unsupported test comparison operator: ' + String(op));`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`if (ok) { return { ok: true }; }`);
+    this.emit(`return { ok: false, failure: { kind: 'comparison_mismatch', message: 'Comparison test failed', operator: op, actual: __mint_preview(actual), expected: __mint_preview(expected), diffHint: __mint_diff_hint(actual, expected) } };`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`function __mint_call(key, actualFn, args) {`);
+    this.indent++;
+    this.emit(`const mockFn = __mint_mocks.get(key);`);
+    this.emit(`const fn = mockFn ?? actualFn;`);
+    this.emit(`return fn(...args);`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`function __mint_with_mock(key, mockFn, body) {`);
+    this.indent++;
+    this.emit(`const had = __mint_mocks.has(key);`);
+    this.emit(`const prev = __mint_mocks.get(key);`);
+    this.emit(`__mint_mocks.set(key, mockFn);`);
+    this.emit(`try {`);
+    this.indent++;
+    this.emit(`return body();`);
+    this.indent--;
+    this.emit(`} finally {`);
+    this.indent++;
+    this.emit(`if (had) { __mint_mocks.set(key, prev); } else { __mint_mocks.delete(key); }`);
+    this.indent--;
+    this.emit(`}`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`function __mint_with_mock_extern(key, actualFn, mockFn, body) {`);
+    this.indent++;
+    this.emit(`if (typeof actualFn !== 'function') { throw new Error('with_mock extern target is not callable'); }`);
+    this.emit(`if (typeof mockFn !== 'function') { throw new Error('with_mock replacement must be callable'); }`);
+    this.emit(`if (actualFn.length !== mockFn.length) { throw new Error(\`with_mock extern arity mismatch for \${key}: expected \${actualFn.length}, got \${mockFn.length}\`); }`);
+    this.emit(`return __mint_with_mock(key, mockFn, body);`);
+    this.indent--;
+    this.emit(`}`);
+  }
+
+  private generateTestBodyResult(expr: AST.Expr): string {
+    if (expr.type === 'BinaryExpr' && ['=', '≠', '<', '>', '≤', '≥'].includes(expr.operator)) {
+      const left = this.generateExpression(expr.left);
+      const right = this.generateExpression(expr.right);
+      return `__mint_test_compare_result(${JSON.stringify(expr.operator)}, () => ${left}, () => ${right})`;
+    }
+    const body = this.generateExpression(expr);
+    return `__mint_test_bool_result(${body})`;
+  }
+
+  private generateAssertionMetadata(expr: AST.Expr): string {
+    if (expr.type === 'BinaryExpr' && ['=', '≠', '<', '>', '≤', '≥'].includes(expr.operator)) {
+      return JSON.stringify({
+        kind: 'comparison',
+        operator: expr.operator,
+        left: { location: expr.left.location },
+        right: { location: expr.right.location }
+      });
+    }
+    return 'null';
   }
 }
 

@@ -4,9 +4,10 @@
  * Mint Compiler CLI
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { dirname, basename } from 'path';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'fs';
+import { dirname, basename, resolve, relative, join } from 'path';
 import { spawn } from 'child_process';
+import { pathToFileURL } from 'url';
 import { tokenize } from './lexer/lexer.js';
 import { tokenToString } from './lexer/token.js';
 import { parse } from './parser/parser.js';
@@ -29,6 +30,7 @@ async function main() {
     console.error('  parse <file>      Parse a Mint file and show AST');
     console.error('  compile <file>    Compile a Mint file to TypeScript');
     console.error('  run <file>        Compile and run a Mint file');
+    console.error('  test [path]       Run Mint tests from ./tests (JSON output by default)');
     console.error('  help              Show this help message');
     process.exit(1);
   }
@@ -48,6 +50,9 @@ async function main() {
     case 'run':
       await runCommand(args.slice(1));
       break;
+    case 'test':
+      await testCommand(args.slice(1));
+      break;
     case 'help':
       console.log('Mint Compiler v0.1.0');
       console.log('');
@@ -56,6 +61,7 @@ async function main() {
       console.log('  parse <file>      Parse a Mint file and show AST');
       console.log('  compile <file>    Compile a Mint file to TypeScript');
       console.log('  run <file>        Compile and run a Mint file');
+      console.log('  test [path]       Run Mint tests from ./tests (JSON output by default)');
       console.log('  help              Show this help message');
       console.log('');
       console.log('Output locations:');
@@ -66,11 +72,49 @@ async function main() {
       console.log('Options:');
       console.log('  -o <file>         Specify custom output location');
       console.log('  --show-types      Display inferred types after type checking');
+      console.log('  --json            JSON test output (default for mintc test)');
+      console.log('  --human           Human-readable test output');
+      console.log('  --match <text>    Filter tests by substring (mintc test)');
       break;
     default:
       console.error(`Unknown command: ${command}`);
       process.exit(1);
   }
+}
+
+function pathIsUnderTests(filename: string): boolean {
+  const testsRoot = resolve(process.cwd(), 'tests');
+  const filePath = resolve(process.cwd(), filename);
+  const rel = relative(testsRoot, filePath);
+  return rel === '' || (!rel.startsWith('..') && rel !== '' && !rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`));
+}
+
+function ensureNoTestsOutsideTestsDir(ast: ReturnType<typeof parse>, filename: string): void {
+  const hasTests = ast.declarations.some(d => d.type === 'TestDecl');
+  if (hasTests && !pathIsUnderTests(filename)) {
+    throw new Error(`Test declarations are only allowed under ./tests (canonical project layout). Found test in ${filename}`);
+  }
+}
+
+function collectMintFiles(rootPath: string): string[] {
+  const results: string[] = [];
+  const st = statSync(rootPath);
+  if (st.isFile()) {
+    if (rootPath.endsWith('.mint')) {
+      results.push(rootPath);
+    }
+    return results;
+  }
+  for (const entry of readdirSync(rootPath)) {
+    const full = join(rootPath, entry);
+    const est = statSync(full);
+    if (est.isDirectory()) {
+      results.push(...collectMintFiles(full));
+    } else if (est.isFile() && full.endsWith('.mint')) {
+      results.push(full);
+    }
+  }
+  return results;
 }
 
 function lexCommand(args: string[]) {
@@ -128,6 +172,7 @@ function parseCommand(args: string[]) {
     console.log(`Total tokens: ${tokens.length}`);
 
     const ast = parse(tokens);
+    ensureNoTestsOutsideTestsDir(ast, filename);
 
     console.log('');
     console.log(`AST for ${filename}:`);
@@ -186,6 +231,7 @@ async function compileCommand(args: string[]) {
 
     const tokens = tokenize(source);
     const ast = parse(tokens);
+    ensureNoTestsOutsideTestsDir(ast, filename);
 
     // Validate canonical form (enforces ONE way)
     validateCanonicalForm(ast);
@@ -243,6 +289,30 @@ async function compileCommand(args: string[]) {
   }
 }
 
+type CompiledTestModule = {
+  sourceFile: string;
+  outputFile: string;
+};
+
+async function compileToTypeScriptFile(filename: string, outputFile?: string): Promise<CompiledTestModule> {
+  const source = readFileSync(filename, 'utf-8');
+  validateSurfaceForm(source, filename);
+  const tokens = tokenize(source);
+  const ast = parse(tokens);
+  ensureNoTestsOutsideTestsDir(ast, filename);
+  validateCanonicalForm(ast);
+  typeCheck(ast, source);
+  const tsCode = compile(ast, filename);
+  await validateExterns(ast);
+  const finalOutput = outputFile ?? getSmartOutputPath(filename);
+  const outputDir = dirname(finalOutput);
+  if (outputDir !== '.') {
+    mkdirSync(outputDir, { recursive: true });
+  }
+  writeFileSync(finalOutput, tsCode, 'utf-8');
+  return { sourceFile: filename, outputFile: finalOutput };
+}
+
 async function runCommand(args: string[]) {
   if (args.length === 0) {
     console.error('Usage: mintc run <file>');
@@ -263,6 +333,7 @@ async function runCommand(args: string[]) {
 
     const tokens = tokenize(source);
     const ast = parse(tokens);
+    ensureNoTestsOutsideTestsDir(ast, filename);
 
     // Validate canonical form (enforces ONE way)
     validateCanonicalForm(ast);
@@ -329,6 +400,181 @@ if (result !== undefined) {
       console.error(`Unknown error: ${error}`);
     }
     process.exit(1);
+  }
+}
+
+async function runGeneratedTestModule(moduleFile: string, matchText: string | null): Promise<any> {
+  const runnerDir = '.local/__mint_test';
+  mkdirSync(runnerDir, { recursive: true });
+  const unique = `${process.pid}_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+  const runnerFile = `${runnerDir}/${basename(moduleFile, '.ts')}.${unique}.runner.ts`;
+  const moduleUrl = pathToFileURL(resolve(process.cwd(), moduleFile)).href;
+  const runnerCode =
+    `const moduleUrl = ${JSON.stringify(moduleUrl)};\n` +
+    `const discoverMod = await import(moduleUrl);\n` +
+    `const tests = Array.isArray(discoverMod.__mint_tests) ? discoverMod.__mint_tests : [];\n` +
+    `const matchText = ${JSON.stringify(matchText)};\n` +
+    `const selected = matchText ? tests.filter((t) => String(t.name).includes(matchText)) : tests;\n` +
+    `const results = [];\n` +
+    `const startSuite = Date.now();\n` +
+    `for (const t of selected) {\n` +
+    `  const start = Date.now();\n` +
+    `  try {\n` +
+    `    const freshMod = await import(moduleUrl + '?mint_test=' + encodeURIComponent(String(t.id)) + '&ts=' + Date.now() + '_' + Math.random());\n` +
+    `    const freshTests = Array.isArray(freshMod.__mint_tests) ? freshMod.__mint_tests : [];\n` +
+    `    const freshTest = freshTests.find((x) => x.id === t.id);\n` +
+    `    if (!freshTest) { throw new Error('Test not found in isolated module reload: ' + String(t.id)); }\n` +
+    `    const value = await freshTest.fn();\n` +
+    `    if (value === true) {\n` +
+    `      results.push({ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'pass', durationMs: Date.now()-start, location: t.location, declaredEffects: t.declaredEffects ?? [], assertion: t.assertion ?? null });\n` +
+    `    } else if (value && typeof value === 'object' && 'ok' in value) {\n` +
+    `      if (value.ok === true) {\n` +
+    `        results.push({ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'pass', durationMs: Date.now()-start, location: t.location, declaredEffects: t.declaredEffects ?? [], assertion: t.assertion ?? null });\n` +
+    `      } else {\n` +
+    `        results.push({ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'fail', durationMs: Date.now()-start, location: t.location, declaredEffects: t.declaredEffects ?? [], assertion: t.assertion ?? null, failure: value.failure ?? { kind: 'assert_false', message: 'Test body evaluated to ⊥' } });\n` +
+    `      }\n` +
+    `    } else {\n` +
+    `      results.push({ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'fail', durationMs: Date.now()-start, location: t.location, declaredEffects: t.declaredEffects ?? [], assertion: t.assertion ?? null, failure: { kind: 'assert_false', message: 'Test body evaluated to ⊥' } });\n` +
+    `    }\n` +
+    `  } catch (e) {\n` +
+    `    results.push({ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'error', durationMs: Date.now()-start, location: t.location, declaredEffects: t.declaredEffects ?? [], assertion: t.assertion ?? null, failure: { kind: 'exception', message: e instanceof Error ? e.message : String(e) } });\n` +
+    `  }\n` +
+    `}\n` +
+    `console.log(JSON.stringify({ results, discovered: tests.length, selected: selected.length, durationMs: Date.now()-startSuite }));\n`;
+  writeFileSync(runnerFile, runnerCode, 'utf-8');
+
+  const data = await new Promise<string>((resolveOut, reject) => {
+    let stdout = '';
+    let stderr = '';
+    const p = spawn('pnpm', ['exec', 'node', '--import', 'tsx', runnerFile], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    });
+    p.stdout.on('data', (d) => { stdout += d.toString(); });
+    p.stderr.on('data', (d) => { stderr += d.toString(); });
+    p.on('error', reject);
+    p.on('exit', (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr || `Test runner exited with code ${code}`));
+        return;
+      }
+      resolveOut(stdout.trim());
+    });
+  });
+
+  return JSON.parse(data);
+}
+
+async function testCommand(args: string[]) {
+  const human = args.includes('--human');
+  const jsonMode = !human;
+  const matchIndex = args.indexOf('--match');
+  const matchText = matchIndex !== -1 && args[matchIndex + 1] ? args[matchIndex + 1] : null;
+  const pathArg = args.find((a, i) => {
+    if (a.startsWith('--')) return false;
+    if (matchIndex !== -1 && i === matchIndex + 1) return false;
+    return true;
+  });
+  const rootPath = pathArg ?? 'tests';
+
+  try {
+    if (!pathIsUnderTests(rootPath)) {
+      throw new Error(`mintc test only accepts paths under ./tests. Got: ${rootPath}`);
+    }
+
+    if (!existsSync(rootPath)) {
+      const empty = {
+        formatVersion: 1,
+        command: 'mintc test',
+        ok: true,
+        summary: { files: 0, discovered: 0, selected: 0, passed: 0, failed: 0, errored: 0, skipped: 0, durationMs: 0 },
+        results: []
+      };
+      if (jsonMode) {
+        process.stdout.write(JSON.stringify(empty) + '\n');
+      } else {
+        console.log('No tests found (./tests does not exist).');
+      }
+      process.exit(0);
+    }
+
+    const files = collectMintFiles(rootPath).sort();
+    const started = Date.now();
+    const allResults: any[] = [];
+    let discovered = 0;
+    let selected = 0;
+
+    const fileRuns = await Promise.all(files.map(async (file) => {
+      const out = `.local/tests/${relative(process.cwd(), resolve(process.cwd(), file)).replace(/\.mint$/, '.ts')}`;
+      const compiled = await compileToTypeScriptFile(file, out);
+      const moduleResult = await runGeneratedTestModule(compiled.outputFile, matchText);
+      return { file, moduleResult };
+    }));
+
+    for (const { moduleResult } of fileRuns) {
+      discovered += moduleResult.discovered ?? 0;
+      selected += moduleResult.selected ?? 0;
+      allResults.push(...(moduleResult.results ?? []));
+    }
+
+    allResults.sort((a, b) => {
+      const fileCmp = String(a.file).localeCompare(String(b.file));
+      if (fileCmp !== 0) return fileCmp;
+      const aLine = a.location?.start?.line ?? 0;
+      const bLine = b.location?.start?.line ?? 0;
+      if (aLine !== bLine) return aLine - bLine;
+      const aCol = a.location?.start?.column ?? 0;
+      const bCol = b.location?.start?.column ?? 0;
+      if (aCol !== bCol) return aCol - bCol;
+      return String(a.name).localeCompare(String(b.name));
+    });
+
+    const passed = allResults.filter(r => r.status === 'pass').length;
+    const failed = allResults.filter(r => r.status === 'fail').length;
+    const errored = allResults.filter(r => r.status === 'error').length;
+    const payload = {
+      formatVersion: 1,
+      command: 'mintc test',
+      ok: failed === 0 && errored === 0,
+      summary: {
+        files: files.length,
+        discovered,
+        selected,
+        passed,
+        failed,
+        errored,
+        skipped: 0,
+        durationMs: Date.now() - started
+      },
+      results: allResults
+    };
+
+    if (jsonMode) {
+      process.stdout.write(JSON.stringify(payload) + '\n');
+    } else {
+      console.log(`${payload.ok ? 'PASS' : 'FAIL'} ${passed}/${selected} tests passed`);
+      for (const r of allResults) {
+        if (r.status !== 'pass') {
+          console.log(`${r.status.toUpperCase()}: ${r.name} (${r.file})${r.failure?.message ? ` - ${r.failure.message}` : ''}`);
+        }
+      }
+    }
+    process.exit(payload.ok ? 0 : 1);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (jsonMode) {
+      process.stdout.write(JSON.stringify({
+        formatVersion: 1,
+        command: 'mintc test',
+        ok: false,
+        summary: { files: 0, discovered: 0, selected: 0, passed: 0, failed: 0, errored: 1, skipped: 0, durationMs: 0 },
+        results: [],
+        error: { kind: 'runner_error', message }
+      }) + '\n');
+    } else {
+      console.error(`Error: ${message}`);
+    }
+    process.exit(2);
   }
 }
 

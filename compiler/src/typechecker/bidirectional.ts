@@ -51,6 +51,9 @@ function synthesize(env: TypeEnvironment, expr: AST.Expr): InferenceType {
     case 'FieldAccessExpr':
       return synthesizeFieldAccess(env, expr);
 
+    case 'IndexExpr':
+      return synthesizeIndex(env, expr);
+
     case 'MemberAccessExpr':
       return synthesizeMemberAccess(env, expr);
 
@@ -72,6 +75,9 @@ function synthesize(env: TypeEnvironment, expr: AST.Expr): InferenceType {
 
     case 'LetExpr':
       return synthesizeLet(env, expr);
+
+    case 'WithMockExpr':
+      return synthesizeWithMock(env, expr);
 
     default:
       throw new TypeError(
@@ -106,6 +112,10 @@ function check(env: TypeEnvironment, expr: AST.Expr, expectedType: InferenceType
 
     case 'ListExpr':
       checkList(env, expr, expectedType);
+      return;
+
+    case 'WithMockExpr':
+      checkWithMock(env, expr, expectedType);
       return;
 
     // For most expressions: synthesize then verify equality
@@ -152,6 +162,13 @@ function checkList(env: TypeEnvironment, expr: AST.ListExpr, expectedType: Infer
   for (const elem of expr.elements) {
     check(env, elem, expectedType.elementType);
   }
+}
+
+function checkWithMock(env: TypeEnvironment, expr: AST.WithMockExpr, expectedType: InferenceType): void {
+  // Validate target and replacement constraints.
+  synthesizeWithMock(env, expr);
+  // Then enforce the expected type on the body.
+  check(env, expr.body, expectedType);
 }
 
 /**
@@ -265,6 +282,56 @@ function synthesizeApplication(env: TypeEnvironment, expr: AST.ApplicationExpr):
   }
 
   return fnType.returnType;
+}
+
+function isExternMockTarget(env: TypeEnvironment, target: AST.Expr): boolean {
+  if (target.type !== 'MemberAccessExpr') return false;
+  const namespaceName = target.namespace.join('/');
+  return !!env.lookupMeta(namespaceName)?.isExternNamespace;
+}
+
+function isMockableFunctionTarget(env: TypeEnvironment, target: AST.Expr): boolean {
+  if (target.type !== 'IdentifierExpr') return false;
+  return !!env.lookupMeta(target.name)?.isMockableFunction;
+}
+
+function synthesizeWithMock(env: TypeEnvironment, expr: AST.WithMockExpr): InferenceType {
+  const externTarget = isExternMockTarget(env, expr.target);
+  const mockableTarget = isMockableFunctionTarget(env, expr.target);
+
+  if (!externTarget && !mockableTarget) {
+    throw new TypeError(
+      'with_mock target must be an extern member or a mockable function',
+      expr.target.location
+    );
+  }
+
+  const replacementType = synthesize(env, expr.replacement);
+  if (replacementType.kind !== 'function' && replacementType.kind !== 'any') {
+    throw new TypeError(
+      `with_mock replacement must be a function, got ${formatType(replacementType)}`,
+      expr.replacement.location
+    );
+  }
+
+  if (externTarget && replacementType.kind === 'any') {
+    throw new TypeError(
+      'with_mock on extern members requires an explicitly typed Mint replacement function (e.g., a λ with annotations), not an untyped extern/any value',
+      expr.replacement.location
+    );
+  }
+
+  if (mockableTarget && replacementType.kind === 'function') {
+    const targetType = synthesize(env, expr.target);
+    if (targetType.kind === 'function' && !typesEqual(replacementType, targetType)) {
+      throw new TypeError(
+        `with_mock replacement type ${formatType(replacementType)} does not match target type ${formatType(targetType)}`,
+        expr.replacement.location
+      );
+    }
+  }
+
+  return synthesize(env, expr.body);
 }
 
 function synthesizeBinary(env: TypeEnvironment, expr: AST.BinaryExpr): InferenceType {
@@ -453,6 +520,29 @@ function synthesizeFieldAccess(env: TypeEnvironment, expr: AST.FieldAccessExpr):
   }
 
   return fieldType;
+}
+
+function synthesizeIndex(env: TypeEnvironment, expr: AST.IndexExpr): InferenceType {
+  const objType = synthesize(env, expr.object);
+  check(env, expr.index, { kind: 'primitive', name: 'Int' });
+
+  if (objType.kind === 'any') {
+    return { kind: 'any' };
+  }
+
+  if (objType.kind === 'list') {
+    return objType.elementType;
+  }
+
+  if (objType.kind === 'tuple') {
+    // Index is dynamic at compile time in current type system; return any to avoid unsound tuple lookup assumptions.
+    return { kind: 'any' };
+  }
+
+  throw new TypeError(
+    `Cannot index into non-list type ${formatType(objType)}`,
+    expr.location
+  );
 }
 
 function synthesizeMemberAccess(env: TypeEnvironment, expr: AST.MemberAccessExpr): InferenceType {
@@ -1020,14 +1110,18 @@ export function typeCheck(program: AST.Program, _source: string): Map<string, In
         returnType,
         effects
       };
-      env.bind(decl.name, funcType);
+      if (decl.isMockable) {
+        env.bindWithMeta(decl.name, funcType, { isMockableFunction: true });
+      } else {
+        env.bind(decl.name, funcType);
+      }
       types.set(decl.name, funcType);
     } else if (decl.type === 'ExternDecl') {
       // Register namespace as "any" type (trust mode)
       // Member validation happens at link-time, not type-check time
       const namespaceName = decl.modulePath.join('/');
       const anyType: InferenceType = { kind: 'any' };
-      env.bind(namespaceName, anyType);
+      env.bindWithMeta(namespaceName, anyType, { isExternNamespace: true });
     } else if (decl.type === 'ImportDecl') {
       // Register import namespace just like extern (trust mode)
       // Use as: stdlib/list_utils.len(xs)
@@ -1038,12 +1132,14 @@ export function typeCheck(program: AST.Program, _source: string): Map<string, In
     }
   }
 
-  // Second pass: Check function bodies
+  // Second pass: Check function, const, and test bodies
   for (const decl of program.declarations) {
     if (decl.type === 'FunctionDecl') {
       checkFunctionDecl(env, decl);
     } else if (decl.type === 'ConstDecl') {
       checkConstDecl(env, decl, types);
+    } else if (decl.type === 'TestDecl') {
+      checkTestDecl(env, decl);
     }
     // TypeDecl doesn't need runtime checking
   }
@@ -1163,6 +1259,13 @@ function inferEffects(env: TypeEnvironment, expr: AST.Expr): Set<string> {
       return new Set([...listEffects, ...fnEffects, ...initEffects]);
     }
 
+    case 'WithMockExpr': {
+      const targetEffects = inferEffects(env, expr.target);
+      const replacementEffects = inferEffects(env, expr.replacement);
+      const bodyEffects = inferEffects(env, expr.body);
+      return new Set([...targetEffects, ...replacementEffects, ...bodyEffects]);
+    }
+
     case 'FieldAccessExpr': {
       return inferEffects(env, expr.object);
     }
@@ -1218,6 +1321,13 @@ function checkFunctionDecl(env: TypeEnvironment, decl: AST.FunctionDecl): void {
   const paramTypes = decl.params.map(p => astTypeToInferenceTypeResolved(env, p.typeAnnotation!));
   const returnType = astTypeToInferenceTypeResolved(env, decl.returnType!);
 
+  if (decl.isMockable && decl.effects.length === 0) {
+    throw new TypeError(
+      `Function "${decl.name}" is marked mockable but is pure. Only effectful functions may be mockable.`,
+      decl.location
+    );
+  }
+
   // Add parameters to environment
   const bodyEnv = env.extend(
     new Map(decl.params.map((p, i) => [p.name, paramTypes[i]]))
@@ -1230,6 +1340,15 @@ function checkFunctionDecl(env: TypeEnvironment, decl: AST.FunctionDecl): void {
   const declaredEffects = new Set(decl.effects);
   const inferredEffects = inferEffects(bodyEnv, decl.body);
   checkEffects(declaredEffects, inferredEffects, decl.name, decl.location);
+}
+
+function checkTestDecl(env: TypeEnvironment, decl: AST.TestDecl): void {
+  const boolType: InferenceType = { kind: 'primitive', name: 'Bool' };
+  check(env, decl.body, boolType);
+
+  const declaredEffects = new Set(decl.effects);
+  const inferredEffects = inferEffects(env, decl.body);
+  checkEffects(declaredEffects, inferredEffects, `test "${decl.description}"`, decl.location);
 }
 
 function checkConstDecl(env: TypeEnvironment, decl: AST.ConstDecl, types: Map<string, InferenceType>): void {

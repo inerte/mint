@@ -44,6 +44,7 @@ export type Declaration =
 export interface FunctionDecl {
   type: 'FunctionDecl';
   name: string;
+  isMockable: boolean;
   params: Param[];
   effects: string[];            // Effect annotations: ['IO', 'Network', 'Async', 'Error', 'Mut']
   returnType: Type | null;
@@ -116,6 +117,7 @@ export interface ConstDecl {
 export interface TestDecl {
   type: 'TestDecl';
   description: string;
+  effects: string[];
   body: Expr;
   location: SourceLocation;
 }
@@ -208,7 +210,8 @@ export type Expr =
   | MapExpr
   | FilterExpr
   | FoldExpr
-  | MemberAccessExpr;
+  | MemberAccessExpr
+  | WithMockExpr;
 
 export interface LiteralExpr {
   type: 'LiteralExpr';
@@ -370,6 +373,14 @@ export interface MemberAccessExpr {
   type: 'MemberAccessExpr';
   namespace: string[];           // ['fs', 'promises'] or ['axios']
   member: string;                // 'readFile' or 'get'
+  location: SourceLocation;
+}
+
+export interface WithMockExpr {
+  type: 'WithMockExpr';
+  target: Expr;
+  replacement: Expr;
+  body: Expr;
   location: SourceLocation;
 }
 

@@ -33,9 +33,16 @@ export class Parser {
   }
 
   private declaration(): AST.Declaration {
+    // Mockable function declaration: mockable λ...
+    if (this.match(TokenType.MOCKABLE)) {
+      const mockableStart = this.previous();
+      this.consume(TokenType.LAMBDA, 'Expected "λ" after "mockable"');
+      return this.functionDeclaration(true, mockableStart);
+    }
+
     // Function declaration: λ identifier(params)...
     if (this.match(TokenType.LAMBDA)) {
-      return this.functionDeclaration();
+      return this.functionDeclaration(false);
     }
 
     // Type declaration: t TypeName = ...
@@ -67,8 +74,8 @@ export class Parser {
     throw this.error('Expected declaration (λ for function, t for type, etc.)');
   }
 
-  private functionDeclaration(): AST.FunctionDecl {
-    const start = this.previous();
+  private functionDeclaration(isMockable: boolean, startToken?: Token): AST.FunctionDecl {
+    const start = startToken ?? this.previous();
     const name = this.consume(TokenType.IDENTIFIER, 'Expected function name').value;
 
     // Optional generic type parameters: λfunc[T,U](...)
@@ -107,6 +114,7 @@ export class Parser {
     return {
       type: 'FunctionDecl',
       name,
+      isMockable,
       params,
       effects,
       returnType,
@@ -328,6 +336,10 @@ export class Parser {
   private testDeclaration(): AST.TestDecl {
     const start = this.previous();
     const description = this.consume(TokenType.STRING, 'Expected test description').value;
+    let effects: string[] = [];
+    if (this.match(TokenType.ARROW)) {
+      effects = this.parseEffects();
+    }
     this.consume(TokenType.LBRACE, 'Expected "{"');
     const body = this.expression();
     this.consume(TokenType.RBRACE, 'Expected "}"');
@@ -335,6 +347,7 @@ export class Parser {
     return {
       type: 'TestDecl',
       description,
+      effects,
       body,
       location: this.makeLocation(start, this.previous()),
     };
@@ -795,6 +808,11 @@ export class Parser {
       return this.matchExpr();
     }
 
+    // with_mock(target,replacement){body}
+    if (this.match(TokenType.WITH_MOCK)) {
+      return this.withMockExpr();
+    }
+
     // Let binding: l x=value;body
     if (this.match(TokenType.LET)) {
       return this.letExpr();
@@ -950,6 +968,25 @@ export class Parser {
       type: 'MatchExpr',
       scrutinee,
       arms,
+      location: this.makeLocation(start, this.previous()),
+    };
+  }
+
+  private withMockExpr(): AST.WithMockExpr {
+    const start = this.previous();
+    this.consume(TokenType.LPAREN, 'Expected "(" after with_mock');
+    const target = this.expression();
+    this.consume(TokenType.COMMA, 'Expected "," after mock target');
+    const replacement = this.expression();
+    this.consume(TokenType.RPAREN, 'Expected ")" after mock replacement');
+    this.consume(TokenType.LBRACE, 'Expected "{" before with_mock body');
+    const body = this.expression();
+    this.consume(TokenType.RBRACE, 'Expected "}" after with_mock body');
+    return {
+      type: 'WithMockExpr',
+      target,
+      replacement,
+      body,
       location: this.makeLocation(start, this.previous()),
     };
   }

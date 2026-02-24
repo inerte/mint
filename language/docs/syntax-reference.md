@@ -146,20 +146,20 @@ Current parser behavior:
 Sigil-to-Sigil imports are namespace imports only.
 
 ```sigil
-i src/todo-domain
-i stdlib/list_utils
+i src⋅todo-domain
+i stdlib⋅list_utils
 ```
 
 Use imported members with fully qualified namespace access:
 
 ```sigil
-src/todo-domain.completedCount(todos)
-stdlib/list_utils.len([1,2,3])
+src⋅todo-domain.completedCount(todos)
+stdlib⋅list_utils.len([1,2,3])
 ```
 
 Canonical Sigil import roots:
-- `src/...`
-- `stdlib/...`
+- `src⋅...`
+- `stdlib⋅...`
 
 Not supported:
 - `i ./...`
@@ -171,16 +171,16 @@ Not supported:
 
 ```sigil
 e console
-e fs/promises
-e react-dom/client
+e fs⋅promises
+e react-dom⋅client
 ```
 
 Use with namespace member access:
 
 ```sigil
 console.log("hello")
-fs/promises.writeFile("x.txt","data")
-react-dom/client.createRoot(root)
+fs⋅promises.writeFile("x.txt","data")
+react-dom⋅client.createRoot(root)
 ```
 
 ## Tests

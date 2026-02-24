@@ -104,7 +104,7 @@ export interface TypeAlias {
 export interface ImportDecl {
   type: 'ImportDecl';
   modulePath: string[];
-  // No selective imports - works like FFI (use as namespace.member)
+  // No selective imports - works like FFI (use as namespace.member, e.g. src⋅mod.fn)
   location: SourceLocation;
 }
 
@@ -127,7 +127,7 @@ export interface TestDecl {
 
 export interface ExternDecl {
   type: 'ExternDecl';
-  modulePath: string[];          // ['fs', 'promises'] or ['axios']
+  modulePath: string[];          // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs⋅promises)
   location: SourceLocation;
 }
 
@@ -374,7 +374,7 @@ export interface FoldExpr {
 
 export interface MemberAccessExpr {
   type: 'MemberAccessExpr';
-  namespace: string[];           // ['fs', 'promises'] or ['axios']
+  namespace: string[];           // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs⋅promises)
   member: string;                // 'readFile' or 'get'
   location: SourceLocation;
 }

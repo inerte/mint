@@ -89,7 +89,7 @@
         },
         {
           "name": "punctuation.separator.sigil",
-          "match": "[,|]"
+          "match": "[,|⋅]"
         },
         {
           "name": "punctuation.section.sigil",

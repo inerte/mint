@@ -46,7 +46,7 @@ export async function validateExterns(program: AST.Program): Promise<void> {
   }
 
   // Step 3: Collect all member accesses (namespace.member)
-  // This includes both MemberAccessExpr (e.g., fs/promises.readFile)
+  // This includes both MemberAccessExpr (e.g., fs⋅promises.readFile)
   // and FieldAccessExpr on extern namespaces (e.g., console.log)
   const memberAccesses = collectMemberAccesses(program, loadedModules);
 
@@ -89,7 +89,7 @@ interface MemberAccess {
 /**
  * Recursively collect all member accesses from the AST
  * This includes:
- * - MemberAccessExpr: fs/promises.readFile
+ * - MemberAccessExpr: fs⋅promises.readFile
  * - FieldAccessExpr on extern namespaces: console.log
  */
 function collectMemberAccesses(
@@ -99,7 +99,7 @@ function collectMemberAccesses(
   const accesses: MemberAccess[] = [];
 
   function visitExpr(expr: AST.Expr) {
-    // MemberAccessExpr: fs/promises.readFile
+    // MemberAccessExpr: fs⋅promises.readFile
     if (expr.type === 'MemberAccessExpr') {
       accesses.push({
         namespacePath: expr.namespace.join('/'),

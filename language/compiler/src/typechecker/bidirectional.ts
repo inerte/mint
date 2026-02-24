@@ -548,12 +548,13 @@ function synthesizeIndex(env: TypeEnvironment, expr: AST.IndexExpr): InferenceTy
 
 function synthesizeMemberAccess(env: TypeEnvironment, expr: AST.MemberAccessExpr): InferenceType {
   const namespaceName = expr.namespace.join('/');
+  const sigilNamespace = expr.namespace.join('⋅');
 
   // Check namespace exists (should be registered from extern declaration)
   const namespaceType = env.lookup(namespaceName);
   if (!namespaceType) {
     throw new TypeError(
-      `Unknown namespace '${namespaceName}'. Did you forget 'e ${namespaceName}'?`,
+      `Unknown namespace '${sigilNamespace}'. Did you forget 'e ${sigilNamespace}'?`,
       expr.location
     );
   }
@@ -562,7 +563,7 @@ function synthesizeMemberAccess(env: TypeEnvironment, expr: AST.MemberAccessExpr
     const memberType = namespaceType.fields.get(expr.member);
     if (!memberType) {
       throw new TypeError(
-        `Module '${namespaceName}' does not export member '${expr.member}'`,
+        `Module '${sigilNamespace}' does not export member '${expr.member}'`,
         expr.location
       );
     }

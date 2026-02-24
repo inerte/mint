@@ -1,0 +1,9 @@
+{
+  "name": "dungeon-random-rooms",
+  "version": "0.1.0",
+  "layout": {
+    "src": "src",
+    "tests": "tests",
+    "out": ".local"
+  }
+}

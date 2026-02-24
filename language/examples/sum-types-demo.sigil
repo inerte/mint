@@ -48,9 +48,9 @@ t Result[T,E]=Ok(T)|Err(E)
 
 ⟦ Main - demonstrate all examples ⟧
 λmain()→ℤ≡{
-  let color_value=colorToNumber(Green());
-  let div_ok=processResult(divide(10,2));
-  let div_err=processResult(divide(10,0));
-  let total=color_value+div_ok+div_err;
+  l color_value=colorToNumber(Green());
+  l div_ok=processResult(divide(10,2));
+  l div_err=processResult(divide(10,0));
+  l total=color_value+div_ok+div_err;
   total
 }

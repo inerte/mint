@@ -25,10 +25,10 @@ TopLevelDecl = FunctionDecl
 (* ============================================================================ *)
 
 ImportDecl = "i" , ModulePath , [ "{" , ImportList , "}" ] ;
-ModulePath = Identifier , { "/" , Identifier } ;
+ModulePath = Identifier , { "⋅" , Identifier } ;
 ImportList = Identifier , { "," , Identifier } ;
 
-(* Example: i std/io{print,read} *)
+(* Example: i std⋅io{print,read} *)
 
 (* ============================================================================ *)
 (* TYPE DECLARATIONS                                                            *)

@@ -7,7 +7,7 @@ Sigil can call external modules (including TypeScript/JavaScript packages) using
 ## Syntax
 
 ```sigil
-e module/path
+e module⋅path
 ```
 
 That's it. Exactly ONE way to do FFI (canonical form).
@@ -25,9 +25,9 @@ e console
 ### Node.js Built-ins
 
 ```sigil
-e fs/promises
+e fs⋅promises
 
-λwriteFile(path:𝕊,content:𝕊)→𝕌=fs/promises.writeFile(path,content)
+λwriteFile(path:𝕊,content:𝕊)→𝕌=fs⋅promises.writeFile(path,content)
 
 λmain()→𝕌=writeFile("output.txt","Hello, Sigil!")
 ```
@@ -53,7 +53,7 @@ e axios
 ### 1. Declaration
 
 ```sigil
-e module/path
+e module⋅path
 ```
 
 Declares that you'll use an external module.
@@ -61,7 +61,7 @@ Declares that you'll use an external module.
 ### 2. Usage
 
 ```sigil
-module/path.member(args)
+module⋅path.member(args)
 ```
 
 Access members using full namespace path + dot + member name.
@@ -78,8 +78,8 @@ This catches typos WITHOUT needing type annotations!
 ### 4. Code Generation
 
 ```sigil
-e fs/promises
-λmain()→𝕌=fs/promises.readFile("file.txt","utf-8")
+e fs⋅promises
+λmain()→𝕌=fs⋅promises.readFile("file.txt","utf-8")
 ```
 
 Compiles to:
@@ -94,7 +94,7 @@ export function main() {
 
 ## Namespace Rules
 
-- Full path becomes namespace: `e fs/promises` → use as `fs/promises.readFile`
+- Full path becomes namespace: `e fs⋅promises` → use as `fs⋅promises.readFile`
 - No conflicts possible: `moduleA/utils` and `moduleB/utils` are different namespaces
 - Slash visible in Sigil source (machines don't care about syntax aesthetics)
 - Converted to underscores in generated TypeScript: `fs_promises.readFile`
@@ -154,10 +154,10 @@ Future feature: `async` functions and `await` expressions.
 
 FFI has exactly **ONE syntactic form**:
 
-✅ ONLY: `e module/path`
-❌ NO: `extern module/path` (no full keyword)
-❌ NO: `e module/path as alias` (no aliasing)
-❌ NO: `e module/path{member1,member2}` (no member lists)
+✅ ONLY: `e module⋅path`
+❌ NO: `extern module⋅path` (no full keyword)
+❌ NO: `e module⋅path as alias` (no aliasing)
+❌ NO: `e module⋅path{member1,member2}` (no member lists)
 ❌ NO: Type annotations on extern declarations
 
 This ensures deterministic, unambiguous code generation for LLMs.
@@ -211,10 +211,10 @@ e console
 ### 2. Use Semantic Names
 
 ```sigil
-e fs/promises
+e fs⋅promises
 
-λreadFile(path:𝕊)→𝕌=fs/promises.readFile(path,"utf-8")
-λwriteFile(path:𝕊,content:𝕊)→𝕌=fs/promises.writeFile(path,content)
+λreadFile(path:𝕊)→𝕌=fs⋅promises.readFile(path,"utf-8")
+λwriteFile(path:𝕊,content:𝕊)→𝕌=fs⋅promises.writeFile(path,content)
 ```
 
 ### 3. Validate at Boundaries

@@ -31,9 +31,9 @@ describe('Module system (exports + typed imports)', () => {
 
   test('typed Sigil import namespace allows exported member access', () => {
     const ast = parseProgram(
-      'i src/foo\n' +
+      'i src⋅foo\n' +
       'test \"uses imported fn\" {\n' +
-      '  src/foo.verse(2)=\"ok\"\n' +
+      '  src⋅foo.verse(2)=\"ok\"\n' +
       '}\n'
     );
 
@@ -46,7 +46,7 @@ describe('Module system (exports + typed imports)', () => {
     });
 
     assert.doesNotThrow(() =>
-      typeCheck(ast, 'i src/foo\ntest \"uses imported fn\" {\n  src/foo.verse(2)=\"ok\"\n}\n', {
+      typeCheck(ast, 'i src⋅foo\ntest \"uses imported fn\" {\n  src⋅foo.verse(2)=\"ok\"\n}\n', {
         importedNamespaces: new Map([
           ['src/foo', { kind: 'record', fields }],
         ]),
@@ -56,9 +56,9 @@ describe('Module system (exports + typed imports)', () => {
 
   test('typed Sigil import namespace rejects non-exported member access', () => {
     const ast = parseProgram(
-      'i src/foo\n' +
+      'i src⋅foo\n' +
       'test \"uses hidden fn\" {\n' +
-      '  src/foo.hidden(2)=\"ok\"\n' +
+      '  src⋅foo.hidden(2)=\"ok\"\n' +
       '}\n'
     );
 
@@ -71,7 +71,7 @@ describe('Module system (exports + typed imports)', () => {
     });
 
     assert.throws(() =>
-      typeCheck(ast, 'i src/foo\ntest \"uses hidden fn\" {\n  src/foo.hidden(2)=\"ok\"\n}\n', {
+      typeCheck(ast, 'i src⋅foo\ntest \"uses hidden fn\" {\n  src⋅foo.hidden(2)=\"ok\"\n}\n', {
         importedNamespaces: new Map([
           ['src/foo', { kind: 'record', fields }],
         ]),

@@ -1,0 +1,3 @@
+e console
+
+λmain()→!IO 𝕌=console.log("BSP dungeon generator scaffold (pure Sigil): pending")

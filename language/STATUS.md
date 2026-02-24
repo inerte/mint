@@ -200,27 +200,27 @@ Warning: Could not enhance semantic map (Claude Code CLI not available)
 
 ### Phase 9: Standard Library Implementation ⚠️ PARTIALLY COMPLETE
 
-- ✅ **stdlib/numeric_predicates.sigil** + .map - Predicates for numbers
+- ✅ **stdlib⋅numeric_predicates.sigil** + .map - Predicates for numbers
   - is_positive, is_negative, is_even, is_odd, is_prime, in_range
-- ✅ **stdlib/list_predicates.sigil** + .map - Predicates for lists
+- ✅ **stdlib⋅list_predicates.sigil** + .map - Predicates for lists
   - sorted_asc, sorted_desc, all, any, contains, in_bounds
-- ✅ **stdlib/list_utils.sigil** + .map - List utility functions
+- ✅ **stdlib⋅list_utils.sigil** + .map - List utility functions
   - len, head, tail
-- ✅ **stdlib/test_numeric_predicates.sigil** + .map - Tests
-- ✅ **stdlib/test_list_predicates.sigil** + .map - Tests
+- ✅ **stdlib⋅test_numeric_predicates.sigil** + .map - Tests
+- ✅ **stdlib⋅test_list_predicates.sigil** + .map - Tests
 
 **Live test:**
 ```bash
-$ node compiler/dist/cli.js run stdlib/test_numeric_predicates.sigil
+$ node compiler/dist/cli.js run stdlib⋅test_numeric_predicates.sigil
 is_positive(5): true
 ```
 
 **Not yet implemented:**
-- ⏳ stdlib/prelude.sigil - Core types and functions
-- ⏳ stdlib/collections.sigil - Advanced collections (Set, Queue, Stack)
-- ⏳ stdlib/io.sigil - File I/O operations
-- ⏳ stdlib/json.sigil - JSON parsing/serialization
-- ⏳ stdlib/http.sigil - HTTP client/server
+- ⏳ stdlib⋅prelude.sigil - Core types and functions
+- ⏳ stdlib⋅collections.sigil - Advanced collections (Set, Queue, Stack)
+- ⏳ stdlib⋅io.sigil - File I/O operations
+- ⏳ stdlib⋅json.sigil - JSON parsing/serialization
+- ⏳ stdlib⋅http.sigil - HTTP client/server
 
 ### New: Canonical Form Validators ✅ COMPLETE
 
@@ -263,16 +263,16 @@ Parameter roles:
 
 ### New: Module System ✅ COMPLETE
 
-- ✅ Module imports (`i stdlib/module`)
+- ✅ Module imports (`i stdlib⋅module`)
 - ✅ FFI imports (`e console`)
 - ✅ Path resolution
 - ✅ Generates proper ES modules
 
 **Live test:**
 ```sigil
-i stdlib/numeric_predicates
+i stdlib⋅numeric_predicates
 
-λmain()→𝔹=stdlib/numeric_predicates.is_positive(5)
+λmain()→𝔹=stdlib⋅numeric_predicates.is_positive(5)
 ```
 
 ### Development Environment ✅ COMPLETE
@@ -340,10 +340,10 @@ Nothing currently in progress.
 
 ### Standard Library Expansion
 
-- ⏳ **stdlib/io.sigil** - File I/O operations
-- ⏳ **stdlib/json.sigil** - JSON parsing/serialization
-- ⏳ **stdlib/http.sigil** - HTTP client/server
-- ⏳ **stdlib/collections.sigil** - Set, Queue, Stack
+- ⏳ **stdlib⋅io.sigil** - File I/O operations
+- ⏳ **stdlib⋅json.sigil** - JSON parsing/serialization
+- ⏳ **stdlib⋅http.sigil** - HTTP client/server
+- ⏳ **stdlib⋅collections.sigil** - Set, Queue, Stack
 
 ### Research & Writing
 

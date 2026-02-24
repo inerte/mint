@@ -22,18 +22,18 @@ The Sigil standard library provides core utility functions and predicates for co
 
 ```sigil
 ⟦ Import modules (works like FFI - no selective imports) ⟧
-i stdlib/list_predicates
-i stdlib/numeric_predicates
-i stdlib/list_utils
+i stdlib⋅list_predicates
+i stdlib⋅numeric_predicates
+i stdlib⋅list_utils
 
 ⟦ Use with fully qualified names ⟧
 λmain()→𝕌=console.log(
-  stdlib/list_predicates.sorted_asc([1,2,3]) ++ " " ++
-  ("" + stdlib/list_utils.len([1,2,3]))
+  stdlib⋅list_predicates.sorted_asc([1,2,3]) ++ " " ++
+  ("" + stdlib⋅list_utils.len([1,2,3]))
 )
 ```
 
-**Design:** Imports work exactly like FFI (`e module/path`). No selective imports, always use fully qualified names. This prevents name collisions and makes code explicit.
+**Design:** Imports work exactly like FFI (`e module⋅path`). No selective imports, always use fully qualified names. This prevents name collisions and makes code explicit.
 
 ## Module Exports
 
@@ -446,7 +446,7 @@ All predicates have explicit type signatures:
 
 **Issue:** ~~Imports don't currently register in the typechecker.~~
 
-**Resolution:** Module imports now fully working. Use like FFI: `i stdlib/module` then `stdlib/module.function()`.
+**Resolution:** Module imports now fully working. Use like FFI: `i stdlib⋅module` then `stdlib⋅module.function()`.
 
 ### ~~Missing Unicode Operators~~ ✅ FIXED
 
@@ -463,7 +463,7 @@ All predicates have explicit type signatures:
 Represents an optional value - either `Some(T)` or `None`.
 
 ```sigil
-i stdlib/option
+i stdlib⋅option
 
 t Option[T]=Some(T)|None
 ```
@@ -495,7 +495,7 @@ t Option[T]=Some(T)|None
 Represents success (`Ok(T)`) or failure (`Err(E)`).
 
 ```sigil
-i stdlib/result
+i stdlib⋅result
 
 t Result[T,E]=Ok(T)|Err(E)
 ```

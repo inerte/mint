@@ -83,6 +83,7 @@ export enum TokenType {
   COLON = 'COLON',             // :
   SEMICOLON = 'SEMICOLON',     // ;
   COMMA = 'COMMA',             // ,
+  NAMESPACE_SEP = 'NAMESPACE_SEP', // ⋅
   DOT = 'DOT',                 // .
   DOTDOT = 'DOTDOT',           // ..
   PIPE_SEP = 'PIPE_SEP',       // | (in pattern matching)

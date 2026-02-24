@@ -20,10 +20,10 @@ export λdouble(x:ℤ)→ℤ=x*2
 
 ```sigil
 ⟦ tests/math.sigil ⟧
-i src/math
+i src⋅math
 
 test "double 2" {
-  src/math.double(2)=4
+  src⋅math.double(2)=4
 }
 ```
 

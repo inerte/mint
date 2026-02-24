@@ -63,18 +63,18 @@ export class Parser {
       return this.constDeclaration(isExported);
     }
 
-    // Import declaration: i module/path
+    // Import declaration: i module⋅path
     if (this.match(TokenType.IMPORT)) {
       if (isExported) {
-        throw this.error('Cannot export import declarations (canonical form: use "i module/path" only)');
+        throw this.error('Cannot export import declarations (canonical form: use "i module⋅path" only)');
       }
       return this.importDeclaration();
     }
 
-    // Extern declaration: e module/path
+    // Extern declaration: e module⋅path
     if (this.match(TokenType.EXTERN)) {
       if (isExported) {
-        throw this.error('Cannot export extern declarations (canonical form: use "e module/path" only)');
+        throw this.error('Cannot export extern declarations (canonical form: use "e module⋅path" only)');
       }
       return this.externDeclaration();
     }
@@ -323,12 +323,16 @@ export class Parser {
     const start = this.previous();
     const modulePath: string[] = [];
 
-    // Parse module path: i stdlib/list_utils
-    // Works exactly like FFI: i module/path (NO selective imports)
-    // Use as: stdlib/list_utils.len(xs)
+    // Parse module path: i stdlib⋅list_utils
+    // Works exactly like FFI: i module⋅path (NO selective imports)
+    // Use as: stdlib⋅list_utils.len(xs)
     do {
       modulePath.push(this.modulePathSegment());
-    } while (this.match(TokenType.SLASH));
+    } while (this.match(TokenType.NAMESPACE_SEP));
+
+    if (this.check(TokenType.SLASH)) {
+      throw this.error('Legacy "/" namespace separator is no longer valid in Sigil imports. Use "⋅" (e.g., i stdlib⋅list_utils).');
+    }
 
     return {
       type: 'ImportDecl',
@@ -341,13 +345,17 @@ export class Parser {
     const start = this.previous();
     const modulePath: string[] = [];
 
-    // Parse module path (e.g., fs/promises, axios, lodash)
-    // Syntax: extern module/path/name
+    // Parse module path (e.g., fs⋅promises, axios, lodash)
+    // Syntax: e module⋅path⋅name
     modulePath.push(this.modulePathSegment());
 
-    // Handle path separators: fs/promises
-    while (this.match(TokenType.SLASH)) {
+    // Handle namespace separators: fs⋅promises
+    while (this.match(TokenType.NAMESPACE_SEP)) {
       modulePath.push(this.modulePathSegment());
+    }
+
+    if (this.check(TokenType.SLASH)) {
+      throw this.error('Legacy "/" namespace separator is no longer valid in extern declarations. Use "⋅" (e.g., e fs⋅promises).');
     }
 
     return {
@@ -890,12 +898,12 @@ export class Parser {
       const identStart = this.previous();
       const firstSegment = identStart.value;
 
-      // Check if this is a namespace path (e.g., fs/promises.readFile)
-      if (this.check(TokenType.SLASH)) {
+      // Check if this is a namespace path (e.g., fs⋅promises.readFile)
+      if (this.check(TokenType.NAMESPACE_SEP)) {
         // Parse full namespace path
         const namespace: string[] = [firstSegment];
 
-        while (this.match(TokenType.SLASH)) {
+        while (this.match(TokenType.NAMESPACE_SEP)) {
           namespace.push(this.modulePathSegment());
         }
 
@@ -911,7 +919,7 @@ export class Parser {
         }
 
         // Otherwise, error - namespace path without member access
-        throw this.error(`Namespace path "${namespace.join('/')}" must be followed by ".member". Did you mean to access a member?`);
+        throw this.error(`Namespace path "${namespace.join('⋅')}" must be followed by ".member". Did you mean to access a member?`);
       }
 
       // Just a regular identifier

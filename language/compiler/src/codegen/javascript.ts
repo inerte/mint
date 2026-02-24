@@ -147,16 +147,16 @@ export class JavaScriptGenerator {
     const modulePath = importDecl.modulePath.join('/');
 
     // Convert slash to underscore for generated TypeScript identifier
-    // stdlib/list_utils → stdlib_list_utils
+    // stdlib⋅list_utils (Sigil) → stdlib_list_utils (generated JS identifier)
     const jsName = this.namespaceIdentifier(importDecl.modulePath);
 
     // Always use full module path
     // Import resolution is simplest with absolute paths from project root
-    // i stdlib/list_utils → import * as stdlib_list_utils from './stdlib/list_utils'
+    // i stdlib⋅list_utils → import * as stdlib_list_utils from './stdlib/list_utils'
 
     // Always use namespace import (import * as name)
-    // Works exactly like FFI: i stdlib/list_utils → import * as stdlib_list_utils
-    // Use as: stdlib/list_utils.len(xs) → stdlib_list_utils.len(xs)
+    // Works exactly like FFI: i stdlib⋅list_utils → import * as stdlib_list_utils
+    // Use as: stdlib⋅list_utils.len(xs) → stdlib_list_utils.len(xs)
     const importSpecifier = this.resolveSigilImportSpecifier(modulePath);
     this.emit(`import * as ${jsName} from '${importSpecifier}';`);
   }
@@ -165,7 +165,7 @@ export class JavaScriptGenerator {
     const modulePath = externDecl.modulePath.join('/');
 
     // Convert slash to underscore for generated TypeScript identifier
-    // fs/promises → fs_promises, axios → axios
+    // fs⋅promises (Sigil) / fs/promises (JS specifier) → fs_promises
     const jsName = this.namespaceIdentifier(externDecl.modulePath);
 
     // Always use namespace import (import * as name)
@@ -499,7 +499,7 @@ export class JavaScriptGenerator {
 
   private generateMemberAccess(access: AST.MemberAccessExpr): string {
     // Convert namespace path to generated TypeScript identifier
-    // fs/promises → fs_promises, axios → axios
+    // fs⋅promises (Sigil) / fs/promises (JS specifier) → fs_promises
     const jsNamespace = this.namespaceIdentifier(access.namespace);
 
     // Generate: namespace.member
@@ -706,7 +706,7 @@ export class JavaScriptGenerator {
   }
 
   private resolveSigilImportSpecifier(modulePath: string): string {
-    // Project-root imports like i src/foo should point to generated .local/src/foo from the current generated file.
+    // Project-root imports like i src⋅foo should point to generated .local/src/foo from the current generated file.
     if (modulePath.startsWith('src/') && this.outputFile && this.projectRoot) {
       const generatedTarget = resolve(this.projectRoot, '.local', `${modulePath}.ts`);
       const fromDir = dirname(resolve(this.outputFile));

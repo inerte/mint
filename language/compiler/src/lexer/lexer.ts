@@ -105,6 +105,9 @@ export class Lexer {
       case ',':
         this.addToken(TokenType.COMMA, ',', start);
         break;
+      case '⋅':
+        this.addToken(TokenType.NAMESPACE_SEP, '⋅', start);
+        break;
       case '_':
         this.addToken(TokenType.UNDERSCORE, '_', start);
         break;

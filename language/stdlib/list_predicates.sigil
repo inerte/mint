@@ -4,7 +4,7 @@
    Part of Sigil standard library - canonical implementations only.
 ⟧
 
-i stdlib/list_utils
+i stdlib⋅list_utils
 
 ⟦ Check if list is sorted in ascending order ⟧
 λsorted_asc(xs:[ℤ])→𝔹≡xs{
@@ -40,7 +40,7 @@ i stdlib/list_utils
 λin_bounds(idx:ℤ,xs:[ℤ])→𝔹=in_bounds_helper(idx,xs)
 
 λin_bounds_helper(idx:ℤ,xs:[ℤ])→𝔹≡(idx≥0){
-  ⊤→idx<stdlib/list_utils.len(xs)|
+  ⊤→idx<stdlib⋅list_utils.len(xs)|
   ⊥→⊥
 }
 

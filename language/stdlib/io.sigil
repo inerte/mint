@@ -5,7 +5,7 @@
   All functions have !IO effect annotation.
 ⟧
 
-e fs/promises
+e fs⋅promises
 e console
 
 ⟦ ========================================================================
@@ -13,25 +13,25 @@ e console
    ======================================================================== ⟧
 
 ⟦ Read file as UTF-8 string ⟧
-λread_file(path:𝕊)→!IO 𝕊=fs/promises.readFile(path,"utf8")
+λread_file(path:𝕊)→!IO 𝕊=fs⋅promises.readFile(path,"utf8")
 
 ⟦ Write string to file (overwrites) ⟧
-λwrite_file(path:𝕊,content:𝕊)→!IO 𝕌=fs/promises.writeFile(path,content,"utf8")
+λwrite_file(path:𝕊,content:𝕊)→!IO 𝕌=fs⋅promises.writeFile(path,content,"utf8")
 
 ⟦ Append string to file ⟧
-λappend_file(path:𝕊,content:𝕊)→!IO 𝕌=fs/promises.appendFile(path,content,"utf8")
+λappend_file(path:𝕊,content:𝕊)→!IO 𝕌=fs⋅promises.appendFile(path,content,"utf8")
 
 ⟦ Check if file exists ⟧
-λfile_exists(path:𝕊)→!IO 𝔹=fs/promises.access(path).then(()→⊤).catch(()→⊥)
+λfile_exists(path:𝕊)→!IO 𝔹=fs⋅promises.access(path).then(()→⊤).catch(()→⊥)
 
 ⟦ Delete file ⟧
-λdelete_file(path:𝕊)→!IO 𝕌=fs/promises.unlink(path)
+λdelete_file(path:𝕊)→!IO 𝕌=fs⋅promises.unlink(path)
 
 ⟦ Create directory ⟧
-λmake_dir(path:𝕊)→!IO 𝕌=fs/promises.mkdir(path)
+λmake_dir(path:𝕊)→!IO 𝕌=fs⋅promises.mkdir(path)
 
 ⟦ List directory contents ⟧
-λlist_dir(path:𝕊)→!IO [𝕊]=fs/promises.readdir(path)
+λlist_dir(path:𝕊)→!IO [𝕊]=fs⋅promises.readdir(path)
 
 ⟦ ========================================================================
    CONSOLE OPERATIONS

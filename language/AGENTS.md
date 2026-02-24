@@ -193,7 +193,7 @@ See `examples/effect-demo.sigil` for complete examples.
 
 ## External Module Interop (FFI)
 
-**Syntax:** `e module/path` (ONLY way)
+**Syntax:** `e module⋅path` (ONLY way)
 
 Sigil can call external modules (including TypeScript/JavaScript packages) and npm packages.
 
@@ -202,16 +202,16 @@ Sigil can call external modules (including TypeScript/JavaScript packages) and n
 e console
 λmain()→𝕌=console.log("Hello from Sigil!")
 
-e fs/promises
-λwriteFile(path:𝕊,content:𝕊)→𝕌=fs/promises.writeFile(path,content)
+e fs⋅promises
+λwriteFile(path:𝕊,content:𝕊)→𝕌=fs⋅promises.writeFile(path,content)
 
 e axios
 λfetch(url:𝕊)→𝕌=axios.get(url)
 ```
 
 **Usage:**
-- Declare: `e module/path`
-- Use: `module/path.member(args)`
+- Declare: `e module⋅path`
+- Use: `module⋅path.member(args)`
 - Full path is namespace (no conflicts)
 - Validated at link-time (catches typos before running)
 
@@ -316,7 +316,7 @@ claude -p "Enhance semantic map..." --allowedTools Write Read
 
 ### What You Do
 
-1. **Read the basic semantic map** (e.g., `src/factorial.sigil.map`)
+1. **Read the basic semantic map** (e.g., `src⋅factorial.sigil.map`)
 2. **For each mapping**, enhance with:
    - **explanation**: Detailed markdown explanation (what it does, how it works)
    - **complexity**: Time/space complexity (e.g., "O(n) time, O(1) space")
@@ -407,8 +407,8 @@ ai-pl/
 ### 1. Choose the Right Location
 
 **For new programs the user asks you to create:**
-- Put in `src/` directory: `src/program-name.sigil`
-- Compiler outputs to `.local/src/program-name.ts`
+- Put in `src/` directory: `src⋅program-name.sigil`
+- Compiler outputs to `.local/src⋅program-name.ts`
 
 **For quick tests or experiments:**
 - Put in root directory: `program-name.sigil`
@@ -435,7 +435,7 @@ Or for programs that just do side effects:
 
 **Smart defaults (PREFERRED):**
 ```bash
-node language/compiler/dist/cli.js compile src/myprogram.sigil
+node language/compiler/dist/cli.js compile src⋅myprogram.sigil
 # Automatically outputs to: build/myprogram.ts
 
 node language/compiler/dist/cli.js compile myprogram.sigil
@@ -444,13 +444,13 @@ node language/compiler/dist/cli.js compile myprogram.sigil
 
 **Run directly:**
 ```bash
-node language/compiler/dist/cli.js run src/myprogram.sigil
+node language/compiler/dist/cli.js run src⋅myprogram.sigil
 # Compiles to .local/ and executes main()
 ```
 
 **Custom output (rarely needed):**
 ```bash
-node language/compiler/dist/cli.js compile src/myprogram.sigil -o custom/path.ts
+node language/compiler/dist/cli.js compile src⋅myprogram.sigil -o custom/path.ts
 ```
 
 ## Docs Sync (Required When Syntax Changes)
@@ -474,49 +474,49 @@ Sigil includes a standard library with common utility functions and predicates.
 
 **Import modules (like FFI):**
 ```sigil
-i stdlib/list_predicates
-i stdlib/numeric_predicates
-i stdlib/list_utils
+i stdlib⋅list_predicates
+i stdlib⋅numeric_predicates
+i stdlib⋅list_utils
 ```
 
 **List predicates:**
 ```sigil
-stdlib/list_predicates.sorted_asc([1,2,3])           ⟦ Check if sorted ascending ⟧
-stdlib/list_predicates.all(is_positive,[1,2,3])      ⟦ Check if all elements satisfy predicate ⟧
-stdlib/list_predicates.any(is_even,[1,3,5])          ⟦ Check if any element satisfies predicate ⟧
-stdlib/list_predicates.contains(3,[1,2,3,4])         ⟦ Check if element in list ⟧
+stdlib⋅list_predicates.sorted_asc([1,2,3])           ⟦ Check if sorted ascending ⟧
+stdlib⋅list_predicates.all(is_positive,[1,2,3])      ⟦ Check if all elements satisfy predicate ⟧
+stdlib⋅list_predicates.any(is_even,[1,3,5])          ⟦ Check if any element satisfies predicate ⟧
+stdlib⋅list_predicates.contains(3,[1,2,3,4])         ⟦ Check if element in list ⟧
 ```
 
 **Numeric predicates:**
 ```sigil
-stdlib/numeric_predicates.is_positive(5)             ⟦ Check if > 0 ⟧
-stdlib/numeric_predicates.is_even(4)                 ⟦ Check if divisible by 2 ⟧
-stdlib/numeric_predicates.is_prime(7)                ⟦ Check if prime number ⟧
-stdlib/numeric_predicates.in_range(5,1,10)           ⟦ Check if in range [min,max] ⟧
+stdlib⋅numeric_predicates.is_positive(5)             ⟦ Check if > 0 ⟧
+stdlib⋅numeric_predicates.is_even(4)                 ⟦ Check if divisible by 2 ⟧
+stdlib⋅numeric_predicates.is_prime(7)                ⟦ Check if prime number ⟧
+stdlib⋅numeric_predicates.in_range(5,1,10)           ⟦ Check if in range [min,max] ⟧
 ```
 
 **List utilities:**
 ```sigil
-stdlib/list_utils.len([1,2,3])                       ⟦ Get list length ⟧
-stdlib/list_utils.head([1,2,3])                      ⟦ Get first element ⟧
-stdlib/list_utils.tail([1,2,3])                      ⟦ Get all but first ⟧
+stdlib⋅list_utils.len([1,2,3])                       ⟦ Get list length ⟧
+stdlib⋅list_utils.head([1,2,3])                      ⟦ Get first element ⟧
+stdlib⋅list_utils.tail([1,2,3])                      ⟦ Get all but first ⟧
 ```
 
 **Common patterns:**
 ```sigil
-i stdlib/numeric_predicates
+i stdlib⋅numeric_predicates
 
 ⟦ Validation ⟧
-λprocess(x:ℤ)→𝕊≡stdlib/numeric_predicates.is_positive(x){
+λprocess(x:ℤ)→𝕊≡stdlib⋅numeric_predicates.is_positive(x){
   ⊥→"Error: Must be positive"|
   ⊤→"Processing..."
 }
 
 ⟦ Filtering ⟧
-λget_primes(xs:[ℤ])→[ℤ]=xs⊳stdlib/numeric_predicates.is_prime
+λget_primes(xs:[ℤ])→[ℤ]=xs⊳stdlib⋅numeric_predicates.is_prime
 
 ⟦ Preconditions ⟧
-λbinary_search(xs:[ℤ],target:ℤ)→ℤ≡stdlib/list_predicates.sorted_asc(xs){
+λbinary_search(xs:[ℤ],target:ℤ)→ℤ≡stdlib⋅list_predicates.sorted_asc(xs){
   ⊥→-1|
   ⊤→search_impl(...)
 }
@@ -526,15 +526,15 @@ See `docs/STDLIB.md` for complete reference.
 
 ### External Module Interop (FFI)
 ```sigil
-e module/path              ⟦ Import external module ⟧
-module/path.member(args)   ⟦ Call external module function ⟧
+e module⋅path              ⟦ Import external module ⟧
+module⋅path.member(args)   ⟦ Call external module function ⟧
 
 ⟦ Examples: ⟧
 e console
 console.log("Hello!")
 
-e fs/promises
-fs/promises.writeFile("file.txt", "content")
+e fs⋅promises
+fs⋅promises.writeFile("file.txt", "content")
 
 e axios
 axios.get("https://api.example.com")
@@ -609,8 +609,8 @@ Err("not found")                    ⟦ Error value ⟧
 ```
 
 **Standard library sum types:**
-- `Option[T]` - in `stdlib/option.sigil`
-- `Result[T,E]` - in `stdlib/result.sigil`
+- `Option[T]` - in `stdlib⋅option.sigil`
+- `Result[T,E]` - in `stdlib⋅result.sigil`
 
 See `examples/sum-types-demo.sigil` for comprehensive examples.
 
@@ -857,10 +857,10 @@ After writing a Sigil program:
 
 ```bash
 # Compile and run
-node language/compiler/dist/cli.js run src/myprogram.sigil
+node language/compiler/dist/cli.js run src⋅myprogram.sigil
 
 # Or compile and inspect
-node language/compiler/dist/cli.js compile src/myprogram.sigil
+node language/compiler/dist/cli.js compile src⋅myprogram.sigil
 cat build/myprogram.ts
 ```
 

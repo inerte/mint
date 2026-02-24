@@ -1,0 +1,312 @@
+{
+  "version": 1,
+  "file": "main.sigil",
+  "generated_by": "sigilc@0.1.0",
+  "generated_at": "2026-02-24T04:42:46.452Z",
+  "mappings": {
+    "Rng": {
+      "range": [
+        336,
+        350
+      ],
+      "summary": "Type definition: Rng",
+      "explanation": "Type Rng"
+    },
+    "IntRoll": {
+      "range": [
+        351,
+        378
+      ],
+      "summary": "Type definition: IntRoll",
+      "explanation": "Type IntRoll"
+    },
+    "Room": {
+      "range": [
+        379,
+        403
+      ],
+      "summary": "Type definition: Room",
+      "explanation": "Type Room"
+    },
+    "RoomRoll": {
+      "range": [
+        404,
+        434
+      ],
+      "summary": "Type definition: RoomRoll",
+      "explanation": "Type RoomRoll"
+    },
+    "World": {
+      "range": [
+        435,
+        477
+      ],
+      "summary": "Type definition: World",
+      "explanation": "Type World"
+    },
+    "nextRng": {
+      "range": [
+        479,
+        543
+      ],
+      "summary": "Function: nextRng",
+      "explanation": "Function with 1 parameter(s), returns Rng",
+      "type": "λ(Rng)→Rng"
+    },
+    "randInt": {
+      "range": [
+        545,
+        695
+      ],
+      "summary": "Function: randInt",
+      "explanation": "Function with 3 parameter(s), returns IntRoll",
+      "type": "λ(Rng,ℤ,ℤ)→IntRoll"
+    },
+    "randRoomInZone": {
+      "range": [
+        697,
+        1036
+      ],
+      "summary": "Function: randRoomInZone",
+      "explanation": "Function with 5 parameter(s), returns RoomRoll",
+      "type": "λ(Rng,ℤ,ℤ,ℤ,ℤ)→RoomRoll"
+    },
+    "makeWorld": {
+      "range": [
+        1038,
+        1260
+      ],
+      "summary": "Function: makeWorld",
+      "explanation": "Function with 1 parameter(s), returns World",
+      "type": "λ(ℤ)→World"
+    },
+    "centerX": {
+      "range": [
+        1262,
+        1301
+      ],
+      "summary": "Function: centerX",
+      "explanation": "Function with 1 parameter(s), returns ℤ",
+      "type": "λ(Room)→ℤ"
+    },
+    "centerY": {
+      "range": [
+        1302,
+        1341
+      ],
+      "summary": "Function: centerY",
+      "explanation": "Function with 1 parameter(s), returns ℤ",
+      "type": "λ(Room)→ℤ"
+    },
+    "min2": {
+      "range": [
+        1343,
+        1379
+      ],
+      "summary": "Function: min2",
+      "explanation": "Function with 2 parameter(s), returns ℤ",
+      "type": "λ(ℤ,ℤ)→ℤ"
+    },
+    "min2_arm_0": {
+      "range": [
+        1367,
+        1370
+      ],
+      "summary": "Match arm: true",
+      "explanation": "Pattern matches true"
+    },
+    "min2_arm_1": {
+      "range": [
+        1374,
+        1377
+      ],
+      "summary": "Match arm: _",
+      "explanation": "Pattern matches _"
+    },
+    "max2": {
+      "range": [
+        1381,
+        1417
+      ],
+      "summary": "Function: max2",
+      "explanation": "Function with 2 parameter(s), returns ℤ",
+      "type": "λ(ℤ,ℤ)→ℤ"
+    },
+    "max2_arm_0": {
+      "range": [
+        1405,
+        1408
+      ],
+      "summary": "Match arm: true",
+      "explanation": "Pattern matches true"
+    },
+    "max2_arm_1": {
+      "range": [
+        1412,
+        1415
+      ],
+      "summary": "Match arm: _",
+      "explanation": "Pattern matches _"
+    },
+    "inRect": {
+      "range": [
+        1419,
+        1495
+      ],
+      "summary": "Function: inRect",
+      "explanation": "Function with 6 parameter(s), returns 𝔹",
+      "type": "λ(ℤ,ℤ,ℤ,ℤ,ℤ,ℤ)→𝔹"
+    },
+    "inRoom": {
+      "range": [
+        1496,
+        1564
+      ],
+      "summary": "Function: inRoom",
+      "explanation": "Function with 3 parameter(s), returns 𝔹",
+      "type": "λ(ℤ,ℤ,Room)→𝔹"
+    },
+    "inH": {
+      "range": [
+        1565,
+        1636
+      ],
+      "summary": "Function: inH",
+      "explanation": "Function with 5 parameter(s), returns 𝔹",
+      "type": "λ(ℤ,ℤ,ℤ,ℤ,ℤ)→𝔹"
+    },
+    "inV": {
+      "range": [
+        1637,
+        1708
+      ],
+      "summary": "Function: inV",
+      "explanation": "Function with 5 parameter(s), returns 𝔹",
+      "type": "λ(ℤ,ℤ,ℤ,ℤ,ℤ)→𝔹"
+    },
+    "corridorL": {
+      "range": [
+        1710,
+        1835
+      ],
+      "summary": "Function: corridorL",
+      "explanation": "Function with 4 parameter(s), returns 𝔹",
+      "type": "λ(ℤ,ℤ,Room,Room)→𝔹"
+    },
+    "isFloor": {
+      "range": [
+        1837,
+        2033
+      ],
+      "summary": "Function: isFloor",
+      "explanation": "Function with 3 parameter(s), returns 𝔹",
+      "type": "λ(World,ℤ,ℤ)→𝔹"
+    },
+    "isPlayer": {
+      "range": [
+        2035,
+        2117
+      ],
+      "summary": "Function: isPlayer",
+      "explanation": "Function with 3 parameter(s), returns 𝔹",
+      "type": "λ(World,ℤ,ℤ)→𝔹"
+    },
+    "isExit": {
+      "range": [
+        2118,
+        2198
+      ],
+      "summary": "Function: isExit",
+      "explanation": "Function with 3 parameter(s), returns 𝔹",
+      "type": "λ(World,ℤ,ℤ)→𝔹"
+    },
+    "tileAt": {
+      "range": [
+        2200,
+        2359
+      ],
+      "summary": "Function: tileAt",
+      "explanation": "Function with 3 parameter(s), returns 𝕊",
+      "type": "λ(World,ℤ,ℤ)→𝕊"
+    },
+    "tileAt_arm_0": {
+      "range": [
+        2254,
+        2259
+      ],
+      "summary": "Match arm: true",
+      "explanation": "Pattern matches true"
+    },
+    "tileAt_arm_1": {
+      "range": [
+        2263,
+        2357
+      ],
+      "summary": "Match arm: _",
+      "explanation": "Pattern matches _"
+    },
+    "renderRow": {
+      "range": [
+        2361,
+        2459
+      ],
+      "summary": "Function: renderRow",
+      "explanation": "Function with 3 parameter(s), returns 𝕊",
+      "type": "λ(World,ℤ,ℤ)→𝕊"
+    },
+    "renderRow_arm_0": {
+      "range": [
+        2406,
+        2410
+      ],
+      "summary": "Match arm: 0",
+      "explanation": "Pattern matches 0"
+    },
+    "renderRow_arm_1": {
+      "range": [
+        2414,
+        2457
+      ],
+      "summary": "Match arm: _",
+      "explanation": "Pattern matches _"
+    },
+    "renderRows": {
+      "range": [
+        2461,
+        2565
+      ],
+      "summary": "Function: renderRows",
+      "explanation": "Function with 2 parameter(s), returns 𝕊",
+      "type": "λ(World,ℤ)→𝕊"
+    },
+    "renderRows_arm_0": {
+      "range": [
+        2504,
+        2508
+      ],
+      "summary": "Match arm: 0",
+      "explanation": "Pattern matches 0"
+    },
+    "renderRows_arm_1": {
+      "range": [
+        2512,
+        2563
+      ],
+      "summary": "Match arm: _",
+      "explanation": "Pattern matches _"
+    },
+    "main": {
+      "range": [
+        2567,
+        2647
+      ],
+      "summary": "Function: main",
+      "explanation": "Function with 0 parameter(s), returns 𝕌",
+      "type": "λ()→𝕌"
+    }
+  },
+  "metadata": {
+    "category": "unknown",
+    "tested": false
+  }
+}

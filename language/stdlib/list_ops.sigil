@@ -9,9 +9,6 @@
    BASIC LIST OPERATIONS
    ======================================================================== ⟧
 
-⟦ Get list length ⟧
-λlen(xs:[ℤ])→ℤ≡xs{[]→0|[x,.xs]→1+len(xs)}
-
 ⟦ Get first element ⟧
 λhead(xs:[ℤ])→ℤ≡xs{[]→0|[x,.xs]→x}
 

@@ -482,9 +482,9 @@ Pipe value through function.
 ### Import Syntax
 
 ```sigil
-i stdlib/io
-i stdlib/list_utils
-i stdlib/result
+i stdlib⋅io
+i stdlib⋅list_utils
+i stdlib⋅result
 ```
 
 ### Export (Explicit)

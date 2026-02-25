@@ -830,7 +830,7 @@ function resolveQualifiedType(
   env: TypeEnvironment,
   astType: AST.QualifiedType
 ): InferenceType {
-  const moduleId = astType.modulePath.join('/');
+  const moduleId = astType.modulePath.join('⋅');
   const typeInfo = env.lookupQualifiedType(astType.modulePath, astType.typeName);
 
   if (!typeInfo) {
@@ -1323,11 +1323,11 @@ export function typeCheck(program: AST.Program, _source: string, options?: TypeC
     } else if (decl.type === 'ExternDecl') {
       // Register namespace as "any" type (trust mode)
       // Member validation happens at link-time, not type-check time
-      const namespaceName = decl.modulePath.join('/');
+      const namespaceName = decl.modulePath.join('⋅');
       const anyType: InferenceType = { kind: 'any' };
       env.bindWithMeta(namespaceName, anyType, { isExternNamespace: true });
     } else if (decl.type === 'ImportDecl') {
-      const namespaceName = decl.modulePath.join('/');
+      const namespaceName = decl.modulePath.join('⋅');
       const importedType = options?.importedNamespaces?.get(namespaceName);
       if (importedType) {
         env.bind(namespaceName, importedType);

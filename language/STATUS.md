@@ -583,7 +583,6 @@ Sigil enforces canonical forms at **two levels:**
 
 ## Resources
 
-- **Repository:** `/Users/jnobreganetto/Documents/GitHub/ai-pl`
 - **Compiler:** `compiler/` (TypeScript, 6,600+ lines)
 - **Specs:** `spec/` (EBNF, markdown)
 - **Examples:** `examples/` (11 .sigil + .sigil.map files)

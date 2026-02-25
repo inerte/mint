@@ -37,6 +37,9 @@ t Block=Header(ℤ,𝕊)
        |Blockquote(𝕊)
        |HorizontalRule
 
+⟦ Parse result - state and blocks ⟧
+t ParseResult={state:ParseState,blocks:[Block]}
+
 ⟦ Parser State ⟧
 t ParseState={
   in_code_block:𝔹,
@@ -101,12 +104,12 @@ t ParseState={
 }
 
 λextract_header_level(line:𝕊)→ℤ≡line{
-  l when stdlib⋅string_predicates.starts_with(l,"###### ") → 6|
-  l when stdlib⋅string_predicates.starts_with(l,"##### ") → 5|
-  l when stdlib⋅string_predicates.starts_with(l,"#### ") → 4|
-  l when stdlib⋅string_predicates.starts_with(l,"### ") → 3|
-  l when stdlib⋅string_predicates.starts_with(l,"## ") → 2|
-  l when stdlib⋅string_predicates.starts_with(l,"# ") → 1|
+  s when stdlib⋅string_predicates.starts_with(s,"###### ") → 6|
+  s when stdlib⋅string_predicates.starts_with(s,"##### ") → 5|
+  s when stdlib⋅string_predicates.starts_with(s,"#### ") → 4|
+  s when stdlib⋅string_predicates.starts_with(s,"### ") → 3|
+  s when stdlib⋅string_predicates.starts_with(s,"## ") → 2|
+  s when stdlib⋅string_predicates.starts_with(s,"# ") → 1|
   _ → 0
 }
 
@@ -114,21 +117,25 @@ t ParseState={
   stdlib⋅string_ops.substring(line,level+1,#line)
 
 λextract_list_item(line:𝕊)→𝕊≡line{
-  l when is_unordered_list(l) → stdlib⋅string_ops.substring(l,2,#l)|
-  l when is_ordered_list(l) → stdlib⋅string_ops.substring(l,3,#l)|
+  s when is_unordered_list(s) → stdlib⋅string_ops.substring(s,2,#s)|
+  s when is_ordered_list(s) → stdlib⋅string_ops.substring(s,3,#s)|
   _ → ""
 }
 
 ⟦ Flush accumulated content to blocks ⟧
-λflush_code_block(state:ParseState)→[Block]≡state{
-  {in_code_block:⊤,code_lang,code_lines,..} →
-    [CodeBlock(code_lang,stdlib⋅string_ops.join(code_lines,"\n"))]|
-  _ → []
+λflush_code_block(state:ParseState)→[Block]≡state.in_code_block{
+  ⊤ → [CodeBlock(state.code_lang,stdlib⋅string_ops.join(state.code_lines,"\n"))]|
+  ⊥ → []
 }
 
-λflush_list(state:ParseState)→[Block]≡state{
-  {in_list:⊤,list_type:"ul",list_items,..} → [UnorderedList(list_items)]|
-  {in_list:⊤,list_type:"ol",list_items,..} → [OrderedList(list_items)]|
+λflush_list(state:ParseState)→[Block]≡state.in_list{
+  ⊥ → []|
+  ⊤ → flush_list_by_type(state.list_type,state.list_items)
+}
+
+λflush_list_by_type(list_type:𝕊,list_items:[𝕊])→[Block]≡list_type{
+  "ul" → [UnorderedList(list_items)]|
+  "ol" → [OrderedList(list_items)]|
   _ → []
 }
 
@@ -169,80 +176,81 @@ t ParseState={
 
 ⟦ State Machine - Main Line Parser
 
-This is where pattern guards shine! We match on state structure,
-then guard on line content. Clean, linear, readable.
+Uses field access in pattern guards for the one canonical way to inspect state.
 ⟧
-λparse_line(state:ParseState,line:𝕊)→(ParseState,[Block])≡state{
+λparse_line(state:ParseState,line:𝕊)→ParseResult≡state.in_code_block{
   ⟦ Inside code block - check for closing fence ⟧
-  {in_code_block:⊤,..} when is_code_fence(line) →
-    (empty_state(),flush_code_block(state))|
+  ⊤ when is_code_fence(line) →
+    {state:empty_state(),blocks:flush_code_block(state)}|
 
   ⟦ Inside code block - accumulate code lines ⟧
-  {in_code_block:⊤,code_lang,code_lines,..} →
-    ({in_code_block:⊤,code_lang:code_lang,code_lines:code_lines⧺[line],
-      in_list:⊥,list_type:"",list_items:[],para_lines:[]},[])|
+  ⊤ →
+    {state:{in_code_block:⊤,code_lang:state.code_lang,code_lines:state.code_lines⧺[line],
+      in_list:⊥,list_type:"",list_items:[],para_lines:[]},blocks:[]}|
 
   ⟦ Not in code block - check for opening fence ⟧
-  {in_code_block:⊥,in_list,list_type,list_items,..} when is_code_fence(line) →
+  ⊥ when is_code_fence(line) →
     l lang=extract_code_lang(line);
     l flushed=flush_list(state)⧺flush_paragraph(state);
-    ({in_code_block:⊤,code_lang:lang,code_lines:[],
-      in_list:⊥,list_type:"",list_items:[],para_lines:[]},flushed)|
+    {state:{in_code_block:⊤,code_lang:lang,code_lines:[],
+      in_list:⊥,list_type:"",list_items:[],para_lines:[]},blocks:flushed}|
 
   ⟦ Header line ⟧
-  {in_code_block:⊥,..} when is_header(line) →
+  ⊥ when is_header(line) →
     l level=extract_header_level(line);
     l text=extract_header_text(line,level);
     l flushed=flush_list(state)⧺flush_paragraph(state);
-    (empty_state(),flushed⧺[Header(level,text)])|
+    {state:empty_state(),blocks:flushed⧺[Header(level,text)]}|
 
   ⟦ Horizontal rule ⟧
-  {in_code_block:⊥,..} when is_hr(line) →
+  ⊥ when is_hr(line) →
     l flushed=flush_list(state)⧺flush_paragraph(state);
-    (empty_state(),flushed⧺[HorizontalRule()])|
+    {state:empty_state(),blocks:flushed⧺[HorizontalRule()]}|
 
-  ⟦ Unordered list item ⟧
-  {in_code_block:⊥,in_list:⊤,list_type:"ul",list_items,..} when is_unordered_list(line) →
+  ⟦ Unordered list item - continuing existing ul ⟧
+  ⊥ when state.in_list∧state.list_type="ul"∧is_unordered_list(line) →
     l item=extract_list_item(line);
     l flushed=flush_paragraph(state);
-    ({in_code_block:⊥,code_lang:"",code_lines:[],
-      in_list:⊤,list_type:"ul",list_items:list_items⧺[item],para_lines:[]},flushed)|
+    {state:{in_code_block:⊥,code_lang:"",code_lines:[],
+      in_list:⊤,list_type:"ul",list_items:state.list_items⧺[item],para_lines:[]},blocks:flushed}|
 
-  {in_code_block:⊥,in_list:⊥,..} when is_unordered_list(line) →
+  ⟦ Unordered list item - starting new ul ⟧
+  ⊥ when is_unordered_list(line) →
     l item=extract_list_item(line);
     l flushed=flush_paragraph(state);
-    ({in_code_block:⊥,code_lang:"",code_lines:[],
-      in_list:⊤,list_type:"ul",list_items:[item],para_lines:[]},flushed)|
+    {state:{in_code_block:⊥,code_lang:"",code_lines:[],
+      in_list:⊤,list_type:"ul",list_items:[item],para_lines:[]},blocks:flushed}|
 
-  ⟦ Ordered list item ⟧
-  {in_code_block:⊥,in_list:⊤,list_type:"ol",list_items,..} when is_ordered_list(line) →
+  ⟦ Ordered list item - continuing existing ol ⟧
+  ⊥ when state.in_list∧state.list_type="ol"∧is_ordered_list(line) →
     l item=extract_list_item(line);
     l flushed=flush_paragraph(state);
-    ({in_code_block:⊥,code_lang:"",code_lines:[],
-      in_list:⊤,list_type:"ol",list_items:list_items⧺[item],para_lines:[]},flushed)|
+    {state:{in_code_block:⊥,code_lang:"",code_lines:[],
+      in_list:⊤,list_type:"ol",list_items:state.list_items⧺[item],para_lines:[]},blocks:flushed}|
 
-  {in_code_block:⊥,in_list:⊥,..} when is_ordered_list(line) →
+  ⟦ Ordered list item - starting new ol ⟧
+  ⊥ when is_ordered_list(line) →
     l item=extract_list_item(line);
     l flushed=flush_paragraph(state);
-    ({in_code_block:⊥,code_lang:"",code_lines:[],
-      in_list:⊤,list_type:"ol",list_items:[item],para_lines:[]},flushed)|
+    {state:{in_code_block:⊥,code_lang:"",code_lines:[],
+      in_list:⊤,list_type:"ol",list_items:[item],para_lines:[]},blocks:flushed}|
 
   ⟦ Blockquote ⟧
-  {in_code_block:⊥,..} when is_blockquote(line) →
+  ⊥ when is_blockquote(line) →
     l text=extract_blockquote_text(line);
     l flushed=flush_list(state)⧺flush_paragraph(state);
-    (empty_state(),flushed⧺[Blockquote(text)])|
+    {state:empty_state(),blocks:flushed⧺[Blockquote(text)]}|
 
   ⟦ Empty line - flush paragraph and list ⟧
-  {in_code_block:⊥,..} when is_empty(line) →
+  ⊥ when is_empty(line) →
     l flushed=flush_list(state)⧺flush_paragraph(state);
-    (empty_state(),flushed)|
+    {state:empty_state(),blocks:flushed}|
 
   ⟦ Regular text - accumulate paragraph ⟧
-  {in_code_block:⊥,para_lines,..} →
+  ⊥ →
     l flushed=flush_list(state);
-    ({in_code_block:⊥,code_lang:"",code_lines:[],
-      in_list:⊥,list_type:"",list_items:[],para_lines:para_lines⧺[line]},flushed)
+    {state:{in_code_block:⊥,code_lang:"",code_lines:[],
+      in_list:⊥,list_type:"",list_items:[],para_lines:state.para_lines⧺[line]},blocks:flushed}
 }
 
 ⟦ Parse all lines into blocks ⟧
@@ -256,8 +264,8 @@ then guard on line content. Clean, linear, readable.
     blocks⧺final_blocks|
 
   [line,.rest] →
-    l (new_state,new_blocks)=parse_line(state,line);
-    parse_lines_helper(new_state,rest,blocks⧺new_blocks)
+    l result=parse_line(state,line);
+    parse_lines_helper(result.state,rest,blocks⧺result.blocks)
 }
 
 ⟦ Inline Element Parsing

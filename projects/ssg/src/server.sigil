@@ -6,7 +6,7 @@ e console
 
 i stdlib⋅http_server
 i stdlib⋅string_predicates
-i ./build
+i src⋅build
 
 ⟦ Check if file exists ⟧
 λfile_exists(filepath:𝕊)→!IO 𝔹=

@@ -7,16 +7,16 @@ e console
 i stdlib⋅string_ops
 i stdlib⋅string_predicates
 i stdlib⋅markdown
-i ./types
-i ./frontmatter
-i ./templates
+i src⋅types
+i src⋅frontmatter
+i src⋅templates
 
 ⟦ Check if file is markdown ⟧
 λis_markdown_file(filename:𝕊)→𝔹=
   stdlib⋅string_predicates.ends_with(filename,".md")
 
 ⟦ Get output filename from slug or input filename ⟧
-λget_output_filename(meta:types.ArticleMeta,input_filename:𝕊)→𝕊=
+λget_output_filename(meta:src⋅types.ArticleMeta,input_filename:𝕊)→𝕊=
   l slug=meta.slug;
   #slug>0≡{
     ⊤ → slug++".html"|
@@ -28,7 +28,7 @@ i ./templates
   }
 
 ⟦ Process a single article file ⟧
-λprocess_article(input_dir:𝕊,filename:𝕊)→!IO types.Article=
+λprocess_article(input_dir:𝕊,filename:𝕊)→!IO src⋅types.Article=
   ⟦ Read markdown file ⟧
   l filepath=path.join(input_dir,filename);
   l markdown_content=fs⋅promises.readFile(filepath,"utf8");
@@ -48,7 +48,7 @@ i ./templates
   }
 
 ⟦ Write article HTML file ⟧
-λwrite_article(output_dir:𝕊,article:types.Article)→!IO 𝕌=
+λwrite_article(output_dir:𝕊,article:src⋅types.Article)→!IO 𝕌=
   ⟦ Generate full HTML page ⟧
   l page_html=templates.article(article.meta,article.html);
 
@@ -61,7 +61,7 @@ i ./templates
   ()
 
 ⟦ Write index page ⟧
-λwrite_index(output_dir:𝕊,articles:[types.Article])→!IO 𝕌=
+λwrite_index(output_dir:𝕊,articles:[src⋅types.Article])→!IO 𝕌=
   ⟦ Generate index HTML ⟧
   l index_html=templates.index(articles);
 
@@ -105,7 +105,7 @@ export λbuild(input_dir:𝕊,output_dir:𝕊)→!IO 𝕌=
 
   ⟦ Process all articles ⟧
   l num_articles=#markdown_files;
-  l process_all=λ(i:ℤ,articles:[types.Article])→!IO [types.Article]≡i{
+  l process_all=λ(i:ℤ,articles:[src⋅types.Article])→!IO [src⋅types.Article]≡i{
     idx when idx≥num_articles → articles|
     idx →
       l filename=markdown_files[idx];

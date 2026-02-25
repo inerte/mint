@@ -12,9 +12,11 @@ import { InferenceType } from './types.js';
 // Re-export types
 export { TypeError } from './errors.js';
 export type { InferenceType } from './types.js';
+export type { TypeInfo } from './environment.js';
 
 export interface TypeCheckOptions {
   importedNamespaces?: Map<string, InferenceType>;
+  importedTypeRegistries?: Map<string, Map<string, import('./environment.js').TypeInfo>>;
 }
 
 /**

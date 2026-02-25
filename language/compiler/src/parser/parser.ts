@@ -517,10 +517,96 @@ export class Parser {
       };
     }
 
-    // Type constructor or variable
+    // Qualified type starting with lowercase: tmp⋅mod.TypeName
+    if (this.match(TokenType.IDENTIFIER)) {
+      const start = this.previous();
+      const firstSegment = start.value;
+
+      // Check for qualified type (must have namespace separator)
+      if (this.check(TokenType.NAMESPACE_SEP)) {
+        // Parse module path: tmp⋅test-qualified-types
+        const modulePath: string[] = [firstSegment];
+
+        while (this.match(TokenType.NAMESPACE_SEP)) {
+          modulePath.push(this.modulePathSegment());
+        }
+
+        // Expect DOT then type name
+        this.consume(TokenType.DOT,
+          `Expected "." after module path "${modulePath.join('⋅')}". ` +
+          `Qualified types use syntax: module⋅path.TypeName`
+        );
+
+        const typeName = this.consume(TokenType.UPPER_IDENTIFIER,
+          'Expected type name after "."'
+        ).value;
+
+        // Check for type arguments: tmp⋅mod.Option[T]
+        const typeArgs: AST.Type[] = [];
+        if (this.match(TokenType.LBRACKET)) {
+          do {
+            typeArgs.push(this.type());
+          } while (this.match(TokenType.COMMA));
+          this.consume(TokenType.RBRACKET, 'Expected "]"');
+        }
+
+        return {
+          type: 'QualifiedType',
+          modulePath,
+          typeName,
+          typeArgs,
+          location: this.makeLocation(start, this.previous()),
+        };
+      }
+
+      // Not a qualified type - backtrack and error
+      throw this.error('Expected type');
+    }
+
+    // Type constructor or variable (starts with uppercase)
     if (this.match(TokenType.UPPER_IDENTIFIER)) {
       const start = this.previous();
-      const name = start.value;
+      const firstSegment = start.value;
+
+      // Check for qualified type: Src⋅Types.TypeName
+      if (this.check(TokenType.NAMESPACE_SEP)) {
+        // Parse module path: Src⋅Types⋅Utils
+        const modulePath: string[] = [firstSegment];
+
+        while (this.match(TokenType.NAMESPACE_SEP)) {
+          modulePath.push(this.modulePathSegment());
+        }
+
+        // Expect DOT then type name
+        this.consume(TokenType.DOT,
+          `Expected "." after module path "${modulePath.join('⋅')}". ` +
+          `Qualified types use syntax: module⋅path.TypeName`
+        );
+
+        const typeName = this.consume(TokenType.UPPER_IDENTIFIER,
+          'Expected type name after "."'
+        ).value;
+
+        // Check for type arguments: Src⋅Types.Option[T]
+        const typeArgs: AST.Type[] = [];
+        if (this.match(TokenType.LBRACKET)) {
+          do {
+            typeArgs.push(this.type());
+          } while (this.match(TokenType.COMMA));
+          this.consume(TokenType.RBRACKET, 'Expected "]"');
+        }
+
+        return {
+          type: 'QualifiedType',
+          modulePath,
+          typeName,
+          typeArgs,
+          location: this.makeLocation(start, this.previous()),
+        };
+      }
+
+      // Simple type (existing logic)
+      const name = firstSegment;
 
       // Check for type arguments
       if (this.match(TokenType.LBRACKET)) {

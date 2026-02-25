@@ -99,6 +99,21 @@ In synthesis mode (⇒), the first arm establishes the type that subsequent arms
 
 Note: The first arm body is synthesized (⇒) to establish expected type τ. Remaining arm bodies are checked (⇐) against that type. This allows empty list `[]` in later arms when the first arm provides context.
 
+**Bidirectional Typing for Record Expressions:**
+
+In checking mode (⇐), record fields are checked against the expected field types:
+
+```
+Γ ⊢ τ ⇒ {f₁:τ₁, ..., fₙ:τₙ}
+Γ ⊢ e₁ ⇐ τ₁
+...
+Γ ⊢ eₙ ⇐ τₙ
+─────────────────────────────────────────
+Γ ⊢ {f₁=e₁, ..., fₙ=eₙ} ⇐ {f₁:τ₁, ..., fₙ:τₙ}
+```
+
+Note: Each field value eᵢ is checked (⇐) against the expected field type τᵢ from the record type. This allows empty list `[]` in record fields when the record type specifies list types for those fields.
+
 ### Type Schemes
 
 Type schemes represent polymorphic types:

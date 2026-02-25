@@ -440,6 +440,7 @@ The empty list literal `[]` requires type context to determine its element type.
 **Works in these contexts:**
 - **Function return type**: `λf()→[ℤ]=[]` provides `[ℤ]` context
 - **Pattern matching arms**: First arm establishes type for subsequent arms
+- **Record literals**: Expected record type provides context for field values
 - **Explicit checking contexts**: Where expected type flows downward
 
 **Example - Pattern Matching:**
@@ -466,6 +467,29 @@ t Foo=A|B|C
   A → [1,2,3]|      ⟦ First arm synthesizes to [ℤ] ⟧
   B → []|           ⟦ Checked against [ℤ] ⟧
   C → []            ⟦ Checked against [ℤ] ⟧
+}
+```
+
+**Example - Record Literals:**
+```sigil
+⟦ Record type provides context for empty list fields ⟧
+t ParseState={
+  code_lines:[𝕊],
+  list_items:[𝕊],
+  para_lines:[𝕊]
+}
+
+λempty_state()→ParseState={
+  code_lines:[],    ⟦ OK: infers [𝕊] from ParseState.code_lines ⟧
+  list_items:[],    ⟦ OK: infers [𝕊] from ParseState.list_items ⟧
+  para_lines:[]     ⟦ OK: infers [𝕊] from ParseState.para_lines ⟧
+}
+
+⟦ Mixed empty and non-empty fields ⟧
+λpartial_state()→ParseState={
+  code_lines:["fn main() {}"],
+  list_items:[],
+  para_lines:["intro text"]
 }
 ```
 

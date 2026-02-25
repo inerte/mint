@@ -2,7 +2,7 @@
   "version": 1,
   "file": "todo-domain.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-24T04:26:31.322Z",
+  "generated_at": "2026-02-25T03:08:29.077Z",
   "mappings": {
     "Todo": {
       "range": [
@@ -12,55 +12,55 @@
       "summary": "Type definition: Todo",
       "explanation": "Type Todo"
     },
-    "canAdd": {
-      "range": [
-        43,
-        68
-      ],
-      "summary": "Function: canAdd",
-      "explanation": "Function with 1 parameter(s), returns 𝔹",
-      "type": "λ(𝕊)→𝔹"
-    },
     "addTodo": {
       "range": [
-        77,
-        155
+        43,
+        121
       ],
       "summary": "Function: addTodo",
       "explanation": "Function with 3 parameter(s), returns [Todo]",
       "type": "λ([Todo],ℤ,𝕊)→[Todo]"
     },
-    "deleteTodo": {
+    "canAdd": {
       "range": [
-        164,
-        245
+        130,
+        155
       ],
-      "summary": "Function: deleteTodo",
-      "explanation": "Function with 2 parameter(s), returns [Todo]",
-      "type": "λ([Todo],ℤ)→[Todo]"
+      "summary": "Function: canAdd",
+      "explanation": "Function with 1 parameter(s), returns 𝔹",
+      "type": "λ(𝕊)→𝔹"
     },
     "clearCompleted": {
       "range": [
-        254,
-        322
+        164,
+        232
       ],
       "summary": "Function: clearCompleted",
       "explanation": "Function with 1 parameter(s), returns [Todo]",
       "type": "λ([Todo])→[Todo]"
     },
-    "toggleTodo": {
+    "completedCount": {
       "range": [
-        331,
-        480
+        241,
+        335
       ],
-      "summary": "Function: toggleTodo",
+      "summary": "Function: completedCount",
+      "explanation": "Function with 1 parameter(s), returns ℤ",
+      "type": "λ([Todo])→ℤ"
+    },
+    "deleteTodo": {
+      "range": [
+        344,
+        425
+      ],
+      "summary": "Function: deleteTodo",
       "explanation": "Function with 2 parameter(s), returns [Todo]",
       "type": "λ([Todo],ℤ)→[Todo]"
     },
     "editTodo": {
       "range": [
-        489,
-        643
+        434,
+        588
       ],
       "summary": "Function: editTodo",
       "explanation": "Function with 3 parameter(s), returns [Todo]",
@@ -68,8 +68,8 @@
     },
     "isVisible": {
       "range": [
-        652,
-        746
+        597,
+        691
       ],
       "summary": "Function: isVisible",
       "explanation": "Function with 2 parameter(s), returns 𝔹",
@@ -77,53 +77,53 @@
     },
     "isVisible_arm_0": {
       "range": [
-        692,
-        699
+        637,
+        644
       ],
       "summary": "Match arm: all",
       "explanation": "Pattern matches all"
     },
     "isVisible_arm_1": {
       "range": [
-        703,
-        717
+        648,
+        662
       ],
       "summary": "Match arm: active",
       "explanation": "Pattern matches active"
     },
     "isVisible_arm_2": {
       "range": [
-        721,
-        737
+        666,
+        682
       ],
       "summary": "Match arm: completed",
       "explanation": "Pattern matches completed"
     },
     "isVisible_arm_3": {
       "range": [
-        741,
-        744
+        686,
+        689
       ],
       "summary": "Match arm: _",
       "explanation": "Pattern matches _"
     },
-    "completedCount": {
-      "range": [
-        755,
-        849
-      ],
-      "summary": "Function: completedCount",
-      "explanation": "Function with 1 parameter(s), returns ℤ",
-      "type": "λ([Todo])→ℤ"
-    },
     "remainingCount": {
       "range": [
-        858,
-        912
+        700,
+        754
       ],
       "summary": "Function: remainingCount",
       "explanation": "Function with 2 parameter(s), returns ℤ",
       "type": "λ(ℤ,ℤ)→ℤ"
+    },
+    "toggleTodo": {
+      "range": [
+        763,
+        912
+      ],
+      "summary": "Function: toggleTodo",
+      "explanation": "Function with 2 parameter(s), returns [Todo]",
+      "type": "λ([Todo],ℤ)→[Todo]"
     }
   },
   "metadata": {

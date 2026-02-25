@@ -15,21 +15,6 @@ test "todo add prepends item" {
   }
 }
 
-test "todo toggle flips done flag" {
-  src⋅todo-domain.toggleTodo([Todo{id:1,text:"Task",done:⊥}],1)[0].done=⊤
-}
-
-test "todo edit updates text" {
-  src⋅todo-domain.editTodo([Todo{id:1,text:"Old",done:⊥}],1,"New")[0].text="New"
-}
-
-test "todo delete removes target" {
-  ≡src⋅todo-domain.deleteTodo([Todo{id:1,text:"A",done:⊥},Todo{id:2,text:"B",done:⊥}],1){
-    [todo]→todo.id=2∧todo.text="B"|
-    _→⊥
-  }
-}
-
 test "todo clearCompleted keeps active only" {
   ≡src⋅todo-domain.clearCompleted([Todo{id:1,text:"A",done:⊤},Todo{id:2,text:"B",done:⊥}]){
     [todo]→todo.id=2∧todo.done=⊥|
@@ -41,11 +26,26 @@ test "todo completedCount counts completed" {
   src⋅todo-domain.completedCount([Todo{id:1,text:"A",done:⊤},Todo{id:2,text:"B",done:⊥},Todo{id:3,text:"C",done:⊤}])=2
 }
 
+test "todo completedCount result can use numeric predicates" {
+  l count=src⋅todo-domain.completedCount([Todo{id:1,text:"A",done:⊤},Todo{id:2,text:"B",done:⊥},Todo{id:3,text:"C",done:⊤}]);
+  stdlib⋅numeric_predicates.is_even(count)=⊤∧stdlib⋅numeric_predicates.in_range(count,0,3)=⊤
+}
+
 test "todo delete reduces length" {
   lenTodos(src⋅todo-domain.deleteTodo([Todo{id:1,text:"A",done:⊥},Todo{id:2,text:"B",done:⊥}],1))=1
 }
 
-test "todo completedCount result can use numeric predicates" {
-  l count=src⋅todo-domain.completedCount([Todo{id:1,text:"A",done:⊤},Todo{id:2,text:"B",done:⊥},Todo{id:3,text:"C",done:⊤}]);
-  stdlib⋅numeric_predicates.is_even(count)=⊤∧stdlib⋅numeric_predicates.in_range(count,0,3)=⊤
+test "todo delete removes target" {
+  ≡src⋅todo-domain.deleteTodo([Todo{id:1,text:"A",done:⊥},Todo{id:2,text:"B",done:⊥}],1){
+    [todo]→todo.id=2∧todo.text="B"|
+    _→⊥
+  }
+}
+
+test "todo edit updates text" {
+  src⋅todo-domain.editTodo([Todo{id:1,text:"Old",done:⊥}],1,"New")[0].text="New"
+}
+
+test "todo toggle flips done flag" {
+  src⋅todo-domain.toggleTodo([Todo{id:1,text:"Task",done:⊥}],1)[0].done=⊤
 }

@@ -8,15 +8,71 @@
 
 e console
 
-c width:ℤ=48
-c height:ℤ=18
-c seed0:ℤ=1337
-
-t Rng={seed:ℤ}
 t IntRoll={rng:Rng,value:ℤ}
+t Rng={seed:ℤ}
 t Room={x:ℤ,y:ℤ,w:ℤ,h:ℤ}
 t RoomRoll={rng:Rng,room:Room}
 t World={room1:Room,room2:Room,room3:Room}
+
+c height:ℤ=18
+c seed0:ℤ=1337
+c width:ℤ=48
+
+λcenterX(room:Room)→ℤ=room.x+halfFloor(room.w)
+
+λcenterY(room:Room)→ℤ=room.y+halfFloor(room.h)
+
+λcorridorL(x:ℤ,y:ℤ,a:Room,b:Room)→𝔹=
+  inH(x,y,centerX(a),centerX(b),centerY(a))∨
+  inV(x,y,centerX(b),centerY(a),centerY(b))
+
+λhalfFloor(n:ℤ)→ℤ≡n{
+  0→0|
+  1→0|
+  n→1+halfFloor(n-2)
+}
+
+λinH(x:ℤ,y:ℤ,x1:ℤ,x2:ℤ,cy:ℤ)→𝔹=((y=cy)∧(x≥min2(x1,x2)))∧(x≤max2(x1,x2))
+
+λinRect(x:ℤ,y:ℤ,rx:ℤ,ry:ℤ,rw:ℤ,rh:ℤ)→𝔹=((x≥rx)∧(x<rx+rw))∧((y≥ry)∧(y<ry+rh))
+
+λinRoom(x:ℤ,y:ℤ,room:Room)→𝔹=inRect(x,y,room.x,room.y,room.w,room.h)
+
+λinV(x:ℤ,y:ℤ,cx:ℤ,y1:ℤ,y2:ℤ)→𝔹=((x=cx)∧(y≥min2(y1,y2)))∧(y≤max2(y1,y2))
+
+λisExit(world:World,x:ℤ,y:ℤ)→𝔹=(x=centerX(world.room3))∧(y=centerY(world.room3))
+
+λisFloor(world:World,x:ℤ,y:ℤ)→𝔹=
+  inRoom(x,y,world.room1)∨
+  inRoom(x,y,world.room2)∨
+  inRoom(x,y,world.room3)∨
+  corridorL(x,y,world.room1,world.room2)∨
+  corridorL(x,y,world.room2,world.room3)
+
+λisPlayer(world:World,x:ℤ,y:ℤ)→𝔹=(x=centerX(world.room1))∧(y=centerY(world.room1))
+
+λmain()→!IO 𝕌={
+  l world=makeWorld(seed0);
+  console.log(renderRows(world,0))
+}
+
+λmakeWorld(seed:ℤ)→World={
+  l rng=Rng{seed:seed};
+  l r1=randRoomInZone(rng,2,2,13,6);
+  l r2=randRoomInZone(r1.rng,18,2,14,7);
+  l r3=randRoomInZone(r2.rng,32,9,12,6);
+  World{room1:r1.room,room2:r2.room,room3:r3.room}
+}
+
+λmax2(a:ℤ,b:ℤ)→ℤ≡a>b{
+  ⊤→a|
+  _→b
+}
+
+λmin2(a:ℤ,b:ℤ)→ℤ≡a<b{
+  ⊤→a|
+  _→b
+}
 
 λnextRng(rng:Rng)→Rng=
   Rng{seed:((rng.seed*48271)%2147483647)}
@@ -37,63 +93,6 @@ t World={room1:Room,room2:Room,room3:Room}
   RoomRoll{rng:yRoll.rng,room:room}
 }
 
-λmakeWorld(seed:ℤ)→World={
-  l rng=Rng{seed:seed};
-  l r1=randRoomInZone(rng,2,2,13,6);
-  l r2=randRoomInZone(r1.rng,18,2,14,7);
-  l r3=randRoomInZone(r2.rng,32,9,12,6);
-  World{room1:r1.room,room2:r2.room,room3:r3.room}
-}
-
-λhalfFloor(n:ℤ)→ℤ≡n{
-  0→0|
-  1→0|
-  n→1+halfFloor(n-2)
-}
-
-λcenterX(room:Room)→ℤ=room.x+halfFloor(room.w)
-λcenterY(room:Room)→ℤ=room.y+halfFloor(room.h)
-
-λmin2(a:ℤ,b:ℤ)→ℤ≡a<b{
-  ⊤→a|
-  _→b
-}
-
-λmax2(a:ℤ,b:ℤ)→ℤ≡a>b{
-  ⊤→a|
-  _→b
-}
-
-λinRect(x:ℤ,y:ℤ,rx:ℤ,ry:ℤ,rw:ℤ,rh:ℤ)→𝔹=((x≥rx)∧(x<rx+rw))∧((y≥ry)∧(y<ry+rh))
-λinRoom(x:ℤ,y:ℤ,room:Room)→𝔹=inRect(x,y,room.x,room.y,room.w,room.h)
-λinH(x:ℤ,y:ℤ,x1:ℤ,x2:ℤ,cy:ℤ)→𝔹=((y=cy)∧(x≥min2(x1,x2)))∧(x≤max2(x1,x2))
-λinV(x:ℤ,y:ℤ,cx:ℤ,y1:ℤ,y2:ℤ)→𝔹=((x=cx)∧(y≥min2(y1,y2)))∧(y≤max2(y1,y2))
-
-λcorridorL(x:ℤ,y:ℤ,a:Room,b:Room)→𝔹=
-  inH(x,y,centerX(a),centerX(b),centerY(a))∨
-  inV(x,y,centerX(b),centerY(a),centerY(b))
-
-λisFloor(world:World,x:ℤ,y:ℤ)→𝔹=
-  inRoom(x,y,world.room1)∨
-  inRoom(x,y,world.room2)∨
-  inRoom(x,y,world.room3)∨
-  corridorL(x,y,world.room1,world.room2)∨
-  corridorL(x,y,world.room2,world.room3)
-
-λisPlayer(world:World,x:ℤ,y:ℤ)→𝔹=(x=centerX(world.room1))∧(y=centerY(world.room1))
-λisExit(world:World,x:ℤ,y:ℤ)→𝔹=(x=centerX(world.room3))∧(y=centerY(world.room3))
-
-λtileAt(world:World,x:ℤ,y:ℤ)→𝕊≡isPlayer(world,x,y){
-  ⊤→"@"|
-  _→≡isExit(world,x,y){
-    ⊤→">"|
-    _→≡isFloor(world,x,y){
-      ⊤→"."|
-      _→"#"
-    }
-  }
-}
-
 λrenderRow(world:World,y:ℤ,x:ℤ)→𝕊≡width-x{
   0→""|
   _→tileAt(world,x,y)++renderRow(world,y,x+1)
@@ -104,7 +103,13 @@ t World={room1:Room,room2:Room,room3:Room}
   _→renderRow(world,y,0)++"\n"++renderRows(world,y+1)
 }
 
-λmain()→!IO 𝕌={
-  l world=makeWorld(seed0);
-  console.log(renderRows(world,0))
+λtileAt(world:World,x:ℤ,y:ℤ)→𝕊≡isPlayer(world,x,y){
+  ⊤→"@"|
+  _→≡isExit(world,x,y){
+    ⊤→">"|
+    _→≡isFloor(world,x,y){
+      ⊤→"."|
+      _→"#"
+    }
+  }
 }

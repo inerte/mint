@@ -16,16 +16,17 @@ For language/compiler work, prefer the deeper guide:
 
 ## Working Rules (Root-Level)
 
-1. Prefer focused commits by concern (compiler, docs, examples, project app, etc.).
-2. Avoid changing generated outputs unless needed to validate or accompany source changes.
-3. When changing Sigil syntax or semantics, update all of:
+- Prefer focused commits by concern (compiler, docs, examples, project app, etc.).
+- Avoid changing generated outputs unless needed to validate or accompany source changes.
+- When changing Sigil syntax or semantics, update all of:
    - compiler frontend (`lexer`/`parser`/validator/typechecker as applicable)
    - runnable examples/tests
    - canonical docs/specs
-4. Preserve the repo’s machine-first goals:
+- Preserve the repo’s machine-first goals:
    - canonical syntax over stylistic flexibility
    - deterministic behavior and deterministic codegen where possible
    - tests/examples as source of truth over prose docs
+- Doing it right is better than taking the easy path. You're a fast editing machine, changing code is easy to you.
 
 ## Practical Workflow
 

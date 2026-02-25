@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "file": "source.sigil",
+  "file": "comments-demo.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-23T21:25:22.986Z",
+  "generated_at": "2026-02-25T02:19:24.589Z",
   "mappings": {
     "factorial": {
       "range": [
-        162,
-        289
+        163,
+        290
       ],
       "summary": "Function: factorial",
       "explanation": "Function with 1 parameter(s), returns ℤ",
@@ -15,32 +15,32 @@
     },
     "factorial_arm_0": {
       "range": [
-        185,
-        188
+        186,
+        189
       ],
       "summary": "Match arm: 0",
       "explanation": "Pattern matches 0"
     },
     "factorial_arm_1": {
       "range": [
-        215,
-        218
+        216,
+        219
       ],
       "summary": "Match arm: 1",
       "explanation": "Pattern matches 1"
     },
     "factorial_arm_2": {
       "range": [
-        245,
-        287
+        246,
+        288
       ],
       "summary": "Match arm: n",
       "explanation": "Pattern matches n"
     },
     "main": {
       "range": [
-        433,
-        471
+        434,
+        472
       ],
       "summary": "Function: main",
       "explanation": "Function with 0 parameter(s), returns ℤ",

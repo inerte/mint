@@ -1,106 +1,55 @@
 {
   "version": 1,
-  "file": "source.sigil",
+  "file": "gcd.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-23T05:26:55.421Z",
+  "generated_at": "2026-02-25T02:19:30.509Z",
   "mappings": {
     "gcd": {
       "range": [
         0,
         42
       ],
-      "summary": "Computes the greatest common divisor using Euclidean algorithm",
-      "explanation": "Implements the Euclidean algorithm for computing GCD recursively. The algorithm works by repeatedly replacing the larger number with the remainder of dividing the larger by the smaller.\n\nBase case: When b = 0, the GCD is a (since any number divides 0).\nRecursive case: When b ≠ 0, swap the numbers and take the modulo: gcd(b, a % b).\n\nThis is an example of **structural multi-parameter recursion** allowed in Sigil: both parameters transform algorithmically (b becomes a, a%b becomes new b), rather than accumulating state.",
-      "type": "λ(ℤ,ℤ)→ℤ",
-      "complexity": "O(log min(a,b)) time, O(log min(a,b)) space",
-      "warnings": [
-        "Stack depth proportional to logarithm of smaller input",
-        "Negative inputs: result has same sign as first non-zero remainder",
-        "gcd(0, 0) returns 0 (mathematically undefined but follows convention)"
-      ],
-      "examples": [
-        "gcd(48, 18) → 6",
-        "gcd(18, 48) → 6 (order doesn't matter)",
-        "gcd(100, 10) → 10",
-        "gcd(17, 13) → 1 (coprime numbers)",
-        "gcd(0, 5) → 5"
-      ],
-      "related": ["lcm", "main"],
-      "metadata": {
-        "pure": true,
-        "recursive": true,
-        "algorithm": "euclidean",
-        "tail_recursive": false
-      }
+      "summary": "Function: gcd",
+      "explanation": "Function with 2 parameter(s), returns ℤ",
+      "type": "λ(ℤ,ℤ)→ℤ"
     },
     "gcd_arm_0": {
       "range": [
         21,
         24
       ],
-      "summary": "Base case: GCD(a, 0) = a",
-      "explanation": "When b equals 0, the greatest common divisor is a. This is the termination condition of the Euclidean algorithm - when we've reduced b to 0, a contains the GCD."
+      "summary": "Match arm: 0",
+      "explanation": "Pattern matches 0"
     },
     "gcd_arm_1": {
       "range": [
         28,
         40
       ],
-      "summary": "Recursive case: GCD(a, b) = GCD(b, a mod b)",
-      "explanation": "The core of the Euclidean algorithm: replace (a, b) with (b, a mod b). This preserves the GCD while making the numbers smaller, eventually reaching b = 0.\n\nExample: gcd(48, 18) → gcd(18, 12) → gcd(12, 6) → gcd(6, 0) → 6"
+      "summary": "Match arm: b",
+      "explanation": "Pattern matches b"
     },
     "lcm": {
       "range": [
         44,
         74
       ],
-      "summary": "Computes least common multiple using GCD",
-      "explanation": "Calculates the least common multiple of two numbers using the mathematical identity:\n\nLCM(a, b) = (a × b) / GCD(a, b)\n\nThis is efficient because it leverages the already-computed GCD rather than implementing LCM from scratch.",
-      "type": "λ(ℤ,ℤ)→ℤ",
-      "complexity": "O(log min(a,b)) time (dominated by gcd call), O(log min(a,b)) space",
-      "warnings": [
-        "Integer overflow possible for large inputs (a * b may exceed max integer)",
-        "Returns 0 if either input is 0",
-        "Division truncates to integer (expected for LCM)"
-      ],
-      "examples": [
-        "lcm(48, 18) → 144",
-        "lcm(12, 15) → 60",
-        "lcm(7, 5) → 35 (coprime → product)",
-        "lcm(10, 10) → 10"
-      ],
-      "related": ["gcd"],
-      "metadata": {
-        "pure": true,
-        "recursive": false,
-        "depends_on": ["gcd"]
-      }
+      "summary": "Function: lcm",
+      "explanation": "Function with 2 parameter(s), returns ℤ",
+      "type": "λ(ℤ,ℤ)→ℤ"
     },
     "main": {
       "range": [
         76,
         96
       ],
-      "summary": "Entry point: demonstrates GCD computation",
-      "explanation": "Program entry point that computes gcd(48, 18) as a demonstration.\n\nExpected output: 6",
-      "type": "λ()→ℤ",
-      "complexity": "O(log min(48,18)) = O(1) constant time for these specific inputs",
-      "examples": [
-        "main() → 6"
-      ],
-      "related": ["gcd"],
-      "metadata": {
-        "pure": true,
-        "recursive": false,
-        "entry_point": true
-      }
+      "summary": "Function: main",
+      "explanation": "Function with 0 parameter(s), returns ℤ",
+      "type": "λ()→ℤ"
     }
   },
   "metadata": {
-    "intent": "Number theory utilities: GCD and LCM using Euclidean algorithm",
-    "category": "pure_function",
-    "tested": false,
-    "performance_profile": "logarithmic_time",
-    "algorithm_family": "euclidean"
+    "category": "unknown",
+    "tested": false
   }
 }

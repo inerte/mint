@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "file": "source.sigil",
+  "file": "option.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-23T23:41:23.124Z",
+  "generated_at": "2026-02-25T02:19:19.591Z",
   "mappings": {
     "Option": {
       "range": [
-        465,
-        489
+        466,
+        490
       ],
       "summary": "Type definition: Option",
       "explanation": "Type Option"

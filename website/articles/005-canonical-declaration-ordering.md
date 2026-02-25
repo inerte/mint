@@ -631,7 +631,7 @@ Canonical declaration ordering is how Sigil does it.
 
 ---
 
-**See it in action:** Every file in `/Users/jnobreganetto/Documents/GitHub/ai-pl/language/` follows canonical ordering.
+**See it in action:** Every file in `language/` follows canonical ordering.
 
 **Try it yourself:**
 ```bash
@@ -639,6 +639,6 @@ git clone https://github.com/sigil-lang/sigil.git
 node language/compiler/dist/cli.js compile your-file.sigil
 ```
 
-**Read the validator:** `/Users/jnobreganetto/Documents/GitHub/ai-pl/language/compiler/src/validator/canonical.ts`
+**Read the validator:** `language/compiler/src/validator/canonical.ts`
 
 **ONE way. Zero exceptions. Maximum determinism.**

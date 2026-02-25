@@ -11,7 +11,8 @@
 
 import * as AST from '../parser/ast.js';
 import { SigilDiagnosticError } from '../diagnostics/error.js';
-import { astLocationToSpan, diagnostic } from '../diagnostics/helpers.js';
+import { astLocationToSpan, diagnostic, suggestGeneric, suggestReorderDeclaration } from '../diagnostics/helpers.js';
+import type { Fixit, Suggestion } from '../diagnostics/types.js';
 
 /**
  * Parameter role classification for multi-parameter recursion validation
@@ -32,10 +33,18 @@ export class CanonicalError extends SigilDiagnosticError {
   constructor(
     code: string,
     message: string,
-    public location?: AST.SourceLocation
+    public location?: AST.SourceLocation,
+    extras: {
+      details?: Record<string, unknown>;
+      fixits?: Fixit[];
+      suggestions?: Suggestion[];
+    } = {}
   ) {
     super(diagnostic(code, 'canonical', message, {
-      location: astLocationToSpan('<unknown>', location)
+      location: astLocationToSpan('<unknown>', location),
+      details: extras.details,
+      fixits: extras.fixits,
+      suggestions: extras.suggestions,
     }));
     this.name = 'CanonicalError';
   }
@@ -137,7 +146,11 @@ function validateRecursiveFunctions(program: AST.Program): void {
           `  - Both 'a' and 'b' transform algorithmically → structural\n` +
           `\n` +
           `Use simple recursion without accumulator parameters.`,
-          decl.location
+          decl.location,
+          {
+            details: { functionName: decl.name, accumulatorParams, kind: 'accumulator_passing_style' },
+            suggestions: [suggestGeneric('rewrite recursive function without accumulator parameters', 'remove_accumulator_parameter')]
+          }
         );
       }
 
@@ -183,7 +196,11 @@ function validateRecursiveFunctions(program: AST.Program): void {
           `  - Pattern [n,acc] extracts state, not structure\n` +
           `\n` +
           `Sigil enforces ONE way: structural recursion for collections.`,
-          decl.location
+          decl.location,
+          {
+            details: { functionName: decl.name, kind: 'non_structural_collection_recursion' },
+            suggestions: [suggestGeneric('use structural recursion on the collection parameter', 'rewrite_recursive_form')]
+          }
         );
       }
     }
@@ -205,7 +222,11 @@ function validateRecursiveFunctions(program: AST.Program): void {
         `  λ${decl.name}(n:ℤ)→ℤ≡n{0→1|n→n*${decl.name}(n-1)}\n` +
         `\n` +
         `Sigil enforces ONE way to write recursive functions.`,
-        decl.location
+        decl.location,
+        {
+          details: { functionName: decl.name, kind: 'recursive_function_returns_function' },
+          suggestions: [suggestGeneric('recursive functions must return values, not function continuations', 'return_value_not_function')]
+        }
       );
     }
   }
@@ -484,7 +505,11 @@ function validateMatchExpr(match: AST.MatchExpr, params: AST.Param[]): void {
       `(e.g., complex conditions like ≡(x>0,y>0){...}).\n` +
       `\n` +
       `Sigil enforces ONE way: use the most direct pattern matching form.`,
-      match.location
+      match.location,
+      {
+        details: { kind: 'boolean_match_on_single_param', parameterName: params[0]?.name },
+        suggestions: [suggestGeneric('match directly on the parameter value instead of a boolean comparison', 'use_direct_value_match')]
+      }
     );
   }
 
@@ -503,7 +528,11 @@ function validateMatchExpr(match: AST.MatchExpr, params: AST.Param[]): void {
       `(e.g., ≡(x>0,y>0){...} for two different variables).\n` +
       `\n` +
       `Sigil enforces ONE way: use the most direct pattern matching form.`,
-      match.location
+      match.location,
+      {
+        details: { kind: 'tuple_boolean_match_on_single_param', parameterName: params[0]?.name },
+        suggestions: [suggestGeneric('use direct value matching for a single parameter instead of tuple boolean matching', 'use_direct_value_match')]
+      }
     );
   }
 }
@@ -1198,7 +1227,11 @@ function validateCategoryBoundaries(decls: AST.Declaration[]): void {
         `Move all ${currentCategory} declarations to appear before ${categoryNames[lastCategoryIndex]} declarations.\n` +
         `\n` +
         `Sigil enforces ONE way: canonical declaration ordering.`,
-        decl.location
+        decl.location,
+        {
+          details: { category: currentCategory, categorySymbol: currentSymbol, expectedBeforeCategory: categoryNames[lastCategoryIndex] },
+          suggestions: [suggestReorderDeclaration(`move ${currentCategory} declarations before ${categoryNames[lastCategoryIndex]} declarations`, currentCategory)]
+        }
       );
     }
 
@@ -1262,7 +1295,11 @@ function validateWithinCategoryOrder(
         `Move all exported ${categoryName} declarations to come after non-exported ones.\n` +
         `\n` +
         `Sigil enforces ONE way: canonical declaration ordering.`,
-        firstExported.decl.location
+        firstExported.decl.location,
+        {
+          details: { category: categoryName, name: firstExported.name, before: lastNonExported.name, exported: true },
+          suggestions: [suggestReorderDeclaration('move exported declarations after non-exported declarations', categoryName, firstExported.name, lastNonExported.name)]
+        }
       );
     }
   }
@@ -1299,7 +1336,11 @@ function checkAlphabeticalOrder(
         `Move '${curr.name}' to come before '${prev.name}'.\n` +
         `\n` +
         `Sigil enforces ONE way: strict alphabetical ordering within categories.`,
-        curr.decl.location
+        curr.decl.location,
+        {
+          details: { category: categorySymbol, name: curr.name, before: prev.name, exported: isExported },
+          suggestions: [suggestReorderDeclaration(`move '${curr.name}' before '${prev.name}'`, categorySymbol, curr.name, prev.name)]
+        }
       );
     }
   }

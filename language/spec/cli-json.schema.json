@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sigil-lang.org/spec/cli-json.schema.json",
+  "title": "Sigil CLI JSON Output (formatVersion=1)",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/cliEnvelope" },
+    { "$ref": "#/$defs/lexEnvelope" },
+    { "$ref": "#/$defs/parseEnvelope" },
+    { "$ref": "#/$defs/compileEnvelope" },
+    { "$ref": "#/$defs/runEnvelope" },
+    { "$ref": "#/$defs/testEnvelope" }
+  ],
+  "$defs": {
+    "phase": {
+      "type": "string",
+      "enum": ["cli", "io", "surface", "lexer", "parser", "canonical", "typecheck", "mutability", "extern", "codegen", "mapgen", "runtime"]
+    },
+    "sourcePoint": {
+      "type": "object",
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 0 },
+        "offset": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "sourceSpan": {
+      "type": "object",
+      "required": ["file", "start"],
+      "properties": {
+        "file": { "type": "string" },
+        "start": { "$ref": "#/$defs/sourcePoint" },
+        "end": { "$ref": "#/$defs/sourcePoint" }
+      },
+      "additionalProperties": false
+    },
+    "fixit": {
+      "type": "object",
+      "required": ["kind", "range"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["replace", "insert", "delete"] },
+        "range": { "$ref": "#/$defs/sourceSpan" },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "suggestion": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "message", "replacement"],
+          "properties": {
+            "kind": { "const": "replace_symbol" },
+            "message": { "type": "string" },
+            "replacement": { "type": "string" },
+            "target": { "type": "string", "enum": ["namespace_separator", "local_binding_keyword"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "message"],
+          "properties": {
+            "kind": { "const": "export_member" },
+            "message": { "type": "string" },
+            "targetFile": { "type": "string" },
+            "member": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "message", "operator"],
+          "properties": {
+            "kind": { "const": "use_operator" },
+            "message": { "type": "string" },
+            "operator": { "type": "string" },
+            "replaces": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "message"],
+          "properties": {
+            "kind": { "const": "reorder_declaration" },
+            "message": { "type": "string" },
+            "category": { "type": "string" },
+            "name": { "type": "string" },
+            "before": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "message"],
+          "properties": {
+            "kind": { "const": "generic" },
+            "message": { "type": "string" },
+            "action": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "phase", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^SIGIL-[A-Z0-9-]+$" },
+        "phase": { "$ref": "#/$defs/phase" },
+        "message": { "type": "string" },
+        "location": { "$ref": "#/$defs/sourceSpan" },
+        "found": true,
+        "expected": true,
+        "details": { "type": "object" },
+        "fixits": { "type": "array", "items": { "$ref": "#/$defs/fixit" } },
+        "suggestions": { "type": "array", "items": { "$ref": "#/$defs/suggestion" } }
+      },
+      "additionalProperties": false
+    },
+    "baseEnvelope": {
+      "type": "object",
+      "required": ["formatVersion", "command", "ok"],
+      "properties": {
+        "formatVersion": { "type": "integer", "const": 1 },
+        "command": { "type": "string" },
+        "ok": { "type": "boolean" },
+        "phase": { "$ref": "#/$defs/phase" },
+        "error": { "$ref": "#/$defs/diagnostic" }
+      },
+      "additionalProperties": true
+    },
+    "cliEnvelope": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEnvelope" },
+        {
+          "type": "object",
+          "required": ["formatVersion", "command", "ok", "error"],
+          "properties": {
+            "command": { "const": "sigilc" },
+            "ok": { "const": false }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "lexData": {
+      "type": "object",
+      "required": ["file", "summary", "tokens"],
+      "properties": {
+        "file": { "type": "string" },
+        "summary": {
+          "type": "object",
+          "required": ["tokens"],
+          "properties": { "tokens": { "type": "integer", "minimum": 0 } },
+          "additionalProperties": false
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "lexeme", "start", "end"],
+            "properties": {
+              "type": { "type": "string" },
+              "lexeme": { "type": "string" },
+              "start": { "$ref": "#/$defs/sourcePoint" },
+              "end": { "$ref": "#/$defs/sourcePoint" },
+              "text": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "lexEnvelope": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEnvelope" },
+        {
+          "type": "object",
+          "properties": {
+            "command": { "const": "sigilc lex" },
+            "data": { "$ref": "#/$defs/lexData" }
+          },
+          "allOf": [
+            { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },
+            { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"] } }
+          ]
+        }
+      ]
+    },
+    "parseData": {
+      "type": "object",
+      "required": ["file", "summary", "ast"],
+      "properties": {
+        "file": { "type": "string" },
+        "summary": {
+          "type": "object",
+          "required": ["tokens", "declarations"],
+          "properties": {
+            "tokens": { "type": "integer", "minimum": 0 },
+            "declarations": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "ast": true
+      },
+      "additionalProperties": false
+    },
+    "parseEnvelope": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEnvelope" },
+        {
+          "type": "object",
+          "properties": {
+            "command": { "const": "sigilc parse" },
+            "data": { "$ref": "#/$defs/parseData" }
+          },
+          "allOf": [
+            { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },
+            { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"] } }
+          ]
+        }
+      ]
+    },
+    "compileData": {
+      "type": "object",
+      "required": ["input", "outputs", "typecheck", "semanticMap"],
+      "properties": {
+        "input": { "type": "string" },
+        "outputs": {
+          "type": "object",
+          "required": ["rootTs", "allModules"],
+          "properties": {
+            "rootTs": { "type": "string" },
+            "allModules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["moduleId", "sourceFile", "outputFile"],
+                "properties": {
+                  "moduleId": { "type": "string" },
+                  "sourceFile": { "type": "string" },
+                  "outputFile": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "project": {
+          "type": "object",
+          "required": ["root", "layout"],
+          "properties": {
+            "root": { "type": "string" },
+            "layout": {
+              "type": "object",
+              "required": ["src", "tests", "out"],
+              "properties": {
+                "src": { "type": "string" },
+                "tests": { "type": "string" },
+                "out": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "typecheck": {
+          "type": "object",
+          "required": ["ok", "inferred"],
+          "properties": {
+            "ok": { "const": true },
+            "inferred": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "type"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "semanticMap": {
+          "type": "object",
+          "required": ["path", "generated", "aiEnhanced"],
+          "properties": {
+            "path": { "type": "string" },
+            "generated": { "type": "boolean" },
+            "aiEnhanced": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "compileEnvelope": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEnvelope" },
+        {
+          "type": "object",
+          "properties": {
+            "command": { "const": "sigilc compile" },
+            "data": { "$ref": "#/$defs/compileData" }
+          },
+          "allOf": [
+            { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },
+            { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"] } }
+          ]
+        }
+      ]
+    },
+    "runData": {
+      "type": "object",
+      "required": ["compile", "runtime"],
+      "properties": {
+        "compile": {
+          "type": "object",
+          "required": ["input", "output", "runnerFile"],
+          "properties": {
+            "input": { "type": "string" },
+            "output": { "type": "string" },
+            "runnerFile": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "runtime": {
+          "type": "object",
+          "required": ["engine", "exitCode", "durationMs", "stdout", "stderr"],
+          "properties": {
+            "engine": { "type": "string" },
+            "exitCode": { "type": "integer" },
+            "durationMs": { "type": "integer", "minimum": 0 },
+            "stdout": { "type": "string" },
+            "stderr": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "runEnvelope": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEnvelope" },
+        {
+          "type": "object",
+          "properties": {
+            "command": { "const": "sigilc run" },
+            "data": { "$ref": "#/$defs/runData" }
+          },
+          "allOf": [
+            { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },
+            { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"] } }
+          ]
+        }
+      ]
+    },
+    "testSummary": {
+      "type": "object",
+      "required": ["files", "discovered", "selected", "passed", "failed", "errored", "skipped", "durationMs"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "discovered": { "type": "integer", "minimum": 0 },
+        "selected": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "errored": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "testResult": {
+      "type": "object",
+      "required": ["id", "file", "name", "status", "durationMs"],
+      "properties": {
+        "id": { "type": "string" },
+        "file": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["pass", "fail", "error"] },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "location": {
+          "type": "object",
+          "properties": {
+            "start": { "$ref": "#/$defs/sourcePoint" },
+            "end": { "$ref": "#/$defs/sourcePoint" }
+          },
+          "additionalProperties": true
+        },
+        "declaredEffects": { "type": "array", "items": { "type": "string" } },
+        "assertion": true,
+        "failure": true
+      },
+      "additionalProperties": true
+    },
+    "testEnvelope": {
+      "type": "object",
+      "required": ["formatVersion", "command", "ok", "summary", "results"],
+      "properties": {
+        "formatVersion": { "type": "integer", "const": 1 },
+        "command": { "const": "sigilc test" },
+        "ok": { "type": "boolean" },
+        "phase": { "$ref": "#/$defs/phase" },
+        "summary": { "$ref": "#/$defs/testSummary" },
+        "results": { "type": "array", "items": { "$ref": "#/$defs/testResult" } },
+        "error": { "$ref": "#/$defs/diagnostic" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

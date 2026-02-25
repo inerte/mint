@@ -8,6 +8,12 @@ node language/compiler/dist/cli.js test
 
 JSON is the default output mode for Sigil tests (agent-first design).
 
+The canonical machine contract for all CLI commands (including `sigilc test`) is now:
+
+- `language/spec/cli-json.schema.json`
+
+This document focuses on the `sigilc test`-specific payload fields (`summary`, `results`).
+
 ## Contract
 
 - Stdout contains a **single JSON object**
@@ -59,13 +65,19 @@ JSON is the default output mode for Sigil tests (agent-first design).
 
 ### `error` (optional)
 - Present for runner/config/compiler-level failures where a normal test result list is not available
+- Uses the shared `Diagnostic` object shape from `language/spec/cli-json.schema.json`
 
 Example:
 ```json
 {
   "error": {
-    "kind": "runner_error",
-    "message": "sigilc test only accepts paths under ./tests. Got: src"
+    "code": "SIGIL-CANON-TEST-PATH",
+    "phase": "canonical",
+    "message": "test declarations are only allowed under project tests/",
+    "details": {
+      "file": "src/example.sigil",
+      "testsRoot": "/repo/tests"
+    }
   }
 }
 ```
@@ -185,4 +197,6 @@ When a test body is a top-level comparison (e.g. `a=b`, `x<y`, `a≠b`), Sigil e
 ## Related Docs
 
 - `docs/TESTING.md`
+- `spec/cli-json.schema.json`
+- `spec/cli-json.md`
 - `AGENTS.md`

@@ -15,6 +15,7 @@ import { TypeError, formatType } from './errors.js';
 import * as AST from '../parser/ast.js';
 import { checkProgramMutability, MutabilityError } from '../mutability/index.js';
 import type { TypeCheckOptions } from './index.js';
+import { suggestExportMember, suggestGeneric, suggestUseOperator } from '../diagnostics/helpers.js';
 
 /**
  * Synthesize (infer) type from expression
@@ -613,7 +614,12 @@ function synthesizeMemberAccess(env: TypeEnvironment, expr: AST.MemberAccessExpr
         undefined,
         undefined,
         'SIGIL-TYPE-MODULE-NOT-EXPORTED',
-        { module: sigilNamespace, member: expr.member }
+        { module: sigilNamespace, member: expr.member },
+        [
+          suggestExportMember(`export '${expr.member}' from ${sigilNamespace} if it is part of the public API`, expr.member),
+          ...(expr.member === 'len' ? [suggestUseOperator('use the built-in list length operator', '#', 'len')] : []),
+          suggestGeneric('use an exported member from the module namespace', 'select_exported_member')
+        ]
       );
     }
     return memberType;

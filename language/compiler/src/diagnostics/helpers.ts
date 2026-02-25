@@ -1,6 +1,6 @@
 import type * as AST from '../parser/ast.js';
 import type { SourceLocation as TokenSourceLocation, Token } from '../lexer/token.js';
-import type { Diagnostic, Fixit, SourceSpan } from './types.js';
+import type { Diagnostic, Fixit, SourceSpan, Suggestion } from './types.js';
 
 export function astLocationToSpan(file: string, location?: AST.SourceLocation): SourceSpan | undefined {
   if (!location) return undefined;
@@ -34,4 +34,33 @@ export function diagnostic(
   extras: Omit<Diagnostic, 'code' | 'phase' | 'message'> = {}
 ): Diagnostic {
   return { code, phase, message, ...extras };
+}
+
+export function suggestReplaceSymbol(
+  message: string,
+  replacement: string,
+  target?: 'namespace_separator' | 'local_binding_keyword'
+): Suggestion {
+  return { kind: 'replace_symbol', message, replacement, target };
+}
+
+export function suggestExportMember(message: string, member?: string, targetFile?: string): Suggestion {
+  return { kind: 'export_member', message, member, targetFile };
+}
+
+export function suggestUseOperator(message: string, operator: string, replaces?: string): Suggestion {
+  return { kind: 'use_operator', message, operator, replaces };
+}
+
+export function suggestReorderDeclaration(
+  message: string,
+  category?: string,
+  name?: string,
+  before?: string
+): Suggestion {
+  return { kind: 'reorder_declaration', message, category, name, before };
+}
+
+export function suggestGeneric(message: string, action?: string): Suggestion {
+  return { kind: 'generic', message, action };
 }

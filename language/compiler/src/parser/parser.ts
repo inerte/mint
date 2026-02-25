@@ -8,7 +8,8 @@
 import { Token, TokenType } from '../lexer/token.js';
 import * as AST from './ast.js';
 import { SigilDiagnosticError } from '../diagnostics/error.js';
-import { diagnostic, replaceTokenFixit, tokenToSpan } from '../diagnostics/helpers.js';
+import { diagnostic, replaceTokenFixit, suggestGeneric, suggestReplaceSymbol, tokenToSpan } from '../diagnostics/helpers.js';
+import type { Suggestion } from '../diagnostics/types.js';
 
 export class Parser {
   private tokens: Token[];
@@ -308,7 +309,8 @@ export class Parser {
       const bad = this.peek();
       throw this.diagError('SIGIL-PARSE-CONST-NAME', 'invalid constant name', bad, {
         found: bad.value,
-        expected: 'lowercase identifier'
+        expected: 'lowercase identifier',
+        suggestions: [suggestGeneric('use lowercase identifier for const declaration', 'rename_const_lowercase')]
       });
     }
     const name = this.consume(TokenType.IDENTIFIER, 'Expected constant name').value;
@@ -346,7 +348,8 @@ export class Parser {
       throw this.diagError('SIGIL-PARSE-NS-SEP', 'invalid namespace separator', bad, {
         found: bad.value || bad.type,
         expected: '⋅',
-        fixits: [replaceTokenFixit(this.filename, bad, '⋅')]
+        fixits: [replaceTokenFixit(this.filename, bad, '⋅')],
+        suggestions: [suggestReplaceSymbol('use ⋅ for namespace paths', '⋅', 'namespace_separator')]
       });
     }
 
@@ -375,7 +378,8 @@ export class Parser {
       throw this.diagError('SIGIL-PARSE-NS-SEP', 'invalid namespace separator', bad, {
         found: bad.value || bad.type,
         expected: '⋅',
-        fixits: [replaceTokenFixit(this.filename, bad, '⋅')]
+        fixits: [replaceTokenFixit(this.filename, bad, '⋅')],
+        suggestions: [suggestReplaceSymbol('use ⋅ for namespace paths', '⋅', 'namespace_separator')]
       });
     }
 
@@ -996,7 +1000,8 @@ export class Parser {
       throw this.diagError('SIGIL-PARSE-LOCAL-BINDING', 'invalid local binding keyword', bad, {
         found: 'let',
         expected: 'l',
-        fixits: [replaceTokenFixit(this.filename, bad, 'l')]
+        fixits: [replaceTokenFixit(this.filename, bad, 'l')],
+        suggestions: [suggestReplaceSymbol('use l for local bindings', 'l', 'local_binding_keyword')]
       });
     }
 
@@ -1594,6 +1599,7 @@ export class Parser {
       expected?: unknown;
       details?: Record<string, unknown>;
       fixits?: ReturnType<typeof replaceTokenFixit>[];
+      suggestions?: Suggestion[];
     } = {}
   ): SigilDiagnosticError {
     return new SigilDiagnosticError(diagnostic(code, 'parser', message, {
@@ -1602,6 +1608,7 @@ export class Parser {
       expected: extras.expected,
       details: extras.details,
       fixits: extras.fixits,
+      suggestions: extras.suggestions,
     }));
   }
 

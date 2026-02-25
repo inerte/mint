@@ -8,6 +8,7 @@ import * as AST from '../parser/ast.js';
 import { InferenceType, TVar } from './types.js';
 import { SigilDiagnosticError } from '../diagnostics/error.js';
 import { astLocationToSpan, diagnostic } from '../diagnostics/helpers.js';
+import type { Fixit, Suggestion } from '../diagnostics/types.js';
 
 /**
  * Type error with source location information
@@ -19,11 +20,15 @@ export class TypeError extends SigilDiagnosticError {
     public expected?: InferenceType,
     public actual?: InferenceType,
     code = 'SIGIL-TYPE-ERROR',
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
+    suggestions?: Suggestion[],
+    fixits?: Fixit[]
   ) {
     super(diagnostic(code, 'typecheck', message, {
       location: astLocationToSpan('<unknown>', location),
       details,
+      suggestions,
+      fixits,
     }));
     this.name = 'TypeError';
   }

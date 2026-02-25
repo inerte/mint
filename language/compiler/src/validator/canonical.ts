@@ -42,6 +42,7 @@ export class CanonicalError extends Error {
 export function validateCanonicalForm(program: AST.Program): void {
   validateRecursiveFunctions(program);
   validateCanonicalPatternMatching(program);
+  validateDeclarationOrdering(program);
 }
 
 /**
@@ -1089,4 +1090,246 @@ function isDestructuringPattern(pattern: AST.Pattern): boolean {
     default:
       return false;
   }
+}
+
+/**
+ * Rule 3: Canonical Declaration Ordering
+ *
+ * Enforces strict categorical and alphabetical ordering of module-level declarations.
+ * This ensures "ONE WAY" to organize code, making it deterministic and machine-friendly.
+ *
+ * Category order (strict):
+ *   1. Externs (e)
+ *   2. Imports (i)
+ *   3. Types (t)
+ *   4. Consts (c)
+ *   5. Functions (λ)
+ *   6. Tests (test)
+ *
+ * Within each category:
+ *   - Non-exported declarations first (alphabetically)
+ *   - Exported declarations second (alphabetically)
+ *
+ * Note: Declaration order does NOT affect semantics in Sigil (forward references work).
+ * This is purely for canonicality.
+ */
+function validateDeclarationOrdering(program: AST.Program): void {
+  const decls = program.declarations;
+
+  // Categorize all declarations
+  const categories = categorizeDeclarations(decls);
+
+  // Check category order (e → i → t → c → λ → test)
+  validateCategoryBoundaries(decls);
+
+  // Check alphabetical ordering within each category
+  validateWithinCategoryOrder(categories.externs, 'extern', 'e');
+  validateWithinCategoryOrder(categories.imports, 'import', 'i');
+  validateWithinCategoryOrder(categories.types, 'type', 't');
+  validateWithinCategoryOrder(categories.consts, 'const', 'c');
+  validateWithinCategoryOrder(categories.functions, 'function', 'λ');
+  validateWithinCategoryOrder(categories.tests, 'test', 'test');
+}
+
+/**
+ * Categorize declarations by type
+ */
+function categorizeDeclarations(decls: AST.Declaration[]) {
+  return {
+    externs: decls.filter(d => d.type === 'ExternDecl') as AST.ExternDecl[],
+    imports: decls.filter(d => d.type === 'ImportDecl') as AST.ImportDecl[],
+    types: decls.filter(d => d.type === 'TypeDecl') as AST.TypeDecl[],
+    consts: decls.filter(d => d.type === 'ConstDecl') as AST.ConstDecl[],
+    functions: decls.filter(d => d.type === 'FunctionDecl') as AST.FunctionDecl[],
+    tests: decls.filter(d => d.type === 'TestDecl') as AST.TestDecl[],
+  };
+}
+
+/**
+ * Check that categories appear in the correct order
+ */
+function validateCategoryBoundaries(decls: AST.Declaration[]): void {
+  const categoryOrder = ['ExternDecl', 'ImportDecl', 'TypeDecl', 'ConstDecl', 'FunctionDecl', 'TestDecl'];
+  const categoryNames = ['extern', 'import', 'type', 'const', 'function', 'test'];
+  const categorySymbols = ['e', 'i', 't', 'c', 'λ', 'test'];
+
+  let lastCategoryIndex = -1;
+
+  for (const decl of decls) {
+    const currentIndex = categoryOrder.indexOf(decl.type);
+
+    if (currentIndex < lastCategoryIndex) {
+      // Found a declaration out of order
+      const currentCategory = categoryNames[currentIndex];
+      const currentSymbol = categorySymbols[currentIndex];
+
+      throw new CanonicalError(
+        `Canonical Ordering Error: Wrong category position\n` +
+        `\n` +
+        `Found: ${currentSymbol} (${currentCategory}) at line ${decl.location.start.line}\n` +
+        `Expected: ${currentCategory} declarations must come before ${categoryNames[lastCategoryIndex]} declarations\n` +
+        `\n` +
+        `Category order: e → i → t → c → λ → test\n` +
+        `  e    = externs (FFI imports)\n` +
+        `  i    = imports (Sigil modules)\n` +
+        `  t    = types\n` +
+        `  c    = consts\n` +
+        `  λ    = functions\n` +
+        `  test = tests\n` +
+        `\n` +
+        `Move all ${currentCategory} declarations to appear before ${categoryNames[lastCategoryIndex]} declarations.\n` +
+        `\n` +
+        `Sigil enforces ONE way: canonical declaration ordering.`,
+        decl.location
+      );
+    }
+
+    lastCategoryIndex = Math.max(lastCategoryIndex, currentIndex);
+  }
+}
+
+/**
+ * Check alphabetical ordering within a category
+ * Non-exported declarations come first, then exported declarations
+ */
+function validateWithinCategoryOrder(
+  declarations: AST.Declaration[],
+  categoryName: string,
+  categorySymbol: string
+): void {
+  if (declarations.length === 0) return;
+
+  // Separate exported and non-exported
+  const nonExported: Array<{decl: AST.Declaration, name: string}> = [];
+  const exported: Array<{decl: AST.Declaration, name: string}> = [];
+
+  for (const decl of declarations) {
+    const name = extractDeclarationName(decl);
+    const isExport = isExportedDeclaration(decl);
+
+    if (isExport) {
+      exported.push({decl, name});
+    } else {
+      nonExported.push({decl, name});
+    }
+  }
+
+  // Check non-exported are alphabetical
+  checkAlphabeticalOrder(nonExported, categoryName, categorySymbol, false);
+
+  // Check exported are alphabetical
+  checkAlphabeticalOrder(exported, categoryName, categorySymbol, true);
+
+  // Check that non-exported come before exported
+  if (nonExported.length > 0 && exported.length > 0) {
+    const lastNonExported = nonExported[nonExported.length - 1];
+    const firstExported = exported[0];
+
+    // Find positions in original declaration list
+    const nonExportedIndex = declarations.indexOf(lastNonExported.decl);
+    const exportedIndex = declarations.indexOf(firstExported.decl);
+
+    if (exportedIndex < nonExportedIndex) {
+      throw new CanonicalError(
+        `Canonical Ordering Error: Exports must come after non-exports\n` +
+        `\n` +
+        `Found: export ${categorySymbol} ${firstExported.name} at line ${firstExported.decl.location.start.line}\n` +
+        `Before: ${categorySymbol} ${lastNonExported.name} at line ${lastNonExported.decl.location.start.line}\n` +
+        `\n` +
+        `Within each category:\n` +
+        `  1. Non-exported declarations (alphabetically)\n` +
+        `  2. Exported declarations (alphabetically)\n` +
+        `\n` +
+        `Move all exported ${categoryName} declarations to come after non-exported ones.\n` +
+        `\n` +
+        `Sigil enforces ONE way: canonical declaration ordering.`,
+        firstExported.decl.location
+      );
+    }
+  }
+}
+
+/**
+ * Check that a list of declarations is in alphabetical order
+ */
+function checkAlphabeticalOrder(
+  items: Array<{decl: AST.Declaration, name: string}>,
+  _categoryName: string,
+  categorySymbol: string,
+  isExported: boolean
+): void {
+  for (let i = 1; i < items.length; i++) {
+    const prev = items[i - 1];
+    const curr = items[i];
+
+    if (compareNames(curr.name, prev.name) < 0) {
+      // Current should come before previous - wrong order
+      const exportPrefix = isExported ? 'export ' : '';
+
+      throw new CanonicalError(
+        `Canonical Ordering Error: Declaration out of alphabetical order\n` +
+        `\n` +
+        `Found: ${exportPrefix}${categorySymbol} ${curr.name} at line ${curr.decl.location.start.line}\n` +
+        `After: ${exportPrefix}${categorySymbol} ${prev.name} at line ${prev.decl.location.start.line}\n` +
+        `\n` +
+        `Within '${categorySymbol}' category, ${isExported ? 'exported' : 'non-exported'} declarations must be alphabetical.\n` +
+        `Expected '${curr.name}' to come before '${prev.name}'.\n` +
+        `\n` +
+        `Alphabetical order uses Unicode code point comparison (case-sensitive).\n` +
+        `Move '${curr.name}' to come before '${prev.name}'.\n` +
+        `\n` +
+        `Sigil enforces ONE way: strict alphabetical ordering within categories.`,
+        curr.decl.location
+      );
+    }
+  }
+}
+
+/**
+ * Extract the sortable name from a declaration
+ */
+function extractDeclarationName(decl: AST.Declaration): string {
+  switch (decl.type) {
+    case 'ExternDecl':
+    case 'ImportDecl':
+      return formatModulePath(decl.modulePath);
+    case 'TypeDecl':
+      return decl.name;
+    case 'ConstDecl':
+      return decl.name;
+    case 'FunctionDecl':
+      return decl.name;
+    case 'TestDecl':
+      return decl.description;
+    default:
+      return '';
+  }
+}
+
+/**
+ * Format module path for sorting (e.g., ['fs', 'promises'] → 'fs⋅promises')
+ */
+function formatModulePath(path: string[]): string {
+  return path.join('⋅');
+}
+
+/**
+ * Check if a declaration has export modifier
+ */
+function isExportedDeclaration(decl: AST.Declaration): boolean {
+  switch (decl.type) {
+    case 'TypeDecl':
+    case 'ConstDecl':
+    case 'FunctionDecl':
+      return decl.isExported || false;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Compare two names alphabetically (Unicode code point order, case-sensitive)
+ */
+function compareNames(a: string, b: string): number {
+  return a.localeCompare(b, 'en', { sensitivity: 'case' });
 }

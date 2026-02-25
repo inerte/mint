@@ -1,46 +1,38 @@
 {
   "version": 1,
-  "file": "factorial.sigil",
+  "file": "hanoi.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-25T02:19:30.448Z",
+  "generated_at": "2026-02-25T02:19:30.225Z",
   "mappings": {
-    "factorial": {
+    "hanoi": {
       "range": [
         0,
-        47
+        177
       ],
-      "summary": "Function: factorial",
-      "explanation": "Function with 1 parameter(s), returns ℤ",
-      "type": "λ(ℤ)→ℤ"
+      "summary": "Function: hanoi",
+      "explanation": "Function with 4 parameter(s), returns 𝕊",
+      "type": "λ(ℤ,𝕊,𝕊,𝕊)→𝕊"
     },
-    "factorial_arm_0": {
+    "hanoi_arm_0": {
       "range": [
-        20,
-        23
-      ],
-      "summary": "Match arm: 0",
-      "explanation": "Pattern matches 0"
-    },
-    "factorial_arm_1": {
-      "range": [
-        24,
-        27
+        37,
+        76
       ],
       "summary": "Match arm: 1",
       "explanation": "Pattern matches 1"
     },
-    "factorial_arm_2": {
+    "hanoi_arm_1": {
       "range": [
-        28,
-        46
+        80,
+        175
       ],
       "summary": "Match arm: n",
       "explanation": "Pattern matches n"
     },
     "main": {
       "range": [
-        48,
-        88
+        179,
+        209
       ],
       "summary": "Function: main",
       "explanation": "Function with 0 parameter(s), returns 𝕊",

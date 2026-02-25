@@ -31,12 +31,14 @@ export class TypeEnvironment {
   private bindings: Map<string, InferenceType>;
   private bindingMeta: Map<string, BindingMeta>;
   private typeRegistry: Map<string, TypeInfo>;  // NEW: user-defined types
+  private importedTypeRegistries: Map<string, Map<string, TypeInfo>>;  // NEW: types from imported modules
   private parent?: TypeEnvironment;
 
   constructor(parent?: TypeEnvironment) {
     this.bindings = new Map();
     this.bindingMeta = new Map();
     this.typeRegistry = new Map();
+    this.importedTypeRegistries = new Map();
     this.parent = parent;
   }
 
@@ -99,6 +101,39 @@ export class TypeEnvironment {
 
     // Search parent scope
     return this.parent?.lookupType(name);
+  }
+
+  /**
+   * Register types from an imported module
+   */
+  registerImportedTypes(moduleId: string, types: Map<string, TypeInfo>): void {
+    this.importedTypeRegistries.set(moduleId, types);
+  }
+
+  /**
+   * Look up a qualified type from an imported module
+   * Example: lookupQualifiedType(['src', 'types'], 'ArticleMeta')
+   */
+  lookupQualifiedType(modulePath: string[], typeName: string): TypeInfo | undefined {
+    const moduleId = modulePath.join('/');
+    const registry = this.importedTypeRegistries.get(moduleId);
+    if (registry) {
+      return registry.get(typeName);
+    }
+
+    // Check parent scope
+    return this.parent?.lookupQualifiedType(modulePath, typeName);
+  }
+
+  /**
+   * Get all exported type names from a module (for error messages)
+   */
+  getImportedModuleTypeNames(moduleId: string): string[] | undefined {
+    const registry = this.importedTypeRegistries.get(moduleId);
+    if (registry) {
+      return Array.from(registry.keys()).sort();
+    }
+    return this.parent?.getImportedModuleTypeNames(moduleId);
   }
 
   /**

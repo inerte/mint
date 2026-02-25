@@ -18,6 +18,7 @@ import { validateExterns } from './validator/extern-validator.js';
 import { typeCheck } from './typechecker/index.js';
 import { formatType } from './typechecker/errors.js';
 import type { InferenceType } from './typechecker/types.js';
+import type { TypeInfo } from './typechecker/index.js';
 import type * as AST from './parser/ast.js';
 import { generateSemanticMap, enhanceWithClaude } from './mapgen/index.js';
 
@@ -264,16 +265,50 @@ function buildImportedNamespacesForModule(
   return imported;
 }
 
+function buildImportedTypeRegistriesForModule(
+  module: LoadedSigilModule,
+  exportedTypeRegistries: Map<string, Map<string, TypeInfo>>
+): Map<string, Map<string, TypeInfo>> {
+  const imported = new Map<string, Map<string, TypeInfo>>();
+
+  for (const decl of module.ast.declarations) {
+    if (decl.type !== 'ImportDecl') continue;
+    const moduleId = decl.modulePath.join('/');
+
+    // Only track Sigil imports (not externs)
+    if (!isSigilImportPath(moduleId)) continue;
+
+    const typeRegistry = exportedTypeRegistries.get(moduleId);
+    if (typeRegistry && typeRegistry.size > 0) {
+      imported.set(moduleId, typeRegistry);
+    }
+  }
+
+  return imported;
+}
+
 function typeCheckModuleGraph(graph: ModuleGraph): Map<string, Map<string, InferenceType>> {
   const moduleTypes = new Map<string, Map<string, InferenceType>>();
   const exportedNamespaces = new Map<string, InferenceType>();
+  const exportedTypeRegistries = new Map<string, Map<string, TypeInfo>>();
 
   for (const moduleId of graph.topoOrder) {
     const mod = graph.modules.get(moduleId)!;
+
+    // Build imported type registries for this module
+    const importedTypeRegistries = buildImportedTypeRegistriesForModule(
+      mod,
+      exportedTypeRegistries
+    );
+
     const importedNamespaces = buildImportedNamespacesForModule(mod, exportedNamespaces);
-    const types = typeCheck(mod.ast, mod.source, { importedNamespaces });
+    const types = typeCheck(mod.ast, mod.source, {
+      importedNamespaces,
+      importedTypeRegistries
+    });
     moduleTypes.set(moduleId, types);
 
+    // Build exported namespace (values)
     const fields = new Map<string, InferenceType>();
     for (const decl of mod.ast.declarations) {
       if (!declIsExported(decl)) continue;
@@ -281,9 +316,20 @@ function typeCheckModuleGraph(graph: ModuleGraph): Map<string, Map<string, Infer
         const t = types.get(decl.name);
         if (t) fields.set(decl.name, t);
       }
-      // Exported types are handled syntactically/canonically now; cross-module type refs are a future extension.
     }
     exportedNamespaces.set(moduleId, { kind: 'record', fields });
+
+    // Build exported type registry
+    const typeRegistry = new Map<string, TypeInfo>();
+    for (const decl of mod.ast.declarations) {
+      if (decl.type === 'TypeDecl' && decl.isExported) {
+        typeRegistry.set(decl.name, {
+          typeParams: decl.typeParams,
+          definition: decl.definition
+        });
+      }
+    }
+    exportedTypeRegistries.set(moduleId, typeRegistry);
   }
 
   return moduleTypes;

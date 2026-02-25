@@ -758,7 +758,78 @@ function synthesizeFold(env: TypeEnvironment, expr: AST.FoldExpr): InferenceType
   return initType;
 }
 
+function resolveQualifiedType(
+  env: TypeEnvironment,
+  astType: AST.QualifiedType
+): InferenceType {
+  const moduleId = astType.modulePath.join('/');
+  const typeInfo = env.lookupQualifiedType(astType.modulePath, astType.typeName);
+
+  if (!typeInfo) {
+    // Check if module is imported
+    const availableTypes = env.getImportedModuleTypeNames(moduleId);
+
+    if (availableTypes && availableTypes.length > 0) {
+      throw new TypeError(
+        `Undefined type: ${astType.modulePath.join('⋅')}.${astType.typeName}\n\n` +
+        `Module "${moduleId}" is imported, but it does not export a type named "${astType.typeName}".\n\n` +
+        `Did you mean one of these exported types?\n` +
+        availableTypes.map(t => `  - ${t}`).join('\n'),
+        astType.location
+      );
+    } else {
+      throw new TypeError(
+        `Module "${moduleId}" is not imported or does not export any types.\n\n` +
+        `Add this import: i ${astType.modulePath.join('⋅')}`,
+        astType.location
+      );
+    }
+  }
+
+  // Convert type arguments
+  const typeArgs = astType.typeArgs.map(arg => astTypeToInferenceType(arg));
+
+  // Check arity
+  if (typeArgs.length !== typeInfo.typeParams.length) {
+    throw new TypeError(
+      `Type argument mismatch: ${astType.typeName} expects ${typeInfo.typeParams.length} ` +
+      `type argument${typeInfo.typeParams.length !== 1 ? 's' : ''}, but got ${typeArgs.length}`,
+      astType.location
+    );
+  }
+
+  const qualifiedName = `${moduleId}.${astType.typeName}`;
+
+  // Resolve the type definition (similar to resolveTypeAliases)
+  if (typeInfo.typeParams.length === 0) {
+    if (typeInfo.definition.type === 'ProductType') {
+      // Resolve to record type
+      const fields = new Map<string, InferenceType>();
+      for (const field of typeInfo.definition.fields) {
+        fields.set(field.name, astTypeToInferenceTypeResolved(env, field.fieldType));
+      }
+      return { kind: 'record', fields, name: qualifiedName };
+    }
+    if (typeInfo.definition.type === 'TypeAlias') {
+      // Resolve the aliased type
+      return astTypeToInferenceTypeResolved(env, typeInfo.definition.aliasedType);
+    }
+  }
+
+  // Return as type constructor (for sum types or generic types with args)
+  return {
+    kind: 'constructor',
+    name: qualifiedName,
+    typeArgs
+  };
+}
+
 function astTypeToInferenceTypeResolved(env: TypeEnvironment, astType: AST.Type): InferenceType {
+  // Handle qualified types before conversion
+  if (astType.type === 'QualifiedType') {
+    return resolveQualifiedType(env, astType);
+  }
+
   const base = astTypeToInferenceType(astType);
   return resolveTypeAliases(env, base);
 }
@@ -1136,6 +1207,13 @@ function createConstructorType(
 export function typeCheck(program: AST.Program, _source: string, options?: TypeCheckOptions): Map<string, InferenceType> {
   const env = TypeEnvironment.createInitialEnvironment();
   const types = new Map<string, InferenceType>();
+
+  // Register imported type registries
+  if (options?.importedTypeRegistries) {
+    for (const [moduleId, typeRegistry] of options.importedTypeRegistries) {
+      env.registerImportedTypes(moduleId, typeRegistry);
+    }
+  }
 
   // First pass: Add all type declarations, function declarations, extern namespaces, and imports to environment
   // (for mutual recursion support, FFI, module imports, and user-defined types)

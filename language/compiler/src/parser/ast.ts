@@ -142,7 +142,8 @@ export type Type =
   | FunctionType
   | TypeConstructor
   | TypeVariable
-  | TupleType;
+  | TupleType
+  | QualifiedType;
 
 export interface PrimitiveType {
   type: 'PrimitiveType';
@@ -187,6 +188,14 @@ export interface TypeVariable {
 export interface TupleType {
   type: 'TupleType';
   types: Type[];
+  location: SourceLocation;
+}
+
+export interface QualifiedType {
+  type: 'QualifiedType';
+  modulePath: string[];     // ['src', 'types'] from "src⋅types"
+  typeName: string;         // 'ArticleMeta' from "src⋅types.ArticleMeta"
+  typeArgs: Type[];         // [T, E] for generic types like "Result[T, E]"
   location: SourceLocation;
 }
 

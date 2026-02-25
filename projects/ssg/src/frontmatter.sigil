@@ -2,7 +2,7 @@
 
 i stdlib⋅string_ops
 i stdlib⋅string_predicates
-i ./types
+i src⋅types
 
 ⟦ Extract value from "key: value" line ⟧
 λextract_value(line:𝕊,key:𝕊)→𝕊=
@@ -17,7 +17,7 @@ i ./types
   }
 
 ⟦ Parse frontmatter block between --- delimiters ⟧
-export λparse_frontmatter(markdown:𝕊)→(types.ArticleMeta,𝕊)=
+export λparse_frontmatter(markdown:𝕊)→(src⋅types.ArticleMeta,𝕊)=
   l lines=stdlib⋅string_ops.split(markdown,"\n");
   l num_lines=#lines;
 

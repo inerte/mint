@@ -1,7 +1,7 @@
 ⟦ HTML template generation ⟧
 
 i stdlib⋅string_ops
-i ./types
+i src⋅types
 
 ⟦ Basic CSS for readability ⟧
 λget_css()→𝕊=
@@ -23,7 +23,7 @@ export λpage(title:𝕊,content:𝕊)→𝕊=
   "</html>"
 
 ⟦ Article layout with metadata ⟧
-export λarticle(meta:types.ArticleMeta,html:𝕊)→𝕊=
+export λarticle(meta:src⋅types.ArticleMeta,html:𝕊)→𝕊=
   l meta_html=
     "<div class=\"article-meta\">\n"++
     "  <div class=\"article-date\">"++meta.date++"</div>\n"++
@@ -44,7 +44,7 @@ export λarticle(meta:types.ArticleMeta,html:𝕊)→𝕊=
   page(meta.title++" - Sigil Language",content)
 
 ⟦ Article index page ⟧
-export λindex(articles:[types.Article])→𝕊=
+export λindex(articles:[src⋅types.Article])→𝕊=
   l num_articles=#articles;
   l render_articles=λ(i:ℤ,result:𝕊)→𝕊≡i{
     idx when idx≥num_articles → result|

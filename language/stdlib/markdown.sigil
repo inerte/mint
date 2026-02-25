@@ -275,25 +275,48 @@ Uses field access in pattern guards for the one canonical way to inspect state.
 
 Process **bold**, *italic*, `code`, and [links](url) within text.
 ⟧
+
 λprocess_inline(text:𝕊)→𝕊=
-  l step1=process_inline_bold(text);
-  l step2=process_inline_italic(step1);
-  l step3=process_inline_code(step2);
+  l step1=process_inline_code(text);
+  l step2=process_inline_bold(step1);
+  l step3=process_inline_italic(step2);
   process_inline_links(step3)
 
 λprocess_inline_bold(text:𝕊)→𝕊=
-  stdlib⋅string_ops.replace_all(text,"**","<strong>","</strong>")
+  replace_paired_delimiters(text,"**","<strong>","</strong>","")
 
 λprocess_inline_code(text:𝕊)→𝕊=
-  stdlib⋅string_ops.replace_all(text,"`","<code>","</code>")
+  replace_paired_delimiters(text,"`","<code>","</code>","")
 
 λprocess_inline_italic(text:𝕊)→𝕊=
-  stdlib⋅string_ops.replace_all(text,"*","<em>","</em>")
+  replace_paired_delimiters(text,"*","<em>","</em>","")
 
 ⟦ Simplified link processing - find [text](url) patterns ⟧
 λprocess_inline_links(text:𝕊)→𝕊=
-  ⟦ For v1, just escape and return - proper link parsing is complex ⟧
+  ⟦ For v1, just return as-is - proper link parsing is complex ⟧
   text
+
+⟦ Replace paired delimiters with HTML tags ⟧
+λreplace_paired_delimiters(text:𝕊,delimiter:𝕊,open_tag:𝕊,close_tag:𝕊,result:𝕊)→𝕊=
+  l first_idx=stdlib⋅string_ops.index_of(text,delimiter);
+  ≡first_idx{
+    idx when idx≥0 →
+      l after_first=stdlib⋅string_ops.substring(text,idx+#delimiter,#text);
+      l second_idx=stdlib⋅string_ops.index_of(after_first,delimiter);
+      ≡second_idx{
+        idx2 when idx2≥0 →
+          l before=stdlib⋅string_ops.substring(text,0,idx);
+          l content=stdlib⋅string_ops.substring(after_first,0,idx2);
+          l after_second_relative=idx2+#delimiter;
+          l after_second=stdlib⋅string_ops.substring(after_first,after_second_relative,#after_first);
+          l new_result=result+before+open_tag+content+close_tag;
+          replace_paired_delimiters(after_second,delimiter,open_tag,close_tag,new_result)|
+        _ →
+          result+text
+      }|
+    _ →
+      result+text
+  }
 
 ⟦ Main Export - Parse markdown to HTML ⟧
 export λparse(markdown:𝕊)→𝕊=

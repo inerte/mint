@@ -58,6 +58,10 @@ async function __sigil_with_mock_extern(key, actualFn, mockFn, body) {
   if (actualFn.length !== mockFn.length) { throw new Error(`with_mock extern arity mismatch for ${key}: expected ${actualFn.length}, got ${mockFn.length}`); }
   return await __sigil_with_mock(key, mockFn, body);
 }
+export async function main() {
+  return await reverse([].concat([1], [2], [3], [4], [5]));
+}
+
 async function reverse(lst) {
   return (async () => {
   const __match = await lst;
@@ -70,9 +74,5 @@ async function reverse(lst) {
   }
   throw new Error('Match failed: no pattern matched');
 })();
-}
-
-export async function main() {
-  return await reverse([].concat([1], [2], [3], [4], [5]));
 }
 

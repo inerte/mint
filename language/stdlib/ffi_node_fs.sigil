@@ -9,12 +9,12 @@
 ⟧
 
 e fs⋅promises : {
-  readFile : λ(𝕊, 𝕊) → 𝕊,
-  writeFile : λ(𝕊, 𝕊, 𝕊) → 𝕌,
   appendFile : λ(𝕊, 𝕊, 𝕊) → 𝕌,
+  readFile : λ(𝕊, 𝕊) → 𝕊,
   readdir : λ(𝕊) → [𝕊],
   rm : λ(𝕊) → 𝕌,
-  unlink : λ(𝕊) → 𝕌
+  unlink : λ(𝕊) → 𝕌,
+  writeFile : λ(𝕊, 𝕊, 𝕊) → 𝕌
 }
 
 ⟦ Note: mkdir is not included because it takes an options object parameter

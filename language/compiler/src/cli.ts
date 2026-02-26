@@ -16,6 +16,7 @@ import { validateCanonicalForm } from './validator/canonical.js';
 import { validateSurfaceForm } from './validator/surface-form.js';
 import { validateExterns } from './validator/extern-validator.js';
 import { typeCheck } from './typechecker/index.js';
+import { qualifyTypeDef } from './typechecker/bidirectional.js';
 import { formatType } from './typechecker/errors.js';
 import type { InferenceType } from './typechecker/types.js';
 import type { TypeInfo } from './typechecker/index.js';
@@ -458,16 +459,38 @@ function typeCheckModuleGraph(graph: ModuleGraph): Map<string, Map<string, Infer
     }
     exportedNamespaces.set(moduleId, { kind: 'record', fields });
 
-    // Build exported type registry
+    // Build exported type registry with qualified field types
     const typeRegistry = new Map<string, TypeInfo>();
+
+    // First pass: build local type registry for qualification lookup
+    const localTypeRegistry = new Map<string, TypeInfo>();
     for (const decl of mod.ast.declarations) {
-      if (decl.type === 'TypeDecl' && decl.isExported) {
-        typeRegistry.set(decl.name, {
+      if (decl.type === 'TypeDecl') {
+        localTypeRegistry.set(decl.name, {
           typeParams: decl.typeParams,
-          definition: decl.definition
+          definition: decl.definition  // Raw AST, just for lookup
         });
       }
     }
+
+    // Second pass: export with qualified field types
+    for (const decl of mod.ast.declarations) {
+      if (decl.type === 'TypeDecl' && decl.isExported) {
+        // Qualify all unqualified type references in the definition
+        const qualifiedDef = qualifyTypeDef(
+          decl.definition,
+          moduleId,
+          localTypeRegistry,
+          decl.typeParams  // Don't qualify type parameters
+        );
+
+        typeRegistry.set(decl.name, {
+          typeParams: decl.typeParams,
+          definition: qualifiedDef
+        });
+      }
+    }
+
     exportedTypeRegistries.set(moduleId, typeRegistry);
   }
 

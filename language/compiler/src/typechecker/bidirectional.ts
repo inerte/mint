@@ -10,7 +10,7 @@
  */
 
 import { InferenceType, astTypeToInferenceType } from './types.js';
-import { TypeEnvironment } from './environment.js';
+import { TypeEnvironment, TypeInfo } from './environment.js';
 import { TypeError, formatType } from './errors.js';
 import * as AST from '../parser/ast.js';
 import { checkProgramMutability, MutabilityError } from '../mutability/index.js';
@@ -1599,4 +1599,139 @@ function checkConstDecl(env: TypeEnvironment, decl: AST.ConstDecl, types: Map<st
   // Add to environment
   env.bind(decl.name, annotatedType);
   types.set(decl.name, annotatedType);
+}
+
+// ============================================================================
+// TYPE QUALIFICATION FOR EXPORTS
+// ============================================================================
+
+/**
+ * Qualify all unqualified type references in an AST Type with the module path.
+ *
+ * This is used when exporting types - field types must be qualified so they
+ * can be resolved correctly in importing modules.
+ *
+ * @param astType The AST type node to qualify
+ * @param moduleId The module ID (e.g., 'src⋅types')
+ * @param localTypeRegistry Registry of types defined in this module
+ * @param typeParams Type parameters that should NOT be qualified (bound variables)
+ */
+function qualifyTypeInContext(
+  astType: AST.Type,
+  moduleId: string,
+  localTypeRegistry: Map<string, TypeInfo>,
+  typeParams: string[] = []
+): AST.Type {
+  switch (astType.type) {
+    case 'PrimitiveType':
+    case 'QualifiedType':
+      // Already primitive or qualified
+      return astType;
+
+    case 'TypeVariable':
+      // Skip type parameters (bound variables)
+      if (typeParams.includes(astType.name)) {
+        return astType;
+      }
+
+      // Check if this is a local user-defined type
+      if (localTypeRegistry.has(astType.name)) {
+        // Qualify it with module path
+        return {
+          type: 'QualifiedType',
+          modulePath: moduleId.split('⋅'),
+          typeName: astType.name,
+          typeArgs: [],
+          location: astType.location
+        };
+      }
+
+      // Otherwise it's a primitive (Bool, String, etc.) - leave as-is
+      return astType;
+
+    case 'TypeConstructor':
+      // Recursively qualify type arguments
+      return {
+        ...astType,
+        typeArgs: astType.typeArgs.map(t =>
+          qualifyTypeInContext(t, moduleId, localTypeRegistry, typeParams)
+        )
+      };
+
+    case 'ListType':
+      return {
+        ...astType,
+        elementType: qualifyTypeInContext(astType.elementType, moduleId, localTypeRegistry, typeParams)
+      };
+
+    case 'TupleType':
+      return {
+        ...astType,
+        types: astType.types.map(t =>
+          qualifyTypeInContext(t, moduleId, localTypeRegistry, typeParams)
+        )
+      };
+
+    case 'FunctionType':
+      return {
+        ...astType,
+        paramTypes: astType.paramTypes.map(t =>
+          qualifyTypeInContext(t, moduleId, localTypeRegistry, typeParams)
+        ),
+        returnType: qualifyTypeInContext(astType.returnType, moduleId, localTypeRegistry, typeParams)
+      };
+
+    case 'MapType':
+      return {
+        ...astType,
+        keyType: qualifyTypeInContext(astType.keyType, moduleId, localTypeRegistry, typeParams),
+        valueType: qualifyTypeInContext(astType.valueType, moduleId, localTypeRegistry, typeParams)
+      };
+
+    default:
+      return astType;
+  }
+}
+
+/**
+ * Qualify all type references in a TypeDef (ProductType, SumType, or TypeAlias).
+ *
+ * @param typeDef The type definition to qualify
+ * @param moduleId The module ID
+ * @param localTypeRegistry Registry of types defined in this module
+ * @param typeParams Type parameters (for generic types)
+ */
+export function qualifyTypeDef(
+  typeDef: AST.TypeDef,
+  moduleId: string,
+  localTypeRegistry: Map<string, TypeInfo>,
+  typeParams: string[] = []
+): AST.TypeDef {
+  switch (typeDef.type) {
+    case 'ProductType':
+      return {
+        ...typeDef,
+        fields: typeDef.fields.map(field => ({
+          ...field,
+          fieldType: qualifyTypeInContext(field.fieldType, moduleId, localTypeRegistry, typeParams)
+        }))
+      };
+
+    case 'SumType':
+      return {
+        ...typeDef,
+        variants: typeDef.variants.map(variant => ({
+          ...variant,
+          types: variant.types.map(t =>
+            qualifyTypeInContext(t, moduleId, localTypeRegistry, typeParams)
+          )
+        }))
+      };
+
+    case 'TypeAlias':
+      return {
+        ...typeDef,
+        aliasedType: qualifyTypeInContext(typeDef.aliasedType, moduleId, localTypeRegistry, typeParams)
+      };
+  }
 }

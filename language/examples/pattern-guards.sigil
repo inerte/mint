@@ -25,6 +25,8 @@ t User={name:𝕊,age:ℤ}
 
 e console
 
+i stdlib⋅string
+
 ⟦ Example 1: Range Checking
 
 Without guards, you'd need nested match expressions.
@@ -40,76 +42,34 @@ With guards, you can express ranges cleanly.
   _ → "negative"
 }
 
-⟦ Example 2: Validating Data
-
-Guards are perfect for validation logic where you match
-on structure but need to check constraints.
-⟧
-
-λvalidateUser(u:User)→𝕊≡u{
-  {name,age} when age<0 → "Invalid: negative age" |
-  {name,age} when age>150 → "Invalid: age too high" |
-  {name,..} when #name=0 → "Invalid: empty name" |
-  {name,age} → "Valid user: "++name
-}
-
-⟦ Example 3: Conditional Unpacking
-
-Match on structure, then check additional conditions
-on the unpacked values.
-⟧
-
-λprocessResult(r:Result)→𝕊≡r{
-  Ok(n) when n>100 → "Big success: "++stdlib⋅string.int_to_string(n) |
-  Ok(n) when n>0 → "Success: "++stdlib⋅string.int_to_string(n) |
-  Ok(n) → "Success with zero or negative" |
-  Err(msg) when #msg>0 → "Error: "++msg |
-  Err(_) → "Unknown error"
-}
-
-⟦ Example 4: Fall-through Behavior
-
-When a guard fails, matching continues to the next arm.
-This enables priority-based matching.
-⟧
-
-λprioritizeTask(priority:ℤ,urgent:𝔹)→𝕊≡priority{
-  p when urgent → "URGENT (priority "++stdlib⋅string.int_to_string(p)++")" |
-  p when p>7 → "High priority" |
-  p when p>3 → "Medium priority" |
-  _ → "Low priority"
-}
-
 ⟦ Example 5: Complex Conditions
 
 Guards can use any boolean expression, including
 conjunction (∧), disjunction (∨), and comparisons.
 ⟧
 
-λclassifyPoint(p:Point)→𝕊≡p{
-  {x,y} when x=0∧y=0 → "origin" |
-  {x,y} when x=0 → "on y-axis" |
-  {x,y} when y=0 → "on x-axis" |
-  {x,y} when x=y → "on diagonal y=x" |
-  {x,y} when x=-y → "on diagonal y=-x" |
-  {x,y} when x>0∧y>0 → "quadrant I" |
-  {x,y} when x<0∧y>0 → "quadrant II" |
-  {x,y} when x<0∧y<0 → "quadrant III" |
+λclassifyPoint(p:Point)→𝕊≡p.x{
+  x when x=0∧p.y=0 → "origin" |
+  x when x=0 → "on y-axis" |
+  _ when p.y=0 → "on x-axis" |
+  x when x=p.y → "on diagonal y=x" |
+  x when x=-p.y → "on diagonal y=-x" |
+  x when x>0∧p.y>0 → "quadrant I" |
+  x when x<0∧p.y>0 → "quadrant II" |
+  x when x<0∧p.y<0 → "quadrant III" |
   _ → "quadrant IV"
 }
 
-⟦ Example 6: State Machines
+⟦ Example 8: Backward Compatibility
 
-Pattern guards shine in state machine implementations.
-Match on state structure, guard on input conditions.
+Patterns without guards work exactly as before.
+Guards are purely additive.
 ⟧
 
-λstateTransition(state:State,action:Action)→State≡action{
-  Increment when state.count<100 → {mode:state.mode,count:state.count+1} |
-  Increment → {mode:"maxed",count:100} |
-  Decrement when state.count>0 → {mode:state.mode,count:state.count-1} |
-  Decrement → {mode:"empty",count:0} |
-  Reset → {mode:"normal",count:0}
+λcolorToHex(color:Color)→𝕊≡color{
+  Red → "#FF0000" |
+  Green → "#00FF00" |
+  Blue → "#0000FF"
 }
 
 ⟦ Example 7: List Processing
@@ -120,36 +80,13 @@ conditional list processing.
 
 λfindFirstPositive(list:[ℤ])→𝕊≡list{
   [] → "empty list" |
-  [x,._] when x>0 → "first positive: "++stdlib⋅string.int_to_string(x) |
+  [x,.rest] when x>0 → "first positive: "++stdlib⋅string.int_to_string(x) |
   [_,.xs] → findFirstPositive(xs)
 }
 
-⟦ Example 8: Backward Compatibility
-
-Patterns without guards work exactly as before.
-Guards are purely additive.
-⟧
-
-λcolorToHex(c:Color)→𝕊≡c{
-  Red → "#FF0000" |
-  Green → "#00FF00" |
-  Blue → "#0000FF"
-}
-
-⟦ Design Principles
-
-1. ONE CANONICAL FORM: Guards extend ≡, they don't replace it
-2. TYPE SAFE: Guards must be boolean (checked at compile time)
-3. EXPLICIT: The `when` keyword makes intent clear
-4. PREDICTABLE: Evaluation order is top-to-bottom
-
-This fits Sigil's philosophy: add features only when they make
-complex code SIMPLER, not just different.
-⟧
-
 ⟦ Demo - Run examples ⟧
 
-λmain()→ℤ≡{
+λmain()→ℤ={
   l _=console.log("=== Range Checking ===");
   l _=console.log(classifyNumber(5000));
   l _=console.log(classifyNumber(50));
@@ -181,3 +118,68 @@ complex code SIMPLER, not just different.
 
   0
 }
+
+⟦ Example 4: Fall-through Behavior
+
+When a guard fails, matching continues to the next arm.
+This enables priority-based matching.
+⟧
+
+λprioritizeTask(priority:ℤ,urgent:𝔹)→𝕊≡priority{
+  p when urgent → "URGENT (priority "++stdlib⋅string.int_to_string(p)++")" |
+  p when p>7 → "High priority" |
+  p when p>3 → "Medium priority" |
+  _ → "Low priority"
+}
+
+⟦ Example 3: Conditional Unpacking
+
+Match on structure, then check additional conditions
+on the unpacked values.
+⟧
+
+λprocessResult(r:Result)→𝕊≡r{
+  Ok(n) when n>100 → "Big success: "++stdlib⋅string.int_to_string(n) |
+  Ok(n) when n>0 → "Success: "++stdlib⋅string.int_to_string(n) |
+  Ok(n) → "Success with zero or negative" |
+  Err(msg) when #msg>0 → "Error: "++msg |
+  Err(_) → "Unknown error"
+}
+
+⟦ Example 6: State Machines
+
+Pattern guards shine in state machine implementations.
+Match on state structure, guard on input conditions.
+⟧
+
+λstateTransition(state:State,action:Action)→State≡action{
+  Increment when state.count<100 → {mode:state.mode,count:state.count+1} |
+  Increment → {mode:"maxed",count:100} |
+  Decrement when state.count>0 → {mode:state.mode,count:state.count-1} |
+  Decrement → {mode:"empty",count:0} |
+  Reset → {mode:"normal",count:0}
+}
+
+⟦ Example 2: Validating Data
+
+Guards are perfect for validation logic where you match
+on structure but need to check constraints.
+⟧
+
+λvalidateUser(u:User)→𝕊≡u.age{
+  age when age<0 → "Invalid: negative age" |
+  age when age>150 → "Invalid: age too high" |
+  _ when #u.name=0 → "Invalid: empty name" |
+  _ → "Valid user: "++u.name
+}
+
+⟦ Design Principles
+
+1. ONE CANONICAL FORM: Guards extend ≡, they don't replace it
+2. TYPE SAFE: Guards must be boolean (checked at compile time)
+3. EXPLICIT: The `when` keyword makes intent clear
+4. PREDICTABLE: Evaluation order is top-to-bottom
+
+This fits Sigil's philosophy: add features only when they make
+complex code SIMPLER, not just different.
+⟧

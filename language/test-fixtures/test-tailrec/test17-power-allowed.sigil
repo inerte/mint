@@ -1,5 +1,5 @@
 // TEST: Power with multi-param recursion (should COMPILE)
-// EXPECTED: ✅ COMPILES - legitimate multi-param algorithm
+// EXPECTED: OK COMPILES - legitimate multi-param algorithm
 
 λpower(base:ℤ,exp:ℤ)→ℤ≡exp{
   0→1|

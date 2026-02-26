@@ -1,5 +1,5 @@
 // TEST: Tuple boolean matching on single parameter
-// EXPECTED: ❌ BLOCKED - "tuple of boolean expressions on single parameter"
+// EXPECTED: BLOCKED BLOCKED - "tuple of boolean expressions on single parameter"
 
 λfib(n:ℤ)→ℤ≡(n=0,n=1){
   (⊤,_)→0|

@@ -57,7 +57,8 @@ const LANGUAGE_ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..',
  * Example: "src/types" → "src/types"
  */
 function modulePathToFilePath(moduleId: string): string {
-  return moduleId;
+  // Convert Sigil module ID separator (⋅) to filesystem path separator
+  return moduleId.replace(/⋅/g, '/');
 }
 
 /**
@@ -70,7 +71,8 @@ function filePathToModuleId(absFilePath: string, project?: SigilProjectConfig): 
     const relativePath = relative(LANGUAGE_ROOT_DIR, absFilePath);
     if (relativePath.endsWith('.sigil')) {
       const withoutExt = relativePath.slice(0, -6); // Remove .sigil
-      return withoutExt;
+      // Normalize path separators to ⋅ for Sigil module IDs
+      return withoutExt.replace(/[\/\\]/g, '⋅');
     }
   }
 
@@ -79,7 +81,8 @@ function filePathToModuleId(absFilePath: string, project?: SigilProjectConfig): 
     const relativePath = relative(project.root, absFilePath);
     if (relativePath.endsWith('.sigil')) {
       const withoutExt = relativePath.slice(0, -6); // Remove .sigil
-      return withoutExt;
+      // Normalize path separators to ⋅ for Sigil module IDs
+      return withoutExt.replace(/[\/\\]/g, '⋅');
     }
   }
 
@@ -292,7 +295,7 @@ function ensureNoTestsOutsideTestsDir(ast: ReturnType<typeof parse>, filename: s
 }
 
 function isSigilImportPath(modulePath: string): boolean {
-  return modulePath.startsWith('src/') || modulePath.startsWith('stdlib/');
+  return modulePath.startsWith('src⋅') || modulePath.startsWith('stdlib⋅');
 }
 
 function resolveSigilImportToFile(
@@ -300,10 +303,10 @@ function resolveSigilImportToFile(
   importerProject: SigilProjectConfig | undefined,
   moduleId: string
 ): { moduleId: string; filePath: string; project?: SigilProjectConfig } {
-  // Internal module IDs already use slash separators.
+  // Internal module IDs use ⋅ separator, convert to filesystem path
   const filePathStr = modulePathToFilePath(moduleId);
 
-  if (moduleId.startsWith('src/')) {
+  if (moduleId.startsWith('src⋅')) {
     if (!importerProject) {
       throw new SigilDiagnosticError(diagnostic('SIGIL-CLI-PROJECT-ROOT-REQUIRED', 'cli', 'project import requires sigil project root', {
         details: { moduleId, importerFile }
@@ -315,7 +318,7 @@ function resolveSigilImportToFile(
       project: importerProject,
     };
   }
-  if (moduleId.startsWith('stdlib/')) {
+  if (moduleId.startsWith('stdlib⋅')) {
     return {
       moduleId,
       filePath: join(LANGUAGE_ROOT_DIR, `${filePathStr}.sigil`),
@@ -324,7 +327,7 @@ function resolveSigilImportToFile(
   }
   throw new SigilDiagnosticError(diagnostic('SIGIL-CLI-INVALID-IMPORT', 'cli', 'invalid sigil import module id', {
     found: moduleId,
-    expected: ['src/...', 'stdlib/...']
+    expected: ['src⋅...', 'stdlib⋅...']
   }));
 }
 
@@ -362,7 +365,7 @@ function buildModuleGraph(entryFile: string): ModuleGraph {
 
     for (const decl of ast.declarations) {
       if (decl.type !== 'ImportDecl') continue;
-      const importedId = decl.modulePath.join('/');
+      const importedId = decl.modulePath.join('⋅');
       if (!isSigilImportPath(importedId)) continue;
       const resolved = resolveSigilImportToFile(absFile, project ?? undefined, importedId);
       if (!existsSync(resolved.filePath)) {
@@ -394,7 +397,7 @@ function buildImportedNamespacesForModule(
   const imported = new Map<string, InferenceType>();
   for (const decl of module.ast.declarations) {
     if (decl.type !== 'ImportDecl') continue;
-    const moduleId = decl.modulePath.join('/');
+    const moduleId = decl.modulePath.join('⋅');
     if (!isSigilImportPath(moduleId)) continue;
     const nsType = exportedNamespaces.get(moduleId);
     if (nsType) {
@@ -412,7 +415,7 @@ function buildImportedTypeRegistriesForModule(
 
   for (const decl of module.ast.declarations) {
     if (decl.type !== 'ImportDecl') continue;
-    const moduleId = decl.modulePath.join('/');
+    const moduleId = decl.modulePath.join('⋅');
 
     // Only track Sigil imports (not externs)
     if (!isSigilImportPath(moduleId)) continue;

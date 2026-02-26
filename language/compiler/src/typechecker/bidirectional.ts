@@ -271,6 +271,8 @@ function typesEqual(t1: InferenceType, t2: InferenceType): boolean {
 
     case 'record':
       if (t2.kind !== 'record') return false;
+      // Check qualified names if both have them
+      if (t1.name && t2.name && t1.name !== t2.name) return false;
       if (t1.fields.size !== t2.fields.size) return false;
       for (const [key, type1] of t1.fields) {
         const type2 = t2.fields.get(key);
@@ -353,7 +355,7 @@ function synthesizeApplication(env: TypeEnvironment, expr: AST.ApplicationExpr):
 
 function isExternMockTarget(env: TypeEnvironment, target: AST.Expr): boolean {
   if (target.type !== 'MemberAccessExpr') return false;
-  const namespaceName = target.namespace.join('/');
+  const namespaceName = target.namespace.join('⋅');
   return !!env.lookupMeta(namespaceName)?.isExternNamespace;
 }
 
@@ -651,14 +653,13 @@ function synthesizeIndex(env: TypeEnvironment, expr: AST.IndexExpr): InferenceTy
 }
 
 function synthesizeMemberAccess(env: TypeEnvironment, expr: AST.MemberAccessExpr): InferenceType {
-  const namespaceName = expr.namespace.join('/');
-  const sigilNamespace = expr.namespace.join('⋅');
+  const namespaceName = expr.namespace.join('⋅');
 
   // Check namespace exists (should be registered from extern declaration)
   const namespaceType = env.lookup(namespaceName);
   if (!namespaceType) {
     throw new TypeError(
-      `Unknown namespace '${sigilNamespace}'. Did you forget 'e ${sigilNamespace}'?`,
+      `Unknown namespace '${namespaceName}'. Did you forget 'e ${namespaceName}'?`,
       expr.location
     );
   }
@@ -667,14 +668,14 @@ function synthesizeMemberAccess(env: TypeEnvironment, expr: AST.MemberAccessExpr
     const memberType = namespaceType.fields.get(expr.member);
     if (!memberType) {
       throw new TypeError(
-        `Module '${sigilNamespace}' does not export member '${expr.member}'`,
+        `Module '${namespaceName}' does not export member '${expr.member}'`,
         expr.location,
         undefined,
         undefined,
         'SIGIL-TYPE-MODULE-NOT-EXPORTED',
-        { module: sigilNamespace, member: expr.member },
+        { module: namespaceName, member: expr.member },
         [
-          suggestExportMember(`export '${expr.member}' from ${sigilNamespace} if it is part of the public API`, expr.member),
+          suggestExportMember(`export '${expr.member}' from ${namespaceName} if it is part of the public API`, expr.member),
           ...(expr.member === 'len' ? [suggestUseOperator('use the built-in list length operator', '#', 'len')] : []),
           suggestGeneric('use an exported member from the module namespace', 'select_exported_member')
         ]
@@ -830,7 +831,7 @@ function resolveQualifiedType(
   env: TypeEnvironment,
   astType: AST.QualifiedType
 ): InferenceType {
-  const moduleId = astType.modulePath.join('/');
+  const moduleId = astType.modulePath.join('⋅');
   const typeInfo = env.lookupQualifiedType(astType.modulePath, astType.typeName);
 
   if (!typeInfo) {
@@ -910,7 +911,7 @@ function resolveTypeAliases(env: TypeEnvironment, type: InferenceType): Inferenc
       const lastDotIndex = type.name.lastIndexOf('.');
       const moduleId = type.name.substring(0, lastDotIndex);
       const typeName = type.name.substring(lastDotIndex + 1);
-      const modulePath = moduleId.split('/');
+      const modulePath = moduleId.split('⋅');
 
       const typeInfo = env.lookupQualifiedType(modulePath, typeName);
       if (typeInfo && typeInfo.typeParams.length === 0) {
@@ -1347,11 +1348,11 @@ export function typeCheck(program: AST.Program, _source: string, options?: TypeC
     } else if (decl.type === 'ExternDecl') {
       // Register namespace as "any" type (trust mode)
       // Member validation happens at link-time, not type-check time
-      const namespaceName = decl.modulePath.join('/');
+      const namespaceName = decl.modulePath.join('⋅');
       const anyType: InferenceType = { kind: 'any' };
       env.bindWithMeta(namespaceName, anyType, { isExternNamespace: true });
     } else if (decl.type === 'ImportDecl') {
-      const namespaceName = decl.modulePath.join('/');
+      const namespaceName = decl.modulePath.join('⋅');
       const importedType = options?.importedNamespaces?.get(namespaceName);
       if (importedType) {
         env.bind(namespaceName, importedType);
@@ -1639,7 +1640,7 @@ function qualifyTypeInContext(
         // Qualify it with module path
         return {
           type: 'QualifiedType',
-          modulePath: moduleId.split('/'),
+          modulePath: moduleId.split('⋅'),
           typeName: astType.name,
           typeArgs: [],
           location: astType.location

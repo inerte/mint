@@ -1,5 +1,5 @@
 // TEST: Canonical value matching (should COMPILE)
-// EXPECTED: ✅ COMPILES
+// EXPECTED: OK COMPILES
 
 λsum(n:ℤ)→ℤ≡n{
   0→0|

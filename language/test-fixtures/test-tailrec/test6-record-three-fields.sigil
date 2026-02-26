@@ -1,5 +1,5 @@
 // TEST: Record type with 3 fields
-// EXPECTED: ❌ BLOCKED - "collection-type parameter"
+// EXPECTED: BLOCKED BLOCKED - "collection-type parameter"
 
 t State={n:ℤ,acc:ℤ,count:ℤ}
 

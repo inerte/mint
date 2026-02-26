@@ -1,5 +1,5 @@
 // TEST: Factorial with accumulator (should be BLOCKED)
-// EXPECTED: ❌ BLOCKED - "accumulator-passing style"
+// EXPECTED: BLOCKED BLOCKED - "accumulator-passing style"
 
 λfactorial(n:ℤ,acc:ℤ)→ℤ≡n{
   0→acc|

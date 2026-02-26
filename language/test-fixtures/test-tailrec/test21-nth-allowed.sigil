@@ -1,5 +1,5 @@
 // TEST: Nth element with multi-param recursion (should COMPILE)
-// EXPECTED: ✅ COMPILES - both params decompose in parallel
+// EXPECTED: OK COMPILES - both params decompose in parallel
 
 λnth(list:[ℤ],n:ℤ)→ℤ≡(list,n){
   ([x,.xs],0)→x|

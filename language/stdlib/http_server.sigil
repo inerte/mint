@@ -114,8 +114,10 @@ export λserve(port:ℤ,handler:λ(Request)→!IO Response)→!IO 𝕌={
     ⟦ Handle end of request ⟧
     node_req.on("end",λ()→!IO 𝕌={
       ⟦ Concatenate body chunks into string ⟧
-      l body=body_chunks.length>0?
-        Buffer.concat(body_chunks).toString("utf8"):"";
+      l body=≡(body_chunks.length>0){
+        ⊤→Buffer.concat(body_chunks).toString("utf8")|
+        ⊥→""
+      };
 
       ⟦ Build Sigil Request object ⟧
       l sigil_request={
@@ -136,14 +138,15 @@ export λserve(port:ℤ,handler:λ(Request)→!IO Response)→!IO 𝕌={
       l i=0;
       l num_headers=header_keys.length;
 
-      λset_next_header()→!IO 𝕌={
-        i<num_headers?{
+      λset_next_header()→!IO 𝕌=≡(i<num_headers){
+        ⊤→{
           l key=header_keys[i];
           l value=response_headers[key];
           node_res.setHeader(key,value);
           i=i+1;
           set_next_header()
-        }:()
+        }|
+        ⊥→()
       };
 
       set_next_header();

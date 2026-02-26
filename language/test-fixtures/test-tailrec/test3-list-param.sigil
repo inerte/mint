@@ -1,5 +1,5 @@
 // TEST: List parameter (encoding multiple values)
-// EXPECTED: ❌ BLOCKED - "collection-type parameter"
+// EXPECTED: BLOCKED BLOCKED - "collection-type parameter"
 
 λfactorial(state:[ℤ])→ℤ≡state{
   [0,acc]→acc|

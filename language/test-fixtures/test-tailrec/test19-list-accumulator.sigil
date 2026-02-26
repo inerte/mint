@@ -1,5 +1,5 @@
 // TEST: List as accumulator parameter
-// EXPECTED: ❌ BLOCKED - "accumulator pattern"
+// EXPECTED: BLOCKED BLOCKED - "accumulator pattern"
 
 λreverse_acc(lst:[ℤ],acc:[ℤ])→[ℤ]≡lst{
   []→acc|

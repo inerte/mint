@@ -241,6 +241,28 @@ fn synthesize(env: &TypeEnvironment, expr: &Expr) -> Result<InferenceType, TypeE
 
         Expr::Match(match_expr) => synthesize_match(env, match_expr),
 
+        Expr::Lambda(lambda_expr) => synthesize_lambda(env, lambda_expr),
+
+        Expr::Tuple(tuple_expr) => synthesize_tuple(env, tuple_expr),
+
+        Expr::Record(record_expr) => synthesize_record(env, record_expr),
+
+        Expr::FieldAccess(field_access) => synthesize_field_access(env, field_access),
+
+        Expr::Index(index_expr) => synthesize_index(env, index_expr),
+
+        Expr::MemberAccess(member_access) => synthesize_member_access(env, member_access),
+
+        Expr::Map(map_expr) => synthesize_map(env, map_expr),
+
+        Expr::Filter(filter_expr) => synthesize_filter(env, filter_expr),
+
+        Expr::Fold(fold_expr) => synthesize_fold(env, fold_expr),
+
+        Expr::WithMock(with_mock) => synthesize_with_mock(env, with_mock),
+
+        Expr::Pipeline(pipeline) => synthesize_pipeline(env, pipeline),
+
         _ => Err(TypeError::new(
             format!("Synthesis not yet implemented for expression type"),
             None, // TODO: extract location from specific expression variant
@@ -617,6 +639,421 @@ fn synthesize_match(
     }
 
     Ok(expected_type)
+}
+
+fn synthesize_tuple(
+    env: &TypeEnvironment,
+    tuple_expr: &sigil_ast::TupleExpr,
+) -> Result<InferenceType, TypeError> {
+    let types: Result<Vec<_>, _> = tuple_expr
+        .elements
+        .iter()
+        .map(|elem| synthesize(env, elem))
+        .collect();
+
+    Ok(InferenceType::Tuple(crate::types::TTuple { types: types? }))
+}
+
+fn synthesize_record(
+    env: &TypeEnvironment,
+    record_expr: &sigil_ast::RecordExpr,
+) -> Result<InferenceType, TypeError> {
+    let mut fields = HashMap::new();
+    for field in &record_expr.fields {
+        let field_type = synthesize(env, &field.value)?;
+        fields.insert(field.name.clone(), field_type);
+    }
+
+    Ok(InferenceType::Record(crate::types::TRecord {
+        fields,
+        name: None, // Anonymous record
+    }))
+}
+
+fn synthesize_field_access(
+    env: &TypeEnvironment,
+    field_access: &sigil_ast::FieldAccessExpr,
+) -> Result<InferenceType, TypeError> {
+    let obj_type = synthesize(env, &field_access.object)?;
+
+    // Special case: field access on 'any' type (FFI namespace)
+    if matches!(obj_type, InferenceType::Any) {
+        return Ok(InferenceType::Any);
+    }
+
+    // Must be a record type
+    match obj_type {
+        InferenceType::Record(ref record) => {
+            if let Some(field_type) = record.fields.get(&field_access.field) {
+                Ok(field_type.clone())
+            } else {
+                Err(TypeError::new(
+                    format!(
+                        "Record type {} does not have field '{}'",
+                        format_type(&obj_type),
+                        field_access.field
+                    ),
+                    Some(field_access.location),
+                ))
+            }
+        }
+        _ => Err(TypeError::new(
+            format!(
+                "Field access requires record type, got {}",
+                format_type(&obj_type)
+            ),
+            Some(field_access.location),
+        )),
+    }
+}
+
+fn synthesize_index(
+    env: &TypeEnvironment,
+    index_expr: &sigil_ast::IndexExpr,
+) -> Result<InferenceType, TypeError> {
+    let obj_type = synthesize(env, &index_expr.object)?;
+    let int_type = InferenceType::Primitive(TPrimitive {
+        name: PrimitiveName::Int,
+    });
+    check(env, &index_expr.index, &int_type)?;
+
+    // Special case: 'any' type
+    if matches!(obj_type, InferenceType::Any) {
+        return Ok(InferenceType::Any);
+    }
+
+    match obj_type {
+        InferenceType::List(ref list) => Ok(list.element_type.clone()),
+        InferenceType::Tuple(_) => {
+            // Index is dynamic at compile time; return Any for now
+            Ok(InferenceType::Any)
+        }
+        _ => Err(TypeError::new(
+            format!(
+                "Cannot index into non-list type {}",
+                format_type(&obj_type)
+            ),
+            Some(index_expr.location),
+        )),
+    }
+}
+
+fn synthesize_member_access(
+    env: &TypeEnvironment,
+    member_access: &sigil_ast::MemberAccessExpr,
+) -> Result<InferenceType, TypeError> {
+    let namespace_name = member_access.namespace.join("⋅");
+
+    // Check namespace exists (should be registered from extern/import declaration)
+    let namespace_type = env.lookup(&namespace_name);
+    if namespace_type.is_none() {
+        return Err(TypeError::new(
+            format!(
+                "Unknown namespace '{}'. Did you forget 'e {}' or 'i {}'?",
+                namespace_name, namespace_name, namespace_name
+            ),
+            Some(member_access.location),
+        ));
+    }
+
+    let namespace_type = namespace_type.unwrap();
+
+    // If namespace is a record (typed extern/import), check member exists
+    if let InferenceType::Record(ref record) = namespace_type {
+        if let Some(member_type) = record.fields.get(&member_access.member) {
+            return Ok(member_type.clone());
+        } else {
+            return Err(TypeError::new(
+                format!(
+                    "Module '{}' does not export member '{}'",
+                    namespace_name, member_access.member
+                ),
+                Some(member_access.location),
+            ));
+        }
+    }
+
+    // Return Any type for extern/trust-mode member access
+    // Actual validation happens at link-time
+    Ok(InferenceType::Any)
+}
+
+fn synthesize_map(
+    env: &TypeEnvironment,
+    map_expr: &sigil_ast::MapExpr,
+) -> Result<InferenceType, TypeError> {
+    let list_type = synthesize(env, &map_expr.list)?;
+
+    if !matches!(list_type, InferenceType::List(_)) {
+        return Err(TypeError::new(
+            format!("Map (↦) requires a list, got {}", format_type(&list_type)),
+            Some(map_expr.location),
+        ));
+    }
+
+    let fn_type = synthesize(env, &map_expr.func)?;
+
+    if !matches!(fn_type, InferenceType::Function(_)) {
+        return Err(TypeError::new(
+            format!("Map (↦) requires a function, got {}", format_type(&fn_type)),
+            Some(map_expr.location),
+        ));
+    }
+
+    if let (InferenceType::List(ref list), InferenceType::Function(ref func)) = (&list_type, &fn_type) {
+        // Function should take 1 parameter
+        if func.params.len() != 1 {
+            return Err(TypeError::new(
+                format!("Map (↦) function should take 1 parameter, got {}", func.params.len()),
+                Some(map_expr.location),
+            ));
+        }
+
+        // Check function parameter matches list element type
+        if !types_equal(&func.params[0], &list.element_type) {
+            return Err(TypeError::new(
+                format!(
+                    "Map (↦) function parameter type {} doesn't match list element type {}",
+                    format_type(&func.params[0]),
+                    format_type(&list.element_type)
+                ),
+                Some(map_expr.location),
+            ));
+        }
+
+        // Result is list of return type
+        return Ok(InferenceType::List(Box::new(crate::types::TList {
+            element_type: func.return_type.clone(),
+        })));
+    }
+
+    unreachable!()
+}
+
+fn synthesize_filter(
+    env: &TypeEnvironment,
+    filter_expr: &sigil_ast::FilterExpr,
+) -> Result<InferenceType, TypeError> {
+    let list_type = synthesize(env, &filter_expr.list)?;
+
+    if !matches!(list_type, InferenceType::List(_)) {
+        return Err(TypeError::new(
+            format!("Filter (⊳) requires a list, got {}", format_type(&list_type)),
+            Some(filter_expr.location),
+        ));
+    }
+
+    let predicate_type = synthesize(env, &filter_expr.predicate)?;
+
+    if !matches!(predicate_type, InferenceType::Function(_)) {
+        return Err(TypeError::new(
+            format!("Filter (⊳) requires a predicate function, got {}", format_type(&predicate_type)),
+            Some(filter_expr.location),
+        ));
+    }
+
+    let bool_type = InferenceType::Primitive(TPrimitive { name: PrimitiveName::Bool });
+
+    if let (InferenceType::List(ref list), InferenceType::Function(ref pred)) = (&list_type, &predicate_type) {
+        // Predicate should be T → 𝔹
+        if pred.params.len() != 1 {
+            return Err(TypeError::new(
+                format!("Filter (⊳) predicate should take 1 parameter, got {}", pred.params.len()),
+                Some(filter_expr.location),
+            ));
+        }
+
+        if !types_equal(&pred.params[0], &list.element_type) {
+            return Err(TypeError::new(
+                format!(
+                    "Filter (⊳) predicate parameter type {} doesn't match list element type {}",
+                    format_type(&pred.params[0]),
+                    format_type(&list.element_type)
+                ),
+                Some(filter_expr.location),
+            ));
+        }
+
+        if !types_equal(&pred.return_type, &bool_type) {
+            return Err(TypeError::new(
+                format!("Filter (⊳) predicate must return 𝔹, got {}", format_type(&pred.return_type)),
+                Some(filter_expr.location),
+            ));
+        }
+
+        // Result is same list type
+        return Ok(list_type);
+    }
+
+    unreachable!()
+}
+
+fn synthesize_fold(
+    env: &TypeEnvironment,
+    fold_expr: &sigil_ast::FoldExpr,
+) -> Result<InferenceType, TypeError> {
+    let list_type = synthesize(env, &fold_expr.list)?;
+
+    if !matches!(list_type, InferenceType::List(_)) {
+        return Err(TypeError::new(
+            format!("Fold (⊕) requires a list, got {}", format_type(&list_type)),
+            Some(fold_expr.location),
+        ));
+    }
+
+    let fn_type = synthesize(env, &fold_expr.func)?;
+
+    if !matches!(fn_type, InferenceType::Function(_)) {
+        return Err(TypeError::new(
+            format!("Fold (⊕) requires a function, got {}", format_type(&fn_type)),
+            Some(fold_expr.location),
+        ));
+    }
+
+    let init_type = synthesize(env, &fold_expr.init)?;
+
+    if let (InferenceType::List(ref list), InferenceType::Function(ref func)) = (&list_type, &fn_type) {
+        // Function should be (Acc, T) → Acc
+        if func.params.len() != 2 {
+            return Err(TypeError::new(
+                format!("Fold (⊕) function should take 2 parameters, got {}", func.params.len()),
+                Some(fold_expr.location),
+            ));
+        }
+
+        // Check function signature matches (Acc, T) → Acc
+        if !types_equal(&func.params[0], &init_type) {
+            return Err(TypeError::new(
+                format!(
+                    "Fold (⊕) function first parameter type {} doesn't match initial value type {}",
+                    format_type(&func.params[0]),
+                    format_type(&init_type)
+                ),
+                Some(fold_expr.location),
+            ));
+        }
+
+        if !types_equal(&func.params[1], &list.element_type) {
+            return Err(TypeError::new(
+                format!(
+                    "Fold (⊕) function second parameter type {} doesn't match list element type {}",
+                    format_type(&func.params[1]),
+                    format_type(&list.element_type)
+                ),
+                Some(fold_expr.location),
+            ));
+        }
+
+        if !types_equal(&func.return_type, &init_type) {
+            return Err(TypeError::new(
+                format!(
+                    "Fold (⊕) function return type {} doesn't match accumulator type {}",
+                    format_type(&func.return_type),
+                    format_type(&init_type)
+                ),
+                Some(fold_expr.location),
+            ));
+        }
+
+        // Result is accumulator type
+        return Ok(init_type);
+    }
+
+    unreachable!()
+}
+
+fn synthesize_with_mock(
+    env: &TypeEnvironment,
+    with_mock: &sigil_ast::WithMockExpr,
+) -> Result<InferenceType, TypeError> {
+    // Check target is mockable or extern
+    // For now, simplified validation - just check types match
+    let target_type = synthesize(env, &with_mock.target)?;
+    let replacement_type = synthesize(env, &with_mock.replacement)?;
+
+    // Replacement must be a function
+    if !matches!(replacement_type, InferenceType::Function(_) | InferenceType::Any) {
+        return Err(TypeError::new(
+            format!(
+                "with_mock replacement must be a function, got {}",
+                format_type(&replacement_type)
+            ),
+            Some(with_mock.location),
+        ));
+    }
+
+    // If both are functions, check they match
+    if let (InferenceType::Function(_), InferenceType::Function(_)) = (&target_type, &replacement_type) {
+        if !types_equal(&target_type, &replacement_type) {
+            return Err(TypeError::new(
+                format!(
+                    "with_mock replacement type {} does not match target type {}",
+                    format_type(&replacement_type),
+                    format_type(&target_type)
+                ),
+                Some(with_mock.location),
+            ));
+        }
+    }
+
+    // TODO: Full extern/mockable function validation
+
+    // Return type is the body type
+    synthesize(env, &with_mock.body)
+}
+
+fn synthesize_pipeline(
+    env: &TypeEnvironment,
+    pipeline: &sigil_ast::PipelineExpr,
+) -> Result<InferenceType, TypeError> {
+    // Pipeline operators: |> (forward pipe), >> (forward compose), << (backward compose)
+    // For now, simplified: just synthesize the right side
+    // TODO: Full pipeline type checking with function composition validation
+    synthesize(env, &pipeline.right)
+}
+
+fn synthesize_lambda(
+    env: &TypeEnvironment,
+    lambda_expr: &sigil_ast::LambdaExpr,
+) -> Result<InferenceType, TypeError> {
+    // Lambda has mandatory type annotations (enforced by parser in canonical form)
+    let param_types: Vec<InferenceType> = lambda_expr
+        .params
+        .iter()
+        .map(|p| {
+            p.type_annotation
+                .as_ref()
+                .map(ast_type_to_inference_type)
+                .unwrap_or(InferenceType::Any)
+        })
+        .collect();
+
+    let return_type = ast_type_to_inference_type(&lambda_expr.return_type);
+
+    let effects = if lambda_expr.effects.is_empty() {
+        None
+    } else {
+        Some(lambda_expr.effects.iter().cloned().collect())
+    };
+
+    // Create environment with parameter bindings
+    let mut lambda_env_bindings = HashMap::new();
+    for (param, param_type) in lambda_expr.params.iter().zip(&param_types) {
+        lambda_env_bindings.insert(param.name.clone(), param_type.clone());
+    }
+    let lambda_env = env.extend(Some(lambda_env_bindings));
+
+    // Check body against declared return type
+    check(&lambda_env, &lambda_expr.body, &return_type)?;
+
+    // TODO: Effect inference and checking
+    // For now, we trust the declared effects
+
+    Ok(InferenceType::Function(Box::new(TFunction {
+        params: param_types,
+        return_type,
+        effects,
+    })))
 }
 
 // Pattern checking helper

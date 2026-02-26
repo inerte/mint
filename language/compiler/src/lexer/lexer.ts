@@ -294,11 +294,8 @@ export class Lexer {
 
   private multiLineComment(): void {
     // Consume everything until ⟧
+    // Note: advance() already handles line/column tracking for newlines
     while (!this.isAtEnd() && this.peek() !== '⟧') {
-      if (this.peek() === '\n') {
-        this.line++;
-        this.column = 0; // Will be incremented by advance()
-      }
       this.advance();
     }
 

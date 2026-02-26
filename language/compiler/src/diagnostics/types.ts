@@ -9,7 +9,6 @@ export type SigilPhase =
   | 'mutability'
   | 'extern'
   | 'codegen'
-  | 'mapgen'
   | 'runtime';
 
 export type SourcePoint = {

@@ -21,7 +21,6 @@ import { formatType } from './typechecker/errors.js';
 import type { InferenceType } from './typechecker/types.js';
 import type { TypeInfo } from './typechecker/index.js';
 import type * as AST from './parser/ast.js';
-import { generateSemanticMap, enhanceWithClaude } from './mapgen/index.js';
 import { SigilDiagnosticError, isSigilDiagnosticError } from './diagnostics/error.js';
 import type { CommandEnvelope, Diagnostic, SigilPhase } from './diagnostics/types.js';
 import { diagnostic } from './diagnostics/helpers.js';
@@ -690,20 +689,12 @@ async function compileCommand(args: string[]) {
     const filenameLogicalId = filePathToModuleId(absFilename, rootProject);
     const rootKey = filenameLogicalId ?? absFilename;
     const rootModule = graph.modules.get(rootKey) ?? (() => { throw new Error(`Root module not loaded: ${filename} (key: ${rootKey})`); })();
-    const ast = rootModule.ast;
-    const source = rootModule.source;
     const types = moduleTypes.get(rootKey) ?? new Map<string, InferenceType>();
     outputFile = outputs.get(rootKey) ?? outputFile;
 
     // Type check results for root already available
     const showTypes = cleanedArgs.includes('--show-types');
 
-    // Generate semantic map
-    const mapFile = filename.replace('.sigil', '.sigil.map');
-    generateSemanticMap(ast, types, source, mapFile);
-
-    // Enhance with Claude Code CLI
-    enhanceWithClaude(filename, mapFile);
     emitEnvelope({
       formatVersion: 1,
       command: 'sigilc compile',
@@ -726,11 +717,6 @@ async function compileCommand(args: string[]) {
         typecheck: {
           ok: true,
           inferred: showTypes ? Array.from(types.entries()).map(([name, type]) => ({ name, type: formatType(type) })) : []
-        },
-        semanticMap: {
-          path: mapFile,
-          generated: true,
-          aiEnhanced: process.env.SIGIL_ENABLE_MAP_ENHANCE === '1'
         }
       }
     }, human);

@@ -20,7 +20,7 @@ test_should_fail() {
   
   echo -n "Testing $(basename $file) (should fail)... "
   
-  if output=$(node compiler/dist/cli.js compile "$file" 2>&1); then
+  if output=$(node compiler/dist/cli.js compile "$file" --human 2>&1); then
     echo -e "${RED}✗ FAILED${NC} - Compiled successfully (should have been blocked!)"
     echo "  This loophole is NOT blocked!"
     ((FAILED++))
@@ -37,7 +37,7 @@ test_should_fail() {
     
     # None matched
     echo -e "${YELLOW}⚠ BLOCKED${NC} - Different error (still blocked)"
-    echo "  Got: $(echo "$output" | grep "Error:" | head -1 | cut -d: -f2-)"
+    echo "  Got: $(echo "$output" | head -1)"
     ((PASSED++))  # Count as pass since it's blocked
     return 0
   fi
@@ -47,13 +47,13 @@ test_should_pass() {
   local file=$1
   echo -n "Testing $(basename $file) (should compile)... "
   
-  if output=$(node compiler/dist/cli.js compile "$file" 2>&1); then
+  if output=$(node compiler/dist/cli.js compile "$file" --human 2>&1); then
     echo -e "${GREEN}✓ PASSED${NC} - Compiled successfully"
     ((PASSED++))
     return 0
   else
     echo -e "${RED}✗ FAILED${NC} - Blocked incorrectly"
-    echo "  Error: $(echo "$output" | grep "Error:" | head -1 | cut -d: -f2-)"
+    echo "  Error: $(echo "$output" | head -1)"
     ((FAILED++))
     return 1
   fi
@@ -75,21 +75,21 @@ echo ""
 echo "Tests that should be BLOCKED:"
 echo "─────────────────────────────────────────────────────────"
 
-test_should_fail "src/test-tailrec/test1-two-param.sigil" "accumulator-passing style"
-test_should_fail "src/test-tailrec/test2-three-param.sigil" "accumulator-passing style"
-test_should_fail "src/test-tailrec/test3-list-param.sigil" "collection-type parameter"
-test_not_implemented "src/test-tailrec/test4-tuple-param.sigil" "Tuple types not yet implemented"
-test_should_fail "src/test-tailrec/test5-record-two-fields.sigil" "collection-type parameter"
-test_should_fail "src/test-tailrec/test6-record-three-fields.sigil" "collection-type parameter"
+test_should_fail "test-fixtures/test-tailrec/test1-two-param.sigil" "accumulator-passing style"
+test_should_fail "test-fixtures/test-tailrec/test2-three-param.sigil" "accumulator-passing style"
+test_should_fail "test-fixtures/test-tailrec/test3-list-param.sigil" "collection-type parameter"
+test_not_implemented "test-fixtures/test-tailrec/test4-tuple-param.sigil" "Tuple types not yet implemented"
+test_should_fail "test-fixtures/test-tailrec/test5-record-two-fields.sigil" "collection-type parameter"
+test_should_fail "test-fixtures/test-tailrec/test6-record-three-fields.sigil" "collection-type parameter"
 # Helper function ban removed - utilities are now allowed
-# test_should_fail "src/test-tailrec/test8-helper.sigil" "only called by"
-test_should_fail "src/test-tailrec/test9-cps.sigil" "returns a function type"
-test_not_implemented "src/test-tailrec/test10-map-param.sigil" "Map literals not yet implemented"
-test_should_fail "src/test-tailrec/test11-nested-list.sigil" "collection-type parameter"
-test_should_fail "src/test-tailrec/test13-boolean-match-blocked.sigil" "Non-canonical pattern matching"
-test_should_fail "src/test-tailrec/test14-tuple-boolean-blocked.sigil" "tuple of boolean expressions"
-test_should_fail "src/test-tailrec/test18-factorial-acc-blocked.sigil" "accumulator-passing style"
-test_should_fail "src/test-tailrec/test19-list-accumulator.sigil" "multiple collection parameters"
+# test_should_fail "test-fixtures/test-tailrec/test8-helper.sigil" "only called by"
+test_should_fail "test-fixtures/test-tailrec/test9-cps.sigil" "returns a function type"
+test_not_implemented "test-fixtures/test-tailrec/test10-map-param.sigil" "Map literals not yet implemented"
+test_should_fail "test-fixtures/test-tailrec/test11-nested-list.sigil" "collection-type parameter"
+test_should_fail "test-fixtures/test-tailrec/test13-boolean-match-blocked.sigil" "Non-canonical pattern matching"
+test_should_fail "test-fixtures/test-tailrec/test14-tuple-boolean-blocked.sigil" "tuple of boolean expressions"
+test_should_fail "test-fixtures/test-tailrec/test18-factorial-acc-blocked.sigil" "accumulator-passing style"
+test_should_fail "test-fixtures/test-tailrec/test19-list-accumulator.sigil" "multiple collection parameters"
 
 echo ""
 echo "Tests that should be ALLOWED:"
@@ -97,11 +97,11 @@ echo "────────────────────────�
 
 test_should_pass "examples/list-reverse.sigil"
 test_should_pass "examples/list-length.sigil"
-test_should_pass "src/test-tailrec/test7-record-one-field-ok.sigil"
-test_should_pass "src/test-tailrec/test12-valid-canonical.sigil"
-test_should_pass "src/test-tailrec/test15-canonical-value-match.sigil"
-test_should_pass "src/test-tailrec/test16-gcd-allowed.sigil"
-test_should_pass "src/test-tailrec/test17-power-allowed.sigil"
+test_should_pass "test-fixtures/test-tailrec/test7-record-one-field-ok.sigil"
+test_should_pass "test-fixtures/test-tailrec/test12-valid-canonical.sigil"
+test_should_pass "test-fixtures/test-tailrec/test15-canonical-value-match.sigil"
+test_should_pass "test-fixtures/test-tailrec/test16-gcd-allowed.sigil"
+test_should_pass "test-fixtures/test-tailrec/test17-power-allowed.sigil"
 
 echo ""
 echo "═══════════════════════════════════════════════════════════"

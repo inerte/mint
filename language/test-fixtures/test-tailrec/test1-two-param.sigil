@@ -1,5 +1,5 @@
 // TEST: Two parameters with accumulator pattern
-// EXPECTED: ❌ BLOCKED - "accumulator-passing style"
+// EXPECTED: BLOCKED BLOCKED - "accumulator-passing style"
 
 λsum(n:ℤ,acc:ℤ)→ℤ≡n{
   0→acc|

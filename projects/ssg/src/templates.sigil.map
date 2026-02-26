@@ -2,7 +2,7 @@
   "version": 1,
   "file": "templates.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-26T00:26:24.544Z",
+  "generated_at": "2026-02-26T00:59:40.607Z",
   "mappings": {
     "article": {
       "range": [

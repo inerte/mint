@@ -2,5 +2,14 @@
 name = "sigil-validator"
 version = "0.1.0"
 edition = "2021"
+authors = ["Sigil Language Team"]
+description = "Validator for canonical form rules in Sigil"
+license = "MIT"
 
 [dependencies]
+sigil-ast = { path = "../sigil-ast" }
+sigil-lexer = { path = "../sigil-lexer" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+sigil-parser = { path = "../sigil-parser" }

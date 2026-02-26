@@ -166,6 +166,12 @@ dependencies = [
 [[package]]
 name = "sigil-typechecker"
 version = "0.1.0"
+dependencies = [
+ "sigil-ast",
+ "sigil-lexer",
+ "sigil-parser",
+ "thiserror",
+]
 
 [[package]]
 name = "sigil-validator"

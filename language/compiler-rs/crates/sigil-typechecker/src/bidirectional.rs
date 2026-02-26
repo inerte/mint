@@ -239,6 +239,8 @@ fn synthesize(env: &TypeEnvironment, expr: &Expr) -> Result<InferenceType, TypeE
 
         Expr::Let(let_expr) => synthesize_let(env, let_expr),
 
+        Expr::Match(match_expr) => synthesize_match(env, match_expr),
+
         _ => Err(TypeError::new(
             format!("Synthesis not yet implemented for expression type"),
             None, // TODO: extract location from specific expression variant
@@ -545,6 +547,139 @@ fn synthesize_let(
     synthesize(&body_env, &let_expr.body)
 }
 
+fn synthesize_match(
+    env: &TypeEnvironment,
+    match_expr: &sigil_ast::MatchExpr,
+) -> Result<InferenceType, TypeError> {
+    use sigil_ast::Pattern;
+
+    // Synthesize scrutinee type
+    let scrutinee_type = synthesize(env, &match_expr.scrutinee)?;
+
+    if match_expr.arms.is_empty() {
+        return Err(TypeError::new(
+            "Match expression must have at least one arm".to_string(),
+            Some(match_expr.location),
+        ));
+    }
+
+    // Synthesize first arm to establish expected type
+    let first_arm = &match_expr.arms[0];
+    let mut first_bindings = HashMap::new();
+    check_pattern(env, &first_arm.pattern, &scrutinee_type, &mut first_bindings)?;
+    let first_arm_env = env.extend(Some(first_bindings));
+
+    // Check guard if present (must be boolean)
+    if let Some(ref guard) = first_arm.guard {
+        let guard_type = synthesize(&first_arm_env, guard)?;
+        let bool_type = InferenceType::Primitive(TPrimitive {
+            name: PrimitiveName::Bool,
+        });
+        if !types_equal(&guard_type, &bool_type) {
+            return Err(TypeError::new(
+                format!(
+                    "Pattern guard must have type 𝔹, got {}",
+                    format_type(&guard_type)
+                ),
+                Some(match_expr.location),
+            ));
+        }
+    }
+
+    // Synthesize first arm body to get expected type
+    let expected_type = synthesize(&first_arm_env, &first_arm.body)?;
+
+    // Check remaining arms against the first arm's type
+    for arm in &match_expr.arms[1..] {
+        let mut bindings = HashMap::new();
+        check_pattern(env, &arm.pattern, &scrutinee_type, &mut bindings)?;
+        let arm_env = env.extend(Some(bindings));
+
+        // Check guard if present (must be boolean)
+        if let Some(ref guard) = arm.guard {
+            let guard_type = synthesize(&arm_env, guard)?;
+            let bool_type = InferenceType::Primitive(TPrimitive {
+                name: PrimitiveName::Bool,
+            });
+            if !types_equal(&guard_type, &bool_type) {
+                return Err(TypeError::new(
+                    format!(
+                        "Pattern guard must have type 𝔹, got {}",
+                        format_type(&guard_type)
+                    ),
+                    Some(match_expr.location),
+                ));
+            }
+        }
+
+        // Check subsequent arms against first arm's type
+        check(&arm_env, &arm.body, &expected_type)?;
+    }
+
+    Ok(expected_type)
+}
+
+// Pattern checking helper
+fn check_pattern(
+    env: &TypeEnvironment,
+    pattern: &sigil_ast::Pattern,
+    scrutinee_type: &InferenceType,
+    bindings: &mut HashMap<String, InferenceType>,
+) -> Result<(), TypeError> {
+    use sigil_ast::Pattern;
+
+    match pattern {
+        Pattern::Wildcard(_) => {
+            // Wildcard matches anything
+            Ok(())
+        }
+        Pattern::Identifier(id_pattern) => {
+            // Bind variable to scrutinee type
+            bindings.insert(id_pattern.name.clone(), scrutinee_type.clone());
+            Ok(())
+        }
+        Pattern::Literal(lit_pattern) => {
+            // Check literal type matches scrutinee
+            let lit_type = match lit_pattern.literal_type {
+                sigil_ast::PatternLiteralType::Int => InferenceType::Primitive(TPrimitive {
+                    name: PrimitiveName::Int,
+                }),
+                sigil_ast::PatternLiteralType::Float => InferenceType::Primitive(TPrimitive {
+                    name: PrimitiveName::Float,
+                }),
+                sigil_ast::PatternLiteralType::Bool => InferenceType::Primitive(TPrimitive {
+                    name: PrimitiveName::Bool,
+                }),
+                sigil_ast::PatternLiteralType::String => InferenceType::Primitive(TPrimitive {
+                    name: PrimitiveName::String,
+                }),
+                sigil_ast::PatternLiteralType::Char => InferenceType::Primitive(TPrimitive {
+                    name: PrimitiveName::Char,
+                }),
+                sigil_ast::PatternLiteralType::Unit => InferenceType::Primitive(TPrimitive {
+                    name: PrimitiveName::Unit,
+                }),
+            };
+
+            if !types_equal(&lit_type, scrutinee_type) {
+                return Err(TypeError::new(
+                    format!(
+                        "Pattern type mismatch: expected {}, got {}",
+                        format_type(scrutinee_type),
+                        format_type(&lit_type)
+                    ),
+                    Some(lit_pattern.location),
+                ));
+            }
+            Ok(())
+        }
+        _ => Err(TypeError::new(
+            "Complex pattern matching not yet fully implemented".to_string(),
+            None,
+        )),
+    }
+}
+
 // ============================================================================
 // CHECKING (⇐) - Verify expression matches expected type
 // ============================================================================
@@ -635,6 +770,10 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    // TODO: Add If/Let expression tests when full syntax support is confirmed
-    // The type checking logic is implemented, but needs matching lexer/parser support
+    // TODO: Add Match/If/Let expression tests when full parser support is confirmed
+    // The type checking logic is implemented for:
+    // - Match expressions with pattern checking (literal, identifier, wildcard patterns)
+    // - If expressions with optional else branches
+    // - Let expressions with identifier patterns
+    // Waiting for complete lexer/parser syntax support to test end-to-end
 }

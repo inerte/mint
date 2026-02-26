@@ -1308,8 +1308,9 @@ export function typeCheck(program: AST.Program, _source: string, options?: TypeC
     }
   }
 
-  // First pass: Add all type declarations, function declarations, extern namespaces, and imports to environment
-  // (for mutual recursion support, FFI, module imports, and user-defined types)
+  // First pass: Register types, then externs (enabling typed FFI), then imports, functions, consts
+  // Types must be registered before externs so typed FFI can reference named types (t → e → i ordering)
+  // The canonical ordering ensures type definitions are available when processing extern declarations
   for (const decl of program.declarations) {
     if (decl.type === 'TypeDecl') {
       // Register the type in the type registry

@@ -2,12 +2,12 @@
   "version": 1,
   "file": "build.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-26T01:15:17.180Z",
+  "generated_at": "2026-02-26T03:24:25.449Z",
   "mappings": {
     "add_if_markdown": {
       "range": [
-        218,
-        323
+        284,
+        389
       ],
       "summary": "Function: add_if_markdown",
       "explanation": "Function with 2 parameter(s), returns [𝕊]",
@@ -15,24 +15,24 @@
     },
     "add_if_markdown_arm_0": {
       "range": [
-        286,
-        305
+        352,
+        371
       ],
       "summary": "Match arm: true",
       "explanation": "Pattern matches true"
     },
     "add_if_markdown_arm_1": {
       "range": [
-        309,
-        321
+        375,
+        387
       ],
       "summary": "Match arm: false",
       "explanation": "Pattern matches false"
     },
     "ensure_dir": {
       "range": [
-        353,
-        417
+        419,
+        483
       ],
       "summary": "Function: ensure_dir",
       "explanation": "Function with 1 parameter(s), returns 𝕌",
@@ -40,8 +40,8 @@
     },
     "filter_md_files_inner": {
       "range": [
-        452,
-        701
+        518,
+        767
       ],
       "summary": "Function: filter_md_files_inner",
       "explanation": "Function with 4 parameter(s), returns [𝕊]",
@@ -49,24 +49,24 @@
     },
     "filter_md_files_inner_arm_0": {
       "range": [
-        542,
-        554
+        608,
+        620
       ],
       "summary": "Match arm: true",
       "explanation": "Pattern matches true"
     },
     "filter_md_files_inner_arm_1": {
       "range": [
-        558,
-        699
+        624,
+        765
       ],
       "summary": "Match arm: false",
       "explanation": "Pattern matches false"
     },
     "get_output_filename": {
       "range": [
-        755,
-        991
+        821,
+        1057
       ],
       "summary": "Function: get_output_filename",
       "explanation": "Function with 2 parameter(s), returns 𝕊",
@@ -74,24 +74,24 @@
     },
     "get_output_filename_arm_0": {
       "range": [
-        836,
-        869
+        902,
+        935
       ],
       "summary": "Match arm: slug",
       "explanation": "Pattern matches slug"
     },
     "get_output_filename_arm_1": {
       "range": [
-        873,
-        989
+        939,
+        1055
       ],
       "summary": "Match arm: _",
       "explanation": "Pattern matches _"
     },
     "is_markdown_file": {
       "range": [
-        1023,
-        1097
+        1089,
+        1163
       ],
       "summary": "Function: is_markdown_file",
       "explanation": "Function with 1 parameter(s), returns 𝔹",
@@ -99,8 +99,8 @@
     },
     "main": {
       "range": [
-        1120,
-        1324
+        1186,
+        1390
       ],
       "summary": "Function: main",
       "explanation": "Function with 0 parameter(s), returns 𝕌",
@@ -108,8 +108,8 @@
     },
     "process_all_articles": {
       "range": [
-        1358,
-        1703
+        1424,
+        1769
       ],
       "summary": "Function: process_all_articles",
       "explanation": "Function with 5 parameter(s), returns [src⋅types.Article]",
@@ -117,24 +117,24 @@
     },
     "process_all_articles_arm_0": {
       "range": [
-        1506,
-        1518
+        1572,
+        1584
       ],
       "summary": "Match arm: true",
       "explanation": "Pattern matches true"
     },
     "process_all_articles_arm_1": {
       "range": [
-        1522,
-        1701
+        1588,
+        1767
       ],
       "summary": "Match arm: false",
       "explanation": "Pattern matches false"
     },
     "process_article": {
       "range": [
-        1739,
-        2169
+        1805,
+        2235
       ],
       "summary": "Function: process_article",
       "explanation": "Function with 2 parameter(s), returns src⋅types.Article",
@@ -142,8 +142,8 @@
     },
     "write_all_articles": {
       "range": [
-        2201,
-        2438
+        2267,
+        2504
       ],
       "summary": "Function: write_all_articles",
       "explanation": "Function with 4 parameter(s), returns 𝕌",
@@ -151,24 +151,24 @@
     },
     "write_all_articles_arm_0": {
       "range": [
-        2311,
-        2317
+        2377,
+        2383
       ],
       "summary": "Match arm: true",
       "explanation": "Pattern matches true"
     },
     "write_all_articles_arm_1": {
       "range": [
-        2321,
-        2436
+        2387,
+        2502
       ],
       "summary": "Match arm: false",
       "explanation": "Pattern matches false"
     },
     "write_article": {
       "range": [
-        2468,
-        2703
+        2534,
+        2769
       ],
       "summary": "Function: write_article",
       "explanation": "Function with 2 parameter(s), returns 𝕌",
@@ -176,8 +176,8 @@
     },
     "write_index": {
       "range": [
-        2726,
-        2941
+        2792,
+        3007
       ],
       "summary": "Function: write_index",
       "explanation": "Function with 2 parameter(s), returns 𝕌",
@@ -185,8 +185,8 @@
     },
     "build": {
       "range": [
-        2974,
-        3405
+        3040,
+        3471
       ],
       "summary": "Function: build",
       "explanation": "Function with 2 parameter(s), returns 𝕌",

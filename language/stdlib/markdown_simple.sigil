@@ -6,6 +6,38 @@
 
 i stdlib⋅string
 
+⟦ Count leading # characters for header level ⟧
+λcount_hashes(text:𝕊)→ℤ={
+  l len=#text;
+  count_hashes_loop(text,len,0)
+}
+
+⟦ Tail-recursive helper for count_hashes ⟧
+λcount_hashes_loop(text:𝕊,len:ℤ,idx:ℤ)→ℤ≡idx{
+  idx when idx<len→≡(stdlib⋅string.char_at(text,idx)="#"){
+    ⊤→count_hashes_loop(text,len,idx+1)|
+    ⊥→idx
+  }|
+  idx→idx
+}
+
+⟦ Extract header text after ## ⟧
+λextract_header_text(line:𝕊)→𝕊={
+  l trimmed=stdlib⋅string.trim(line);
+  l level=count_hashes(trimmed);
+  l len=#trimmed;
+  l after_hashes=≡(level<len){
+    ⊤→stdlib⋅string.substring(trimmed,level,len)|
+    ⊥→""
+  };
+  stdlib⋅string.trim(after_hashes)
+}
+
+⟦ Convert header level to HTML tag ⟧
+λheader_tag(level:ℤ)→𝕊={
+  "h"++stdlib⋅string.int_to_string(level)
+}
+
 ⟦ Check if line is code fence ⟧
 λis_code_fence(line:𝕊)→𝔹={
   l trimmed=stdlib⋅string.trim(line);
@@ -34,62 +66,9 @@ i stdlib⋅string
   ≡is_dashes{⊤→⊤|⊥→≡is_stars{⊤→⊤|⊥→is_underscores}}
 }
 
-⟦ Count leading # characters for header level ⟧
-λcount_hashes(text:𝕊)→ℤ={
-  l len=#text;
-  l count_loop=λ(idx:ℤ)→ℤ≡idx{
-    idx when idx<len→≡(stdlib⋅string.char_at(text,idx)="#"){
-      ⊤→count_loop(idx+1)|
-      ⊥→idx
-    }|
-    idx→idx
-  };
-  count_loop(0)
-}
-
-⟦ Extract header text after ## ⟧
-λextract_header_text(line:𝕊)→𝕊={
-  l trimmed=stdlib⋅string.trim(line);
-  l level=count_hashes(trimmed);
-  l len=#trimmed;
-  l after_hashes=≡(level<len){
-    ⊤→stdlib⋅string.substring(trimmed,level,len)|
-    ⊥→""
-  };
-  stdlib⋅string.trim(after_hashes)
-}
-
-⟦ Convert header level to HTML tag ⟧
-λheader_tag(level:ℤ)→𝕊={
-  "h"++stdlib⋅string.int_to_string(level)
-}
-
-⟦ Wrap text in header tags ⟧
-λrender_header(level:ℤ,text:𝕊)→𝕊={
-  l tag=header_tag(level);
-  "<"++tag++">"++text++"</"++tag++">"
-}
-
-⟦ Render horizontal rule ⟧
-λrender_hr()→𝕊="<hr>"
-
-⟦ Render paragraph ⟧
-λrender_paragraph(text:𝕊)→𝕊={
-  "<p>"++text++"</p>"
-}
-
-⟦ Render code block ⟧
-λrender_code_block(code:𝕊)→𝕊={
-  "<pre><code>"++code++"</code></pre>"
-}
-
-⟦ Process markdown lines into HTML blocks ⟧
-export λparse(markdown:𝕊)→𝕊={
-  l lines=stdlib⋅string.split(markdown,"\n");
-  l num_lines=#lines;
-
-  ⟦ Parse loop - accumulate HTML output ⟧
-  l parse_lines=λ(idx:ℤ,result:𝕊,in_code:𝔹,code_acc:𝕊,para_acc:𝕊)→𝕊≡(idx≥num_lines){
+⟦ Parse markdown lines into HTML blocks (recursive helper) ⟧
+λparse_lines_loop(lines:[𝕊],num_lines:ℤ,idx:ℤ,result:𝕊,in_code:𝔹,code_acc:𝕊,para_acc:𝕊)→𝕊={
+  ≡(idx≥num_lines){
     ⊤→{
       ⟦ End of input - flush remaining state ⟧
       l with_code=≡in_code{
@@ -111,7 +90,7 @@ export λparse(markdown:𝕊)→𝕊={
           ⊤→{
             ⟦ End code block ⟧
             l new_result=result++"\n"++render_code_block(code_acc);
-            parse_lines(idx+1,new_result,⊥,"","")
+            parse_lines_loop(lines,num_lines,idx+1,new_result,⊥,"","")
           }|
           ⊥→{
             ⟦ Accumulate code line ⟧
@@ -119,7 +98,7 @@ export λparse(markdown:𝕊)→𝕊={
               ⊤→code_acc++"\n"++line|
               ⊥→line
             };
-            parse_lines(idx+1,result,⊤,new_code,para_acc)
+            parse_lines_loop(lines,num_lines,idx+1,result,⊤,new_code,para_acc)
           }
         }|
         ⊥→{
@@ -131,7 +110,7 @@ export λparse(markdown:𝕊)→𝕊={
                 ⊤→result++"\n"++render_paragraph(para_acc)|
                 ⊥→result
               };
-              parse_lines(idx+1,new_result,⊤,"","")
+              parse_lines_loop(lines,num_lines,idx+1,new_result,⊤,"","")
             }|
             ⊥→{
               ⟦ Check for header ⟧
@@ -145,7 +124,7 @@ export λparse(markdown:𝕊)→𝕊={
                     ⊤→result++"\n"++render_paragraph(para_acc)++"\n"++header_html|
                     ⊥→result++"\n"++header_html
                   };
-                  parse_lines(idx+1,new_result,⊥,"","")
+                  parse_lines_loop(lines,num_lines,idx+1,new_result,⊥,"","")
                 }|
                 ⊥→{
                   ⟦ Check for horizontal rule ⟧
@@ -156,7 +135,7 @@ export λparse(markdown:𝕊)→𝕊={
                         ⊤→result++"\n"++render_paragraph(para_acc)++"\n"++hr_html|
                         ⊥→result++"\n"++hr_html
                       };
-                      parse_lines(idx+1,new_result,⊥,"","")
+                      parse_lines_loop(lines,num_lines,idx+1,new_result,⊥,"","")
                     }|
                     ⊥→{
                       ⟦ Check for empty line ⟧
@@ -167,7 +146,7 @@ export λparse(markdown:𝕊)→𝕊={
                             ⊤→result++"\n"++render_paragraph(para_acc)|
                             ⊥→result
                           };
-                          parse_lines(idx+1,new_result,⊥,"","")
+                          parse_lines_loop(lines,num_lines,idx+1,new_result,⊥,"","")
                         }|
                         ⊥→{
                           ⟦ Regular text line - accumulate into paragraph ⟧
@@ -175,7 +154,7 @@ export λparse(markdown:𝕊)→𝕊={
                             ⊤→para_acc++" "++stdlib⋅string.trim(line)|
                             ⊥→stdlib⋅string.trim(line)
                           };
-                          parse_lines(idx+1,result,⊥,code_acc,new_para)
+                          parse_lines_loop(lines,num_lines,idx+1,result,⊥,code_acc,new_para)
                         }
                       }
                     }
@@ -187,7 +166,31 @@ export λparse(markdown:𝕊)→𝕊={
         }
       }
     }
-  };
+  }
+}
 
-  parse_lines(0,"",⊥,"","")
+⟦ Render code block ⟧
+λrender_code_block(code:𝕊)→𝕊={
+  "<pre><code>"++code++"</code></pre>"
+}
+
+⟦ Wrap text in header tags ⟧
+λrender_header(level:ℤ,text:𝕊)→𝕊={
+  l tag=header_tag(level);
+  "<"++tag++">"++text++"</"++tag++">"
+}
+
+⟦ Render horizontal rule ⟧
+λrender_hr()→𝕊="<hr>"
+
+⟦ Render paragraph ⟧
+λrender_paragraph(text:𝕊)→𝕊={
+  "<p>"++text++"</p>"
+}
+
+⟦ Process markdown lines into HTML blocks ⟧
+export λparse(markdown:𝕊)→𝕊={
+  l lines=stdlib⋅string.split(markdown,"\n");
+  l num_lines=#lines;
+  parse_lines_loop(lines,num_lines,0,"",⊥,"","")
 }

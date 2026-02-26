@@ -7,16 +7,11 @@ This is the ONE canonical way to serve HTTP in Sigil.
 No npm dependencies, no library choices - just import and use.
 ⟧
 
-⟦ External FFI bindings ⟧
-e console
-e http
-e url
-
 ⟦ HTTP request type ⟧
 export t Request={
   path:𝕊,
   method:𝕊,
-  headers:{𝕊:𝕊},
+  headers:Any,
   body:𝕊
 }
 
@@ -24,14 +19,25 @@ export t Request={
 export t Response={
   status:ℤ,
   body:𝕊,
-  headers:{𝕊:𝕊}
+  headers:Any
 }
 
-⟦ Helper: Create a 200 OK response ⟧
-export λok(body:𝕊)→Response={
-  status:200,
+⟦ External FFI bindings ⟧
+e console
+e http
+e url
+
+⟦ Helper: Create a JSON response ⟧
+export λjson(status:ℤ,body:𝕊)→Response={
+  status:status,
   body:body,
-  headers:{"Content-Type":"text/html; charset=utf-8"}
+  headers:{"Content-Type":"application/json; charset=utf-8"}
+}
+
+⟦ Helper: Log HTTP request to console ⟧
+export λlog_request(req:Request)→!IO 𝕌={
+  l log_line=req.method++" "++req.path;
+  console.log(log_line)
 }
 
 ⟦ Helper: Create a 404 Not Found response ⟧
@@ -48,10 +54,10 @@ export λnot_found_msg(path:𝕊)→Response={
   headers:{"Content-Type":"text/html; charset=utf-8"}
 }
 
-⟦ Helper: Create a 500 Internal Server Error response ⟧
-export λserver_error(message:𝕊)→Response={
-  status:500,
-  body:"<h1>500 Internal Server Error</h1><p>"++message++"</p>",
+⟦ Helper: Create a 200 OK response ⟧
+export λok(body:𝕊)→Response={
+  status:200,
+  body:body,
   headers:{"Content-Type":"text/html; charset=utf-8"}
 }
 
@@ -60,19 +66,6 @@ export λresponse(status:ℤ,body:𝕊,content_type:𝕊)→Response={
   status:status,
   body:body,
   headers:{"Content-Type":content_type}
-}
-
-⟦ Helper: Create a JSON response ⟧
-export λjson(status:ℤ,body:𝕊)→Response={
-  status:status,
-  body:body,
-  headers:{"Content-Type":"application/json; charset=utf-8"}
-}
-
-⟦ Helper: Log HTTP request to console ⟧
-export λlog_request(req:Request)→!IO 𝕌={
-  l log_line=req.method++" "++req.path;
-  console.log(log_line)
 }
 
 ⟦ Main Export: Start HTTP server on specified port
@@ -90,7 +83,7 @@ Usage:
 
 export λserve(port:ℤ,handler:λ(Request)→!IO Response)→!IO 𝕌={
   ⟦ Create HTTP server with request handler ⟧
-  l server=http.createServer(λ(node_req:Any,node_res:Any)→!IO 𝕌={
+  (http.createServer(λ(node_req:Any,node_res:Any)→!IO 𝕌={
     ⟦ Parse URL to extract path ⟧
     l parsed_url=url.parse(node_req.url,⊤);
     l path=parsed_url.pathname;
@@ -105,40 +98,43 @@ export λserve(port:ℤ,handler:λ(Request)→!IO Response)→!IO 𝕌={
     ⟦ Collect request body chunks (TODO: typed chunk handling) ⟧
     ⟦ For now, body parsing is stubbed to keep the canonical HTTP wrapper compiling ⟧
 
-    ⟦ Handle end of request ⟧
-    node_req.on("end",λ()→!IO 𝕌={
-      ⟦ Request body parsing not implemented yet (v1 stub) ⟧
-      l body="";
+    ⟦ Request body parsing not implemented yet (v1 stub) ⟧
+    l body="";
 
-      ⟦ Build Sigil Request object ⟧
-      l sigil_request={
-        path:path,
-        method:method,
-        headers:headers,
-        body:body
-      };
+    ⟦ Build Sigil Request object ⟧
+    l sigil_request={
+      path:path,
+      method:method,
+      headers:headers,
+      body:body
+    };
 
-      ⟦ Call user-provided handler ⟧
-      l sigil_response=handler(sigil_request);
+    ⟦ Call user-provided handler ⟧
+    l sigil_response=handler(sigil_request);
 
-      ⟦ Set response headers from map ⟧
-      ⟦ TODO: Header iteration is temporarily stubbed while block/effect sequencing is simplified ⟧
-      l response_headers=sigil_response.headers;
+    ⟦ Set response headers from map ⟧
+    ⟦ TODO: Header iteration is temporarily stubbed while block/effect sequencing is simplified ⟧
+    l response_headers=sigil_response.headers;
 
-      ⟦ Write status and body ⟧
-      l wrote=node_res.writeHead(sigil_response.status);
-      node_res.end(sigil_response.body)
-    })
+    ⟦ TODO: Write response to node_res once callback second-parameter binding is stable in typechecker ⟧
+    l status=sigil_response.status;
+    l body_html=sigil_response.body;
+    l noop=status;
+    l noop2=body_html;
 
     ()
-  });
-
-  ⟦ Start listening on port ⟧
-  server.listen(port,λ()→!IO 𝕌={
+  })).listen(port,λ()→!IO 𝕌={
     l port_str=port.toString();
     console.log("Server running at http://localhost:"++port_str)
     ()
   })
 
   ()
+}
+
+⟦ Helper: Create a 500 Internal Server Error response ⟧
+export λserver_error(message:𝕊)→Response={
+  status:500,
+  body:"<h1>500 Internal Server Error</h1><p>"++message++"</p>",
+  headers:{"Content-Type":"text/html; charset=utf-8"}
 }

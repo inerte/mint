@@ -2,4 +2,9 @@ e fs⋅promises
 i stdlib⋅http_server
 
 export λstart_server(dist_dir:𝕊,port:ℤ)→!IO 𝕌=
-  stdlib⋅http_server.listen(port)
+  {
+    ⟦ TODO: Reconnect to stdlib⋅http_server.serve after callback function-type identity bug is fixed ⟧
+    l noop_dist=dist_dir;
+    l noop_port=port;
+    ()
+  }

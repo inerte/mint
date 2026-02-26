@@ -1,5 +1,6 @@
 ⟦ Build pipeline for static site generator ⟧
 
+⟦ FFI declarations - fs⋅promises left untyped because mkdir uses options object ⟧
 e console
 e fs⋅promises
 e path
@@ -9,7 +10,6 @@ i src⋅frontmatter
 i src⋅templates
 i src⋅types
 i stdlib⋅markdown
-i stdlib⋅string
 i stdlib⋅string
 
 ⟦ Add file to list if markdown ⟧

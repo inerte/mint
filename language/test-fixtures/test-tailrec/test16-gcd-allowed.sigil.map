@@ -2,7 +2,7 @@
   "version": 1,
   "file": "test16-gcd-allowed.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-26T01:05:05.609Z",
+  "generated_at": "2026-02-26T03:23:25.747Z",
   "mappings": {
     "gcd": {
       "range": [

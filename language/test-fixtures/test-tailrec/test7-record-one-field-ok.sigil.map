@@ -2,7 +2,7 @@
   "version": 1,
   "file": "test7-record-one-field-ok.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-26T01:05:05.446Z",
+  "generated_at": "2026-02-26T03:23:25.398Z",
   "mappings": {
     "Wrapper": {
       "range": [

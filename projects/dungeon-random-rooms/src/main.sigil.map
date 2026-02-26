@@ -2,44 +2,44 @@
   "version": 1,
   "file": "main.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-26T00:40:17.867Z",
+  "generated_at": "2026-02-26T03:43:45.014Z",
   "mappings": {
     "IntRoll": {
       "range": [
-        293,
-        320
+        282,
+        309
       ],
       "summary": "Type definition: IntRoll",
       "explanation": "Type IntRoll"
     },
     "Rng": {
       "range": [
-        321,
-        335
+        310,
+        324
       ],
       "summary": "Type definition: Rng",
       "explanation": "Type Rng"
     },
     "Room": {
       "range": [
-        336,
-        360
+        325,
+        349
       ],
       "summary": "Type definition: Room",
       "explanation": "Type Room"
     },
     "RoomRoll": {
       "range": [
-        361,
-        391
+        350,
+        380
       ],
       "summary": "Type definition: RoomRoll",
       "explanation": "Type RoomRoll"
     },
     "World": {
       "range": [
-        392,
-        434
+        381,
+        423
       ],
       "summary": "Type definition: World",
       "explanation": "Type World"

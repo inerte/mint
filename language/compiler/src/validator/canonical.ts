@@ -1145,12 +1145,16 @@ function isDestructuringPattern(pattern: AST.Pattern): boolean {
  * This ensures "ONE WAY" to organize code, making it deterministic and machine-friendly.
  *
  * Category order (strict):
- *   1. Externs (e)
- *   2. Imports (i)
- *   3. Types (t)
+ *   1. Types (t)
+ *   2. Externs (e)
+ *   3. Imports (i)
  *   4. Consts (c)
  *   5. Functions (λ)
  *   6. Tests (test)
+ *
+ * Rationale for types-first:
+ *   Types must come before externs to enable typed FFI declarations that
+ *   reference named types (e.g., e fs⋅promises : { mkdir : λ(𝕊, MkdirOptions) → 𝕌 })
  *
  * Within each category:
  *   - Non-exported declarations first (alphabetically)
@@ -1165,7 +1169,7 @@ function validateDeclarationOrdering(program: AST.Program): void {
   // Categorize all declarations
   const categories = categorizeDeclarations(decls);
 
-  // Check category order (e → i → t → c → λ → test)
+  // Check category order (t → e → i → c → λ → test)
   validateCategoryBoundaries(decls);
 
   // Check alphabetical ordering within each category
@@ -1195,9 +1199,9 @@ function categorizeDeclarations(decls: AST.Declaration[]) {
  * Check that categories appear in the correct order
  */
 function validateCategoryBoundaries(decls: AST.Declaration[]): void {
-  const categoryOrder = ['ExternDecl', 'ImportDecl', 'TypeDecl', 'ConstDecl', 'FunctionDecl', 'TestDecl'];
-  const categoryNames = ['extern', 'import', 'type', 'const', 'function', 'test'];
-  const categorySymbols = ['e', 'i', 't', 'c', 'λ', 'test'];
+  const categoryOrder = ['TypeDecl', 'ExternDecl', 'ImportDecl', 'ConstDecl', 'FunctionDecl', 'TestDecl'];
+  const categoryNames = ['type', 'extern', 'import', 'const', 'function', 'test'];
+  const categorySymbols = ['t', 'e', 'i', 'c', 'λ', 'test'];
 
   let lastCategoryIndex = -1;
 
@@ -1216,10 +1220,10 @@ function validateCategoryBoundaries(decls: AST.Declaration[]): void {
         `Found: ${currentSymbol} (${currentCategory}) at line ${decl.location.start.line}\n` +
         `Expected: ${currentCategory} declarations must come before ${categoryNames[lastCategoryIndex]} declarations\n` +
         `\n` +
-        `Category order: e → i → t → c → λ → test\n` +
+        `Category order: t → e → i → c → λ → test\n` +
+        `  t    = types\n` +
         `  e    = externs (FFI imports)\n` +
         `  i    = imports (Sigil modules)\n` +
-        `  t    = types\n` +
         `  c    = consts\n` +
         `  λ    = functions\n` +
         `  test = tests\n` +

@@ -7,7 +7,9 @@ slug: 005-canonical-declaration-ordering
 
 # Canonical Declaration Ordering: ONE Way to Organize Code
 
-**TL;DR:** We enforced strict canonical declaration ordering in Sigil. Every file must follow the same order: `e → i → t → c → λ → test`. Alphabetically within each category. Non-exported before exported. Zero flexibility. Maximum determinism.
+> **🚨 BREAKING CHANGE (Feb 25, 2026):** The canonical ordering has been updated to **`t → e → i → c → λ → test`** (types now come first). This enables typed FFI declarations to reference named types. See the [Typed FFI and Declaration Ordering](/articles/typed-ffi-and-declaration-ordering) article for details and migration guide. The content below describes the original `e → i → t` ordering for historical context.
+
+**TL;DR:** We enforced strict canonical declaration ordering in Sigil. ~~Every file must follow the same order: `e → i → t → c → λ → test`.~~ **Update:** The order is now `t → e → i → c → λ → test` (types first). Alphabetically within each category. Non-exported before exported. Zero flexibility. Maximum determinism.
 
 ## The Problem: Organization Bikeshedding
 

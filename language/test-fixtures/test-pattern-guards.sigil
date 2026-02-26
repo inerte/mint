@@ -8,6 +8,9 @@
   and must have type 𝔹 (boolean).
 ⟧
 
+⟦ Sum type for Test 4 ⟧
+t Result=Ok(ℤ)|Err(𝕊)
+
 e console
 
 ⟦ Test 1: Simple guards with literal patterns ⟧
@@ -32,8 +35,6 @@ e console
 }
 
 ⟦ Test 4: Sum type with guards ⟧
-t Result=Ok(ℤ)|Err(𝕊)
-
 λtest4(r:Result)→𝕊≡r{
   Ok(n) when n>100 → "big success" |
   Ok(n) when n>0 → "small success" |

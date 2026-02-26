@@ -13,13 +13,24 @@
 (* PROGRAM STRUCTURE                                                            *)
 (* ============================================================================ *)
 
+(* CANONICAL DECLARATION ORDERING (strictly enforced):
+   t → e → i → c → λ → test
+   - Types must come first (enables typed FFI to reference named types)
+   - Externs second (can reference types defined above)
+   - Imports third
+   - Consts fourth
+   - Functions fifth
+   - Tests last
+
+   Within each category: alphabetical, non-exported before exported *)
+
 Program = { TopLevelDecl } ;
 
-TopLevelDecl = FunctionDecl
-             | TypeDecl
-             | ImportDecl
+TopLevelDecl = TypeDecl
              | ExternDecl
-             | ConstDecl ;
+             | ImportDecl
+             | ConstDecl
+             | FunctionDecl ;
 
 (* ============================================================================ *)
 (* IMPORTS                                                                      *)

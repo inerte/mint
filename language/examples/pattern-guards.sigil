@@ -15,6 +15,14 @@ This feature was added to enable clean state machine implementations
 (like the markdown parser in stdlib⋅markdown).
 ⟧
 
+⟦ Type Definitions ⟧
+t Action=Increment|Decrement|Reset
+t Color=Red|Green|Blue
+t Point={x:ℤ,y:ℤ}
+t Result=Ok(ℤ)|Err(𝕊)
+t State={mode:𝕊,count:ℤ}
+t User={name:𝕊,age:ℤ}
+
 e console
 
 ⟦ Example 1: Range Checking
@@ -38,8 +46,6 @@ Guards are perfect for validation logic where you match
 on structure but need to check constraints.
 ⟧
 
-t User={name:𝕊,age:ℤ}
-
 λvalidateUser(u:User)→𝕊≡u{
   {name,age} when age<0 → "Invalid: negative age" |
   {name,age} when age>150 → "Invalid: age too high" |
@@ -52,8 +58,6 @@ t User={name:𝕊,age:ℤ}
 Match on structure, then check additional conditions
 on the unpacked values.
 ⟧
-
-t Result=Ok(ℤ)|Err(𝕊)
 
 λprocessResult(r:Result)→𝕊≡r{
   Ok(n) when n>100 → "Big success: "++stdlib⋅string.int_to_string(n) |
@@ -82,8 +86,6 @@ Guards can use any boolean expression, including
 conjunction (∧), disjunction (∨), and comparisons.
 ⟧
 
-t Point={x:ℤ,y:ℤ}
-
 λclassifyPoint(p:Point)→𝕊≡p{
   {x,y} when x=0∧y=0 → "origin" |
   {x,y} when x=0 → "on y-axis" |
@@ -101,9 +103,6 @@ t Point={x:ℤ,y:ℤ}
 Pattern guards shine in state machine implementations.
 Match on state structure, guard on input conditions.
 ⟧
-
-t State={mode:𝕊,count:ℤ}
-t Action=Increment|Decrement|Reset
 
 λstateTransition(state:State,action:Action)→State≡action{
   Increment when state.count<100 → {mode:state.mode,count:state.count+1} |
@@ -130,8 +129,6 @@ conditional list processing.
 Patterns without guards work exactly as before.
 Guards are purely additive.
 ⟧
-
-t Color=Red|Green|Blue
 
 λcolorToHex(c:Color)→𝕊≡c{
   Red → "#FF0000" |

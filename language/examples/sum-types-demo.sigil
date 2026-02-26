@@ -29,16 +29,10 @@ t Result[T,E]=Ok(T)|Err(E)
   b→Ok(a/b)
 }
 
-⟦ Example 3: Pattern matching on Result ⟦
-λprocessResult(result:Result)→ℤ≡result{
-  Ok(value)→value|
-  Err(_)→0
-}
-
 ⟦ Example 4: Working with Option ⟧
 λfirst[T](list:[T])→Option≡list{
   []→None()|
-  [x,._]→Some(x)
+  [x,.rest]→Some(x)
 }
 
 λgetOrDefault(opt:Option,default:ℤ)→ℤ≡opt{
@@ -47,10 +41,16 @@ t Result[T,E]=Ok(T)|Err(E)
 }
 
 ⟦ Main - demonstrate all examples ⟧
-λmain()→ℤ≡{
+λmain()→ℤ={
   l color_value=colorToNumber(Green());
   l div_ok=processResult(divide(10,2));
   l div_err=processResult(divide(10,0));
   l total=color_value+div_ok+div_err;
   total
+}
+
+⟦ Example 3: Pattern matching on Result ⟧
+λprocessResult(result:Result)→ℤ≡result{
+  Ok(value)→value|
+  Err(_)→0
 }

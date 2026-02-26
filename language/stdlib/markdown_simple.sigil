@@ -5,18 +5,24 @@
 ⟧
 
 i stdlib⋅string
-i stdlib⋅string
-
-⟦ Check if line starts with # (header) ⟧
-λis_header_line(line:𝕊)→𝔹={
-  l trimmed=stdlib⋅string.trim(line);
-  stdlib⋅string.starts_with(trimmed,"#")
-}
 
 ⟦ Check if line is code fence ⟧
 λis_code_fence(line:𝕊)→𝔹={
   l trimmed=stdlib⋅string.trim(line);
   stdlib⋅string.starts_with(trimmed,"```")
+}
+
+⟦ Check if line is empty ⟧
+λis_empty_line(line:𝕊)→𝔹={
+  l trimmed=stdlib⋅string.trim(line);
+  l len=#trimmed;
+  ≡len{0→⊤|n→⊥}
+}
+
+⟦ Check if line starts with # (header) ⟧
+λis_header_line(line:𝕊)→𝔹={
+  l trimmed=stdlib⋅string.trim(line);
+  stdlib⋅string.starts_with(trimmed,"#")
 }
 
 ⟦ Check if line is horizontal rule ⟧
@@ -28,24 +34,15 @@ i stdlib⋅string
   ≡is_dashes{⊤→⊤|⊥→≡is_stars{⊤→⊤|⊥→is_underscores}}
 }
 
-⟦ Check if line is empty ⟧
-λis_empty_line(line:𝕊)→𝔹={
-  l trimmed=stdlib⋅string.trim(line);
-  l len=#trimmed;
-  ≡len{0→⊤|n→⊥}
-}
-
 ⟦ Count leading # characters for header level ⟧
 λcount_hashes(text:𝕊)→ℤ={
   l len=#text;
-  l count_loop=λ(idx:ℤ)→ℤ=≡idx{
-    idx→≡(idx<len){
-      ⊤→≡(stdlib⋅string.char_at(text,idx)="#"){
-        ⊤→count_loop(idx⊕1)|
-        ⊥→idx
-      }|
+  l count_loop=λ(idx:ℤ)→ℤ≡idx{
+    idx when idx<len→≡(stdlib⋅string.char_at(text,idx)="#"){
+      ⊤→count_loop(idx+1)|
       ⊥→idx
-    }
+    }|
+    idx→idx
   };
   count_loop(0)
 }
@@ -64,13 +61,13 @@ i stdlib⋅string
 
 ⟦ Convert header level to HTML tag ⟧
 λheader_tag(level:ℤ)→𝕊={
-  "h"⊕stdlib⋅string.int_to_string(level)
+  "h"++stdlib⋅string.int_to_string(level)
 }
 
 ⟦ Wrap text in header tags ⟧
 λrender_header(level:ℤ,text:𝕊)→𝕊={
   l tag=header_tag(level);
-  "<"⊕tag⊕">"⊕text⊕"</"⊕tag⊕">"
+  "<"++tag++">"++text++"</"++tag++">"
 }
 
 ⟦ Render horizontal rule ⟧
@@ -78,12 +75,12 @@ i stdlib⋅string
 
 ⟦ Render paragraph ⟧
 λrender_paragraph(text:𝕊)→𝕊={
-  "<p>"⊕text⊕"</p>"
+  "<p>"++text++"</p>"
 }
 
 ⟦ Render code block ⟧
 λrender_code_block(code:𝕊)→𝕊={
-  "<pre><code>"⊕code⊕"</code></pre>"
+  "<pre><code>"++code++"</code></pre>"
 }
 
 ⟦ Process markdown lines into HTML blocks ⟧
@@ -92,16 +89,16 @@ export λparse(markdown:𝕊)→𝕊={
   l num_lines=#lines;
 
   ⟦ Parse loop - accumulate HTML output ⟧
-  l parse_lines=λ(idx:ℤ,result:𝕊,in_code:𝔹,code_acc:𝕊,para_acc:𝕊)→𝕊=≡(idx≥num_lines){
+  l parse_lines=λ(idx:ℤ,result:𝕊,in_code:𝔹,code_acc:𝕊,para_acc:𝕊)→𝕊≡(idx≥num_lines){
     ⊤→{
       ⟦ End of input - flush remaining state ⟧
       l with_code=≡in_code{
-        ⊤→result⊕"\n"⊕render_code_block(code_acc)|
+        ⊤→result++"\n"++render_code_block(code_acc)|
         ⊥→result
       };
       l para_len=#para_acc;
       ≡(para_len>0){
-        ⊤→with_code⊕"\n"⊕render_paragraph(para_acc)|
+        ⊤→with_code++"\n"++render_paragraph(para_acc)|
         ⊥→with_code
       }
     }|
@@ -113,16 +110,16 @@ export λparse(markdown:𝕊)→𝕊={
         ⊤→≡(is_code_fence(line)){
           ⊤→{
             ⟦ End code block ⟧
-            l new_result=result⊕"\n"⊕render_code_block(code_acc);
-            parse_lines(idx⊕1,new_result,⊥,"","")
+            l new_result=result++"\n"++render_code_block(code_acc);
+            parse_lines(idx+1,new_result,⊥,"","")
           }|
           ⊥→{
             ⟦ Accumulate code line ⟧
             l new_code=≡(#code_acc>0){
-              ⊤→code_acc⊕"\n"⊕line|
+              ⊤→code_acc++"\n"++line|
               ⊥→line
             };
-            parse_lines(idx⊕1,result,⊤,new_code,para_acc)
+            parse_lines(idx+1,result,⊤,new_code,para_acc)
           }
         }|
         ⊥→{
@@ -131,10 +128,10 @@ export λparse(markdown:𝕊)→𝕊={
             ⊤→{
               ⟦ Start code block - flush paragraph first ⟧
               l new_result=≡(#para_acc>0){
-                ⊤→result⊕"\n"⊕render_paragraph(para_acc)|
+                ⊤→result++"\n"++render_paragraph(para_acc)|
                 ⊥→result
               };
-              parse_lines(idx⊕1,new_result,⊤,"","")
+              parse_lines(idx+1,new_result,⊤,"","")
             }|
             ⊥→{
               ⟦ Check for header ⟧
@@ -145,10 +142,10 @@ export λparse(markdown:𝕊)→𝕊={
                   l text=extract_header_text(line);
                   l header_html=render_header(level,text);
                   l new_result=≡(#para_acc>0){
-                    ⊤→result⊕"\n"⊕render_paragraph(para_acc)⊕"\n"⊕header_html|
-                    ⊥→result⊕"\n"⊕header_html
+                    ⊤→result++"\n"++render_paragraph(para_acc)++"\n"++header_html|
+                    ⊥→result++"\n"++header_html
                   };
-                  parse_lines(idx⊕1,new_result,⊥,"","")
+                  parse_lines(idx+1,new_result,⊥,"","")
                 }|
                 ⊥→{
                   ⟦ Check for horizontal rule ⟧
@@ -156,10 +153,10 @@ export λparse(markdown:𝕊)→𝕊={
                     ⊤→{
                       l hr_html=render_hr();
                       l new_result=≡(#para_acc>0){
-                        ⊤→result⊕"\n"⊕render_paragraph(para_acc)⊕"\n"⊕hr_html|
-                        ⊥→result⊕"\n"⊕hr_html
+                        ⊤→result++"\n"++render_paragraph(para_acc)++"\n"++hr_html|
+                        ⊥→result++"\n"++hr_html
                       };
-                      parse_lines(idx⊕1,new_result,⊥,"","")
+                      parse_lines(idx+1,new_result,⊥,"","")
                     }|
                     ⊥→{
                       ⟦ Check for empty line ⟧
@@ -167,18 +164,18 @@ export λparse(markdown:𝕊)→𝕊={
                         ⊤→{
                           ⟦ Flush paragraph ⟧
                           l new_result=≡(#para_acc>0){
-                            ⊤→result⊕"\n"⊕render_paragraph(para_acc)|
+                            ⊤→result++"\n"++render_paragraph(para_acc)|
                             ⊥→result
                           };
-                          parse_lines(idx⊕1,new_result,⊥,"","")
+                          parse_lines(idx+1,new_result,⊥,"","")
                         }|
                         ⊥→{
                           ⟦ Regular text line - accumulate into paragraph ⟧
                           l new_para=≡(#para_acc>0){
-                            ⊤→para_acc⊕" "⊕stdlib⋅string.trim(line)|
+                            ⊤→para_acc++" "++stdlib⋅string.trim(line)|
                             ⊥→stdlib⋅string.trim(line)
                           };
-                          parse_lines(idx⊕1,result,⊥,code_acc,new_para)
+                          parse_lines(idx+1,result,⊥,code_acc,new_para)
                         }
                       }
                     }

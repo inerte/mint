@@ -1,9 +1,9 @@
-// TEST: Canonical value matching (should COMPILE)
-// EXPECTED: OK COMPILES
+⟦ TEST: Canonical value matching (should COMPILE) ⟧
+⟦ EXPECTED: OK COMPILES ⟧
+
+λmain()→ℤ=sum(5)
 
 λsum(n:ℤ)→ℤ≡n{
   0→0|
   n→n+sum(n-1)
 }
-
-λmain()→ℤ=sum(5)

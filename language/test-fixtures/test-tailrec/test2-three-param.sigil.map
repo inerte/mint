@@ -1,38 +1,38 @@
 {
   "version": 1,
-  "file": "list-length.sigil",
+  "file": "test2-three-param.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-26T01:05:05.392Z",
+  "generated_at": "2026-02-26T01:05:04.735Z",
   "mappings": {
-    "length": {
+    "fold_sum": {
       "range": [
-        0,
-        56
+        88,
+        178
       ],
-      "summary": "Function: length",
-      "explanation": "Function with 1 parameter(s), returns ℤ",
-      "type": "λ([ℤ])→ℤ"
+      "summary": "Function: fold_sum",
+      "explanation": "Function with 3 parameter(s), returns ℤ",
+      "type": "λ([ℤ],ℤ,ℤ)→ℤ"
     },
-    "length_arm_0": {
+    "fold_sum_arm_0": {
       "range": [
-        26,
-        30
+        128,
+        134
       ],
       "summary": "Match arm: []",
       "explanation": "Pattern matches []"
     },
-    "length_arm_1": {
+    "fold_sum_arm_1": {
       "range": [
-        34,
-        54
+        138,
+        176
       ],
-      "summary": "Match arm: [_]",
-      "explanation": "Pattern matches [_]"
+      "summary": "Match arm: [x]",
+      "explanation": "Pattern matches [x]"
     },
     "main": {
       "range": [
-        58,
-        87
+        180,
+        211
       ],
       "summary": "Function: main",
       "explanation": "Function with 0 parameter(s), returns ℤ",

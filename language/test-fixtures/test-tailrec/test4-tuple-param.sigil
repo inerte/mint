@@ -1,5 +1,5 @@
-// TEST: Tuple parameter
-// EXPECTED: BLOCKED BLOCKED - "collection-type parameter"
+⟦ TEST: Tuple parameter ⟧
+⟦ EXPECTED: BLOCKED BLOCKED - "collection-type parameter" ⟧
 
 λfactorial(state:(ℤ,ℤ))→ℤ≡state{
   (0,acc)→acc|

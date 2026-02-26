@@ -1,5 +1,5 @@
-// TEST: Record type with 1 field (should be ALLOWED - not encoding multiple values)
-// EXPECTED: OK COMPILES
+⟦ TEST: Record type with 1 field (should be ALLOWED - not encoding multiple values) ⟧
+⟦ EXPECTED: OK COMPILES ⟧
 
 t Wrapper={value:ℤ}
 

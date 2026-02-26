@@ -1,5 +1,5 @@
-// TEST: Nested list parameter
-// EXPECTED: BLOCKED BLOCKED - "collection-type parameter"
+⟦ TEST: Nested list parameter ⟧
+⟦ EXPECTED: BLOCKED BLOCKED - "collection-type parameter" ⟧
 
 λfactorial(state:[[ℤ]])→ℤ≡state{
   [[0,acc]]→acc|

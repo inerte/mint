@@ -1,5 +1,5 @@
-// TEST: Boolean matching when value matching works
-// EXPECTED: BLOCKED BLOCKED - "Non-canonical pattern matching"
+⟦ TEST: Boolean matching when value matching works ⟧
+⟦ EXPECTED: BLOCKED BLOCKED - "Non-canonical pattern matching" ⟧
 
 λsum(n:ℤ)→ℤ≡(n=0){
   ⊤→0|

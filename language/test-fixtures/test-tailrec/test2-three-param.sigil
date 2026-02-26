@@ -1,5 +1,5 @@
-// TEST: Three parameters
-// EXPECTED: BLOCKED BLOCKED - "accumulator-passing style"
+⟦ TEST: Three parameters ⟧
+⟦ EXPECTED: BLOCKED BLOCKED - "accumulator-passing style" ⟧
 
 λfold_sum(xs:[ℤ],acc:ℤ,count:ℤ)→ℤ≡xs{
   []→acc|

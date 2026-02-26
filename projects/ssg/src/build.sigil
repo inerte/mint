@@ -99,7 +99,7 @@ i stdlib⋅string
 ⟦ Main build function ⟧
 export λbuild(input_dir:𝕊,output_dir:𝕊)→!IO 𝕌=
   l _=ensure_dir(output_dir);
-  l all_files=fs⋅promises.readdir(input_dir);
+  l all_files=(λ()→[𝕊]=fs⋅promises.readdir(input_dir))();
   l num_files=#all_files;
   l markdown_files=filter_md_files_inner(all_files,num_files,0,[]);
   l num_articles=#markdown_files;

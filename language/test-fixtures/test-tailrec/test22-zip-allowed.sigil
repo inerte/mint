@@ -1,5 +1,5 @@
-// TEST: Append two lists with multi-param recursion (should COMPILE)
-// EXPECTED: OK COMPILES - both lists decompose (one to empty, other structural)
+⟦ TEST: Append two lists with multi-param recursion (should COMPILE) ⟧
+⟦ EXPECTED: OK COMPILES - both lists decompose (one to empty, other structural) ⟧
 
 λappend(xs:[ℤ],ys:[ℤ])→[ℤ]≡xs{
   []→ys|

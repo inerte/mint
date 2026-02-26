@@ -1,5 +1,5 @@
-// TEST: Valid canonical form (should COMPILE)
-// EXPECTED: OK COMPILES
+⟦ TEST: Valid canonical form (should COMPILE) ⟧
+⟦ EXPECTED: OK COMPILES ⟧
 
 λfactorial(n:ℤ)→ℤ≡n{
   0→1|

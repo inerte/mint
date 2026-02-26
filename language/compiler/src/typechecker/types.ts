@@ -324,6 +324,9 @@ export function astTypeToInferenceType(astType: AST.Type): InferenceType {
       };
 
     case 'TypeVariable':
+      if (astType.name === 'Any') {
+        return { kind: 'any' };
+      }
       // Type variables in AST could be:
       // 1. Actual type parameters (T, U, E) - not yet supported
       // 2. User-defined types without type arguments (Color, Status)
@@ -336,6 +339,9 @@ export function astTypeToInferenceType(astType: AST.Type): InferenceType {
       };
 
     case 'TypeConstructor':
+      if (astType.name === 'Any' && astType.typeArgs.length === 0) {
+        return { kind: 'any' };
+      }
       return {
         kind: 'constructor',
         name: astType.name,

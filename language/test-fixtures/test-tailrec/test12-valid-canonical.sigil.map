@@ -1,54 +1,46 @@
 {
   "version": 1,
-  "file": "test7-record-one-field-ok.sigil",
+  "file": "test12-valid-canonical.sigil",
   "generated_by": "sigilc@0.1.0",
-  "generated_at": "2026-02-26T01:05:05.446Z",
+  "generated_at": "2026-02-26T01:05:05.499Z",
   "mappings": {
-    "Wrapper": {
-      "range": [
-        113,
-        132
-      ],
-      "summary": "Type definition: Wrapper",
-      "explanation": "Type Wrapper"
-    },
     "factorial": {
       "range": [
-        134,
-        211
+        75,
+        132
       ],
       "summary": "Function: factorial",
       "explanation": "Function with 1 parameter(s), returns ℤ",
-      "type": "λ(Wrapper)→ℤ"
+      "type": "λ(ℤ)→ℤ"
     },
     "factorial_arm_0": {
       "range": [
-        169,
-        172
+        98,
+        101
       ],
       "summary": "Match arm: 0",
       "explanation": "Pattern matches 0"
     },
     "factorial_arm_1": {
       "range": [
-        176,
-        179
+        105,
+        108
       ],
       "summary": "Match arm: 1",
       "explanation": "Pattern matches 1"
     },
     "factorial_arm_2": {
       "range": [
-        183,
-        209
+        112,
+        130
       ],
-      "summary": "Match arm: v",
-      "explanation": "Pattern matches v"
+      "summary": "Match arm: n",
+      "explanation": "Pattern matches n"
     },
     "main": {
       "range": [
-        213,
-        243
+        134,
+        156
       ],
       "summary": "Function: main",
       "explanation": "Function with 0 parameter(s), returns ℤ",

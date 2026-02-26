@@ -1,5 +1,5 @@
-// TEST: Continuation Passing Style (CPS)
-// EXPECTED: BLOCKED BLOCKED - "returns a function type"
+⟦ TEST: Continuation Passing Style (CPS) ⟧
+⟦ EXPECTED: BLOCKED BLOCKED - "returns a function type" ⟧
 
 λfactorial(n:ℤ)→λ(ℤ)→ℤ≡n{
   0→λacc→acc|

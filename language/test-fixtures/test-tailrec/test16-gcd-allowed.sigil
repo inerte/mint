@@ -1,5 +1,5 @@
-// TEST: GCD with multi-param recursion (should COMPILE)
-// EXPECTED: OK COMPILES - legitimate multi-param algorithm
+⟦ TEST: GCD with multi-param recursion (should COMPILE) ⟧
+⟦ EXPECTED: OK COMPILES - legitimate multi-param algorithm ⟧
 
 λgcd(a:ℤ,b:ℤ)→ℤ≡b{
   0→a|

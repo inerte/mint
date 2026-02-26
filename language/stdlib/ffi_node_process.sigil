@@ -9,6 +9,6 @@
 ⟧
 
 e process : {
-  exit : λ(ℤ) → 𝕌,
-  cwd : λ() → 𝕊
+  cwd : λ() → 𝕊,
+  exit : λ(ℤ) → 𝕌
 }

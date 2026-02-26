@@ -1179,6 +1179,9 @@ function validateDeclarationOrdering(program: AST.Program): void {
   validateWithinCategoryOrder(categories.consts, 'const', 'c');
   validateWithinCategoryOrder(categories.functions, 'function', 'λ');
   validateWithinCategoryOrder(categories.tests, 'test', 'test');
+
+  // Check alphabetical ordering of members within typed extern declarations
+  validateExternMemberOrder(categories.externs);
 }
 
 /**
@@ -1346,6 +1349,49 @@ function checkAlphabeticalOrder(
           suggestions: [suggestReorderDeclaration(`move '${curr.name}' before '${prev.name}'`, categorySymbol, curr.name, prev.name)]
         }
       );
+    }
+  }
+}
+
+/**
+ * Validate that members within typed extern declarations are alphabetically ordered
+ */
+function validateExternMemberOrder(externs: AST.ExternDecl[]): void {
+  for (const externDecl of externs) {
+    // Skip untyped externs (no members)
+    if (!externDecl.members || externDecl.members.length === 0) {
+      continue;
+    }
+
+    // Check that members are alphabetically ordered
+    for (let i = 1; i < externDecl.members.length; i++) {
+      const prev = externDecl.members[i - 1];
+      const curr = externDecl.members[i];
+
+      if (prev.name > curr.name) {
+        const moduleName = formatModulePath(externDecl.modulePath);
+        throw new CanonicalError(
+          'SIGIL-CANON-EXTERN-MEMBER-ORDER',
+          `Canonical Ordering Error: Extern member out of alphabetical order\n` +
+          `\n` +
+          `Module: e ${moduleName}\n` +
+          `Found: ${curr.name} at line ${curr.location.start.line}\n` +
+          `After: ${prev.name} at line ${prev.location.start.line}\n` +
+          `\n` +
+          `Typed extern members must be alphabetically ordered.\n` +
+          `Expected '${curr.name}' to come before '${prev.name}'.\n` +
+          `\n` +
+          `Alphabetical order uses Unicode code point comparison (case-sensitive).\n` +
+          `Move '${curr.name}' to come before '${prev.name}' in the member list.\n` +
+          `\n` +
+          `Sigil enforces ONE way: strict alphabetical ordering for extern members.`,
+          curr.location,
+          {
+            details: { module: moduleName, member: curr.name, before: prev.name },
+            suggestions: [suggestReorderDeclaration(`move '${curr.name}' before '${prev.name}' in extern ${moduleName}`, 'e', curr.name, prev.name)]
+          }
+        );
+      }
     }
   }
 }

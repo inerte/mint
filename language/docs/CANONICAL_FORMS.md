@@ -121,6 +121,61 @@ The presence/absence of `=` depends on the function body type.
 
 **Rationale:** The `≡` operator already signals "this is the body", making `=` redundant and non-canonical.
 
+#### Rule 5: Declaration Category Ordering
+
+Module-level declarations must appear in strict categorical order:
+
+**`t → e → i → c → λ → test`**
+
+```sigil
+✅ VALID:
+t User = { name: 𝕊, age: ℤ }
+e console
+i stdlib⋅list
+c MAX_SIZE : ℤ = 100
+λmain()→ℤ=0
+test "example" { ... }
+
+❌ REJECTED - extern before type:
+e console
+t User = { name: 𝕊, age: ℤ }
+⟦ Error: Type declarations must come before extern declarations ⟧
+```
+
+**Category meanings:**
+- `t` = types (must come first so externs can reference them)
+- `e` = externs (FFI imports)
+- `i` = imports (Sigil modules)
+- `c` = consts
+- `λ` = functions
+- `test` = tests
+
+**Within-category ordering:**
+- Non-exported declarations first (alphabetically by name)
+- Exported declarations second (alphabetically by name)
+
+**Error message:**
+```
+Canonical Ordering Error: Wrong category position
+
+Found: e (extern) at line 5
+Expected: extern declarations must come before import declarations
+
+Category order: t → e → i → c → λ → test
+  t    = types
+  e    = externs (FFI imports)
+  i    = imports (Sigil modules)
+  c    = consts
+  λ    = functions
+  test = tests
+
+Move all extern declarations to appear before import declarations.
+
+Sigil enforces ONE way: canonical declaration ordering.
+```
+
+**Rationale:** Types-first ordering enables typed FFI declarations to reference named types. This is a language design choice that prioritizes correctness over convenience.
+
 ## Already Enforced (Lexer Level)
 
 The lexer rejects:

@@ -6,13 +6,13 @@
    - rendering is tileAt(world,x,y) + recursive string building
 ⟧
 
-e console
-
 t IntRoll={rng:Rng,value:ℤ}
 t Rng={seed:ℤ}
 t Room={x:ℤ,y:ℤ,w:ℤ,h:ℤ}
 t RoomRoll={rng:Rng,room:Room}
 t World={room1:Room,room2:Room,room3:Room}
+
+e console
 
 c height:ℤ=18
 c seed0:ℤ=1337

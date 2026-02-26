@@ -137,11 +137,65 @@ Make sure it's installed: npm install axios
 
 ## Type System Integration
 
-Currently uses `any` type for FFI calls (trust mode).
+Sigil supports both **untyped** and **typed** FFI declarations.
 
-Member validation is **structural** (does it exist?) not type-based.
+### Untyped FFI (Trust Mode)
 
-Future: Optional type declarations for better safety.
+```sigil
+e console
+e fs⋅promises
+```
+
+Uses `any` type for FFI calls. Member validation is **structural** (does it exist?) not type-based.
+
+### Typed FFI (Type-Safe Mode)
+
+You can optionally provide type signatures for extern members:
+
+```sigil
+t MkdirOptions = { recursive: 𝔹 }
+
+e fs⋅promises : {
+  mkdir : λ(𝕊, MkdirOptions) → 𝕌
+}
+
+λensureDir(dir:𝕊)→𝕌={
+  l opts = MkdirOptions{recursive:⊤};
+  fs⋅promises.mkdir(dir, opts)
+}
+```
+
+**Benefits:**
+- Compile-time type checking of FFI calls
+- Can reference named Sigil types in FFI signatures
+- Better IDE/LSP support
+- Self-documenting external APIs
+
+**Syntax:**
+```sigil
+e module⋅path : {
+  member1 : λ(ParamType1, ParamType2) → ReturnType,
+  member2 : λ(ParamType3) → ReturnType
+}
+```
+
+### Declaration Ordering Requirement
+
+**IMPORTANT:** Because typed extern declarations can reference named types, **types must be declared before externs** in Sigil's canonical ordering:
+
+```sigil
+✅ VALID: Type before extern
+t MkdirOptions = { recursive: 𝔹 }
+e fs⋅promises : { mkdir : λ(𝕊, MkdirOptions) → 𝕌 }
+
+❌ INVALID: Extern before type (compiler error)
+e fs⋅promises : { mkdir : λ(𝕊, MkdirOptions) → 𝕌 }
+t MkdirOptions = { recursive: 𝔹 }
+```
+
+This is why Sigil's canonical declaration ordering is: **`t → e → i → c → λ → test`**
+
+See [Canonical Declaration Ordering](/articles/canonical-declaration-ordering) for more details.
 
 ## Async Behavior
 
@@ -176,13 +230,13 @@ See [ASYNC.md](./ASYNC.md) for complete details on Sigil's async-by-default desi
 
 ## Canonical Form
 
-FFI has exactly **ONE syntactic form**:
+FFI has exactly **TWO syntactic forms**:
 
-✅ ONLY: `e module⋅path`
+✅ ONLY: `e module⋅path` (untyped)
+✅ ONLY: `e module⋅path : { member : λ(...) → ... }` (typed)
 ❌ NO: `extern module⋅path` (no full keyword)
 ❌ NO: `e module⋅path as alias` (no aliasing)
-❌ NO: `e module⋅path{member1,member2}` (no member lists)
-❌ NO: Type annotations on extern declarations
+❌ NO: `e module⋅path{member1,member2}` (no destructuring)
 
 This ensures deterministic, unambiguous code generation for LLMs.
 

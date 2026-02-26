@@ -1,12 +1,12 @@
 ⟦ TEST: mkdir can be typed using a named record type ⟧
 
+⟦ Define the options type (must come before extern that references it) ⟧
+t MkdirOptions = { recursive: 𝔹 }
+
 ⟦ Typed extern with record type parameter ⟧
 e fs⋅promises : {
   mkdir : λ(𝕊, MkdirOptions) → 𝕌
 }
-
-⟦ Define the options type ⟧
-t MkdirOptions = { recursive: 𝔹 }
 
 ⟦ Create typed options ⟧
 c opts:MkdirOptions={recursive:⊤}

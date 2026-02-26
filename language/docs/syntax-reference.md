@@ -46,6 +46,23 @@ Sigil uses one comment syntax only:
 
 ## Declarations
 
+Sigil has six declaration categories in **strict canonical order**:
+
+**`t → e → i → c → λ → test`**
+
+- `t` = types (must come first so externs can reference them)
+- `e` = externs (FFI imports)
+- `i` = imports (Sigil modules)
+- `c` = consts
+- `λ` = functions
+- `test` = tests
+
+Within each category:
+- Non-exported declarations first (alphabetically by name)
+- Exported declarations second (alphabetically by name)
+
+See [CANONICAL_FORMS.md](./CANONICAL_FORMS.md) for enforcement rules.
+
 ## Function declarations
 
 ```sigil

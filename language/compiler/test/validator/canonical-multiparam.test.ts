@@ -30,8 +30,8 @@ describe('Canonical Form - Multi-Parameter Recursion', () => {
 
     test('Power - one param constant (query), one decrements (structural)', () => {
       const code = `
-        λpower(base:ℤ,exp:ℤ)→ℤ≡exp{0→1|exp→base*power(base,exp-1)}
         λmain()→ℤ=power(2,10)
+        λpower(base:ℤ,exp:ℤ)→ℤ≡exp{0→1|exp→base*power(base,exp-1)}
       `;
       const tokens = tokenize(code);
       const ast = parse(tokens);
@@ -41,11 +41,11 @@ describe('Canonical Form - Multi-Parameter Recursion', () => {
 
     test('Nth element - both params decompose in parallel', () => {
       const code = `
+        λmain()→ℤ=nth([10,20,30],1)
         λnth(list:[ℤ],n:ℤ)→ℤ≡(list,n){
           ([x,.xs],0)→x|
           ([x,.xs],n)→nth(xs,n-1)
         }
-        λmain()→ℤ=nth([10,20,30],1)
       `;
       const tokens = tokenize(code);
       const ast = parse(tokens);
@@ -126,11 +126,11 @@ describe('Canonical Form - Multi-Parameter Recursion', () => {
 
     test('List reverse with accumulator - list building', () => {
       const code = `
+        λmain()→[ℤ]=reverse_acc([1,2,3],[])
         λreverse_acc(lst:[ℤ],acc:[ℤ])→[ℤ]≡lst{
           []→acc|
           [x,.xs]→reverse_acc(xs,[x])
         }
-        λmain()→[ℤ]=reverse_acc([1,2,3],[])
       `;
       const tokens = tokenize(code);
       const ast = parse(tokens);
@@ -156,11 +156,11 @@ describe('Canonical Form - Multi-Parameter Recursion', () => {
 
     test('String concatenation accumulator', () => {
       const code = `
+        λmain()→𝕊=repeat(3,"x","")
         λrepeat(n:ℤ,str:𝕊,acc:𝕊)→𝕊≡n{
           0→acc|
           n→repeat(n-1,str,acc++str)
         }
-        λmain()→𝕊=repeat(3,"x","")
       `;
       const tokens = tokenize(code);
       const ast = parse(tokens);
@@ -197,11 +197,11 @@ describe('Canonical Form - Multi-Parameter Recursion', () => {
 
     test('List structural recursion - single param allowed', () => {
       const code = `
+        λmain()→[ℤ]=reverse([1,2,3])
         λreverse(lst:[ℤ])→[ℤ]≡lst{
           []→[]|
           [x,.xs]→reverse(xs)++[x]
         }
-        λmain()→[ℤ]=reverse([1,2,3])
       `;
       const tokens = tokenize(code);
       const ast = parse(tokens);
@@ -211,8 +211,8 @@ describe('Canonical Form - Multi-Parameter Recursion', () => {
 
     test('Multiple functions - each validated independently', () => {
       const code = `
-        λgcd(a:ℤ,b:ℤ)→ℤ≡b{0→a|b→gcd(b,a%b)}
         λfactorial(n:ℤ)→ℤ≡n{0→1|1→1|n→n*factorial(n-1)}
+        λgcd(a:ℤ,b:ℤ)→ℤ≡b{0→a|b→gcd(b,a%b)}
         λmain()→ℤ=gcd(factorial(5),factorial(4))
       `;
       const tokens = tokenize(code);
@@ -223,8 +223,8 @@ describe('Canonical Form - Multi-Parameter Recursion', () => {
 
     test('Mixed valid and invalid - should catch invalid', () => {
       const code = `
-        λgcd(a:ℤ,b:ℤ)→ℤ≡b{0→a|b→gcd(b,a%b)}
         λbad_sum(n:ℤ,acc:ℤ)→ℤ≡n{0→acc|n→bad_sum(n-1,acc+n)}
+        λgcd(a:ℤ,b:ℤ)→ℤ≡b{0→a|b→gcd(b,a%b)}
         λmain()→ℤ=gcd(10,5)
       `;
       const tokens = tokenize(code);

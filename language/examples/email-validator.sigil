@@ -1,0 +1,158 @@
+⟦ Email Validation Example
+
+Demonstrates string operations, pattern guards, and validation logic.
+
+This example validates email addresses using basic rules:
+- Must contain exactly one @ symbol
+- Local part (before @) must not be empty
+- Domain part (after @) must contain at least one dot
+- Domain must not start or end with a dot
+- Total length must be reasonable
+
+Note: This is a simplified validator for demonstration purposes.
+Production email validation is more complex (RFC 5322).
+⟧
+
+⟦ Email components after splitting ⟧
+t EmailParts={local:𝕊,domain:𝕊}
+
+⟦ Result type for validation ⟧
+export t ValidationResult=Valid|Invalid(𝕊)
+
+e console
+
+i stdlib⋅string
+
+⟦ Helper: Count occurrences of character in string ⟧
+λcount_char(str:𝕊,char:𝕊)→ℤ=count_helper(str,char,0,0)
+
+λcount_helper(str:𝕊,char:𝕊,idx:ℤ,acc:ℤ)→ℤ≡idx<#str{
+  ⊤ → count_helper(str,char,idx+1,acc+≡stdlib⋅string.char_at(str,idx)=char{⊤→1|⊥→0}) |
+  ⊥ → acc
+}
+
+⟦ Helper: Extract local and domain from split result ⟧
+λextract_parts(parts:[𝕊])→EmailParts≡#parts=2{
+  ⊤ → extract_two_parts(parts) |
+  ⊥ → {local:"",domain:""}
+}
+
+λextract_two_parts(parts:[𝕊])→EmailParts≡parts{
+  [local,domain] → {local:local,domain:domain} |
+  _ → {local:"",domain:""}
+}
+
+⟦ Helper: Format validation result for display ⟧
+λformat_result(email:𝕊,result:ValidationResult)→𝕊≡result{
+  Valid → "✓ '"++email++"' is valid" |
+  Invalid(reason) → "✗ '"++email++"': "++reason
+}
+
+⟦ Main - Demonstrate email validation ⟧
+λmain()→!IO 𝕌={
+  l _=console.log("=== Email Validator ===\n");
+
+  ⟦ Valid emails ⟧
+  l _=console.log("Valid examples:");
+  l _=console.log(format_result("user@example.com",validate_email("user@example.com")));
+  l _=console.log(format_result("alice.bob@mail.co.uk",validate_email("alice.bob@mail.co.uk")));
+  l _=console.log(format_result("test123@domain.org",validate_email("test123@domain.org")));
+
+  l _=console.log("\nInvalid examples:");
+
+  ⟦ Missing @ ⟧
+  l _=console.log(format_result("userexample.com",validate_email("userexample.com")));
+
+  ⟦ Multiple @ ⟧
+  l _=console.log(format_result("user@@example.com",validate_email("user@@example.com")));
+
+  ⟦ Empty local ⟧
+  l _=console.log(format_result("@example.com",validate_email("@example.com")));
+
+  ⟦ Empty domain ⟧
+  l _=console.log(format_result("user@",validate_email("user@")));
+
+  ⟦ No dot in domain ⟧
+  l _=console.log(format_result("user@domain",validate_email("user@domain")));
+
+  ⟦ Domain starts with dot ⟧
+  l _=console.log(format_result("user@.example.com",validate_email("user@.example.com")));
+
+  ⟦ Domain ends with dot ⟧
+  l _=console.log(format_result("user@example.com.",validate_email("user@example.com.")));
+
+  ⟦ Local starts with dot ⟧
+  l _=console.log(format_result(".user@example.com",validate_email(".user@example.com")));
+
+  ⟦ Consecutive dots in local ⟧
+  l _=console.log(format_result("user..name@example.com",validate_email("user..name@example.com")));
+
+  ⟦ Empty email ⟧
+  console.log(format_result("",validate_email("")))
+}
+
+⟦ Helper: Split email at @ symbol ⟧
+λsplit_at(email:𝕊)→EmailParts=extract_parts(stdlib⋅string.split(email,"@"))
+
+⟦ Validate domain part (after @) ⟧
+λvalidate_domain(domain:𝕊)→ValidationResult=validate_domain_checks(domain,#domain)
+
+λvalidate_domain_checks(domain:𝕊,len:ℤ)→ValidationResult≡len=0{
+  ⊤ → Invalid("Domain cannot be empty") |
+  ⊥ → ≡len>255{
+    ⊤ → Invalid("Domain too long (max 255 characters)") |
+    ⊥ → ≡stdlib⋅string.index_of(domain,".")<0{
+      ⊤ → Invalid("Domain must contain at least one dot") |
+      ⊥ → ≡stdlib⋅string.starts_with(domain,"."){
+        ⊤ → Invalid("Domain cannot start with dot") |
+        ⊥ → ≡stdlib⋅string.ends_with(domain,"."){
+          ⊤ → Invalid("Domain cannot end with dot") |
+          ⊥ → ≡stdlib⋅string.index_of(domain,"..")≥0{
+            ⊤ → Invalid("Domain cannot contain consecutive dots") |
+            ⊥ → Valid()
+          }
+        }
+      }
+    }
+  }
+}
+
+⟦ Validate email parts after splitting ⟧
+λvalidate_email_parts(parts:EmailParts)→ValidationResult≡validate_local(parts.local){
+  Invalid(msg) → Invalid(msg) |
+  Valid → validate_domain(parts.domain)
+}
+
+λvalidate_email_with_parts(email:𝕊,parts:EmailParts)→ValidationResult≡#email=0{
+  ⊤ → Invalid("Email cannot be empty") |
+  ⊥ → ≡#email>320{
+    ⊤ → Invalid("Email too long (max 320 characters)") |
+    ⊥ → ≡#parts.local=0∧#parts.domain=0{
+      ⊤ → Invalid("Email must contain exactly one @ symbol") |
+      ⊥ → validate_email_parts(parts)
+    }
+  }
+}
+
+⟦ Validate local part (before @) ⟧
+λvalidate_local(local:𝕊)→ValidationResult=validate_local_checks(local,#local)
+
+λvalidate_local_checks(local:𝕊,len:ℤ)→ValidationResult≡len=0{
+  ⊤ → Invalid("Local part cannot be empty") |
+  ⊥ → ≡len>64{
+    ⊤ → Invalid("Local part too long (max 64 characters)") |
+    ⊥ → ≡stdlib⋅string.starts_with(local,"."){
+      ⊤ → Invalid("Local part cannot start with dot") |
+      ⊥ → ≡stdlib⋅string.ends_with(local,"."){
+        ⊤ → Invalid("Local part cannot end with dot") |
+        ⊥ → ≡stdlib⋅string.index_of(local,"..")≥0{
+          ⊤ → Invalid("Local part cannot contain consecutive dots") |
+          ⊥ → Valid()
+        }
+      }
+    }
+  }
+}
+
+⟦ Main email validation function - exported for testing ⟧
+export λvalidate_email(email:𝕊)→ValidationResult=validate_email_with_parts(email,split_at(email))

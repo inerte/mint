@@ -10,3 +10,5 @@ t ParseState={in_code_block:𝔹}
   ⊤ → [Paragraph("test")]|
   ⊥ → empty_blocks()
 }
+
+λmain()→𝕌=()

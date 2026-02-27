@@ -19,3 +19,5 @@ e path : {
 ⟦ Note: join and resolve are variadic in Node.js but Sigil doesn't support
   variadic types yet. The above typing assumes 2-argument join.
   For other arities, use untyped 'e path'. ⟧
+
+λmain()→𝕌=()

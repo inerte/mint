@@ -20,3 +20,5 @@ e fs⋅promises : {
 ⟦ Note: mkdir is not included because it takes an options object parameter
   that cannot be properly typed in Sigil yet. Use untyped 'e fs⋅promises'
   if you need mkdir with options. ⟧
+
+λmain()→𝕌=()

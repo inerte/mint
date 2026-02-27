@@ -7,7 +7,7 @@ slug: 009-rust-compiler-rewrite
 
 # Rewriting the Sigil Compiler in Rust: 100% Feature Parity, 5-7x Faster
 
-**TL;DR:** We just completed a full rewrite of the Sigil compiler from TypeScript to Rust in ~3 days. Achieved 100% feature parity with byte-for-byte output compatibility, 5-7x performance improvement (debug builds!), and single-binary distribution with zero runtime dependencies. This article explains why we did it, how we did it, what we learned, and what it means for Sigil users.
+**TL;DR:** We completed a full rewrite of the Sigil compiler from TypeScript to Rust, achieving 100% feature parity with byte-for-byte output compatibility, 5-7x performance improvement (debug builds!), and single-binary distribution with zero runtime dependencies. Multi-module compilation with cross-module type checking is now fully integrated. This article explains why we did it, how we did it, what we learned, and what it means for Sigil users.
 
 ## The Problem: TypeScript Compiler Limitations
 
@@ -450,6 +450,7 @@ impl ModuleGraph {
 - 950 lines of Rust
 - 5/5 CLI commands working
 - Multi-module compilation with cycle detection
+- ✅ **Module graph integrated** (Feb 26, 2026): All CLI commands now use module graph for multi-file projects, with cross-module type checking and proper import resolution
 
 **Key insight:** Rust's `PathBuf` and `fs` APIs are more robust than Node.js equivalents. Path canonicalization Just Works™.
 

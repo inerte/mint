@@ -11,7 +11,7 @@ mod commands;
 mod module_graph;
 mod project;
 
-use commands::{compile_command, lex_command, parse_command};
+use commands::{compile_command, lex_command, parse_command, run_command};
 
 #[derive(Parser)]
 #[command(name = "sigil", version = "0.1.0", about = "Sigil Compiler")]
@@ -98,10 +98,7 @@ fn main() {
             show_types,
             human,
         } => compile_command(&file, output.as_deref(), show_types, human),
-        Command::Run { file, human } => {
-            eprintln!("Run command not yet implemented");
-            process::exit(1);
-        }
+        Command::Run { file, human } => run_command(&file, human),
         Command::Test { path, r#match, human } => {
             eprintln!("Test command not yet implemented");
             process::exit(1);

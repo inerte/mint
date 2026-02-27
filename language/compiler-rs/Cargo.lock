@@ -144,6 +144,7 @@ version = "0.1.0"
 dependencies = [
  "sigil-ast",
  "sigil-lexer",
+ "sigil-parser",
  "thiserror 1.0.69",
 ]
 

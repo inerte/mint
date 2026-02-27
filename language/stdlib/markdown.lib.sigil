@@ -176,6 +176,12 @@ i stdlib⋅string
   stdlib⋅string.starts_with(line,"* ")∨
   stdlib⋅string.starts_with(line,"+ ")
 
+⟦ Main Export - Parse markdown to HTML ⟧
+λparse(markdown:𝕊)→𝕊=
+  l blocks=parse_lines(markdown);
+  l html_blocks=blocks↦block_to_html;
+  stdlib⋅string.join(html_blocks,"\n")
+
 ⟦ State Machine - Main Line Parser
 
 Uses field access in pattern guards for the one canonical way to inspect state.
@@ -316,9 +322,3 @@ Process **bold**, *italic*, `code`, and [links](url) within text.
     _ →
       result+text
   }
-
-⟦ Main Export - Parse markdown to HTML ⟧
-λparse(markdown:𝕊)→𝕊=
-  l blocks=parse_lines(markdown);
-  l html_blocks=blocks↦block_to_html;
-  stdlib⋅string.join(html_blocks,"\n")

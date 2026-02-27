@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+sigil-ast = { path = "../sigil-ast" }
+sigil-lexer = { path = "../sigil-lexer" }
+thiserror = "1.0"

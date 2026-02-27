@@ -1,0 +1,149 @@
+⟦ Comprehensive tests for stdlib⋅string ⟧
+
+i stdlib⋅string
+
+λmain()→𝕌=()
+
+test "char_at at index 0" {
+  stdlib⋅string.char_at("hello",0)="h"
+}
+
+test "char_at at middle index" {
+  stdlib⋅string.char_at("hello",2)="l"
+}
+
+test "drop first n characters" {
+  stdlib⋅string.drop("hello",2)="llo"
+}
+
+test "drop with 0" {
+  stdlib⋅string.drop("hello",0)="hello"
+}
+
+test "ends_with actual suffix" {
+  stdlib⋅string.ends_with("file.txt",".txt")=⊤
+}
+
+test "ends_with non-suffix" {
+  stdlib⋅string.ends_with("hello",".txt")=⊥
+}
+
+test "index_of finds occurrence" {
+  stdlib⋅string.index_of("hello world","o")=4
+}
+
+test "index_of not found" {
+  stdlib⋅string.index_of("hello","z")=-1
+}
+
+test "int_to_string negative" {
+  stdlib⋅string.int_to_string(-10)="-10"
+}
+
+test "int_to_string positive" {
+  stdlib⋅string.int_to_string(42)="42"
+}
+
+test "int_to_string zero" {
+  stdlib⋅string.int_to_string(0)="0"
+}
+
+test "is_digit letter" {
+  stdlib⋅string.is_digit("a")=⊥
+}
+
+test "is_digit multi-character" {
+  stdlib⋅string.is_digit("42")=⊥
+}
+
+test "is_digit single" {
+  stdlib⋅string.is_digit("5")=⊤
+}
+
+test "is_whitespace empty" {
+  stdlib⋅string.is_whitespace("")=⊤
+}
+
+test "is_whitespace non-whitespace" {
+  stdlib⋅string.is_whitespace("hello")=⊥
+}
+
+test "is_whitespace spaces" {
+  stdlib⋅string.is_whitespace("   ")=⊤
+}
+
+test "join empty list" {
+  stdlib⋅string.join([],",")=""
+}
+
+test "join with separator" {
+  stdlib⋅string.join(["a","b","c"],",")="a,b,c"
+}
+
+test "replace_all all occurrences" {
+  stdlib⋅string.replace_all("hello world","o","0")="hell0 w0rld"
+}
+
+test "replace_all no matches" {
+  stdlib⋅string.replace_all("hello","z","x")="hello"
+}
+
+test "split by delimiter" {
+  stdlib⋅string.split("a,b,c",",")=["a","b","c"]
+}
+
+test "split single element" {
+  stdlib⋅string.split("hello",",")=["hello"]
+}
+
+test "starts_with non-prefix" {
+  stdlib⋅string.starts_with("hello","abc")=⊥
+}
+
+test "starts_with prefix" {
+  stdlib⋅string.starts_with("hello","hel")=⊤
+}
+
+test "substring full string" {
+  stdlib⋅string.substring("hello",0,5)="hello"
+}
+
+test "substring portion" {
+  stdlib⋅string.substring("hello",1,4)="ell"
+}
+
+test "take first n" {
+  stdlib⋅string.take("hello",3)="hel"
+}
+
+test "take n greater than length" {
+  stdlib⋅string.take("hi",10)="hi"
+}
+
+test "to_lower converts uppercase" {
+  stdlib⋅string.to_lower("HELLO")="hello"
+}
+
+test "to_lower preserves lowercase" {
+  stdlib⋅string.to_lower("hello")="hello"
+}
+
+test "to_upper converts lowercase" {
+  stdlib⋅string.to_upper("hello")="HELLO"
+}
+
+test "to_upper preserves uppercase" {
+  stdlib⋅string.to_upper("HELLO")="HELLO"
+}
+
+test "trim both sides" {
+  stdlib⋅string.trim("  hello  ")="hello"
+}
+
+test "trim leading" {
+  stdlib⋅string.trim("  hello")="hello"
+}
+
+test "trim trailing" {
+  stdlib⋅string.trim("hello  ")="hello"
+}

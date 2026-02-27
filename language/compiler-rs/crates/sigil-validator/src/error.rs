@@ -88,6 +88,11 @@ pub enum ValidationError {
     TestNeedsMain {
         message: String,
     },
+
+    #[error("{message}")]
+    DeclarationOrder {
+        message: String,
+    },
 }
 
 impl ValidationError {
@@ -126,6 +131,10 @@ impl ValidationError {
                 end: sigil_lexer::Position { line: 1, column: 1, offset: 0 },
             },
             ValidationError::TestNeedsMain { .. } => SourceLocation {
+                start: sigil_lexer::Position { line: 1, column: 1, offset: 0 },
+                end: sigil_lexer::Position { line: 1, column: 1, offset: 0 },
+            },
+            ValidationError::DeclarationOrder { .. } => SourceLocation {
                 start: sigil_lexer::Position { line: 1, column: 1, offset: 0 },
                 end: sigil_lexer::Position { line: 1, column: 1, offset: 0 },
             },

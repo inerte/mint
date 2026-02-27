@@ -31,7 +31,12 @@ pub fn validate_canonical_form(program: &Program, file_path: Option<&str>) -> Re
         }
     }
 
-    // Rule 4: Recursive functions must not use accumulators
+    // Rule 4: Declaration ordering - canonical alphabetical order
+    if let Err(e) = validate_declaration_ordering(program) {
+        errors.extend(e);
+    }
+
+    // Rule 5: Recursive functions must not use accumulators
     if let Err(e) = validate_recursive_functions(program) {
         errors.extend(e);
     }
@@ -443,5 +448,115 @@ mod tests {
 
         // Should pass - simple recursion is allowed
         assert!(validate_canonical_form(&program, None).is_ok());
+    }
+}
+
+/// Validate canonical declaration ordering
+fn validate_declaration_ordering(program: &Program) -> Result<(), Vec<ValidationError>> {
+    let mut errors = Vec::new();
+    
+    // Check category order (type → extern → import → const → function → test)
+    if let Err(e) = validate_category_boundaries(&program.declarations) {
+        errors.extend(e);
+    }
+    
+    // Check alphabetical order within each category
+    let functions: Vec<_> = program.declarations.iter()
+        .filter_map(|d| if let Declaration::Function(f) = d { Some(f) } else { None })
+        .collect();
+    
+    if let Err(e) = validate_alphabetical_order(&functions) {
+        errors.extend(e);
+    }
+    
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+/// Check that declaration categories appear in correct order
+fn validate_category_boundaries(declarations: &[Declaration]) -> Result<(), Vec<ValidationError>> {
+    let get_category_index = |decl: &Declaration| -> usize {
+        match decl {
+            Declaration::Type(_) => 0,
+            Declaration::Extern(_) => 1,
+            Declaration::Import(_) => 2,
+            Declaration::Const(_) => 3,
+            Declaration::Function(_) => 4,
+            Declaration::Test(_) => 5,
+        }
+    };
+    
+    let mut last_category_index: i32 = -1;
+    
+    for decl in declarations {
+        let current_index = get_category_index(decl) as i32;
+        
+        if current_index < last_category_index {
+            let category_names = ["type", "extern", "import", "const", "function", "test"];
+            let category_symbols = ["t", "e", "i", "c", "λ", "test"];
+            
+            return Err(vec![ValidationError::DeclarationOrder {
+                message: format!(
+                    "SIGIL-CANON-DECL-CATEGORY-ORDER: Wrong category position\n\
+                     Found: {} ({}) at line {}\n\
+                     Category order: t → e → i → c → λ → test",
+                    category_symbols[current_index as usize],
+                    category_names[current_index as usize],
+                    get_declaration_location(decl).start.line
+                ),
+            }]);
+        }
+        
+        last_category_index = last_category_index.max(current_index);
+    }
+    
+    Ok(())
+}
+
+/// Check alphabetical ordering within function declarations
+fn validate_alphabetical_order(functions: &[&FunctionDecl]) -> Result<(), Vec<ValidationError>> {
+    for i in 1..functions.len() {
+        let prev = functions[i - 1];
+        let curr = functions[i];
+        
+        if curr.name < prev.name {
+            return Err(vec![ValidationError::DeclarationOrder {
+                message: format!(
+                    "SIGIL-CANON-DECL-ALPHABETICAL: Declaration out of alphabetical order\n\n\
+                     Found: λ {} at line {}\n\
+                     After: λ {} at line {}\n\n\
+                     Within 'λ' category, non-exported declarations must be alphabetical.\n\
+                     Expected '{}' to come before '{}'.\n\n\
+                     Alphabetical order uses Unicode code point comparison (case-sensitive).\n\
+                     Move '{}' to come before '{}'.\n\n\
+                     Sigil enforces ONE way: strict alphabetical ordering within categories.",
+                    curr.name,
+                    curr.location.start.line,
+                    prev.name,
+                    prev.location.start.line,
+                    curr.name,
+                    prev.name,
+                    curr.name,
+                    prev.name
+                ),
+            }]);
+        }
+    }
+    
+    Ok(())
+}
+
+/// Get location from any declaration
+fn get_declaration_location(decl: &Declaration) -> &SourceLocation {
+    match decl {
+        Declaration::Type(TypeDecl { location, .. }) => location,
+        Declaration::Extern(ExternDecl { location, .. }) => location,
+        Declaration::Import(ImportDecl { location, .. }) => location,
+        Declaration::Const(ConstDecl { location, .. }) => location,
+        Declaration::Function(FunctionDecl { location, .. }) => location,
+        Declaration::Test(TestDecl { location, .. }) => location,
     }
 }

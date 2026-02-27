@@ -51,4 +51,3 @@ test "todo edit updates text" {
 test "todo toggle flips done flag" {
   src⋅todo-domain.toggleTodo([Todo{id:1,text:"Task",done:⊥}],1)[0].done=⊤
 }
-

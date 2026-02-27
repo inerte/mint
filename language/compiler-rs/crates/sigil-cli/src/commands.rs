@@ -16,6 +16,7 @@ use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::time::Instant;
 use std::io::Write;
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -43,6 +44,32 @@ pub enum CliError {
 
     #[error("Module graph error: {0}")]
     ModuleGraph(#[from] ModuleGraphError),
+}
+
+/// Extract error code from error message (format: "SIGIL-CANON-XXX: message")
+fn extract_error_code(message: &str) -> String {
+    if let Some(colon_pos) = message.find(':') {
+        message[..colon_pos].to_string()
+    } else {
+        "SIGIL-ERROR".to_string()
+    }
+}
+
+/// Output a JSON error message matching TypeScript compiler format
+fn output_json_error(command: &str, phase: &str, error_code: &str, message: &str, details: serde_json::Value) {
+    let output = json!({
+        "formatVersion": 1,
+        "command": command,
+        "ok": false,
+        "phase": phase,
+        "error": {
+            "code": error_code,
+            "phase": phase,
+            "message": message,
+            "details": details
+        }
+    });
+    println!("{}", serde_json::to_string(&output).unwrap());
 }
 
 /// Lex command: tokenize a Sigil file
@@ -146,7 +173,32 @@ pub fn compile_command(
     human: bool,
 ) -> Result<(), CliError> {
     // Build module graph
-    let graph = ModuleGraph::build(file)?;
+    let graph = match ModuleGraph::build(file) {
+        Ok(g) => g,
+        Err(ModuleGraphError::Validation(errors)) => {
+            // Output JSON error for validation failures
+            if !human {
+                // Get first error for main message and code
+                if let Some(first_error) = errors.first() {
+                    let error_msg = first_error.to_string();
+                    let error_code = extract_error_code(&error_msg);
+
+                    output_json_error(
+                        "sigilc compile",
+                        "canonical",
+                        &error_code,
+                        &error_msg,
+                        json!({
+                            "file": file.to_string_lossy(),
+                            "errors": errors.iter().map(|e| e.to_string()).collect::<Vec<_>>()
+                        })
+                    );
+                }
+            }
+            return Err(ModuleGraphError::Validation(errors).into());
+        }
+        Err(e) => return Err(e.into()),
+    };
 
     let mut compiled_modules = HashMap::new();
     let mut type_registries = HashMap::new();

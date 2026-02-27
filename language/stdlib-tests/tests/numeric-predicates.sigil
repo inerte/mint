@@ -13,4 +13,3 @@ test "numeric.is_even and is_odd basics" {
 test "numeric.is_positive and is_negative basics" {
   stdlib⋅numeric.is_positive(5)=⊤∧stdlib⋅numeric.is_negative(-1)=⊤
 }
-

@@ -9,4 +9,3 @@ test "rot13 encodes hello world" {
 test "rot13 preserves punctuation" {
   src⋅rot13_encoder.rot13(["!",".",","," "])="!., "
 }
-

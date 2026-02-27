@@ -1,6 +1,7 @@
 //! Command implementations for CLI
 
 use crate::module_graph::{ModuleGraph, ModuleGraphError, LoadedModule};
+use rayon::prelude::*;
 use sigil_ast::{Declaration, Program};
 use sigil_codegen::{CodegenOptions, TypeScriptGenerator};
 use sigil_lexer::Lexer;
@@ -12,6 +13,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
 use std::time::Instant;
 use std::io::Write;
 use thiserror::Error;
@@ -440,21 +442,28 @@ pub fn test_command(path: &Path, match_filter: Option<&str>, human: bool) -> Res
     // Collect all .sigil files in test directory
     let test_files = collect_sigil_files(path)?;
 
+    // Run test files in parallel
+    let results: Vec<_> = test_files
+        .par_iter()
+        .map(|test_file| {
+            compile_and_run_tests(test_file, match_filter)
+                .map_err(|e| {
+                    eprintln!("Error running tests in {}: {}", test_file.display(), e);
+                    e
+                })
+        })
+        .collect();
+
+    // Aggregate results from all files
     let mut all_results = Vec::new();
     let mut discovered = 0;
     let mut selected = 0;
 
-    // Compile and run each test file
-    for test_file in &test_files {
-        match compile_and_run_tests(test_file, match_filter) {
-            Ok(result) => {
-                discovered += result.discovered;
-                selected += result.selected;
-                all_results.extend(result.results);
-            }
-            Err(e) => {
-                eprintln!("Error running tests in {}: {}", test_file.display(), e);
-            }
+    for result in results {
+        if let Ok(test_result) = result {
+            discovered += test_result.discovered;
+            selected += test_result.selected;
+            all_results.extend(test_result.results);
         }
     }
 

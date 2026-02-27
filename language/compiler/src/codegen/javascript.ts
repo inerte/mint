@@ -643,7 +643,14 @@ export class JavaScriptGenerator {
           return `(await ${generatedArgs[0]}).split(await ${generatedArgs[1]})`;
         case 'replace_all':
           return `(await ${generatedArgs[0]}).replaceAll(await ${generatedArgs[1]}, await ${generatedArgs[2]})`;
-        // take and drop are implemented in Sigil, not intrinsics
+        case 'int_to_string':
+          return `String(await ${generatedArgs[0]})`;
+        case 'join':
+          return `(await ${generatedArgs[0]}).join(await ${generatedArgs[1]})`;
+        case 'take':
+          return `(await ${generatedArgs[0]}).substring(0, await ${generatedArgs[1]})`;
+        case 'drop':
+          return `(await ${generatedArgs[0]}).substring(await ${generatedArgs[1]})`;
       }
     }
 
@@ -686,6 +693,39 @@ export class JavaScriptGenerator {
 
   private emitMockRuntimeHelpers(): void {
     this.emit(`const __sigil_mocks = new Map();`);
+    this.emit(`function __sigil_deep_equal(a, b) {`);
+    this.indent++;
+    this.emit(`if (a === b) return true;`);
+    this.emit(`if (a == null || b == null) return false;`);
+    this.emit(`if (typeof a !== typeof b) return false;`);
+    this.emit(`if (Array.isArray(a) && Array.isArray(b)) {`);
+    this.indent++;
+    this.emit(`if (a.length !== b.length) return false;`);
+    this.emit(`for (let i = 0; i < a.length; i++) {`);
+    this.indent++;
+    this.emit(`if (!__sigil_deep_equal(a[i], b[i])) return false;`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`return true;`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`if (typeof a === 'object' && typeof b === 'object') {`);
+    this.indent++;
+    this.emit(`const aKeys = Object.keys(a).sort();`);
+    this.emit(`const bKeys = Object.keys(b).sort();`);
+    this.emit(`if (aKeys.length !== bKeys.length) return false;`);
+    this.emit(`for (let i = 0; i < aKeys.length; i++) {`);
+    this.indent++;
+    this.emit(`if (aKeys[i] !== bKeys[i]) return false;`);
+    this.emit(`if (!__sigil_deep_equal(a[aKeys[i]], b[bKeys[i]])) return false;`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`return true;`);
+    this.indent--;
+    this.emit(`}`);
+    this.emit(`return false;`);
+    this.indent--;
+    this.emit(`}`);
     this.emit(`function __sigil_preview(value) {`);
     this.indent++;
     this.emit(`try { return JSON.stringify(value); } catch { return String(value); }`);
@@ -725,8 +765,8 @@ export class JavaScriptGenerator {
     this.emit(`let ok = false;`);
     this.emit(`switch (op) {`);
     this.indent++;
-    this.emit(`case '=': ok = actual === expected; break;`);
-    this.emit(`case '≠': ok = actual !== expected; break;`);
+    this.emit(`case '=': ok = __sigil_deep_equal(actual, expected); break;`);
+    this.emit(`case '≠': ok = !__sigil_deep_equal(actual, expected); break;`);
     this.emit(`case '<': ok = actual < expected; break;`);
     this.emit(`case '>': ok = actual > expected; break;`);
     this.emit(`case '≤': ok = actual <= expected; break;`);

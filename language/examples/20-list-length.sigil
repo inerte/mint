@@ -1,0 +1,6 @@
+⟦ Test: List Length
+   Expected output: 5
+   Using # operator
+⟧
+
+λ main() → ℤ = #[1, 2, 3, 4, 5]

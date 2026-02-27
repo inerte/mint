@@ -1,0 +1,6 @@
+⟦ Test: Modulo Operator
+   Expected output: 3
+   Calculation: 17 % 7 = 3
+⟧
+
+λ main() → ℤ = 17 % 7

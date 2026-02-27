@@ -3,7 +3,7 @@
    Calculation: sum([1, 2, 3]) = 1 + 2 + 3 = 6
 ⟧
 
-λ sum(xs: [ℤ]) → ℤ = ≡xs {
+λ sum(xs: [ℤ]) → ℤ ≡xs {
   [] → 0 |
   [x, .rest] → x + sum(rest)
 }

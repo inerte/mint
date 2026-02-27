@@ -24,6 +24,12 @@ Why we moved stdlib “test” demos into a dedicated Sigil test project and aut
 
 **Key topics:** First-class tests, repo canonicality, Claude Code hooks, stdlib regression testing, AI-assisted workflows
 
+**February 26, 2026** - [Rewriting the Sigil Compiler in Rust: 100% Feature Parity, 5-7x Faster](./009-rust-compiler-rewrite.md)
+
+How we migrated the entire Sigil compiler from TypeScript to Rust in 3 days, achieved byte-for-byte output compatibility, 5-7x performance improvement, and single-binary distribution with zero dependencies.
+
+**Key topics:** Compiler rewrite, Rust migration, performance optimization, differential testing, AI-assisted development, type safety, distribution
+
 ---
 
 ## About These Articles

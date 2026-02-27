@@ -272,9 +272,51 @@ impl TypeScriptGenerator {
 
     fn generate_import(&mut self, import: &ImportDecl) -> Result<(), CodegenError> {
         // Convert Sigil import to ES module import (namespace style)
-        let module_path = import.module_path.join("/");
-        let namespace = import.module_path.last().unwrap();
-        self.emit(&format!("import * as {} from './{}.js';", namespace, module_path));
+        // For src⋅utils, create:
+        //   - namespace: src_utils (matches member access generation)
+        //   - import path: relative to current output file
+        let namespace = import.module_path.join("_");
+
+        // Calculate relative import path
+        // Module path like src⋅utils becomes .local/src/utils.ts
+        let target_path = import.module_path.join("/");
+
+        // Calculate relative path from current output file
+        let import_path = if let Some(ref output_file) = self.output_file {
+            // Get directory of current output file
+            let current_dir = std::path::Path::new(output_file)
+                .parent()
+                .and_then(|p| p.to_str())
+                .unwrap_or(".local");
+
+            // Get directory of target module
+            let target_dir = std::path::Path::new(&target_path)
+                .parent()
+                .and_then(|p| p.to_str())
+                .unwrap_or("");
+
+            let target_file = std::path::Path::new(&target_path)
+                .file_name()
+                .and_then(|f| f.to_str())
+                .unwrap_or(import.module_path.last().unwrap());
+
+            // Calculate relative path
+            if current_dir.ends_with(target_dir) || target_dir.is_empty() {
+                // Same directory
+                format!("./{}.js", target_file)
+            } else if current_dir.contains(target_dir) {
+                // Target is in parent directory
+                format!("../{}.js", target_file)
+            } else {
+                // Different directory tree - use relative path segments
+                format!("../{}.js", target_path)
+            }
+        } else {
+            // Fallback: use module path directly
+            format!("./{}.js", target_path)
+        };
+
+        self.emit(&format!("import * as {} from '{}';", namespace, import_path));
         Ok(())
     }
 

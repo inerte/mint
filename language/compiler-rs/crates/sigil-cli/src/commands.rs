@@ -1,10 +1,14 @@
 //! Command implementations for CLI
 
+use crate::module_graph::{ModuleGraph, ModuleGraphError, LoadedModule};
+use sigil_ast::{Declaration, Program};
 use sigil_codegen::{CodegenOptions, TypeScriptGenerator};
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
-use sigil_typechecker::{type_check, TypeError, TypeCheckOptions};
+use sigil_typechecker::{type_check, TypeError, TypeCheckOptions, TypeInfo};
+use sigil_typechecker::types::{InferenceType, TRecord};
 use sigil_validator::{validate_canonical_form, validate_surface_form, ValidationError};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -34,6 +38,9 @@ pub enum CliError {
 
     #[error("Runtime error: {0}")]
     Runtime(String),
+
+    #[error("Module graph error: {0}")]
+    ModuleGraph(#[from] ModuleGraphError),
 }
 
 /// Lex command: tokenize a Sigil file
@@ -136,70 +143,74 @@ pub fn compile_command(
     show_types: bool,
     human: bool,
 ) -> Result<(), CliError> {
-    let source = fs::read_to_string(file)?;
-    let filename = file.to_string_lossy().to_string();
+    // Build module graph
+    let graph = ModuleGraph::build(file)?;
 
-    // Tokenize
-    let mut lexer = Lexer::new(&source);
-    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{:?}", e)))?;
+    let mut compiled_modules = HashMap::new();
+    let mut type_registries = HashMap::new();
+    let mut output_files = Vec::new();
 
-    // Parse
-    let mut parser = Parser::new(tokens, &filename);
-    let ast = parser.parse().map_err(|e| CliError::Parser(format!("{:?}", e)))?;
+    // Compile modules in topological order
+    for module_id in &graph.topo_order {
+        let module = &graph.modules[module_id];
 
-    // Validate surface form
-    validate_surface_form(&ast).map_err(|errors: Vec<ValidationError>| {
-        CliError::Validation(format!("{} validation errors", errors.len()))
-    })?;
+        // Build imported namespaces from already-compiled dependencies
+        let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
+        let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
 
-    // Validate canonical form
-    validate_canonical_form(&ast).map_err(|errors: Vec<ValidationError>| {
-        CliError::Validation(format!("{} validation errors", errors.len()))
-    })?;
-
-    // Type check
-    let _inferred_types = type_check(&ast, &source, None)
+        // Type check with cross-module context
+        let inferred_types = type_check(
+            &module.ast,
+            &module.source,
+            Some(TypeCheckOptions {
+                imported_namespaces: Some(imported_namespaces),
+                imported_type_registries: Some(imported_type_regs),
+                source_file: Some(module.file_path.to_string_lossy().to_string()),
+            }),
+        )
         .map_err(|error: TypeError| CliError::Type(format!("Type error: {:?}", error)))?;
 
-    // Generate TypeScript
-    let codegen_options = CodegenOptions {
-        source_file: Some(filename.clone()),
-        output_file: output.map(|p| p.to_string_lossy().to_string()),
-        project_root: None,
-    };
-    let mut codegen = TypeScriptGenerator::new(codegen_options);
-    let ts_code = codegen
-        .generate(&ast)
-        .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
-
-    // Determine output file
-    let output_file_owned: std::path::PathBuf;
-    let output_file = if let Some(out) = output {
-        out
-    } else {
-        let input_str = file.to_string_lossy();
-        output_file_owned = if input_str.ends_with(".sigil") {
-            std::path::PathBuf::from(format!(
-                ".local/{}",
-                input_str.replace(".sigil", ".ts")
-            ))
+        // Determine output path
+        let output_path = if module_id == graph.topo_order.last().unwrap() && output.is_some() {
+            // Entry module with explicit output path
+            output.unwrap().to_path_buf()
         } else {
-            std::path::PathBuf::from(format!("{}.ts", input_str))
+            // Use standard output path based on module ID
+            get_module_output_path(module)
         };
-        &output_file_owned
-    };
 
-    // Create output directory if needed
-    if let Some(parent) = output_file.parent() {
-        fs::create_dir_all(parent)?;
+        // Generate TypeScript
+        let codegen_options = CodegenOptions {
+            source_file: Some(module.file_path.to_string_lossy().to_string()),
+            output_file: Some(output_path.to_string_lossy().to_string()),
+            project_root: None,
+        };
+        let mut codegen = TypeScriptGenerator::new(codegen_options);
+        let ts_code = codegen
+            .generate(&module.ast)
+            .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
+
+        // Create output directory
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        // Write output file
+        fs::write(&output_path, ts_code)?;
+        output_files.push(output_path);
+
+        // Track for dependents
+        compiled_modules.insert(module_id.clone(), inferred_types);
+        type_registries.insert(module_id.clone(), extract_type_registry(&module.ast));
     }
 
-    // Write output file
-    fs::write(output_file, ts_code)?;
+    // Find entry module output
+    let entry_output = output_files.last().unwrap();
 
     if human {
         println!("sigilc compile OK phase=codegen");
-        println!("Output: {}", output_file.display());
+        println!("Compiled {} module(s)", graph.modules.len());
+        println!("Entry output: {}", entry_output.display());
     } else {
         // JSON output
         let output_json = serde_json::json!({
@@ -208,9 +219,10 @@ pub fn compile_command(
             "ok": true,
             "phase": "codegen",
             "data": {
-                "input": filename,
+                "input": file.to_string_lossy(),
                 "outputs": {
-                    "rootTs": output_file.to_string_lossy()
+                    "rootTs": entry_output.to_string_lossy(),
+                    "modules": graph.modules.len()
                 },
                 "typecheck": {
                     "ok": true,
@@ -226,60 +238,68 @@ pub fn compile_command(
 
 /// Run command: compile and execute a Sigil file
 pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
-    let source = fs::read_to_string(file)?;
-    let filename = file.to_string_lossy().to_string();
+    // Build module graph
+    let graph = ModuleGraph::build(file)?;
 
-    // Tokenize
-    let mut lexer = Lexer::new(&source);
-    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{:?}", e)))?;
+    let mut compiled_modules = HashMap::new();
+    let mut type_registries = HashMap::new();
+    let mut entry_output_path = PathBuf::new();
 
-    // Parse
-    let mut parser = Parser::new(tokens, &filename);
-    let ast = parser.parse().map_err(|e| CliError::Parser(format!("{:?}", e)))?;
+    // Compile modules in topological order
+    for module_id in &graph.topo_order {
+        let module = &graph.modules[module_id];
 
-    // Validate surface form
-    validate_surface_form(&ast).map_err(|errors: Vec<ValidationError>| {
-        CliError::Validation(format!("{} validation errors", errors.len()))
-    })?;
+        // Build imported namespaces from already-compiled dependencies
+        let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
+        let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
 
-    // Validate canonical form
-    validate_canonical_form(&ast).map_err(|errors: Vec<ValidationError>| {
-        CliError::Validation(format!("{} validation errors", errors.len()))
-    })?;
-
-    // Type check
-    let _inferred_types = type_check(&ast, &source, None)
+        // Type check with cross-module context
+        let inferred_types = type_check(
+            &module.ast,
+            &module.source,
+            Some(TypeCheckOptions {
+                imported_namespaces: Some(imported_namespaces),
+                imported_type_registries: Some(imported_type_regs),
+                source_file: Some(module.file_path.to_string_lossy().to_string()),
+            }),
+        )
         .map_err(|error: TypeError| CliError::Type(format!("Type error: {:?}", error)))?;
 
-    // Generate TypeScript
-    let input_str = file.to_string_lossy();
-    let output_file_path = if input_str.ends_with(".sigil") {
-        PathBuf::from(format!(".local/{}", input_str.replace(".sigil", ".ts")))
-    } else {
-        PathBuf::from(format!("{}.ts", input_str))
-    };
+        // Determine output path
+        let output_path = get_module_output_path(module);
 
-    let codegen_options = CodegenOptions {
-        source_file: Some(filename.clone()),
-        output_file: Some(output_file_path.to_string_lossy().to_string()),
-        project_root: None,
-    };
-    let mut codegen = TypeScriptGenerator::new(codegen_options);
-    let ts_code = codegen
-        .generate(&ast)
-        .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
+        // Generate TypeScript
+        let codegen_options = CodegenOptions {
+            source_file: Some(module.file_path.to_string_lossy().to_string()),
+            output_file: Some(output_path.to_string_lossy().to_string()),
+            project_root: None,
+        };
+        let mut codegen = TypeScriptGenerator::new(codegen_options);
+        let ts_code = codegen
+            .generate(&module.ast)
+            .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
 
-    // Create output directory if needed
-    if let Some(parent) = output_file_path.parent() {
-        fs::create_dir_all(parent)?;
+        // Create output directory
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        // Write output file
+        fs::write(&output_path, ts_code)?;
+
+        // Track entry module output (last in topo order)
+        if module_id == graph.topo_order.last().unwrap() {
+            entry_output_path = output_path;
+        }
+
+        // Track for dependents
+        compiled_modules.insert(module_id.clone(), inferred_types);
+        type_registries.insert(module_id.clone(), extract_type_registry(&module.ast));
     }
 
-    // Write output file
-    fs::write(&output_file_path, ts_code)?;
-
     // Create runner file
-    let runner_path = output_file_path.with_extension("run.ts");
-    let module_name = output_file_path
+    let runner_path = entry_output_path.with_extension("run.ts");
+    let module_name = entry_output_path
         .file_stem()
         .unwrap()
         .to_string_lossy()
@@ -301,7 +321,8 @@ const result = await main();
 if (result !== undefined) {{
   console.log(result);
 }}
-"#
+"#,
+        filename = file.to_string_lossy()
     );
 
     fs::write(&runner_path, runner_code)?;
@@ -366,9 +387,10 @@ if (result !== undefined) {{
             "phase": "runtime",
             "data": {
                 "compile": {
-                    "input": filename,
-                    "output": output_file_path.to_string_lossy(),
-                    "runnerFile": runner_path.to_string_lossy()
+                    "input": file.to_string_lossy(),
+                    "output": entry_output_path.to_string_lossy(),
+                    "runnerFile": runner_path.to_string_lossy(),
+                    "modules": graph.modules.len()
                 },
                 "runtime": {
                     "engine": "node+tsx",
@@ -548,58 +570,67 @@ fn compile_and_run_tests(
     file: &Path,
     match_filter: Option<&str>,
 ) -> Result<TestRunResult, CliError> {
-    let source = fs::read_to_string(file)?;
-    let filename = file.to_string_lossy().to_string();
+    // Build module graph from test file
+    let graph = ModuleGraph::build(file)?;
 
-    // Tokenize
-    let mut lexer = Lexer::new(&source);
-    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{:?}", e)))?;
+    let mut compiled_modules = HashMap::new();
+    let mut type_registries = HashMap::new();
+    let mut test_output_path = PathBuf::new();
 
-    // Parse
-    let mut parser = Parser::new(tokens, &filename);
-    let ast = parser.parse().map_err(|e| CliError::Parser(format!("{:?}", e)))?;
+    // Compile modules in topological order
+    for module_id in &graph.topo_order {
+        let module = &graph.modules[module_id];
 
-    // Validate
-    validate_surface_form(&ast).map_err(|errors: Vec<ValidationError>| {
-        CliError::Validation(format!("{} validation errors", errors.len()))
-    })?;
+        // Build imported namespaces from already-compiled dependencies
+        let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
+        let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
 
-    validate_canonical_form(&ast).map_err(|errors: Vec<ValidationError>| {
-        CliError::Validation(format!("{} validation errors", errors.len()))
-    })?;
-
-    // Type check
-    let _inferred_types = type_check(&ast, &source, None)
+        // Type check with cross-module context
+        let inferred_types = type_check(
+            &module.ast,
+            &module.source,
+            Some(TypeCheckOptions {
+                imported_namespaces: Some(imported_namespaces),
+                imported_type_registries: Some(imported_type_regs),
+                source_file: Some(module.file_path.to_string_lossy().to_string()),
+            }),
+        )
         .map_err(|error: TypeError| CliError::Type(format!("Type error: {:?}", error)))?;
 
-    // Generate TypeScript
-    let input_str = file.to_string_lossy();
-    let output_file_path = if input_str.ends_with(".sigil") {
-        PathBuf::from(format!(".local/{}", input_str.replace(".sigil", ".ts")))
-    } else {
-        PathBuf::from(format!("{}.ts", input_str))
-    };
+        // Determine output path
+        let output_path = get_module_output_path(module);
 
-    let codegen_options = CodegenOptions {
-        source_file: Some(filename.clone()),
-        output_file: Some(output_file_path.to_string_lossy().to_string()),
-        project_root: None,
-    };
-    let mut codegen = TypeScriptGenerator::new(codegen_options);
-    let ts_code = codegen
-        .generate(&ast)
-        .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
+        // Generate TypeScript
+        let codegen_options = CodegenOptions {
+            source_file: Some(module.file_path.to_string_lossy().to_string()),
+            output_file: Some(output_path.to_string_lossy().to_string()),
+            project_root: None,
+        };
+        let mut codegen = TypeScriptGenerator::new(codegen_options);
+        let ts_code = codegen
+            .generate(&module.ast)
+            .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
 
-    // Create output directory
-    if let Some(parent) = output_file_path.parent() {
-        fs::create_dir_all(parent)?;
+        // Create output directory
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        // Write TypeScript file
+        fs::write(&output_path, ts_code)?;
+
+        // Track test module output (last in topo order)
+        if module_id == graph.topo_order.last().unwrap() {
+            test_output_path = output_path;
+        }
+
+        // Track for dependents
+        compiled_modules.insert(module_id.clone(), inferred_types);
+        type_registries.insert(module_id.clone(), extract_type_registry(&module.ast));
     }
 
-    // Write TypeScript file
-    fs::write(&output_file_path, ts_code)?;
-
-    // Run test runner
-    run_test_module(&output_file_path, match_filter, &filename)
+    // Run test runner on the test module
+    run_test_module(&test_output_path, match_filter, &file.to_string_lossy())
 }
 
 fn run_test_module(
@@ -730,4 +761,97 @@ console.log(JSON.stringify({{ results, discovered: tests.length, selected: selec
         selected,
         results,
     })
+}
+
+// ============================================================================
+// Multi-module Compilation Helpers
+// ============================================================================
+
+/// Build imported namespaces from already-compiled modules
+///
+/// For each import, creates a namespace type (record) containing exported functions/constants
+fn build_imported_namespaces(
+    ast: &Program,
+    compiled_modules: &HashMap<String, HashMap<String, InferenceType>>,
+) -> HashMap<String, InferenceType> {
+    let mut imported = HashMap::new();
+
+    for decl in &ast.declarations {
+        if let Declaration::Import(import_decl) = decl {
+            let module_id = import_decl.module_path.join("⋅");
+
+            if let Some(types) = compiled_modules.get(&module_id) {
+                // Build namespace type from exported functions/consts
+                let mut fields = HashMap::new();
+                for (name, typ) in types {
+                    fields.insert(name.clone(), typ.clone());
+                }
+
+                imported.insert(
+                    module_id.clone(),
+                    InferenceType::Record(TRecord {
+                        fields,
+                        name: Some(module_id.clone()),
+                    }),
+                );
+            }
+        }
+    }
+
+    imported
+}
+
+/// Build imported type registries from dependencies
+///
+/// Extracts type definitions (sum types, product types) from imported modules
+fn build_imported_type_registries(
+    ast: &Program,
+    type_registries: &HashMap<String, HashMap<String, TypeInfo>>,
+) -> HashMap<String, HashMap<String, TypeInfo>> {
+    let mut imported = HashMap::new();
+
+    for decl in &ast.declarations {
+        if let Declaration::Import(import_decl) = decl {
+            let module_id = import_decl.module_path.join("⋅");
+
+            if let Some(registry) = type_registries.get(&module_id) {
+                imported.insert(module_id.clone(), registry.clone());
+            }
+        }
+    }
+
+    imported
+}
+
+/// Extract type registry from a module's AST
+///
+/// Collects all exported type definitions for use by dependent modules
+fn extract_type_registry(ast: &Program) -> HashMap<String, TypeInfo> {
+    let mut registry = HashMap::new();
+
+    for decl in &ast.declarations {
+        if let Declaration::Type(type_decl) = decl {
+            if type_decl.is_exported {
+                registry.insert(
+                    type_decl.name.clone(),
+                    TypeInfo {
+                        type_params: type_decl.type_params.clone(),
+                        definition: type_decl.definition.clone(),
+                    },
+                );
+            }
+        }
+    }
+
+    registry
+}
+
+/// Get output path for a compiled module
+///
+/// Converts module ID to file path:
+/// - stdlib⋅list → .local/stdlib/list.ts
+/// - src⋅utils → .local/src/utils.ts
+fn get_module_output_path(module: &LoadedModule) -> PathBuf {
+    let path_str = module.id.replace('⋅', "/");
+    PathBuf::from(format!(".local/{}.ts", path_str))
 }

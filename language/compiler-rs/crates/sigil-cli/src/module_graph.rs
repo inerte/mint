@@ -6,7 +6,7 @@ use crate::project::{get_project_config, ProjectConfig};
 use sigil_ast::{Declaration, Program};
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
-use sigil_validator::{validate_canonical_form, validate_surface_form};
+use sigil_validator::{validate_canonical_form, validate_surface_form, ValidationError};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -23,8 +23,8 @@ pub enum ModuleGraphError {
     #[error("Parser error: {0}")]
     Parser(String),
 
-    #[error("Validation error: {0}")]
-    Validation(String),
+    #[error("Validation error: {} errors", .0.len())]
+    Validation(Vec<ValidationError>),
 
     #[error("Import cycle detected: {0:?}")]
     ImportCycle(Vec<String>),
@@ -131,9 +131,9 @@ impl ModuleGraphBuilder {
 
         // Validate
         validate_surface_form(&ast)
-            .map_err(|e| ModuleGraphError::Validation(format!("{} errors", e.len())))?;
+            .map_err(|e| ModuleGraphError::Validation(e))?;
         validate_canonical_form(&ast, Some(&filename))
-            .map_err(|e| ModuleGraphError::Validation(format!("{} errors", e.len())))?;
+            .map_err(|e| ModuleGraphError::Validation(e))?;
 
         // Process imports
         for decl in &ast.declarations {

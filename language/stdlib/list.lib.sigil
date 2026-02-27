@@ -6,30 +6,6 @@
    Note: Use # operator for length instead of a function (e.g., #[1,2,3] → 3)
 ⟧
 
-⟦ Helper: Check if index is in bounds ⟧
-λin_bounds_helper(idx:ℤ,xs:[ℤ])→𝔹≡(idx≥0){
-  ⊤→idx<#xs|
-  ⊥→⊥
-}
-
-⟦ Helper: Check ascending order ⟧
-λsorted_asc_check(prev:ℤ,xs:[ℤ])→𝔹≡xs{
-  []→⊤|
-  [b,.rest]→≡(prev≤b){
-    ⊤→sorted_asc_check(b,rest)|
-    ⊥→⊥
-  }
-}
-
-⟦ Helper: Check descending order ⟧
-λsorted_desc_check(prev:ℤ,xs:[ℤ])→𝔹≡xs{
-  []→⊤|
-  [b,.rest]→≡(prev≥b){
-    ⊤→sorted_desc_check(b,rest)|
-    ⊥→⊥
-  }
-}
-
 ⟦ Check if all elements satisfy predicate ⟧
 λall(pred:λ(ℤ)→𝔹,xs:[ℤ])→𝔹≡xs{
   []→⊤|
@@ -65,6 +41,12 @@
 ⟦ Check if index is valid for list [0, len-1] ⟧
 λin_bounds(idx:ℤ,xs:[ℤ])→𝔹=in_bounds_helper(idx,xs)
 
+⟦ Helper: Check if index is in bounds ⟧
+λin_bounds_helper(idx:ℤ,xs:[ℤ])→𝔹≡(idx≥0){
+  ⊤→idx<#xs|
+  ⊥→⊥
+}
+
 ⟦ Check if list is empty ⟧
 λis_empty(xs:[ℤ])→𝔹≡xs{
   []→⊤|
@@ -84,11 +66,29 @@
   [a,.tail]→sorted_asc_check(a,tail)
 }
 
+⟦ Helper: Check ascending order ⟧
+λsorted_asc_check(prev:ℤ,xs:[ℤ])→𝔹≡xs{
+  []→⊤|
+  [b,.rest]→≡(prev≤b){
+    ⊤→sorted_asc_check(b,rest)|
+    ⊥→⊥
+  }
+}
+
 ⟦ Check if list is sorted in descending order ⟧
 λsorted_desc(xs:[ℤ])→𝔹≡xs{
   []→⊤|
   [_]→⊤|
   [a,.tail]→sorted_desc_check(a,tail)
+}
+
+⟦ Helper: Check descending order ⟧
+λsorted_desc_check(prev:ℤ,xs:[ℤ])→𝔹≡xs{
+  []→⊤|
+  [b,.rest]→≡(prev≥b){
+    ⊤→sorted_desc_check(b,rest)|
+    ⊥→⊥
+  }
 }
 
 ⟦ Get all elements except first (unsafe - crashes on empty) ⟧

@@ -1,0 +1,9 @@
+⟦ Test: Variable Shadowing
+   Expected output: 20
+   Inner x shadows outer x
+⟧
+
+λ main() → ℤ =
+  let x = 10 in
+  let x = 20 in
+  x

@@ -654,15 +654,12 @@ function getSmartOutputPath(inputFile: string): string {
     return join(project.root, project.layout.out, relToProject.replace(/\.sigil$/, '.ts'));
   }
 
-  // examples/*.sigil → examples/*.ts (beside source, for documentation)
-  if (inputFile.startsWith('examples/')) {
-    return inputFile.replace(/\.sigil$/, '.ts');
-  }
-
-  // Everything else → .local/ (keeps root clean)
-  // src/**/*.sigil → .local/src/**/*.ts
-  // *.sigil → .local/*.ts
-  return `.local/${inputFile.replace(/\.sigil$/, '.ts')}`;
+  // All non-project files go to repo root's .local/
+  // Use absolute path to repo root's .local directory
+  const repoRoot = resolve(LANGUAGE_ROOT_DIR, '..');
+  const absInputPath = resolve(inputFile);
+  const relToRepo = relative(repoRoot, absInputPath).replace(/\\/g, '/');
+  return join(repoRoot, '.local', relToRepo.replace(/\.sigil$/, '.ts'));
 }
 
 async function compileCommand(args: string[]) {
@@ -783,6 +780,7 @@ if (result !== undefined) {
       const nodeProcess = spawn('pnpm', ['exec', 'node', '--import', 'tsx', runnerFile], {
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
+        cwd: dirname(runnerFile),
       });
       nodeProcess.stdout.on('data', d => { stdout += d.toString(); });
       nodeProcess.stderr.on('data', d => { stderr += d.toString(); });

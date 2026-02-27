@@ -6,3 +6,5 @@ e fs⋅promises : { readdir : λ(𝕊) → [𝕊] }
   l files=fs⋅promises.readdir(dir);
   #files  ⟦ Works because files is [𝕊], not Any ⟧
 }
+
+λmain()→𝕌=()

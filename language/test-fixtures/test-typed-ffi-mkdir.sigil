@@ -14,3 +14,5 @@ c opts:MkdirOptions={recursive:⊤}
 ⟦ Now this typechecks! ⟧
 λensureDir(dir:𝕊)→𝕌=
   fs⋅promises.mkdir(dir, opts)
+
+λmain()→𝕌=()

@@ -15,3 +15,5 @@ t ParseState={
   ⊤ → {state:{in_code_block:⊥,code_lang:"",code_lines:[],para_lines:[]},blocks:[]}|
   ⊥ → {state:{in_code_block:⊤,code_lang:"js",code_lines:["test"],para_lines:[]},blocks:[Paragraph("hi")]}
 }
+
+λmain()→𝕌=()

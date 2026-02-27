@@ -9,3 +9,5 @@ t Outer={state:Inner}
     {state:{items:[]}}|
   ⊥ → {state:{items:[1,2,3]}}
 }
+
+λmain()→𝕌=()

@@ -8,3 +8,5 @@ t Result={data:Outer}
   ⊤ → {data:{inner:{items:[]},name:"test"}}|
   ⊥ → {data:{inner:{items:[1,2,3]},name:"other"}}
 }
+
+λmain()→𝕌=()

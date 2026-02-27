@@ -1,1 +1,3 @@
 λhello(name:𝕊)→𝕊="Hello, "++name++"!"
+
+λmain()→𝕊=hello("World")

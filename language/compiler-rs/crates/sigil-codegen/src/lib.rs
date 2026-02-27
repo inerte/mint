@@ -411,14 +411,39 @@ impl TypeScriptGenerator {
     }
 
     fn generate_application(&mut self, app: &ApplicationExpr) -> Result<String, CodegenError> {
-        let func = self.generate_expression(&app.func)?;
-        let args: Result<Vec<String>, CodegenError> = app.args.iter()
-            .map(|arg| self.generate_expression(arg))
-            .collect();
-        let args_str = args?.join(", ");
+        // Check if this is a call to an imported function (MemberAccess)
+        // If so, wrap with __sigil_call for mock support
+        if let Expr::MemberAccess(member_access) = &app.func {
+            // Generate the mock key: "extern:namespace/path.member"
+            let mock_key = format!("extern:{}.{}",
+                member_access.namespace.join("/"),
+                member_access.member);
 
-        // All function calls use await
-        Ok(format!("(await {}({}))", func, args_str))
+            // Generate the function reference
+            let func_ref = format!("{}.{}",
+                member_access.namespace.join("_"),
+                member_access.member);
+
+            // Generate arguments
+            let args: Result<Vec<String>, CodegenError> = app.args.iter()
+                .map(|arg| self.generate_expression(arg))
+                .collect();
+            let args_list = args?.join(", ");
+
+            // Wrap in __sigil_call
+            Ok(format!("await __sigil_call(\"{}\", {}, [{}])",
+                mock_key, func_ref, args_list))
+        } else {
+            // Regular function call
+            let func = self.generate_expression(&app.func)?;
+            let args: Result<Vec<String>, CodegenError> = app.args.iter()
+                .map(|arg| self.generate_expression(arg))
+                .collect();
+            let args_str = args?.join(", ");
+
+            // All function calls use await
+            Ok(format!("(await {}({}))", func, args_str))
+        }
     }
 
     fn generate_binary(&mut self, bin: &BinaryExpr) -> Result<String, CodegenError> {

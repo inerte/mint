@@ -4,21 +4,6 @@
    Part of Sigil standard library - canonical implementations only.
 ⟧
 
-⟦ Helper: Range checking ⟧
-λin_range_helper(x:ℤ,min:ℤ,max:ℤ)→𝔹≡(x≥min){
-  ⊤→x≤max|
-  ⊥→⊥
-}
-
-⟦ Helper: Prime checking ⟧
-λis_prime_helper(n:ℤ,divisor:ℤ)→𝔹≡(divisor*divisor>n){
-  ⊤→⊤|
-  ⊥→≡(n%divisor≠0){
-    ⊤→is_prime_helper(n,divisor+1)|
-    ⊥→⊥
-  }
-}
-
 ⟦ Clamp value between min and max ⟧
 λclamp(x:ℤ,lo:ℤ,hi:ℤ)→ℤ=max(lo,min(x,hi))
 
@@ -36,6 +21,12 @@
 
 ⟦ Check if value is in range [min, max] (inclusive) ⟧
 λin_range(x:ℤ,min:ℤ,max:ℤ)→𝔹=in_range_helper(x,min,max)
+
+⟦ Helper: Range checking ⟧
+λin_range_helper(x:ℤ,min:ℤ,max:ℤ)→𝔹≡(x≥min){
+  ⊤→x≤max|
+  ⊥→⊥
+}
 
 ⟦ Check if value is even ⟧
 λis_even(x:ℤ)→𝔹=(x%2)=0
@@ -57,6 +48,15 @@
   0→⊥|
   1→⊥|
   n→is_prime_helper(n,2)
+}
+
+⟦ Helper: Prime checking ⟧
+λis_prime_helper(n:ℤ,divisor:ℤ)→𝔹≡(divisor*divisor>n){
+  ⊤→⊤|
+  ⊥→≡(n%divisor≠0){
+    ⊤→is_prime_helper(n,divisor+1)|
+    ⊥→⊥
+  }
 }
 
 ⟦ Check if value is zero ⟧

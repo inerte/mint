@@ -66,6 +66,13 @@ i stdlib⋅string
   ≡is_dashes{⊤→⊤|⊥→≡is_stars{⊤→⊤|⊥→is_underscores}}
 }
 
+⟦ Process markdown lines into HTML blocks ⟧
+λparse(markdown:𝕊)→𝕊={
+  l lines=stdlib⋅string.split(markdown,"\n");
+  l num_lines=#lines;
+  parse_lines_loop(lines,num_lines,0,"",⊥,"","")
+}
+
 ⟦ Parse markdown lines into HTML blocks (recursive helper) ⟧
 λparse_lines_loop(lines:[𝕊],num_lines:ℤ,idx:ℤ,result:𝕊,in_code:𝔹,code_acc:𝕊,para_acc:𝕊)→𝕊={
   ≡(idx≥num_lines){
@@ -186,11 +193,4 @@ i stdlib⋅string
 ⟦ Render paragraph ⟧
 λrender_paragraph(text:𝕊)→𝕊={
   "<p>"++text++"</p>"
-}
-
-⟦ Process markdown lines into HTML blocks ⟧
-λparse(markdown:𝕊)→𝕊={
-  l lines=stdlib⋅string.split(markdown,"\n");
-  l num_lines=#lines;
-  parse_lines_loop(lines,num_lines,0,"",⊥,"","")
 }

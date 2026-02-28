@@ -87,34 +87,34 @@ conditional list processing.
 ⟦ Demo - Run examples ⟧
 
 λmain()→ℤ={
-  l _=console.log("=== Range Checking ===");
-  l _=console.log(classifyNumber(5000));
-  l _=console.log(classifyNumber(50));
-  l _=console.log(classifyNumber(5));
-  l _=console.log(classifyNumber(-5));
+  l _=(console.log("=== Range Checking ==="):𝕌);
+  l _=(console.log(classifyNumber(5000)):𝕌);
+  l _=(console.log(classifyNumber(50)):𝕌);
+  l _=(console.log(classifyNumber(5)):𝕌);
+  l _=(console.log(classifyNumber(-5)):𝕌);
 
-  l _=console.log("\n=== User Validation ===");
-  l _=console.log(validateUser({name:"Alice",age:30}));
-  l _=console.log(validateUser({name:"",age:25}));
-  l _=console.log(validateUser({name:"Bob",age:-5}));
+  l _=(console.log("\n=== User Validation ==="):𝕌);
+  l _=(console.log(validateUser({name:"Alice",age:30})):𝕌);
+  l _=(console.log(validateUser({name:"",age:25})):𝕌);
+  l _=(console.log(validateUser({name:"Bob",age:-5})):𝕌);
 
-  l _=console.log("\n=== Result Processing ===");
-  l _=console.log(processResult(Ok(150)));
-  l _=console.log(processResult(Ok(5)));
-  l _=console.log(processResult(Err("timeout")));
+  l _=(console.log("\n=== Result Processing ==="):𝕌);
+  l _=(console.log(processResult(Ok(150))):𝕌);
+  l _=(console.log(processResult(Ok(5))):𝕌);
+  l _=(console.log(processResult(Err("timeout"))):𝕌);
 
-  l _=console.log("\n=== Priority Tasks ===");
-  l _=console.log(prioritizeTask(5,⊤));
-  l _=console.log(prioritizeTask(5,⊥));
-  l _=console.log(prioritizeTask(9,⊥));
+  l _=(console.log("\n=== Priority Tasks ==="):𝕌);
+  l _=(console.log(prioritizeTask(5,⊤)):𝕌);
+  l _=(console.log(prioritizeTask(5,⊥)):𝕌);
+  l _=(console.log(prioritizeTask(9,⊥)):𝕌);
 
-  l _=console.log("\n=== Point Classification ===");
-  l _=console.log(classifyPoint({x:0,y:0}));
-  l _=console.log(classifyPoint({x:5,y:5}));
-  l _=console.log(classifyPoint({x:3,y:7}));
+  l _=(console.log("\n=== Point Classification ==="):𝕌);
+  l _=(console.log(classifyPoint({x:0,y:0})):𝕌);
+  l _=(console.log(classifyPoint({x:5,y:5})):𝕌);
+  l _=(console.log(classifyPoint({x:3,y:7})):𝕌);
 
-  l _=console.log("\n=== Color Conversion ===");
-  l _=console.log(colorToHex(Red()));
+  l _=(console.log("\n=== Color Conversion ==="):𝕌);
+  l _=(console.log(colorToHex(Red())):𝕌);
 
   0
 }
@@ -152,7 +152,7 @@ Pattern guards shine in state machine implementations.
 Match on state structure, guard on input conditions.
 ⟧
 
-λstateTransition(state:State,action:Action)→State≡action{
+λstateTransition(action:Action,state:State)→State≡action{
   Increment when state.count<100 → {mode:state.mode,count:state.count+1} |
   Increment → {mode:"maxed",count:100} |
   Decrement when state.count>0 → {mode:state.mode,count:state.count-1} |

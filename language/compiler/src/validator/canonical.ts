@@ -278,6 +278,7 @@ export function validateCanonicalForm(program: AST.Program, filename?: string, s
     validateCanonicalPatternMatching(program);
     validateDeclarationOrdering(program);
     validateFunctionSignatureOrdering(program);
+    validateLetBindingsTyped(program);
   } catch (error) {
     if (filename && error instanceof CanonicalError && error.diagnostic.location?.file === '<unknown>') {
       error.diagnostic.location.file = filename;
@@ -1789,10 +1790,142 @@ function walkExpressionForLambdas(expr: AST.Expr, contextName: string): void {
       walkExpressionForLambdas(expr.body, contextName);
       break;
 
+    case 'TypeAscriptionExpr':
+      walkExpressionForLambdas(expr.expr, contextName);
+      break;
+
     // Literals and identifiers don't contain lambdas
     case 'LiteralExpr':
     case 'IdentifierExpr':
       break;
+  }
+}
+
+/**
+ * Validate that all let bindings use type ascription
+ * This enforces explicit types everywhere and solves the empty list problem.
+ */
+function validateLetBindingsTyped(program: AST.Program): void {
+  function walkExpression(expr: AST.Expr): void {
+    switch (expr.type) {
+      case 'LetExpr':
+        // Check if value is wrapped in type ascription
+        if (expr.value.type !== 'TypeAscriptionExpr') {
+          throw new CanonicalError(
+            'SIGIL-CANON-LET-UNTYPED',
+            `Let binding value must use type ascription\n\n` +
+            `Found: ${expr.value.type}\n` +
+            `Expected: (value:Type) syntax\n\n` +
+            `Example: l x=(42:ℤ) instead of l x=42\n\n` +
+            `Sigil requires explicit types in let bindings (ONE WAY).`,
+            expr.value.location,
+            {
+              details: { found: expr.value.type },
+              suggestions: [
+                suggestGeneric('wrap value in type ascription: (value:Type)', 'add_ascription')
+              ]
+            }
+          );
+        }
+        walkExpression(expr.value);
+        walkExpression(expr.body);
+        break;
+
+      case 'BinaryExpr':
+        walkExpression(expr.left);
+        walkExpression(expr.right);
+        break;
+
+      case 'UnaryExpr':
+        walkExpression(expr.operand);
+        break;
+
+      case 'ApplicationExpr':
+        walkExpression(expr.func);
+        expr.args.forEach(walkExpression);
+        break;
+
+      case 'MatchExpr':
+        walkExpression(expr.scrutinee);
+        expr.arms.forEach(arm => walkExpression(arm.body));
+        break;
+
+      case 'IfExpr':
+        walkExpression(expr.condition);
+        walkExpression(expr.thenBranch);
+        if (expr.elseBranch) walkExpression(expr.elseBranch);
+        break;
+
+      case 'ListExpr':
+        expr.elements.forEach(walkExpression);
+        break;
+
+      case 'RecordExpr':
+        expr.fields.forEach(field => walkExpression(field.value));
+        break;
+
+      case 'TupleExpr':
+        expr.elements.forEach(walkExpression);
+        break;
+
+      case 'FieldAccessExpr':
+        walkExpression(expr.object);
+        break;
+
+      case 'IndexExpr':
+        walkExpression(expr.object);
+        walkExpression(expr.index);
+        break;
+
+      case 'PipelineExpr':
+        walkExpression(expr.left);
+        walkExpression(expr.right);
+        break;
+
+      case 'MapExpr':
+        walkExpression(expr.list);
+        walkExpression(expr.fn);
+        break;
+
+      case 'FilterExpr':
+        walkExpression(expr.list);
+        walkExpression(expr.predicate);
+        break;
+
+      case 'FoldExpr':
+        walkExpression(expr.list);
+        walkExpression(expr.init);
+        walkExpression(expr.fn);
+        break;
+
+      case 'LambdaExpr':
+        walkExpression(expr.body);
+        break;
+
+      case 'WithMockExpr':
+        walkExpression(expr.target);
+        walkExpression(expr.replacement);
+        walkExpression(expr.body);
+        break;
+
+      case 'TypeAscriptionExpr':
+        walkExpression(expr.expr);
+        break;
+
+      case 'LiteralExpr':
+      case 'IdentifierExpr':
+      case 'MemberAccessExpr':
+        // No sub-expressions
+        break;
+    }
+  }
+
+  for (const decl of program.declarations) {
+    if (decl.type === 'FunctionDecl') {
+      walkExpression(decl.body);
+    } else if (decl.type === 'TestDecl') {
+      walkExpression(decl.body);
+    }
   }
 }
 

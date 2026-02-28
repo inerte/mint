@@ -10,7 +10,7 @@ i stdlib⋅string
 ⟦ Main demonstration ⟧
 λmain()→!IO 𝕌={
   ⟦ Test string length operator ⟧
-  l text="Hello, Sigil!";
+  l text=("Hello, Sigil!":𝕊);
   l _=console.log("Text: "++text);
   l _=console.log("Length: "++stdlib⋅string.int_to_string(#text));
 
@@ -31,7 +31,7 @@ i stdlib⋅string
   l _=console.log("Split length: "++stdlib⋅string.int_to_string(#parts));
 
   ⟦ Test take and drop ⟧
-  l sample="abcdefgh";
+  l sample=("abcdefgh":𝕊);
   l first_three=stdlib⋅string.take(sample,3);
   l drop_three=stdlib⋅string.drop(sample,3);
   l _=console.log("Take 3: "++first_three);

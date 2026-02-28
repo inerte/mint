@@ -351,24 +351,25 @@ impl Parser {
 
         let name = self.consume(TokenType::IDENTIFIER, "Expected constant name")?.value.clone();
 
-        // Type annotation is MANDATORY (canonical form)
-        self.consume(
-            TokenType::COLON,
-            &format!(
-                "Expected \":\" after constant \"{}\". Type annotations are required (canonical form).",
-                name
-            ),
-        )?;
-        let type_annotation = Some(self.parse_type()?);
-
-        self.consume(TokenType::EQUAL, "Expected \"=\"")?;
+        self.consume(TokenType::EQUAL, "Expected \"=\" after constant name")?;
         let value = self.expression()?;
+
+        // Value must be a type ascription (canonical form)
+        let (type_annotation, actual_value) = match &value {
+            Expr::TypeAscription(asc) => (Some(asc.ascribed_type.clone()), asc.expr.clone()),
+            _ => {
+                return Err(self.error(&format!(
+                    "Const value must use type ascription: c {}=(value:Type)",
+                    name
+                )));
+            }
+        };
 
         let end = self.previous();
         Ok(Declaration::Const(ConstDecl {
             name,
             type_annotation,
-            value,
+            value: actual_value,
             location: self.make_location(start.location.start, end.location.end),
         }))
     }
@@ -1147,7 +1148,20 @@ impl Parser {
                 }));
             }
 
+            let start_paren = self.previous();
             let first = self.expression()?;
+
+            // Type ascription: (expr:Type)
+            if self.match_token(TokenType::COLON) {
+                let ascribed_type = self.parse_type()?;
+                self.consume(TokenType::RPAREN, "Expected \")\"")?;
+                let end = self.previous().location.end;
+                return Ok(Expr::TypeAscription(Box::new(TypeAscriptionExpr {
+                    expr: first,
+                    ascribed_type,
+                    location: SourceLocation::new(start_paren.location.start, end),
+                })));
+            }
 
             if self.match_token(TokenType::COMMA) {
                 // Tuple
@@ -1252,9 +1266,8 @@ impl Parser {
         let pattern = self.pattern()?;
         self.consume(TokenType::EQUAL, "Expected \"=\"")?;
         let value = self.expression()?;
-        self.consume(TokenType::LBRACE, "Expected \"{\"")?;
+        self.consume(TokenType::SEMICOLON, "Expected \";\"")?;
         let body = self.expression()?;
-        self.consume(TokenType::RBRACE, "Expected \"}\"")?;
 
         let end = self.previous();
         Ok(Expr::Let(Box::new(LetExpr {
@@ -1670,6 +1683,7 @@ impl HasLocation for Expr {
             Expr::Fold(e) => e.location,
             Expr::MemberAccess(e) => e.location,
             Expr::WithMock(e) => e.location,
+            Expr::TypeAscription(e) => e.location,
         }
     }
 }

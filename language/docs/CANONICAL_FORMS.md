@@ -427,6 +427,82 @@ Sigil enforces ONE way: canonical declaration ordering.
 
 **Rationale:** Types-first ordering enables typed FFI declarations to reference named types. This is a language design choice that prioritizes correctness over convenience.
 
+#### Rule 8: Mandatory Type Ascription
+
+Let binding values and const declarations MUST use type ascription syntax.
+
+**Error codes:** `SIGIL-CANON-LET-UNTYPED`, `SIGIL-PARSE-CONST-UNTYPED`
+
+```sigil
+✅ VALID - type ascription required:
+l x=(42:ℤ);x+1
+l empty=([]:[ℤ]);#empty
+l names=(["Alice","Bob"]:[𝕊]);names
+
+c answer=(42:ℤ)
+c pi=(3.14:ℝ)
+
+❌ REJECTED - no type ascription in let:
+l x=42;x+1
+⟦ Error: Let binding value must use type ascription ⟧
+
+❌ REJECTED - old const syntax:
+c answer:ℤ=42
+⟦ Error: Const value must use type ascription ⟧
+```
+
+**Type ascription syntax:**
+```sigil
+(expr:Type)  ← Parentheses mandatory (canonical form)
+```
+
+Works anywhere expressions are allowed:
+```sigil
+#([]:[ℤ])=0                    ← Empty list in expression
+λf()→[𝕊]=([]:[𝕊])              ← Empty list in return position
+l result=(fetch():Result);      ← Explicit result type (when needed)
+```
+
+**Rationale:**
+- **Explicit types everywhere** - No type inference in let bindings or const declarations
+- **ONE WAY** - Single canonical form for variable bindings
+- **Solves empty list problem** - `([]:[ℤ])` has explicit type, no inference needed
+- **AI generation** - Clearer, more predictable for language models
+- **Consistency** - Matches mandatory parameter/return type annotations
+
+**Before/after examples:**
+```sigil
+// OLD (rejected):
+l text="Hello";              // type inferred
+c max:ℤ=100                  // type before equals
+
+// NEW (required):
+l text=("Hello":𝕊);          // type ascribed
+c max=(100:ℤ)                // type in ascription
+```
+
+**Error message (let binding):**
+```
+Let binding value must use type ascription
+
+Found: LiteralExpr
+Expected: (value:Type) syntax
+
+Example: l x=(42:ℤ) instead of l x=42
+
+Sigil requires explicit types in let bindings (ONE WAY).
+```
+
+**Error message (const):**
+```
+Const value must use type ascription: c name=(value:Type)
+
+Found: LiteralExpr
+Expected: TypeAscriptionExpr
+
+Wrap value in type ascription: (value:Type)
+```
+
 ## Already Enforced (Lexer Level)
 
 The lexer rejects:

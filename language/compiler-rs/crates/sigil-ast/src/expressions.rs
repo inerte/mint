@@ -27,6 +27,7 @@ pub enum Expr {
     Fold(Box<FoldExpr>),
     MemberAccess(MemberAccessExpr),
     WithMock(Box<WithMockExpr>),
+    TypeAscription(Box<TypeAscriptionExpr>),
 }
 
 /// Literal expression: 42, 3.14, "hello", 'c', true, false, ()
@@ -334,5 +335,14 @@ pub struct WithMockExpr {
     pub target: Expr,
     pub replacement: Expr,
     pub body: Expr,
+    pub location: SourceLocation,
+}
+
+/// Type ascription expression: (expr:Type)
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TypeAscriptionExpr {
+    pub expr: Expr,
+    pub ascribed_type: Type,
     pub location: SourceLocation,
 }

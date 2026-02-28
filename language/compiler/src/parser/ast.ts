@@ -227,7 +227,8 @@ export type Expr =
   | FilterExpr
   | FoldExpr
   | MemberAccessExpr
-  | WithMockExpr;
+  | WithMockExpr
+  | TypeAscriptionExpr;
 
 export interface LiteralExpr {
   type: 'LiteralExpr';
@@ -398,6 +399,13 @@ export interface WithMockExpr {
   target: Expr;
   replacement: Expr;
   body: Expr;
+  location: SourceLocation;
+}
+
+export interface TypeAscriptionExpr {
+  type: 'TypeAscriptionExpr';
+  expr: Expr;
+  ascribedType: Type;
   location: SourceLocation;
 }
 

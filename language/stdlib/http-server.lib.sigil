@@ -99,7 +99,7 @@ Usage:
     ⟦ For now, body parsing is stubbed to keep the canonical HTTP wrapper compiling ⟧
 
     ⟦ Request body parsing not implemented yet (v1 stub) ⟧
-    l body="";
+    l body=("":𝕊);
 
     ⟦ Build Sigil Request object ⟧
     l sigil_request={

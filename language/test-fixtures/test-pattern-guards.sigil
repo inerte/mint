@@ -13,6 +13,17 @@ t Result=Ok(ℤ)|Err(𝕊)
 
 e console
 
+⟦ Run tests ⟧
+λmain()→ℤ={
+  l r1=test1(0);
+  l r2=test2(15);
+  l r3=test3(1,⊤);
+  l r4=test4(Ok(150));
+  l r5=test5(5,10);
+  l r6=test6(0);
+  0
+}
+
 ⟦ Test 1: Simple guards with literal patterns ⟧
 λtest1(x:ℤ)→𝕊≡x{
   0 when ⊤ → "zero" |
@@ -54,15 +65,4 @@ e console
   0 → "zero" |
   1 → "one" |
   _ → "other"
-}
-
-⟦ Run tests ⟧
-λmain()→ℤ≡{
-  l r1=test1(0);
-  l r2=test2(15);
-  l r3=test3(1,⊤);
-  l r4=test4(Ok(150));
-  l r5=test5(5,10);
-  l r6=test6(0);
-  0
 }

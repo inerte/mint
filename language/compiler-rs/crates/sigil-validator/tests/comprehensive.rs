@@ -261,3 +261,15 @@ fn test_effect_annotations_valid() {
 
     assert!(validate_canonical_form(&program, Some("test.sigil")).is_ok());
 }
+
+// Note: Type checking tests belong in the typechecker crate.
+// This test validates that the parser/validator accept typed FFI declarations.
+#[test]
+fn test_typed_ffi_declaration_valid() {
+    let source = "e console : { log : λ(𝕊) → 𝕌 }\nλmain()→𝕌=console.log(\"hello\")";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    // Parser and validator should accept this
+    assert!(validate_canonical_form(&program, Some("test.sigil")).is_ok());
+}

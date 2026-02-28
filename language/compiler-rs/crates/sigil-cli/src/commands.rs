@@ -8,7 +8,7 @@ use sigil_lexer::Lexer;
 use sigil_parser::Parser;
 use sigil_typechecker::{type_check, TypeError, TypeCheckOptions, TypeInfo};
 use sigil_typechecker::types::{InferenceType, TRecord};
-use sigil_validator::{validate_canonical_form, validate_surface_form, ValidationError};
+use sigil_validator::{validate_canonical_form, ValidationError};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -136,8 +136,8 @@ pub fn parse_command(file: &Path, human: bool) -> Result<(), CliError> {
     let mut parser = Parser::new(tokens, &filename);
     let ast = parser.parse().map_err(|e| CliError::Parser(format!("{:?}", e)))?;
 
-    // Validate surface form
-    validate_surface_form(&ast).map_err(|e: Vec<ValidationError>| {
+    // Validate canonical form (includes formatting)
+    validate_canonical_form(&ast, Some(&filename), Some(&source)).map_err(|e: Vec<ValidationError>| {
         CliError::Validation(format!("{} validation errors", e.len()))
     })?;
 

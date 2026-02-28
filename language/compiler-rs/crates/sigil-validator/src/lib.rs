@@ -11,8 +11,6 @@
 
 pub mod error;
 pub mod canonical;
-pub mod surface_form;
 
 pub use error::*;
 pub use canonical::*;
-pub use surface_form::*;

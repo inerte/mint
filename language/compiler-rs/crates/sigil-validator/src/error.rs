@@ -117,6 +117,26 @@ pub enum ValidationError {
         message: String,
         location: SourceLocation,
     },
+
+    #[error("SIGIL-CANON-EOF-NEWLINE: file must end with newline\n\nFile: {filename}")]
+    EOFNewline {
+        filename: String,
+        location: SourceLocation,
+    },
+
+    #[error("SIGIL-CANON-TRAILING-WHITESPACE: trailing whitespace\n\nFile: {filename}\nLine: {line}")]
+    TrailingWhitespace {
+        filename: String,
+        line: usize,
+        location: SourceLocation,
+    },
+
+    #[error("SIGIL-CANON-BLANK-LINES: multiple consecutive blank lines\n\nFile: {filename}\nLine: {line}")]
+    BlankLines {
+        filename: String,
+        line: usize,
+        location: SourceLocation,
+    },
 }
 
 impl ValidationError {
@@ -165,6 +185,9 @@ impl ValidationError {
             ValidationError::FilenameCase { location, .. } => *location,
             ValidationError::FilenameInvalidChar { location, .. } => *location,
             ValidationError::FilenameFormat { location, .. } => *location,
+            ValidationError::EOFNewline { location, .. } => *location,
+            ValidationError::TrailingWhitespace { location, .. } => *location,
+            ValidationError::BlankLines { location, .. } => *location,
         }
     }
 }

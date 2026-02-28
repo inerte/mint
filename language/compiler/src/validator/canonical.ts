@@ -174,8 +174,97 @@ function validateNoDuplicateDeclarations(program: AST.Program): void {
 /**
  * Validate that the program follows canonical form rules
  */
-export function validateCanonicalForm(program: AST.Program, filename?: string): void {
+/**
+ * Rule: EOF Newline - Files must end with a newline character
+ *
+ * Ensures byte-for-byte reproducibility and POSIX compliance.
+ */
+function validateEOFNewline(source: string, filename: string): void {
+  if (source.length === 0) {
+    // Empty file is valid
+    return;
+  }
+
+  if (!source.endsWith('\n')) {
+    throw new CanonicalError(
+      'SIGIL-CANON-EOF-NEWLINE',
+      'file must end with newline',
+      undefined,
+      {
+        details: {
+          filename,
+          position: source.length,
+          hint: 'Add a newline character at the end of the file'
+        }
+      }
+    );
+  }
+}
+
+/**
+ * Rule: No Trailing Whitespace - Lines cannot end with spaces or tabs
+ *
+ * Ensures deterministic formatting and prevents invisible characters.
+ */
+function validateNoTrailingWhitespace(source: string, filename: string): void {
+  const lines = source.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.endsWith(' ') || line.endsWith('\t')) {
+      throw new CanonicalError(
+        'SIGIL-CANON-TRAILING-WHITESPACE',
+        'trailing whitespace',
+        undefined,
+        {
+          details: {
+            filename,
+            line: i + 1,
+            column: line.length,
+            hint: 'Remove trailing spaces or tabs from the end of this line'
+          }
+        }
+      );
+    }
+  }
+}
+
+/**
+ * Rule: Maximum One Blank Line - No consecutive blank lines
+ *
+ * Ensures consistent vertical spacing in canonical form.
+ */
+function validateBlankLines(source: string, filename: string): void {
+  const lines = source.split('\n');
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i] === '' && lines[i + 1] === '') {
+      throw new CanonicalError(
+        'SIGIL-CANON-BLANK-LINES',
+        'multiple consecutive blank lines',
+        undefined,
+        {
+          details: {
+            filename,
+            line: i + 2,
+            hint: 'Remove extra blank lines (maximum one blank line allowed)'
+          }
+        }
+      );
+    }
+  }
+}
+
+export function validateCanonicalForm(program: AST.Program, filename?: string, source?: string): void {
   try {
+    // Validate source formatting first (if source provided)
+    if (source && filename) {
+      validateEOFNewline(source, filename);
+      validateNoTrailingWhitespace(source, filename);
+      validateBlankLines(source, filename);
+    }
+
     validateNoDuplicateDeclarations(program);
     validateFilePurpose(program, filename);
 

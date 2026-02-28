@@ -2,6 +2,8 @@
 
 t Foo=A|B|C
 
+λmain()→𝕌=()
+
 ⟦ Case 1: First arm non-empty, second arm empty ⟧
 λtest1(x:Foo)→[ℤ]≡x{
   A → [1,2,3]|
@@ -26,5 +28,3 @@ t Foo=A|B|C
   }|
   C → []
 }
-
-λmain()→𝕌=()

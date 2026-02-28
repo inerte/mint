@@ -410,6 +410,8 @@ impl TypeScriptGenerator {
             Expr::Fold(fold) => self.generate_fold(fold),
             Expr::Pipeline(pipeline) => self.generate_pipeline(pipeline),
             Expr::WithMock(with_mock) => self.generate_with_mock(with_mock),
+            // Type ascriptions are erased at runtime - emit only inner expression
+            Expr::TypeAscription(t) => self.generate_expression(&t.expr),
         }
     }
 

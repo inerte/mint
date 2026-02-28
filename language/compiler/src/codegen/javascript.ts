@@ -246,6 +246,9 @@ export class JavaScriptGenerator {
         return this.generateFilter(expr);
       case 'FoldExpr':
         return this.generateFold(expr);
+      case 'TypeAscriptionExpr':
+        // Type ascriptions are erased at runtime - emit only inner expression
+        return this.generateExpression(expr.expr);
       default:
         throw new Error(`Unsupported expression type: ${(expr as any).type}`);
     }

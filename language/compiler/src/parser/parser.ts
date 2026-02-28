@@ -295,18 +295,26 @@ export class Parser {
     }
     const name = this.consume(TokenType.IDENTIFIER, 'Expected constant name').value;
 
-    // Type annotation is MANDATORY (canonical form)
-    this.consume(TokenType.COLON, `Expected ":" after constant "${name}". Type annotations are required (canonical form).`);
-    const typeAnnotation = this.type();
-
-    this.consume(TokenType.EQUAL, 'Expected "="');
+    this.consume(TokenType.EQUAL, 'Expected "=" after constant name');
     const value = this.expression();
+
+    // Value must be a type ascription (canonical form)
+    if (value.type !== 'TypeAscriptionExpr') {
+      throw this.diagError('SIGIL-PARSE-CONST-UNTYPED',
+        `Const value must use type ascription: c ${name}=(value:Type)`,
+        this.previous(), {
+          found: value.type,
+          expected: 'TypeAscriptionExpr',
+          suggestions: [suggestGeneric('wrap value in type ascription: (value:Type)', 'add_ascription')]
+        }
+      );
+    }
 
     return {
       type: 'ConstDecl',
       name,
-      typeAnnotation,
-      value,
+      typeAnnotation: value.ascribedType,
+      value: value.expr,
       location: this.makeLocation(start, this.previous()),
     };
   }
@@ -1333,6 +1341,18 @@ export class Parser {
     }
 
     const first = this.expression();
+
+    // Type ascription: (expr:Type)
+    if (this.match(TokenType.COLON)) {
+      const ascribedType = this.type();
+      this.consume(TokenType.RPAREN, 'Expected ")"');
+      return {
+        type: 'TypeAscriptionExpr',
+        expr: first,
+        ascribedType,
+        location: this.makeLocation(start, this.previous()),
+      };
+    }
 
     // Tuple: (expr, expr, ...)
     if (this.match(TokenType.COMMA)) {

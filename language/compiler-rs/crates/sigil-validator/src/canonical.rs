@@ -619,6 +619,8 @@ fn is_recursive(expr: &Expr, function_name: &str) -> bool {
                 is_recursive(&w.replacement, function_name) ||
                 is_recursive(&w.body, function_name)
         }
+
+        Expr::TypeAscription(t) => is_recursive(&t.expr, function_name),
     }
 }
 

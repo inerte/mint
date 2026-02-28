@@ -4,6 +4,24 @@ i stdlib⋅string
 
 λmain()→𝕌=()
 
+⟦ Test # operator on strings ⟧
+test "# returns string length" {
+  #"hello"=5
+}
+
+test "# works on empty string" {
+  #""=0
+}
+
+test "# works on unicode strings" {
+  #"🚀"=2
+}
+
+⟦ Test # operator on lists ⟧
+test "# returns list length" {
+  #[1,2,3]=3
+}
+
 test "char_at at index 0" {
   stdlib⋅string.char_at("hello",0)="h"
 }
@@ -146,4 +164,16 @@ test "trim leading" {
 
 test "trim trailing" {
   stdlib⋅string.trim("hello  ")="hello"
+}
+
+⟦ Integration test: parse markdown title ⟧
+test "extract title from markdown" {
+  l content="# Hello World\nContent here";
+  l lines=stdlib⋅string.split("\n",content);
+  l first=lines[0];
+  l title=stdlib⋅string.starts_with("# ",first){
+    ⊤→stdlib⋅string.substring(#first,2,first)|
+    ⊥→"Untitled"
+  };
+  title="Hello World"
 }

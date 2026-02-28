@@ -81,6 +81,9 @@ function synthesize(env: TypeEnvironment, expr: AST.Expr): InferenceType {
     case 'WithMockExpr':
       return synthesizeWithMock(env, expr);
 
+    case 'TypeAscriptionExpr':
+      return synthesizeTypeAscription(env, expr);
+
     default:
       throw new TypeError(
         `Cannot synthesize type for ${(expr as any).type}`,
@@ -126,6 +129,10 @@ function check(env: TypeEnvironment, expr: AST.Expr, expectedType: InferenceType
 
     case 'WithMockExpr':
       checkWithMock(env, expr, expectedType);
+      return;
+
+    case 'TypeAscriptionExpr':
+      checkTypeAscription(env, expr, expectedType);
       return;
 
     // For most expressions: synthesize then verify equality
@@ -236,6 +243,16 @@ function checkWithMock(env: TypeEnvironment, expr: AST.WithMockExpr, expectedTyp
   synthesizeWithMock(env, expr);
   // Then enforce the expected type on the body.
   check(env, expr.body, expectedType);
+}
+
+function checkTypeAscription(env: TypeEnvironment, expr: AST.TypeAscriptionExpr, expectedType: InferenceType): void {
+  const ascribedType = synthesizeTypeAscription(env, expr);
+  if (!typesEqual(ascribedType, expectedType)) {
+    throw new TypeError(
+      `Type mismatch: ascribed ${formatType(ascribedType)}, expected ${formatType(expectedType)}`,
+      expr.location
+    );
+  }
 }
 
 /**
@@ -401,6 +418,12 @@ function synthesizeWithMock(env: TypeEnvironment, expr: AST.WithMockExpr): Infer
   }
 
   return synthesize(env, expr.body);
+}
+
+function synthesizeTypeAscription(env: TypeEnvironment, expr: AST.TypeAscriptionExpr): InferenceType {
+  const ascribedType = astTypeToInferenceType(expr.ascribedType);
+  check(env, expr.expr, ascribedType);
+  return ascribedType;
 }
 
 function synthesizeBinary(env: TypeEnvironment, expr: AST.BinaryExpr): InferenceType {

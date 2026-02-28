@@ -12,7 +12,7 @@ t IntOption=IntSome(ℤ)|IntNone
 t IntResult=IntOk(ℤ)|IntErr(𝕊)
 
 ⟦ Extract value from IntResult with fallback ⟧
-λget_or_default(res:IntResult,fallback:ℤ)→ℤ≡res{
+λget_or_default(fallback:ℤ,res:IntResult)→ℤ≡res{
   IntOk(value)→value|
   IntErr(_)→fallback
 }
@@ -30,7 +30,7 @@ t IntResult=IntOk(ℤ)|IntErr(𝕊)
 }
 
 ⟦ Main - demonstrate usage ⟧
-λmain()→ℤ=get_or_zero(safe_head([1,2,3]))+get_or_default(safe_subtract(10,2),0)+get_or_default(safe_subtract(10,20),999)
+λmain()→ℤ=get_or_zero(safe_head([1,2,3]))+get_or_default(0,safe_subtract(10,2))+get_or_default(999,safe_subtract(10,20))
 
 ⟦ Safe list head ⟧
 λsafe_head(xs:[ℤ])→IntOption≡xs{

@@ -36,7 +36,7 @@ e url
 
 ⟦ Helper: Log HTTP request to console ⟧
 λlog_request(req:Request)→!IO 𝕌={
-  l log_line=req.method++" "++req.path;
+  l log_line=(req.method++" "++req.path:𝕊);
   console.log(log_line)
 }
 
@@ -85,15 +85,15 @@ Usage:
   ⟦ Create HTTP server with request handler ⟧
   (http.createServer(λ(node_req:Any,node_res:Any)→!IO 𝕌={
     ⟦ Parse URL to extract path ⟧
-    l parsed_url=url.parse(node_req.url,⊤);
-    l path=parsed_url.pathname;
+    l parsed_url=(url.parse(node_req.url,⊤):Any);
+    l path=(parsed_url.pathname:Any);
 
     ⟦ Extract method ⟧
-    l method=node_req.method;
+    l method=(node_req.method:Any);
 
     ⟦ For v1, use empty headers map ⟧
     ⟦ TODO: Convert Node.js headers object to Sigil map ⟧
-    l headers={};
+    l headers=({}:Any);
 
     ⟦ Collect request body chunks (TODO: typed chunk handling) ⟧
     ⟦ For now, body parsing is stubbed to keep the canonical HTTP wrapper compiling ⟧
@@ -102,29 +102,29 @@ Usage:
     l body=("":𝕊);
 
     ⟦ Build Sigil Request object ⟧
-    l sigil_request={
+    l sigil_request=({
       path:path,
       method:method,
       headers:headers,
       body:body
-    };
+    }:Request);
 
     ⟦ Call user-provided handler ⟧
-    l sigil_response=handler(sigil_request);
+    l sigil_response=(handler(sigil_request):Response);
 
     ⟦ Set response headers from map ⟧
     ⟦ TODO: Header iteration is temporarily stubbed while block/effect sequencing is simplified ⟧
-    l response_headers=sigil_response.headers;
+    l response_headers=(sigil_response.headers:Any);
 
     ⟦ TODO: Write response to node_res once callback second-parameter binding is stable in typechecker ⟧
-    l status=sigil_response.status;
-    l body_html=sigil_response.body;
-    l noop=status;
-    l noop2=body_html;
+    l status=(sigil_response.status:ℤ);
+    l body_html=(sigil_response.body:𝕊);
+    l noop=(status:ℤ);
+    l noop2=(body_html:𝕊);
 
     ()
   })).listen(port,λ()→!IO 𝕌={
-    l port_str=port.toString();
+    l port_str=(port.toString():Any);
     console.log("Server running at http://localhost:"++port_str)
     ()
   })

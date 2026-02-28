@@ -163,6 +163,24 @@ describe('Canonical Form Validation', () => {
     });
   });
 
+  describe('Type checking', () => {
+    test('rejects type mismatch in FFI call', () => {
+      // console.log expects string but receives integer
+      const code = `e console : { log : λ(𝕊) → 𝕌 }
+
+λbad()→𝕌=console.log(42)
+λmain()→𝕌=()
+`;
+
+      const result = compileFromString(code);
+
+      assert.strictEqual(result.ok, false);
+      if (!result.ok) {
+        assert.strictEqual(result.error.code, 'SIGIL-TYPE-ERROR');
+      }
+    });
+  });
+
   describe('Valid canonical patterns', () => {
     test('accepts simple recursive factorial', () => {
       const code = `λfactorial(n:ℤ)→ℤ≡n{0→1|n→n*factorial(n-1)}

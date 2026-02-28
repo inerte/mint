@@ -1,15 +1,15 @@
-λbinary_search(xs:[ℤ],target:ℤ,low:ℤ,high:ℤ)→ℤ≡high<low{
+λbinary_search(high:ℤ,low:ℤ,target:ℤ,xs:[ℤ])→ℤ≡high<low{
   ⊤→-1|
   ⊥→{
-    l mid=(((low+high)-((low+high)%2))/2);
+    l mid=(((low+high)-((low+high)%2))/2:ℤ);
     ≡xs[mid]=target{
       ⊤→mid|
       ⊥→≡xs[mid]<target{
-        ⊤→binary_search(xs,target,mid+1,high)|
-        ⊥→binary_search(xs,target,low,mid-1)
+        ⊤→binary_search(high,mid+1,target,xs)|
+        ⊥→binary_search(mid-1,low,target,xs)
       }
     }
   }
 }
 
-λmain()→ℤ=binary_search([1,3,5,7,9,11,13,15,17,19],13,0,9)
+λmain()→ℤ=binary_search(9,0,13,[1,3,5,7,9,11,13,15,17,19])

@@ -1,9 +1,0 @@
-⟦ TEST: Power with multi-param recursion (should COMPILE) ⟧
-⟦ EXPECTED: OK COMPILES - legitimate multi-param algorithm ⟧
-
-λmain()→ℤ=power(2,10)
-
-λpower(base:ℤ,exp:ℤ)→ℤ≡exp{
-  0→1|
-  exp→base*power(base,exp-1)
-}

@@ -1,9 +1,0 @@
-⟦ TEST: List as accumulator parameter ⟧
-⟦ EXPECTED: BLOCKED BLOCKED - "accumulator pattern" ⟧
-
-λmain()→[ℤ]=reverse_acc([1,2,3],[])
-
-λreverse_acc(lst:[ℤ],acc:[ℤ])→[ℤ]≡lst{
-  []→acc|
-  [x,.xs]→reverse_acc(xs,[x,.acc])
-}

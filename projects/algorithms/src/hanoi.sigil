@@ -1,8 +1,8 @@
-λhanoi(n:ℤ,from:𝕊,to:𝕊,aux:𝕊)→𝕊≡n{
+λhanoi(aux:𝕊,from:𝕊,n:ℤ,to:𝕊)→𝕊≡n{
   1→"Move disk from "+from+" to "+to+"\n"|
-  n→hanoi(n-1,from,aux,to)+
+  n→hanoi(to,from,n-1,aux)+
     "Move disk from "+from+" to "+to+"\n"+
-    hanoi(n-1,aux,to,from)
+    hanoi(from,aux,n-1,to)
 }
 
-λmain()→𝕊=hanoi(3,"A","C","B")
+λmain()→𝕊=hanoi("B","A",3,"C")

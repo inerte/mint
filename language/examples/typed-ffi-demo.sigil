@@ -22,6 +22,6 @@ e path : {
 }
 
 λreadConfig(filename:𝕊)→𝕊={
-  l configPath=path.join("config", filename);
+  l configPath=(path.join("config", filename):𝕊);
   fs⋅promises.readFile(configPath, "utf8")
 }

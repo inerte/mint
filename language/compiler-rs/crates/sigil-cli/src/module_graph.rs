@@ -6,7 +6,7 @@ use crate::project::{get_project_config, ProjectConfig};
 use sigil_ast::{Declaration, Program};
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
-use sigil_validator::{validate_canonical_form, validate_surface_form, ValidationError};
+use sigil_validator::{validate_canonical_form, ValidationError};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -130,9 +130,7 @@ impl ModuleGraphBuilder {
             .map_err(|e| ModuleGraphError::Parser(format!("{:?}", e)))?;
 
         // Validate
-        validate_surface_form(&ast)
-            .map_err(|e| ModuleGraphError::Validation(e))?;
-        validate_canonical_form(&ast, Some(&filename))
+        validate_canonical_form(&ast, Some(&filename), Some(&source))
             .map_err(|e| ModuleGraphError::Validation(e))?;
 
         // Process imports

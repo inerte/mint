@@ -9,10 +9,83 @@
 use sigil_ast::*;
 use std::collections::{HashMap, HashSet};
 use crate::error::ValidationError;
+use sigil_lexer::{SourceLocation, Position};
+
+/// Validate EOF newline requirement
+fn validate_eof_newline(source: &str, file_path: &str) -> Result<(), Vec<ValidationError>> {
+    if source.is_empty() {
+        return Ok(());
+    }
+
+    if !source.ends_with('\n') {
+        return Err(vec![ValidationError::EOFNewline {
+            filename: file_path.to_string(),
+            location: SourceLocation {
+                start: Position { line: 1, column: 1, offset: 0 },
+                end: Position { line: 1, column: 1, offset: 0 },
+            },
+        }]);
+    }
+
+    Ok(())
+}
+
+/// Validate no trailing whitespace
+fn validate_no_trailing_whitespace(source: &str, file_path: &str) -> Result<(), Vec<ValidationError>> {
+    let lines: Vec<&str> = source.split('\n').collect();
+
+    for (i, line) in lines.iter().enumerate() {
+        if line.ends_with(' ') || line.ends_with('\t') {
+            return Err(vec![ValidationError::TrailingWhitespace {
+                filename: file_path.to_string(),
+                line: i + 1,
+                location: SourceLocation {
+                    start: Position { line: i + 1, column: 1, offset: 0 },
+                    end: Position { line: i + 1, column: 1, offset: 0 },
+                },
+            }]);
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate maximum one blank line
+fn validate_blank_lines(source: &str, file_path: &str) -> Result<(), Vec<ValidationError>> {
+    let lines: Vec<&str> = source.split('\n').collect();
+
+    for i in 0..lines.len().saturating_sub(1) {
+        if lines[i].is_empty() && lines[i + 1].is_empty() {
+            return Err(vec![ValidationError::BlankLines {
+                filename: file_path.to_string(),
+                line: i + 2,
+                location: SourceLocation {
+                    start: Position { line: i + 2, column: 1, offset: 0 },
+                    end: Position { line: i + 2, column: 1, offset: 0 },
+                },
+            }]);
+        }
+    }
+
+    Ok(())
+}
 
 /// Validate that a program follows canonical form rules
-pub fn validate_canonical_form(program: &Program, file_path: Option<&str>) -> Result<(), Vec<ValidationError>> {
+pub fn validate_canonical_form(program: &Program, file_path: Option<&str>, source: Option<&str>) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
+
+    // Validate source formatting first (if source provided)
+    if let (Some(path), Some(src)) = (file_path, source) {
+        if let Err(e) = validate_eof_newline(src, path) {
+            errors.extend(e);
+        }
+        if let Err(e) = validate_no_trailing_whitespace(src, path) {
+            errors.extend(e);
+        }
+        if let Err(e) = validate_blank_lines(src, path) {
+            errors.extend(e);
+        }
+    }
 
     // Rule 1: No duplicate declarations
     if let Err(e) = validate_no_duplicates(program) {
@@ -501,22 +574,24 @@ mod tests {
 
     #[test]
     fn test_no_duplicate_functions() {
-        let source = r#"λ foo(x: ℤ) → ℤ = x + 1
-λ bar(y: ℤ) → ℤ = y * 2"#;
+        let source = r#"λ bar(y: ℤ) → ℤ = y * 2
+λ foo(x: ℤ) → ℤ = x + 1
+"#;
         let tokens = tokenize(source).unwrap();
-        let program = parse(tokens, "test.sigil").unwrap();
+        let program = parse(tokens, "test.lib.sigil").unwrap();
 
-        assert!(validate_canonical_form(&program, None).is_ok());
+        assert!(validate_canonical_form(&program, Some("test.lib.sigil"), Some(source)).is_ok());
     }
 
     #[test]
     fn test_duplicate_function_error() {
         let source = r#"λ foo(x: ℤ) → ℤ = x + 1
-λ foo(y: ℤ) → ℤ = y * 2"#;
+λ foo(y: ℤ) → ℤ = y * 2
+"#;
         let tokens = tokenize(source).unwrap();
-        let program = parse(tokens, "test.sigil").unwrap();
+        let program = parse(tokens, "test.lib.sigil").unwrap();
 
-        let result = validate_canonical_form(&program, None);
+        let result = validate_canonical_form(&program, Some("test.lib.sigil"), Some(source));
         assert!(result.is_err());
 
         let errors = result.unwrap_err();
@@ -533,7 +608,7 @@ mod tests {
         let program = parse(tokens, "test.sigil").unwrap();
 
         // Should pass - simple recursion is allowed
-        assert!(validate_canonical_form(&program, None).is_ok());
+        assert!(validate_canonical_form(&program, None, None).is_ok());
     }
 }
 

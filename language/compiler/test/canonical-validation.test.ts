@@ -123,7 +123,7 @@ describe('Canonical Form Validation', () => {
     });
   });
 
-  describe('Surface form validation', () => {
+  describe('Formatting validation', () => {
     test('rejects multiple consecutive blank lines', () => {
       const code = `λfoo()→ℤ=1
 
@@ -135,7 +135,7 @@ describe('Canonical Form Validation', () => {
 
       assert.strictEqual(result.ok, false);
       if (!result.ok) {
-        assert.strictEqual(result.error.code, 'SIGIL-SURFACE-BLANK-LINES');
+        assert.strictEqual(result.error.code, 'SIGIL-CANON-BLANK-LINES');
       }
     });
 
@@ -158,8 +158,29 @@ describe('Canonical Form Validation', () => {
 
       assert.strictEqual(result.ok, false);
       if (!result.ok) {
-        assert.strictEqual(result.error.code, 'SIGIL-SURFACE-TRAILING-WHITESPACE');
+        assert.strictEqual(result.error.code, 'SIGIL-CANON-TRAILING-WHITESPACE');
       }
+    });
+
+    test('rejects missing EOF newline', () => {
+      const code = 'λmain()→𝕌=()';  // No trailing newline
+
+      const result = compileFromString(code);
+
+      assert.strictEqual(result.ok, false);
+      if (!result.ok) {
+        assert.strictEqual(result.error.code, 'SIGIL-CANON-EOF-NEWLINE');
+      }
+    });
+
+    test('accepts properly formatted code', () => {
+      const code = `λfoo()→ℤ=1
+
+λmain()→ℤ=foo()
+`;
+      const result = compileFromString(code);
+
+      assert.strictEqual(result.ok, true);
     });
   });
 

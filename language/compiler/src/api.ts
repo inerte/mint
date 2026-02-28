@@ -8,7 +8,6 @@
 import { tokenize } from './lexer/lexer.js';
 import { parse } from './parser/parser.js';
 import { validateCanonicalForm } from './validator/canonical.js';
-import { validateSurfaceForm } from './validator/surface-form.js';
 import { typeCheck } from './typechecker/index.js';
 import { compile } from './codegen/javascript.js';
 import { isSigilDiagnosticError } from './diagnostics/error.js';
@@ -26,12 +25,11 @@ export type CompilationResult =
  * Compile Sigil source code from a string
  *
  * Runs the full compilation pipeline:
- * 1. Surface form validation (formatting)
- * 2. Lexical analysis (tokenization)
- * 3. Parsing (AST construction)
- * 4. Canonical form validation
- * 5. Type checking
- * 6. Code generation
+ * 1. Lexical analysis (tokenization)
+ * 2. Parsing (AST construction)
+ * 3. Canonical form validation (includes formatting)
+ * 4. Type checking
+ * 5. Code generation
  *
  * @param code - Sigil source code to compile
  * @param filename - Optional filename for error messages (default: 'test.sigil')
@@ -59,26 +57,23 @@ export function compileFromString(
   filename: string = 'test.sigil'
 ): CompilationResult {
   try {
-    // Phase 1: Surface form validation
-    validateSurfaceForm(code, filename);
-
-    // Phase 2: Lexical analysis
+    // Phase 1: Lexical analysis
     const tokens = tokenize(code);
 
-    // Phase 3: Parsing
+    // Phase 2: Parsing
     const ast = parse(tokens, filename);
 
-    // Phase 4: Canonical form validation
-    validateCanonicalForm(ast, filename);
+    // Phase 3: Canonical form validation (includes formatting)
+    validateCanonicalForm(ast, filename, code);
 
-    // Phase 5: Type checking
+    // Phase 4: Type checking
     typeCheck(ast, code, {
       importedNamespaces: new Map(),
       importedTypeRegistries: new Map(),
       sourceFile: filename,
     });
 
-    // Phase 6: Code generation
+    // Phase 5: Code generation
     const output = compile(ast, {
       sourceFile: filename,
       outputFile: filename.replace(/\.sigil$/, '.ts'),

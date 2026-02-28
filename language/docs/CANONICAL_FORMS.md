@@ -199,11 +199,11 @@ test "example" { ⊤ }
 
 See `docs/ACCUMULATOR_DETECTION.md` for details.
 
-### 2. Surface Form Canonical Forms (Formatting Level)
+### 2. Formatting Rules
 
-Enforced by: **Surface form validator** (`validator/surface-form.ts`)
+Enforced by: **Canonical validator** (`validator/canonical.ts`)
 
-**What's enforced:**
+Sigil enforces canonical forms at all levels, including formatting.
 
 #### Rule 1: Final Newline Required
 
@@ -364,23 +364,23 @@ Only `\n` is accepted for line breaks (or `\r\n` as a unit on Windows).
 
 ## Compilation Pipeline
 
-Surface form validation runs BEFORE tokenization:
+Canonical validation runs after parsing:
 
 ```
 1. Read source file
-2. Validate surface form ← enforces formatting
-3. Tokenize            ← enforces tabs, \r
-4. Parse
-5. Validate canonical form ← enforces algorithms
-6. Type check
-7. Compile to TypeScript
+2. Tokenize            ← enforces tabs, \r
+3. Parse
+4. Validate canonical form ← enforces formatting, algorithms, structure
+5. Type check
+6. Compile to TypeScript
 ```
 
 This ensures all canonical rules are checked early with clear error messages.
 
 ## Error Messages
 
-All surface form errors include:
+All canonical form errors include:
+- Error code (SIGIL-CANON-*)
 - Filename
 - Line number (where applicable)
 - Column number (where applicable)
@@ -390,17 +390,19 @@ All surface form errors include:
 Examples:
 
 ```
-Error: File must end with a newline
-SurfaceFormError: File must end with a newline
-    at validateSurfaceForm (...)
+Error: SIGIL-CANON-EOF-NEWLINE
+File must end with a newline
+File: myfile.sigil
 
-Error: Line 5 has trailing whitespace
-SurfaceFormError: Line 5 has trailing whitespace
-    at validateSurfaceForm (...)
+Error: SIGIL-CANON-TRAILING-WHITESPACE
+Trailing whitespace
+File: myfile.sigil
+Line: 5
 
-Error: Multiple blank lines at line 10 (only one consecutive blank line allowed)
-SurfaceFormError: Multiple blank lines at line 10 (only one consecutive blank line allowed)
-    at validateSurfaceForm (...)
+Error: SIGIL-CANON-BLANK-LINES
+Multiple consecutive blank lines
+File: myfile.sigil
+Line: 10
 
 Error: Parse error at line 3, column 15: Expected "=" before function body (canonical form: λf()→T=...)
 Got: IDENTIFIER (x)
@@ -411,7 +413,7 @@ Got: MATCH (≡)
 
 ## Testing Your Code
 
-All files must pass surface form validation:
+All files must pass canonical validation:
 
 ```bash
 # This will fail if formatting is wrong

@@ -13,7 +13,6 @@ import { tokenToString } from './lexer/token.js';
 import { parse } from './parser/parser.js';
 import { compile } from './codegen/javascript.js';
 import { validateCanonicalForm } from './validator/canonical.js';
-import { validateSurfaceForm } from './validator/surface-form.js';
 import { validateExterns } from './validator/extern-validator.js';
 import { typeCheck } from './typechecker/index.js';
 import { qualifyTypeDef } from './typechecker/bidirectional.js';
@@ -367,11 +366,10 @@ function buildModuleGraph(entryFile: string): ModuleGraph {
     visitStack.push(moduleKey);
 
     const source = readFileSync(absFile, 'utf-8');
-    validateSurfaceForm(source, absFile);
     const tokens = tokenize(source);
     const ast = parse(tokens, absFile);
     ensureNoTestsOutsideTestsDir(ast, absFile);
-    validateCanonicalForm(ast, absFile);
+    validateCanonicalForm(ast, absFile, source);
     const mod: LoadedSigilModule = { id: moduleKey, filePath: absFile, source, ast, project: project ?? undefined };
 
     for (const decl of ast.declarations) {
@@ -595,9 +593,6 @@ function lexCommand(args: string[]) {
     const filename = cleaned[0];
     const source = readFileSync(filename, 'utf-8');
 
-    // Validate surface form (formatting) before tokenizing
-    validateSurfaceForm(source, filename);
-
     const tokens = tokenize(source);
     emitEnvelope({
       formatVersion: 1,
@@ -634,13 +629,11 @@ function parseCommand(args: string[]) {
     const filename = cleaned[0];
     const source = readFileSync(filename, 'utf-8');
 
-    // Validate surface form (formatting) before tokenizing
-    validateSurfaceForm(source, filename);
-
     const tokens = tokenize(source);
 
     const ast = parse(tokens, filename);
     ensureNoTestsOutsideTestsDir(ast, filename);
+    validateCanonicalForm(ast, filename, source);
     emitEnvelope({
       formatVersion: 1,
       command: 'sigilc parse',

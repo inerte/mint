@@ -33,9 +33,11 @@ c pi=(3.14:ℝ)
 **TypeScript Compiler (`language/compiler/`):**
 1. AST: Added `TypeAscriptionExpr` interface
 2. Parser: Parses `(expr:Type)` in parentheses
-3. Typechecker: Implements synthesis and checking for ascriptions
+3. Typechecker: Implements synthesis and checking for ascriptions with type alias resolution
 4. Codegen: Erases ascriptions at runtime (types only exist at compile-time)
 5. Validator: Enforces mandatory ascription (`SIGIL-CANON-LET-UNTYPED`)
+
+**Note:** Fixed bug where type ascriptions didn't expand type aliases - now uses `astTypeToInferenceTypeResolved()` for consistent structural typing semantics.
 
 **Rust Compiler (`language/compiler-rs/`):**
 1. AST: Added `TypeAscriptionExpr` struct

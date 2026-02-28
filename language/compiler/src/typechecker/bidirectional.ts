@@ -421,7 +421,7 @@ function synthesizeWithMock(env: TypeEnvironment, expr: AST.WithMockExpr): Infer
 }
 
 function synthesizeTypeAscription(env: TypeEnvironment, expr: AST.TypeAscriptionExpr): InferenceType {
-  const ascribedType = astTypeToInferenceType(expr.ascribedType);
+  const ascribedType = astTypeToInferenceTypeResolved(env, expr.ascribedType);
   check(env, expr.expr, ascribedType);
   return ascribedType;
 }

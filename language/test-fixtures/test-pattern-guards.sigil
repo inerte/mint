@@ -15,12 +15,12 @@ e console
 
 ⟦ Run tests ⟧
 λmain()→ℤ={
-  l r1=test1(0);
-  l r2=test2(15);
-  l r3=test3(1,⊤);
-  l r4=test4(Ok(150));
-  l r5=test5(5,10);
-  l r6=test6(0);
+  l r1=(test1(0):𝕊);
+  l r2=(test2(15):𝕊);
+  l r3=(test3(⊤,1):𝕊);
+  l r4=(test4(Ok(150)):𝕊);
+  l r5=(test5(5,10):𝕊);
+  l r6=(test6(0):𝕊);
   0
 }
 
@@ -39,7 +39,7 @@ e console
 }
 
 ⟦ Test 3: Fall-through when guard fails ⟧
-λtest3(x:ℤ,flag:𝔹)→𝕊≡x{
+λtest3(flag:𝔹,x:ℤ)→𝕊≡x{
   1 when flag → "one with flag" |
   1 → "one without flag" |
   _ → "other"

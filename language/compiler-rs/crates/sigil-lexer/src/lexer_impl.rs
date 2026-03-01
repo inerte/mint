@@ -4,46 +4,157 @@
 
 use crate::token::{Position, SourceLocation, Token, TokenType};
 use logos::Logos;
+use sigil_diagnostics::{codes, Diagnostic, SigilPhase, SourcePoint, SourceSpan};
 use thiserror::Error;
 
 /// Lexer errors with source locations
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum LexError {
-    #[error("SIGIL-LEX-TAB: tab characters not allowed at {line}:{column}")]
-    TabNotAllowed { line: usize, column: usize },
+    #[error("SIGIL-LEX-TAB {file}:{line}:{column} tab characters not allowed")]
+    TabNotAllowed {
+        file: String,
+        line: usize,
+        column: usize,
+    },
 
-    #[error("SIGIL-LEX-CRLF: standalone carriage return not allowed at {line}:{column}")]
-    StandaloneCarriageReturn { line: usize, column: usize },
+    #[error("SIGIL-LEX-CRLF {file}:{line}:{column} standalone carriage return not allowed")]
+    StandaloneCarriageReturn {
+        file: String,
+        line: usize,
+        column: usize,
+    },
 
-    #[error("SIGIL-LEX-UNTERMINATED-STRING: unterminated string literal at {line}:{column}")]
-    UnterminatedString { line: usize, column: usize },
+    #[error("SIGIL-LEX-UNTERMINATED-STRING {file}:{line}:{column} unterminated string literal")]
+    UnterminatedString {
+        file: String,
+        line: usize,
+        column: usize,
+    },
 
-    #[error("SIGIL-LEX-UNTERMINATED-COMMENT: unterminated multi-line comment at {line}:{column}")]
-    UnterminatedComment { line: usize, column: usize },
+    #[error("SIGIL-LEX-UNTERMINATED-COMMENT {file}:{line}:{column} unterminated multi-line comment")]
+    UnterminatedComment {
+        file: String,
+        line: usize,
+        column: usize,
+    },
 
-    #[error("SIGIL-LEX-EMPTY-CHAR: empty character literal at {line}:{column}")]
-    EmptyChar { line: usize, column: usize },
+    #[error("SIGIL-LEX-EMPTY-CHAR {file}:{line}:{column} empty character literal")]
+    EmptyChar {
+        file: String,
+        line: usize,
+        column: usize,
+    },
 
-    #[error("SIGIL-LEX-CHAR-LENGTH: character literal must contain exactly one character at {line}:{column}")]
-    CharLength { line: usize, column: usize },
+    #[error("SIGIL-LEX-CHAR-LENGTH {file}:{line}:{column} character literal must contain exactly one character")]
+    CharLength {
+        file: String,
+        line: usize,
+        column: usize,
+    },
 
-    #[error("SIGIL-LEX-UNTERMINATED-CHAR: unterminated character literal at {line}:{column}")]
-    UnterminatedChar { line: usize, column: usize },
+    #[error("SIGIL-LEX-UNTERMINATED-CHAR {file}:{line}:{column} unterminated character literal")]
+    UnterminatedChar {
+        file: String,
+        line: usize,
+        column: usize,
+    },
 
-    #[error("SIGIL-LEX-INVALID-ESCAPE: invalid escape sequence '\\{escape}' at {line}:{column}")]
+    #[error("SIGIL-LEX-INVALID-ESCAPE {file}:{line}:{column} invalid escape sequence '\\{escape}'")]
     InvalidEscape {
+        file: String,
         escape: char,
         line: usize,
         column: usize,
     },
 
-    #[error("SIGIL-LEX-UNEXPECTED-CHAR: unexpected character '{ch}' (U+{code:04X}) at {line}:{column}")]
+    #[error("SIGIL-LEX-UNEXPECTED-CHAR {file}:{line}:{column} unexpected character '{ch}' (U+{code:04X})")]
     UnexpectedChar {
+        file: String,
         ch: char,
         code: u32,
         line: usize,
         column: usize,
     },
+}
+
+impl From<LexError> for Diagnostic {
+    fn from(error: LexError) -> Self {
+        match error {
+            LexError::TabNotAllowed { file, line, column } => Diagnostic::new(
+                codes::lexer::TAB,
+                SigilPhase::Lexer,
+                "tab characters not allowed (use spaces for indentation)",
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+
+            LexError::StandaloneCarriageReturn { file, line, column } => Diagnostic::new(
+                codes::lexer::CRLF,
+                SigilPhase::Lexer,
+                "standalone carriage return not allowed",
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+
+            LexError::UnterminatedString { file, line, column } => Diagnostic::new(
+                codes::lexer::UNTERMINATED_STRING,
+                SigilPhase::Lexer,
+                "unterminated string literal",
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+
+            LexError::UnterminatedComment { file, line, column } => Diagnostic::new(
+                codes::lexer::UNTERMINATED_COMMENT,
+                SigilPhase::Lexer,
+                "unterminated multi-line comment",
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+
+            LexError::EmptyChar { file, line, column } => Diagnostic::new(
+                codes::lexer::EMPTY_CHAR,
+                SigilPhase::Lexer,
+                "empty character literal",
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+
+            LexError::CharLength { file, line, column } => Diagnostic::new(
+                codes::lexer::CHAR_LENGTH,
+                SigilPhase::Lexer,
+                "character literal must contain exactly one character",
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+
+            LexError::UnterminatedChar { file, line, column } => Diagnostic::new(
+                codes::lexer::UNTERMINATED_CHAR,
+                SigilPhase::Lexer,
+                "unterminated character literal",
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+
+            LexError::InvalidEscape {
+                file,
+                escape,
+                line,
+                column,
+            } => Diagnostic::new(
+                codes::lexer::INVALID_ESCAPE,
+                SigilPhase::Lexer,
+                format!("invalid escape sequence: \\{}", escape),
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+
+            LexError::UnexpectedChar {
+                file,
+                ch,
+                code,
+                line,
+                column,
+            } => Diagnostic::new(
+                codes::lexer::UNEXPECTED_CHAR,
+                SigilPhase::Lexer,
+                format!("unexpected character: {} (U+{:04X})", ch, code),
+            )
+            .with_location(SourceSpan::new(file, SourcePoint::new(line, column))),
+        }
+    }
 }
 
 /// The Sigil lexer
@@ -53,11 +164,17 @@ pub struct Lexer {
     pos: usize,
     line: usize,
     column: usize,
+    filename: String,
 }
 
 impl Lexer {
     /// Create a new lexer for the given source code
     pub fn new(source: impl Into<String>) -> Self {
+        Self::with_filename(source, "<input>")
+    }
+
+    /// Create a new lexer with a specific filename
+    pub fn with_filename(source: impl Into<String>, filename: impl Into<String>) -> Self {
         let source = source.into();
         let chars: Vec<char> = source.chars().collect();
 
@@ -67,6 +184,7 @@ impl Lexer {
             pos: 0,
             line: 1,
             column: 1,
+            filename: filename.into(),
         }
     }
 
@@ -97,7 +215,11 @@ impl Lexer {
                         line += 1;
                         column = 1;
                     } else if ch == '\t' {
-                        return Err(LexError::TabNotAllowed { line, column });
+                        return Err(LexError::TabNotAllowed {
+                        file: self.filename.clone(),
+                        line,
+                        column,
+                    });
                     } else {
                         column += 1;
                     }
@@ -166,6 +288,7 @@ impl Lexer {
                 // Tab detection
                 '\t' => {
                     return Err(LexError::TabNotAllowed {
+                        file: self.filename.clone(),
                         line: self.line,
                         column: self.column,
                     });
@@ -179,6 +302,7 @@ impl Lexer {
                         final_tokens.push(Token::new(TokenType::NEWLINE, "\n".to_string(), location));
                     } else {
                         return Err(LexError::StandaloneCarriageReturn {
+                            file: self.filename.clone(),
                             line: self.line,
                             column: self.column,
                         });
@@ -234,6 +358,7 @@ impl Lexer {
                     tokens.push(Token::new(TokenType::NEWLINE, "\n".to_string(), SourceLocation::new(start, self.current_position())));
                 } else {
                     return Err(LexError::StandaloneCarriageReturn {
+                        file: self.filename.clone(),
                         line: self.line,
                         column: self.column,
                     });
@@ -241,6 +366,7 @@ impl Lexer {
             }
             '\t' => {
                 return Err(LexError::TabNotAllowed {
+                    file: self.filename.clone(),
                     line: self.line,
                     column: self.column - 1,
                 });
@@ -366,6 +492,7 @@ impl Lexer {
 
             _ => {
                 return Err(LexError::UnexpectedChar {
+                    file: self.filename.clone(),
                     ch,
                     code: ch as u32,
                     line: self.line,
@@ -389,6 +516,7 @@ impl Lexer {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 return Err(LexError::UnterminatedString {
+                    file: self.filename.clone(),
                     line: self.line,
                     column: self.column,
                 });
@@ -403,6 +531,7 @@ impl Lexer {
 
         if self.is_at_end() {
             return Err(LexError::UnterminatedString {
+                file: self.filename.clone(),
                 line: self.line,
                 column: self.column,
             });
@@ -429,6 +558,7 @@ impl Lexer {
             self.scan_escape_sequence()?
         } else if self.peek() == '\'' {
             return Err(LexError::EmptyChar {
+                file: self.filename.clone(),
                 line: self.line,
                 column: self.column,
             });
@@ -438,6 +568,7 @@ impl Lexer {
 
         if self.peek() != '\'' {
             return Err(LexError::CharLength {
+                file: self.filename.clone(),
                 line: self.line,
                 column: self.column,
             });
@@ -462,6 +593,7 @@ impl Lexer {
             '"' => Ok('"'),
             '\'' => Ok('\''),
             _ => Err(LexError::InvalidEscape {
+                file: self.filename.clone(),
                 escape: ch,
                 line: self.line,
                 column: self.column - 1,
@@ -476,6 +608,7 @@ impl Lexer {
 
         if self.is_at_end() {
             return Err(LexError::UnterminatedComment {
+                file: self.filename.clone(),
                 line: self.line,
                 column: self.column,
             });
@@ -663,12 +796,11 @@ mod tests {
 
     #[test]
     fn test_identifiers() {
-        let source = "foo Bar mut export";
+        let source = "foo Bar mut";
         let tokens = tokenize(source).unwrap();
         assert_eq!(tokens[0].token_type, TokenType::IDENTIFIER);
         assert_eq!(tokens[1].token_type, TokenType::UPPER_IDENTIFIER);
         assert_eq!(tokens[2].token_type, TokenType::MUT);
-        assert_eq!(tokens[3].token_type, TokenType::EXPORT);
     }
 
     #[test]

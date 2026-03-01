@@ -23,7 +23,7 @@ fn test_duplicate_types() {
 
 #[test]
 fn test_duplicate_consts() {
-    let source = "c pi:ℝ=3.14\nc pi:ℝ=3.15";
+    let source = "c pi=(3.14:ℝ)\nc pi=(3.15:ℝ)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -43,7 +43,7 @@ fn test_duplicate_imports() {
 
 #[test]
 fn test_no_duplicates_different_names() {
-    let source = "λfoo()→ℤ=1\nλbar()→ℤ=2\nc baz:ℤ=3";
+    let source = "λfoo()→ℤ=1\nλbar()→ℤ=2\nc baz=(3:ℤ)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -53,7 +53,7 @@ fn test_no_duplicates_different_names() {
 #[test]
 fn test_different_declaration_types() {
     // Different declaration types don't conflict
-    let source = "t Maybe=Some(ℤ)|None\nλfoo()→ℤ=1\nc bar:ℤ=2";
+    let source = "t Maybe=Some(ℤ)|None\nλfoo()→ℤ=1\nc bar=(2:ℤ)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -163,7 +163,7 @@ fn test_surface_form_with_type_annotations() {
 
 #[test]
 fn test_surface_form_const_with_type() {
-    let source = "c answer:ℤ=42";
+    let source = "c answer=(42:ℤ)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -204,8 +204,8 @@ fn test_multiple_errors_collected() {
 }
 
 #[test]
-fn test_exported_function_valid() {
-    let source = "export λmain()→ℤ=42";
+fn test_function_in_lib_valid() {
+    let source = "λmain()→ℤ=42";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -241,7 +241,7 @@ fn test_import_valid() {
 
 #[test]
 fn test_const_lowercase_name() {
-    let source = "c my_constant:ℤ=100";
+    let source = "c my_constant=(100:ℤ)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 

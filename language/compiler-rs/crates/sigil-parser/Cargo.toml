@@ -9,4 +9,5 @@ license = "MIT"
 [dependencies]
 sigil-ast = { path = "../sigil-ast" }
 sigil-lexer = { path = "../sigil-lexer" }
+sigil-diagnostics = { path = "../sigil-diagnostics" }
 thiserror = { workspace = true }

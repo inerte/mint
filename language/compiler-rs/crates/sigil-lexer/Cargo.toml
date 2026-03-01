@@ -9,3 +9,4 @@ license = "MIT"
 [dependencies]
 logos = { workspace = true }
 thiserror = { workspace = true }
+sigil-diagnostics = { path = "../sigil-diagnostics" }

@@ -22,22 +22,21 @@ fn test_function_declaration_simple() {
             assert_eq!(f.params[0].name, "x");
             assert_eq!(f.params[1].name, "y");
             assert!(f.return_type.is_some());
-            assert!(!f.is_exported);
         }
         _ => panic!("Expected function declaration"),
     }
 }
 
 #[test]
-fn test_function_declaration_exported() {
-    let source = "export λfoo()→𝕌=()";
+fn test_function_declaration_unit_return() {
+    let source = "λfoo()→𝕌=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
     match &program.declarations[0] {
         Declaration::Function(f) => {
-            assert!(f.is_exported);
             assert_eq!(f.name, "foo");
+            assert_eq!(f.params.len(), 0);
         }
         _ => panic!("Expected function declaration"),
     }
@@ -152,7 +151,7 @@ fn test_multiple_params() {
 
 #[test]
 fn test_const_declaration() {
-    let source = "c pi:ℝ=3.14";
+    let source = "c pi=(3.14:ℝ)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 

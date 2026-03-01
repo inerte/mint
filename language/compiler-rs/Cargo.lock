@@ -330,12 +330,17 @@ dependencies = [
 [[package]]
 name = "sigil-diagnostics"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "sigil-lexer"
 version = "0.1.0"
 dependencies = [
  "logos",
+ "sigil-diagnostics",
  "thiserror 2.0.18",
 ]
 
@@ -344,6 +349,7 @@ name = "sigil-parser"
 version = "0.1.0"
 dependencies = [
  "sigil-ast",
+ "sigil-diagnostics",
  "sigil-lexer",
  "thiserror 2.0.18",
 ]
@@ -353,6 +359,7 @@ name = "sigil-typechecker"
 version = "0.1.0"
 dependencies = [
  "sigil-ast",
+ "sigil-diagnostics",
  "sigil-lexer",
  "sigil-parser",
  "thiserror 2.0.18",
@@ -363,6 +370,7 @@ name = "sigil-validator"
 version = "0.1.0"
 dependencies = [
  "sigil-ast",
+ "sigil-diagnostics",
  "sigil-lexer",
  "sigil-parser",
  "thiserror 2.0.18",

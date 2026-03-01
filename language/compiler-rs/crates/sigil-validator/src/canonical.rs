@@ -757,7 +757,7 @@ fn validate_category_boundaries(declarations: &[Declaration]) -> Result<(), Vec<
             let category_names = ["type", "extern", "import", "const", "function", "test"];
             let category_symbols = ["t", "e", "i", "c", "λ", "test"];
             
-            return Err(vec![ValidationError::DeclarationOrder {
+            return Err(vec![ValidationError::DeclarationOrderOld {
                 message: format!(
                     "SIGIL-CANON-DECL-CATEGORY-ORDER: Wrong category position\n\
                      Found: {} ({}) at line {}\n\
@@ -782,7 +782,7 @@ fn validate_alphabetical_order(functions: &[&FunctionDecl]) -> Result<(), Vec<Va
         let curr = functions[i];
         
         if curr.name < prev.name {
-            return Err(vec![ValidationError::DeclarationOrder {
+            return Err(vec![ValidationError::DeclarationOrderOld {
                 message: format!(
                     "SIGIL-CANON-DECL-ALPHABETICAL: Declaration out of alphabetical order\n\n\
                      Found: λ {} at line {}\n\

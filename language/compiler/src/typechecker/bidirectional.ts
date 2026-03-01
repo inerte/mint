@@ -97,11 +97,6 @@ function synthesize(env: TypeEnvironment, expr: AST.Expr): InferenceType {
  * Throws TypeError if expression doesn't match
  */
 function check(env: TypeEnvironment, expr: AST.Expr, expectedType: InferenceType): void {
-  // Special case: checking against 'any' type always succeeds (FFI trust mode)
-  if (expectedType.kind === 'any') {
-    return;
-  }
-
   switch (expr.type) {
     case 'MatchExpr':
       checkMatch(env, expr, expectedType);
@@ -264,6 +259,9 @@ function typesEqual(t1: InferenceType, t2: InferenceType): boolean {
   }
 
   switch (t1.kind) {
+    case 'any':
+      return t2.kind === 'any';
+
     case 'primitive':
       return t2.kind === 'primitive' && t1.name === t2.name;
 
@@ -422,6 +420,13 @@ function synthesizeWithMock(env: TypeEnvironment, expr: AST.WithMockExpr): Infer
 
 function synthesizeTypeAscription(env: TypeEnvironment, expr: AST.TypeAscriptionExpr): InferenceType {
   const ascribedType = astTypeToInferenceTypeResolved(env, expr.ascribedType);
+
+  // Special case: type ascription to 'any' is an explicit escape hatch (FFI trust mode)
+  // Don't check the inner expression - just trust the ascription
+  if (ascribedType.kind === 'any') {
+    return ascribedType;
+  }
+
   check(env, expr.expr, ascribedType);
   return ascribedType;
 }

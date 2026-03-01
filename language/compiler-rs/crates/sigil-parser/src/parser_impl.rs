@@ -1309,34 +1309,58 @@ impl Parser {
 
     fn record_expression(&mut self) -> Result<Expr, ParseError> {
         let start = self.previous();
-        let mut fields = Vec::new();
 
-        if !self.check(TokenType::RBRACE) {
-            loop {
-                let field_start = self.peek();
-                let name = self.consume(TokenType::IDENTIFIER, "Expected field name")?.value.clone();
-                self.consume(TokenType::COLON, "Expected \":\"")?;
+        // Empty record: {}
+        if self.check(TokenType::RBRACE) {
+            self.advance();
+            return Ok(Expr::Record(RecordExpr {
+                fields: Vec::new(),
+                location: self.make_location(start.location.start, self.previous().location.end),
+            }));
+        }
+
+        // Try to parse as record field (id:expr)
+        if self.check(TokenType::IDENTIFIER) {
+            let checkpoint = self.current;
+            let name_token = self.advance();
+            let name = name_token.value.clone();
+
+            if self.match_token(TokenType::COLON) {
+                // It's a record literal
                 let value = self.expression()?;
-
-                let field_end = self.previous();
-                fields.push(RecordField {
+                let mut fields = vec![RecordField {
                     name,
                     value,
-                    location: self.make_location(field_start.location.start, field_end.location.end),
-                });
+                    location: self.make_location(name_token.location.start, self.previous().location.end),
+                }];
 
-                if !self.match_token(TokenType::COMMA) {
-                    break;
+                while self.match_token(TokenType::COMMA) {
+                    let field_start = self.peek();
+                    let field_name = self.consume(TokenType::IDENTIFIER, "Expected field name")?.value.clone();
+                    self.consume(TokenType::COLON, "Expected \":\"")?;
+                    let field_value = self.expression()?;
+                    fields.push(RecordField {
+                        name: field_name,
+                        value: field_value,
+                        location: self.make_location(field_start.location.start, self.previous().location.end),
+                    });
                 }
+
+                self.consume(TokenType::RBRACE, "Expected \"}\"")?;
+                return Ok(Expr::Record(RecordExpr {
+                    fields,
+                    location: self.make_location(start.location.start, self.previous().location.end),
+                }));
+            } else {
+                // Backtrack - it's a grouped/block expression
+                self.current = checkpoint;
             }
         }
 
+        // Grouped/block expression: {expr}
+        let expr = self.expression()?;
         self.consume(TokenType::RBRACE, "Expected \"}\"")?;
-        let end = self.previous();
-        Ok(Expr::Record(RecordExpr {
-            fields,
-            location: self.make_location(start.location.start, end.location.end),
-        }))
+        Ok(expr)
     }
 
     fn with_mock_expression(&mut self) -> Result<Expr, ParseError> {

@@ -26,7 +26,7 @@ i stdlib⋅string
   l markdown_files=(filter_md_files_inner(all_files,0,[],num_files):[𝕊]);
   l num_articles=#markdown_files;
   l articles=(process_all_articles([],0,input_dir,markdown_files,num_articles):[src⋅types.Article]);
-  l _=write_all_articles(output_dir,articles,num_articles,0);
+  l _=(write_all_articles(articles,0,num_articles,output_dir):𝕌);
   write_index(output_dir,articles)
 
 ⟦ Ensure directory exists ⟧
@@ -80,11 +80,11 @@ i stdlib⋅string
   }
 
 ⟦ Write all articles helper ⟧
-λwrite_all_articles(output_dir:𝕊,articles:[src⋅types.Article],num_articles:ℤ,idx:ℤ)→!IO 𝕌≡idx≥num_articles{
+λwrite_all_articles(articles:[src⋅types.Article],idx:ℤ,num_articles:ℤ,output_dir:𝕊)→!IO 𝕌≡idx≥num_articles{
   ⊤ → ()|
   ⊥ →
-    l _=write_article(output_dir,articles[idx]);
-    write_all_articles(output_dir,articles,num_articles,idx+1)
+    l _=(write_article(articles[idx],output_dir):𝕌);
+    write_all_articles(articles,idx+1,num_articles,output_dir)
 }
 
 ⟦ Write article HTML file ⟧

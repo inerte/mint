@@ -120,14 +120,14 @@ impl ModuleGraphBuilder {
         let mut lexer = Lexer::new(&source);
         let tokens = lexer
             .tokenize()
-            .map_err(|e| ModuleGraphError::Lexer(format!("{:?}", e)))?;
+            .map_err(|e| ModuleGraphError::Lexer(format!("{}", e)))?;
 
         // Parse
         let filename = abs_file.to_string_lossy().to_string();
         let mut parser = Parser::new(tokens, &filename);
         let ast = parser
             .parse()
-            .map_err(|e| ModuleGraphError::Parser(format!("{:?}", e)))?;
+            .map_err(|e| ModuleGraphError::Parser(format!("{}", e)))?;
 
         // Validate
         validate_canonical_form(&ast, Some(&filename), Some(&source))

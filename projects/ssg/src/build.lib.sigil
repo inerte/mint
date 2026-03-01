@@ -23,7 +23,7 @@ i stdlib⋅string
   l _=ensure_dir(output_dir);
   l all_files=(λ()→[𝕊]=fs⋅promises.readdir(input_dir))();
   l num_files=#all_files;
-  l markdown_files=filter_md_files_inner(all_files,num_files,0,[]);
+  l markdown_files=(filter_md_files_inner(all_files,0,[],num_files):[𝕊]);
   l num_articles=#markdown_files;
   l articles=process_all_articles(input_dir,markdown_files,num_articles,0,[]);
   l _=write_all_articles(output_dir,articles,num_articles,0);
@@ -34,12 +34,12 @@ i stdlib⋅string
   fs⋅promises.mkdir(dir,{recursive:⊤})
 
 ⟦ Filter markdown files helper ⟧
-λfilter_md_files_inner(all_files:[𝕊],num_files:ℤ,idx:ℤ,md_files:[𝕊])→[𝕊]≡idx≥num_files{
+λfilter_md_files_inner(all_files:[𝕊],idx:ℤ,md_files:[𝕊],num_files:ℤ)→[𝕊]≡idx≥num_files{
   ⊤ → md_files|
   ⊥ →
-    l file=all_files[idx];
-    l next_list=add_if_markdown(file,md_files);
-    filter_md_files_inner(all_files,num_files,idx+1,next_list)
+    l file=(all_files[idx]:𝕊);
+    l next_list=(add_if_markdown(file,md_files):[𝕊]);
+    filter_md_files_inner(all_files,idx+1,next_list,num_files)
 }
 
 ⟦ Get output filename from slug or input filename ⟧

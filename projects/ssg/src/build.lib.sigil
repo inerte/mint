@@ -60,12 +60,12 @@ i stdlib⋅string
   ⊤ → articles|
   ⊥ →
     l filename=(markdown_files[idx]:𝕊);
-    l article=(process_article(input_dir,filename):src⋅types.Article);
+    l article=(process_article(filename,input_dir):src⋅types.Article);
     process_all_articles(articles⧺[article],idx+1,input_dir,markdown_files,num_articles)
 }
 
 ⟦ Process a single article file ⟧
-λprocess_article(input_dir:𝕊,filename:𝕊)→!IO src⋅types.Article=
+λprocess_article(filename:𝕊,input_dir:𝕊)→!IO src⋅types.Article=
   l filepath=path.join(input_dir,filename);
   l markdown_content=fs⋅promises.readFile(filepath,"utf8");
   l parsed=src⋅frontmatter.parse_frontmatter(markdown_content);

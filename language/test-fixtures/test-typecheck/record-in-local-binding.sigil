@@ -7,7 +7,7 @@ t Outer={state:Inner}
 
 λtest(x:𝔹)→Outer≡x{
   ⊤ →
-    l dummy=1;
+    l dummy=(1:ℤ);
     {state:{items:[]}}|
   ⊥ → {state:{items:[1,2,3]}}
 }

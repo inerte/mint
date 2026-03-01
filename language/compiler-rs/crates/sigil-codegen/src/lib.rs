@@ -536,7 +536,7 @@ impl TypeScriptGenerator {
         match un.operator {
             UnaryOperator::Negate => Ok(format!("(-{})", operand)),
             UnaryOperator::Not => Ok(format!("(!{})", operand)),
-            UnaryOperator::Length => Ok(format!("({}.length)", operand)),
+            UnaryOperator::Length => Ok(format!("(await {}).length", operand)),
         }
     }
 

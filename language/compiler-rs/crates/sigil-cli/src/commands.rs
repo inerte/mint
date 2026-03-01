@@ -79,7 +79,7 @@ pub fn lex_command(file: &Path, human: bool) -> Result<(), CliError> {
 
     // Tokenize
     let mut lexer = Lexer::new(&source);
-    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{:?}", e)))?;
+    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{}", e)))?;
 
     if human {
         println!("sigilc lex OK phase=lexer");
@@ -130,11 +130,11 @@ pub fn parse_command(file: &Path, human: bool) -> Result<(), CliError> {
 
     // Tokenize
     let mut lexer = Lexer::new(&source);
-    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{:?}", e)))?;
+    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{}", e)))?;
 
     // Parse
     let mut parser = Parser::new(tokens, &filename);
-    let ast = parser.parse().map_err(|e| CliError::Parser(format!("{:?}", e)))?;
+    let ast = parser.parse().map_err(|e| CliError::Parser(format!("{}", e)))?;
 
     // Validate canonical form (includes formatting)
     validate_canonical_form(&ast, Some(&filename), Some(&source)).map_err(|e: Vec<ValidationError>| {
@@ -222,7 +222,7 @@ pub fn compile_command(
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
             }),
         )
-        .map_err(|error: TypeError| CliError::Type(format!("Type error: {:?}", error)))?;
+        .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
 
         // Determine output path
         let output_path = if module_id == graph.topo_order.last().unwrap() && output.is_some() {
@@ -242,7 +242,7 @@ pub fn compile_command(
         let mut codegen = TypeScriptGenerator::new(codegen_options);
         let ts_code = codegen
             .generate(&module.ast)
-            .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
+            .map_err(|e| CliError::Codegen(format!("{}", e)))?;
 
         // Create output directory
         if let Some(parent) = output_path.parent() {
@@ -317,7 +317,7 @@ pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
             }),
         )
-        .map_err(|error: TypeError| CliError::Type(format!("Type error: {:?}", error)))?;
+        .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
 
         // Determine output path
         let output_path = get_module_output_path(module);
@@ -331,7 +331,7 @@ pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
         let mut codegen = TypeScriptGenerator::new(codegen_options);
         let ts_code = codegen
             .generate(&module.ast)
-            .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
+            .map_err(|e| CliError::Codegen(format!("{}", e)))?;
 
         // Create output directory
         if let Some(parent) = output_path.parent() {
@@ -656,7 +656,7 @@ fn compile_and_run_tests(
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
             }),
         )
-        .map_err(|error: TypeError| CliError::Type(format!("Type error: {:?}", error)))?;
+        .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
 
         // Determine output path
         let output_path = get_module_output_path(module);
@@ -670,7 +670,7 @@ fn compile_and_run_tests(
         let mut codegen = TypeScriptGenerator::new(codegen_options);
         let ts_code = codegen
             .generate(&module.ast)
-            .map_err(|e| CliError::Codegen(format!("{:?}", e)))?;
+            .map_err(|e| CliError::Codegen(format!("{}", e)))?;
 
         // Create output directory
         if let Some(parent) = output_path.parent() {

@@ -4,6 +4,7 @@
 
 use crate::types::{prune, InferenceType, TPrimitive, TVar};
 use sigil_ast::PrimitiveName;
+use sigil_diagnostics::{codes, Diagnostic, SigilPhase, SourcePoint, SourceSpan};
 use sigil_lexer::SourceLocation;
 use thiserror::Error;
 
@@ -162,6 +163,32 @@ pub fn format_type(typ: &InferenceType) -> String {
         }
 
         InferenceType::Any => "Any".to_string(),
+    }
+}
+
+/// Convert SourceLocation from lexer to SourceSpan for diagnostics
+fn source_location_to_span(file: String, loc: SourceLocation) -> SourceSpan {
+    SourceSpan::with_end(
+        file,
+        SourcePoint::with_offset(loc.start.line, loc.start.column, loc.start.offset),
+        SourcePoint::with_offset(loc.end.line, loc.end.column, loc.end.offset),
+    )
+}
+
+impl From<TypeError> for Diagnostic {
+    fn from(error: TypeError) -> Self {
+        let code = codes::typecheck::ERROR;
+        let mut diag = Diagnostic::new(code, SigilPhase::Typecheck, error.message.clone());
+
+        if let Some(loc) = error.location {
+            diag = diag.with_location(source_location_to_span("<unknown>".into(), loc));
+        }
+
+        if let (Some(exp), Some(act)) = (error.expected, error.actual) {
+            diag = diag.with_found_expected(format_type(&act), format_type(&exp));
+        }
+
+        diag
     }
 }
 

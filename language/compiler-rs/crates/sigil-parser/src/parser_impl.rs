@@ -342,6 +342,7 @@ impl Parser {
         if self.check(TokenType::UPPER_IDENTIFIER) {
             let bad = self.peek();
             return Err(ParseError::InvalidConstantName {
+                file: self.filename.clone(),
                 found: bad.value.clone(),
                 line: bad.location.start.line,
                 column: bad.location.start.column,
@@ -358,10 +359,14 @@ impl Parser {
         let (type_annotation, actual_value) = match &value {
             Expr::TypeAscription(asc) => (Some(asc.ascribed_type.clone()), asc.expr.clone()),
             _ => {
-                return Err(self.error(&format!(
-                    "Const value must use type ascription: c {}=(value:Type)",
-                    name
-                )));
+                let loc = value.location();
+                return Err(ParseError::UntypedConstant {
+                    file: self.filename.clone(),
+                    name: name.clone(),
+                    line: loc.start.line,
+                    column: loc.start.column,
+                    location: loc,
+                });
             }
         };
 
@@ -389,6 +394,7 @@ impl Parser {
         if self.check(TokenType::SLASH) || self.check(TokenType::DOT) {
             let bad = self.peek();
             return Err(ParseError::InvalidNamespaceSeparator {
+                file: self.filename.clone(),
                 found: bad.value.clone(),
                 line: bad.location.start.line,
                 column: bad.location.start.column,
@@ -418,6 +424,7 @@ impl Parser {
         if self.check(TokenType::SLASH) || self.check(TokenType::DOT) {
             let bad = self.peek();
             return Err(ParseError::InvalidNamespaceSeparator {
+                file: self.filename.clone(),
                 found: bad.value.clone(),
                 line: bad.location.start.line,
                 column: bad.location.start.column,
@@ -535,6 +542,7 @@ impl Parser {
                 if !valid_effects.contains(&effect.as_str()) {
                     let loc = self.previous().location;
                     return Err(ParseError::InvalidEffect {
+                        file: self.filename.clone(),
                         effect,
                         valid: valid_effects.join(", "),
                         line: loc.start.line,
@@ -1655,8 +1663,10 @@ impl Parser {
 
     fn error(&self, message: &str) -> ParseError {
         let tok = self.peek();
-        ParseError::Generic {
-            message: message.to_string(),
+        ParseError::UnexpectedToken {
+            file: self.filename.clone(),
+            expected: message.to_string(),
+            found: format!("{:?}", tok.token_type),
             line: tok.location.start.line,
             column: tok.location.start.column,
             location: tok.location,
@@ -1664,8 +1674,10 @@ impl Parser {
     }
 
     fn error_at(&self, location: SourceLocation, message: &str) -> ParseError {
-        ParseError::Generic {
-            message: message.to_string(),
+        ParseError::UnexpectedToken {
+            file: self.filename.clone(),
+            expected: message.to_string(),
+            found: "?".to_string(),
             line: location.start.line,
             column: location.start.column,
             location,
@@ -1674,8 +1686,10 @@ impl Parser {
 
     fn error_at_current(&self, message: &str) -> ParseError {
         let tok = self.peek();
-        ParseError::Generic {
-            message: message.to_string(),
+        ParseError::UnexpectedToken {
+            file: self.filename.clone(),
+            expected: message.to_string(),
+            found: format!("{:?}", tok.token_type),
             line: tok.location.start.line,
             column: tok.location.start.column,
             location: tok.location,

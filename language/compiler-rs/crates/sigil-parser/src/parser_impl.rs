@@ -1203,9 +1203,17 @@ impl Parser {
         let effects = self.parse_effects()?;
         let return_type = self.parse_type()?;
 
-        self.consume(TokenType::LBRACE, "Expected \"{\"")?;
+        // Canonical form: = required UNLESS body starts with ≡ (match expression)
+        let has_equal = self.match_token(TokenType::EQUAL);
+        let is_match_expr = self.check(TokenType::MATCH);
+
+        if is_match_expr && has_equal {
+            return Err(self.error("Unexpected \"=\" before match expression (canonical form: λ()→T≡...)"));
+        } else if !is_match_expr && !has_equal {
+            return Err(self.error("Expected \"=\" before lambda body (canonical form: λ()→T=...)"));
+        }
+
         let body = self.expression()?;
-        self.consume(TokenType::RBRACE, "Expected \"}\"")?;
 
         let end = self.previous();
         Ok(Expr::Lambda(Box::new(LambdaExpr {

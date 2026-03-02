@@ -17,12 +17,21 @@ Sigil is designed to be machine-first with canonical forms. The primary metric i
 
 ### Token Counting
 
-We use **tiktoken** (OpenAI's tokenizer) with the GPT-4 encoding (`cl100k_base`). This is the **actual tokenizer used by modern LLMs**, not language-specific syntax tokens.
+We use **tiktoken** (OpenAI's tokenizer) with the GPT-4 encoding (`cl100k_base`) as the **official benchmark baseline**.
 
-**Why tiktoken?**
+For Unicode replacement analysis we also run two fully local heuristic proxy tokenizers:
+- `llama_sentencepiece_proxy` - a local SentencePiece-style heuristic approximation for non-OpenAI cross-checking
+- `anthropic_legacy_proxy` - a local, explicitly approximate Claude-side heuristic proxy
+
+**Policy**
+- `cl100k_base` is the canonical reported baseline
+- heuristic proxy tokenizers are directional robustness checks, not claims about exact vendor billing
+- all tokenizer analysis in this repo is fully offline
+
+**Why tiktoken as the baseline?**
 - Industry standard for LLM token counting
-- Same tokenizer used for GPT-3.5/GPT-4 training
-- Reflects real-world LLM training costs
+- Same tokenizer family used by GPT-3.5/GPT-4-era tooling
+- Reflects a real machine-facing optimization target
 - Handles Unicode correctly (important for Sigil's symbols)
 
 ### Comparison Languages
@@ -77,6 +86,46 @@ node benchmarks/tools/compare.ts benchmarks/algorithms/factorial
 # | Characters | 89 | 145 | 178 |
 # | ... | ... | ... | ... |
 ```
+
+### Unicode Replacement Benchmark
+
+This repo also includes a dedicated benchmark for asking:
+
+> Should a given Unicode Sigil syntax element stay, or should it be replaced by a more common programming term?
+
+The benchmark:
+- inventories syntax-only Unicode usage in `.sigil` files
+- proposes common replacement candidates like `⊤ -> true`
+- rewrites whole source files in memory
+- retokenizes the rewritten corpus under all configured tokenizers
+- counts separator costs like `λname -> function name`
+
+Commands:
+
+```bash
+node benchmarks/tools/unicode-benchmark.js inventory
+node benchmarks/tools/unicode-benchmark.js candidates
+node benchmarks/tools/unicode-benchmark.js measure
+node benchmarks/tools/unicode-benchmark.js explain "⊤"
+```
+
+The authoritative metric is **whole-file rewrite + retokenize**, not isolated symbol counts.
+This matters because replacing a Unicode symbol with a word can introduce separators and change neighboring tokenization.
+The default JSON report is written to `language/benchmarks/results/unicode-replacements.json`.
+
+Example:
+
+```sigil
+λends_with(s:𝕊,suffix:𝕊)→𝔹=⊥
+```
+
+may become:
+
+```sigil
+function ends_with(s:𝕊,suffix:𝕊)→𝔹=⊥
+```
+
+The inserted space is part of the real replacement cost and must be measured.
 
 ### Expected Results
 

@@ -4,7 +4,9 @@
   "type": "module",
   "description": "Token efficiency benchmarking for Sigil language",
   "scripts": {
-    "compare": "node compare.ts"
+    "compare": "node compare.ts",
+    "unicode-benchmark": "node unicode-benchmark.js",
+    "unicode-benchmark:test": "node unicode-benchmark.test.js"
   },
   "dependencies": {
     "tiktoken": "^1.0.18"

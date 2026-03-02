@@ -1,7 +1,7 @@
 # Sigil Type System Specification
 
 Version: 1.0.0
-Last Updated: 2026-02-21
+Last Updated: 2026-03-02
 
 ## Overview
 
@@ -206,6 +206,7 @@ t Point={x:ℝ,y:ℝ}
 - Fields have names and types
 - Field access: `user.name` has type `𝕊` if `user : User`
 - Record literals must include all fields
+- Named product types participate in structural equality after normalization
 
 ### Type Aliases
 
@@ -215,6 +216,36 @@ t Email=𝕊
 ```
 
 Type aliases create synonyms, not new types (structural typing).
+
+### Canonical Semantic Equality
+
+Sigil compares aliases and named product types by their normalized canonical form
+whenever compatibility/equality is checked.
+
+Informally:
+
+```
+normalize(UserId) = ℤ            if t UserId=ℤ
+normalize(Todo) = {done:𝔹,id:ℤ,text:𝕊}
+```
+
+Compatibility is then checked on normalized forms:
+
+```
+compatible(τ1, τ2) iff types_equal(normalize(τ1), normalize(τ2))
+```
+
+This applies to:
+- constant annotations
+- function arguments and returns
+- list append and higher-order list operators
+- branch compatibility
+- structural equality-sensitive checks generally
+
+This is not Hindley-Milner-style inference. Types are still explicit in canonical
+positions; normalization only resolves the canonical meaning of named structural types.
+
+Sum types remain nominal and are not normalized into structural payload shapes.
 
 ## Function Types
 

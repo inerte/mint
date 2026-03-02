@@ -12,6 +12,6 @@ It is intentionally separate from:
 
 ## Latest Article
 
-📝 **[The `#` Operator: Why Sigil Has ONE Way to Get Length](./articles/001-canonical-length-operator.md)** (February 24, 2026)
+📝 **[Canonical Type Equality: Why Sigil Normalizes Structural Types Everywhere](./articles/011-canonical-type-equality.md)** (March 2, 2026)
 
-How the canonical forms philosophy shaped our decision to use a single `#` operator instead of type-specific functions, and why this matters for AI code generation and training data quality
+How Sigil extends its ONE-way philosophy from syntax into semantics by normalizing aliases and named product types before every equality-sensitive type comparison

@@ -3,8 +3,7 @@
 //! Internal type representations used during type checking.
 //! These are distinct from AST types and optimized for unification and substitution.
 
-use sigil_ast::{PrimitiveName, Type as AstType, TypeConstructor};
-use sigil_lexer::SourceLocation;
+use sigil_ast::{PrimitiveName, Type as AstType};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -227,9 +226,11 @@ pub fn prune(typ: &InferenceType) -> InferenceType {
     }
 }
 
-/// Check if two types are equal (structurally)
+/// Check if two already-canonicalized types are structurally equal.
 ///
-/// Follows type variable instances before comparing
+/// This function does not resolve named aliases or named product types by itself.
+/// Checker call sites must normalize both sides first when comparing user-facing
+/// types for compatibility.
 pub fn types_equal(t1: &InferenceType, t2: &InferenceType) -> bool {
     let t1 = prune(t1);
     let t2 = prune(t2);

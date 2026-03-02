@@ -169,10 +169,13 @@ impl TypeEnvironment {
         env
     }
 
-    /// Normalize a type by resolving type aliases
+    /// Normalize a type to its canonical semantic form before equality checks.
     ///
-    /// If the type is a Constructor that refers to a type alias, resolve it to the underlying type.
-    /// This enables structural compatibility for type aliases to record types.
+    /// Sigil treats aliases and named product types as structural everywhere in the
+    /// checker. This function resolves those names recursively so checker paths can
+    /// compare one canonical meaning instead of branch-specific raw syntax shapes.
+    ///
+    /// Sum types remain nominal and are not rewritten into structural records.
     pub fn normalize_type(&self, ty: &InferenceType) -> InferenceType {
         match ty {
             InferenceType::Constructor(ctor) => {

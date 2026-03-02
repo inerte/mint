@@ -26,6 +26,7 @@ For language/compiler work, prefer the deeper guide:
    - canonical syntax over stylistic flexibility
    - deterministic behavior and deterministic codegen where possible
    - tests/examples as source of truth over prose docs
+   - canonical semantic equality for structural types (aliases + named products normalize before comparison)
 - Doing it right is better than taking the easy path. You're a fast editing machine, changing code is easy to you.
 
 ## Practical Workflow
@@ -44,6 +45,11 @@ For language/compiler work, prefer the deeper guide:
 ## Escalation / Ambiguity
 
 If a change affects language design (syntax, canonical forms, stdlib surface, codegen contracts), pause and clarify the intended invariant before implementing broad edits.
+
+When working on Sigil type compatibility:
+- aliases and named product types are structural everywhere in the checker
+- compare their normalized canonical forms, not raw unresolved names
+- sum types remain nominal unless the language design is explicitly changed
 
 ## Development tips
 

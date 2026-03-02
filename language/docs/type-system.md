@@ -158,7 +158,7 @@ The bidirectional type checker is fully implemented and integrated into the comp
 - Record types: `{field₁:T₁, field₂:T₂, ...}`
 - No generics (each function is monomorphic)
 
-**Type equality** is structural:
+**Type equality** uses canonical structural comparison:
 ```typescript
 function typesEqual(t1: Type, t2: Type): boolean {
   // ℤ = ℤ, 𝕊 = 𝕊, etc.
@@ -167,6 +167,26 @@ function typesEqual(t1: Type, t2: Type): boolean {
   // etc.
 }
 ```
+
+Before equality-sensitive checks, Sigil normalizes aliases and named product types to
+their canonical structural form. This is not inference. It is canonical semantic
+comparison for already-explicit types.
+
+Examples:
+
+```sigil
+t MkdirOptions={recursive:𝔹}
+t Todo={done:𝔹,id:ℤ,text:𝕊}
+
+⟦ Named product type and structural record are the same after normalization ⟧
+c opts=({recursive:⊤}:MkdirOptions)
+
+⟦ [Todo] and [{done:𝔹,id:ℤ,text:𝕊}] compare by canonical form ⟧
+λaddTodo(id:ℤ,text:𝕊,todos:[Todo])→[Todo]=[Todo{done:⊥,id:id,text:text}]⧺todos
+```
+
+Sigil keeps **sum types nominal**. A sum type does not normalize into a structural
+record payload just because one of its variants carries a record.
 
 ### Future Phase: Polymorphism
 

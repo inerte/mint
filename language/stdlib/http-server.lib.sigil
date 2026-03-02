@@ -8,10 +8,14 @@ No npm dependencies, no library choices - just import and use.
 ⟧
 
 ⟦ HTTP request type ⟧
+t Headers={
+  content_type:𝕊
+}
+
 t Request={
   path:𝕊,
   method:𝕊,
-  headers:Any,
+  headers:Headers,
   body:𝕊
 }
 
@@ -19,19 +23,32 @@ t Request={
 t Response={
   status:ℤ,
   body:𝕊,
-  headers:Any
+  headers:Headers
+}
+
+⟦ Opaque Node callback adapter types ⟧
+t NodeRequest={
+  url:𝕊,
+  method:𝕊
+}
+
+t NodeResponse={}
+
+t ParsedUrl={
+  pathname:𝕊
 }
 
 ⟦ External FFI bindings ⟧
 e console
 e http
 e url
+i stdlib⋅string
 
 ⟦ Helper: Create a JSON response ⟧
 λjson(body:𝕊,status:ℤ)→Response={
   status:status,
   body:body,
-  headers:{"Content-Type":"application/json; charset=utf-8"}
+  headers:{content_type:"application/json; charset=utf-8"}
 }
 
 ⟦ Helper: Log HTTP request to console ⟧
@@ -44,28 +61,28 @@ e url
 λnot_found()→Response={
   status:404,
   body:"<h1>404 Not Found</h1>",
-  headers:{"Content-Type":"text/html; charset=utf-8"}
+  headers:{content_type:"text/html; charset=utf-8"}
 }
 
 ⟦ Helper: Create a 404 with custom message ⟧
 λnot_found_msg(path:𝕊)→Response={
   status:404,
   body:"<h1>404 Not Found</h1><p>Path: "++path++"</p>",
-  headers:{"Content-Type":"text/html; charset=utf-8"}
+  headers:{content_type:"text/html; charset=utf-8"}
 }
 
 ⟦ Helper: Create a 200 OK response ⟧
 λok(body:𝕊)→Response={
   status:200,
   body:body,
-  headers:{"Content-Type":"text/html; charset=utf-8"}
+  headers:{content_type:"text/html; charset=utf-8"}
 }
 
 ⟦ Helper: Create a custom response ⟧
 λresponse(body:𝕊,content_type:𝕊,status:ℤ)→Response={
   status:status,
   body:body,
-  headers:{"Content-Type":content_type}
+  headers:{content_type:content_type}
 }
 
 ⟦ Main Export: Start HTTP server on specified port
@@ -83,17 +100,17 @@ Usage:
 
 λserve(handler:λ(Request)→!IO Response,port:ℤ)→!IO 𝕌={
   ⟦ Create HTTP server with request handler ⟧
-  (http.createServer(λ(node_req:Any,node_res:Any)→!IO 𝕌={
+  (http.createServer(λ(node_req:NodeRequest,node_res:NodeResponse)→!IO 𝕌={
     ⟦ Parse URL to extract path ⟧
-    l parsed_url=(url.parse(node_req.url,⊤):Any);
-    l path=(parsed_url.pathname:Any);
+    l parsed_url=(url.parse(node_req.url,⊤):ParsedUrl);
+    l path=(parsed_url.pathname:𝕊);
 
     ⟦ Extract method ⟧
-    l method=(node_req.method:Any);
+    l method=(node_req.method:𝕊);
 
     ⟦ For v1, use empty headers map ⟧
     ⟦ TODO: Convert Node.js headers object to Sigil map ⟧
-    l headers=({}:Any);
+    l headers=({content_type:""}:Headers);
 
     ⟦ Collect request body chunks (TODO: typed chunk handling) ⟧
     ⟦ For now, body parsing is stubbed to keep the canonical HTTP wrapper compiling ⟧
@@ -114,17 +131,18 @@ Usage:
 
     ⟦ Set response headers from map ⟧
     ⟦ TODO: Header iteration is temporarily stubbed while block/effect sequencing is simplified ⟧
-    l response_headers=(sigil_response.headers:Any);
+    l response_headers=(sigil_response.headers:Headers);
 
     ⟦ TODO: Write response to node_res once callback second-parameter binding is stable in typechecker ⟧
     l status=(sigil_response.status:ℤ);
     l body_html=(sigil_response.body:𝕊);
     l noop=(status:ℤ);
     l noop2=(body_html:𝕊);
+    l noop3=(response_headers.content_type:𝕊);
 
     ()
   })).listen(port,λ()→!IO 𝕌={
-    l port_str=(port.toString():Any);
+    l port_str=(stdlib⋅string.int_to_string(port):𝕊);
     console.log("Server running at http://localhost:"++port_str)
     ()
   })
@@ -136,5 +154,5 @@ Usage:
 λserver_error(message:𝕊)→Response={
   status:500,
   body:"<h1>500 Internal Server Error</h1><p>"++message++"</p>",
-  headers:{"Content-Type":"text/html; charset=utf-8"}
+  headers:{content_type:"text/html; charset=utf-8"}
 }

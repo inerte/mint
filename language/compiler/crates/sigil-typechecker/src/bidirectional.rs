@@ -175,15 +175,17 @@ pub fn type_check(
             let value_type = synthesize(&env, &const_decl.value)?;
             if let Some(ref annotation) = const_decl.type_annotation {
                 let expected_type = ast_type_to_inference_type(annotation);
-                if !types_equal(&value_type, &expected_type) {
+                let (normalized_value, normalized_expected) =
+                    canonical_pair(&env, &value_type, &expected_type);
+                if !types_equal(&normalized_value, &normalized_expected) {
                     return Err(TypeError::mismatch(
                         format!(
                             "Constant '{}' type mismatch",
                             const_decl.name
                         ),
                         Some(const_decl.location),
-                        expected_type,
-                        value_type,
+                        normalized_expected,
+                        normalized_value,
                     ));
                 }
             }
@@ -191,6 +193,19 @@ pub fn type_check(
     }
 
     Ok(types)
+}
+
+/// Canonicalize two types before any structural equality-sensitive comparison.
+///
+/// Sigil treats aliases and named product types as structural everywhere in the
+/// checker, so comparisons must happen on normalized forms rather than raw
+/// synthesized forms.
+fn canonical_pair(
+    env: &TypeEnvironment,
+    left: &InferenceType,
+    right: &InferenceType,
+) -> (InferenceType, InferenceType) {
+    (env.normalize_type(left), env.normalize_type(right))
 }
 
 fn validate_surface_types(program: &Program) -> Result<(), TypeError> {
@@ -581,12 +596,13 @@ fn synthesize_binary(
 
         // Equality operators: T → T → 𝔹 (polymorphic)
         BinaryOperator::Equal | BinaryOperator::NotEqual => {
-            if !types_equal(&left_type, &right_type) {
+            let (normalized_left, normalized_right) = canonical_pair(env, &left_type, &right_type);
+            if !types_equal(&normalized_left, &normalized_right) {
                 return Err(TypeError::new(
                     format!(
                         "Cannot compare {} with {}",
-                        format_type(&left_type),
-                        format_type(&right_type)
+                        format_type(&normalized_left),
+                        format_type(&normalized_right)
                     ),
                     Some(bin.location),
                 ));
@@ -610,23 +626,28 @@ fn synthesize_binary(
 
         // List append: [T] → [T] → [T]
         BinaryOperator::ListAppend => {
-            if !matches!(left_type, InferenceType::List(_)) {
-                return Err(TypeError::new(
-                    format!("List append requires list operands, got {}", format_type(&left_type)),
-                    Some(bin.location),
-                ));
-            }
-            if !types_equal(&left_type, &right_type) {
+            let (normalized_left, normalized_right) = canonical_pair(env, &left_type, &right_type);
+
+            if !matches!(normalized_left, InferenceType::List(_)) {
                 return Err(TypeError::new(
                     format!(
-                        "Cannot concatenate lists of different types: {} and {}",
-                        format_type(&left_type),
-                        format_type(&right_type)
+                        "List append requires list operands, got {}",
+                        format_type(&normalized_left)
                     ),
                     Some(bin.location),
                 ));
             }
-            Ok(left_type)
+            if !types_equal(&normalized_left, &normalized_right) {
+                return Err(TypeError::new(
+                    format!(
+                        "Cannot concatenate lists of different types: {} and {}",
+                        format_type(&normalized_left),
+                        format_type(&normalized_right)
+                    ),
+                    Some(bin.location),
+                ));
+            }
+            Ok(normalized_left)
         }
 
         _ => Err(TypeError::new(
@@ -757,11 +778,12 @@ fn synthesize_if(
         let unit_type = InferenceType::Primitive(TPrimitive {
             name: PrimitiveName::Unit,
         });
-        if !types_equal(&then_type, &unit_type) {
+        let (normalized_then, normalized_unit) = canonical_pair(env, &then_type, &unit_type);
+        if !types_equal(&normalized_then, &normalized_unit) {
             return Err(TypeError::new(
                 format!(
                     "If expression without else must have Unit type, got {}",
-                    format_type(&then_type)
+                    format_type(&normalized_then)
                 ),
                 Some(if_expr.location),
             ));
@@ -773,12 +795,13 @@ fn synthesize_if(
     let else_type = synthesize(env, if_expr.else_branch.as_ref().unwrap())?;
 
     // Both branches must have same type
-    if !types_equal(&then_type, &else_type) {
+    let (normalized_then, normalized_else) = canonical_pair(env, &then_type, &else_type);
+    if !types_equal(&normalized_then, &normalized_else) {
         return Err(TypeError::new(
             format!(
                 "If branches have different types: then is {}, else is {}",
-                format_type(&then_type),
-                format_type(&else_type)
+                format_type(&normalized_then),
+                format_type(&normalized_else)
             ),
             Some(if_expr.location),
         ));
@@ -847,11 +870,12 @@ fn synthesize_match(
         let bool_type = InferenceType::Primitive(TPrimitive {
             name: PrimitiveName::Bool,
         });
-        if !types_equal(&guard_type, &bool_type) {
+        let (normalized_guard, normalized_bool) = canonical_pair(env, &guard_type, &bool_type);
+        if !types_equal(&normalized_guard, &normalized_bool) {
             return Err(TypeError::new(
                 format!(
                     "Pattern guard must have type 𝔹, got {}",
-                    format_type(&guard_type)
+                    format_type(&normalized_guard)
                 ),
                 Some(match_expr.location),
             ));
@@ -873,11 +897,12 @@ fn synthesize_match(
             let bool_type = InferenceType::Primitive(TPrimitive {
                 name: PrimitiveName::Bool,
             });
-            if !types_equal(&guard_type, &bool_type) {
+            let (normalized_guard, normalized_bool) = canonical_pair(env, &guard_type, &bool_type);
+            if !types_equal(&normalized_guard, &normalized_bool) {
                 return Err(TypeError::new(
                     format!(
                         "Pattern guard must have type 𝔹, got {}",
-                        format_type(&guard_type)
+                        format_type(&normalized_guard)
                     ),
                     Some(match_expr.location),
                 ));
@@ -1064,12 +1089,13 @@ fn synthesize_map(
         }
 
         // Check function parameter matches list element type
-        if !types_equal(&func.params[0], &list.element_type) {
+        let (normalized_param, normalized_elem) = canonical_pair(env, &func.params[0], &list.element_type);
+        if !types_equal(&normalized_param, &normalized_elem) {
             return Err(TypeError::new(
                 format!(
                     "Map (↦) function parameter type {} doesn't match list element type {}",
-                    format_type(&func.params[0]),
-                    format_type(&list.element_type)
+                    format_type(&normalized_param),
+                    format_type(&normalized_elem)
                 ),
                 Some(map_expr.location),
             ));
@@ -1117,20 +1143,22 @@ fn synthesize_filter(
             ));
         }
 
-        if !types_equal(&pred.params[0], &list.element_type) {
+        let (normalized_param, normalized_elem) = canonical_pair(env, &pred.params[0], &list.element_type);
+        if !types_equal(&normalized_param, &normalized_elem) {
             return Err(TypeError::new(
                 format!(
                     "Filter (⊳) predicate parameter type {} doesn't match list element type {}",
-                    format_type(&pred.params[0]),
-                    format_type(&list.element_type)
+                    format_type(&normalized_param),
+                    format_type(&normalized_elem)
                 ),
                 Some(filter_expr.location),
             ));
         }
 
-        if !types_equal(&pred.return_type, &bool_type) {
+        let (normalized_return, normalized_bool) = canonical_pair(env, &pred.return_type, &bool_type);
+        if !types_equal(&normalized_return, &normalized_bool) {
             return Err(TypeError::new(
-                format!("Filter (⊳) predicate must return 𝔹, got {}", format_type(&pred.return_type)),
+                format!("Filter (⊳) predicate must return 𝔹, got {}", format_type(&normalized_return)),
                 Some(filter_expr.location),
             ));
         }
@@ -1176,34 +1204,37 @@ fn synthesize_fold(
         }
 
         // Check function signature matches (Acc, T) → Acc
-        if !types_equal(&func.params[0], &init_type) {
+        let (normalized_acc_param, normalized_init) = canonical_pair(env, &func.params[0], &init_type);
+        if !types_equal(&normalized_acc_param, &normalized_init) {
             return Err(TypeError::new(
                 format!(
                     "Fold (⊕) function first parameter type {} doesn't match initial value type {}",
-                    format_type(&func.params[0]),
-                    format_type(&init_type)
+                    format_type(&normalized_acc_param),
+                    format_type(&normalized_init)
                 ),
                 Some(fold_expr.location),
             ));
         }
 
-        if !types_equal(&func.params[1], &list.element_type) {
+        let (normalized_elem_param, normalized_elem) = canonical_pair(env, &func.params[1], &list.element_type);
+        if !types_equal(&normalized_elem_param, &normalized_elem) {
             return Err(TypeError::new(
                 format!(
                     "Fold (⊕) function second parameter type {} doesn't match list element type {}",
-                    format_type(&func.params[1]),
-                    format_type(&list.element_type)
+                    format_type(&normalized_elem_param),
+                    format_type(&normalized_elem)
                 ),
                 Some(fold_expr.location),
             ));
         }
 
-        if !types_equal(&func.return_type, &init_type) {
+        let (normalized_return, normalized_init) = canonical_pair(env, &func.return_type, &init_type);
+        if !types_equal(&normalized_return, &normalized_init) {
             return Err(TypeError::new(
                 format!(
                     "Fold (⊕) function return type {} doesn't match accumulator type {}",
-                    format_type(&func.return_type),
-                    format_type(&init_type)
+                    format_type(&normalized_return),
+                    format_type(&normalized_init)
                 ),
                 Some(fold_expr.location),
             ));
@@ -1238,12 +1269,14 @@ fn synthesize_with_mock(
 
     // If both are functions, check they match
     if let (InferenceType::Function(_), InferenceType::Function(_)) = (&target_type, &replacement_type) {
-        if !types_equal(&target_type, &replacement_type) {
+        let (normalized_target, normalized_replacement) =
+            canonical_pair(env, &target_type, &replacement_type);
+        if !types_equal(&normalized_target, &normalized_replacement) {
             return Err(TypeError::new(
                 format!(
                     "with_mock replacement type {} does not match target type {}",
-                    format_type(&replacement_type),
-                    format_type(&target_type)
+                    format_type(&normalized_replacement),
+                    format_type(&normalized_target)
                 ),
                 Some(with_mock.location),
             ));
@@ -1352,12 +1385,13 @@ fn check_pattern(
                 }),
             };
 
-            if !types_equal(&lit_type, scrutinee_type) {
+            let (normalized_lit, normalized_scrutinee) = canonical_pair(env, &lit_type, scrutinee_type);
+            if !types_equal(&normalized_lit, &normalized_scrutinee) {
                 return Err(TypeError::new(
                     format!(
                         "Pattern type mismatch: expected {}, got {}",
-                        format_type(scrutinee_type),
-                        format_type(&lit_type)
+                        format_type(&normalized_scrutinee),
+                        format_type(&normalized_lit)
                     ),
                     Some(lit_pattern.location),
                 ));
@@ -1542,9 +1576,8 @@ fn check(
         return Ok(());
     }
 
-    // Normalize both types to resolve type aliases before comparison
-    let normalized_actual = env.normalize_type(&actual_type);
-    let normalized_expected = env.normalize_type(expected_type);
+    // Normalize structural named types before equality checks.
+    let (normalized_actual, normalized_expected) = canonical_pair(env, &actual_type, expected_type);
 
     if !types_equal(&normalized_actual, &normalized_expected) {
         return Err(TypeError::mismatch(
@@ -1637,6 +1670,56 @@ mod tests {
             .unwrap_err()
             .message
             .contains("reserved for untyped FFI trust mode"));
+    }
+
+    #[test]
+    fn test_const_annotation_normalizes_named_product_type() {
+        let source = "t MkdirOptions={recursive:𝔹}\nc opts=({recursive:⊤}:MkdirOptions)\nλmain()→𝕌=()";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_list_append_normalizes_named_product_type() {
+        let source = "t Todo={done:𝔹,id:ℤ,text:𝕊}\nλmain()→[Todo]=[{done:⊥,id:1,text:\"a\"}]⧺[Todo{done:⊥,id:2,text:\"b\"}]";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_map_normalizes_named_product_type() {
+        let source = "t Todo={done:𝔹,id:ℤ,text:𝕊}\nλkeep(todo:Todo)→Todo=todo\nλmain()→[Todo]=[{done:⊥,id:1,text:\"a\"}]↦keep";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_named_product_equality_uses_canonical_form() {
+        let source = "t Todo={done:𝔹,id:ℤ,text:𝕊}\nλmain()→𝔹=(({done:⊥,id:1,text:\"a\"}:Todo)={done:⊥,id:1,text:\"a\"})";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_sum_types_remain_nominal_after_normalization() {
+        let source = "t Box={value:ℤ}\nt Wrap=Wrap(Box)\nλmain()→Wrap=({value:1}:Wrap)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_err());
     }
 
     // TODO: Add list pattern test when parser fully supports match expression syntax

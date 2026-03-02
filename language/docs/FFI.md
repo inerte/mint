@@ -147,6 +147,8 @@ e fs⋅promises
 ```
 
 Uses `any` type for FFI calls. Member validation is **structural** (does it exist?) not type-based.
+This trust-mode `any` is an internal compiler escape hatch for untyped externs, not a
+general-purpose surface type you should write in Sigil source.
 
 ### Typed FFI (Type-Safe Mode)
 
@@ -160,7 +162,7 @@ e fs⋅promises : {
 }
 
 λensureDir(dir:𝕊)→𝕌={
-  l opts = MkdirOptions{recursive:⊤};
+  l opts=({recursive:⊤}:MkdirOptions);
   fs⋅promises.mkdir(dir, opts)
 }
 ```
@@ -170,6 +172,12 @@ e fs⋅promises : {
 - Can reference named Sigil types in FFI signatures
 - Better IDE/LSP support
 - Self-documenting external APIs
+
+Typed FFI relies on the same canonical structural equality rule used throughout the
+checker: aliases and named product types normalize before compatibility checks.
+That means `MkdirOptions` and `{recursive:𝔹}` are treated as the same explicit type
+meaning when validating the `mkdir` call. This is canonical semantic comparison, not
+type inference.
 
 **Syntax:**
 ```sigil

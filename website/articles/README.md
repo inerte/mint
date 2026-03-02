@@ -30,6 +30,12 @@ How we migrated the entire Sigil compiler from TypeScript to Rust in 3 days, ach
 
 **Key topics:** Compiler rewrite, Rust migration, performance optimization, differential testing, AI-assisted development, type safety, distribution
 
+**March 2, 2026** - [Canonical Type Equality: Why Sigil Normalizes Structural Types Everywhere](./011-canonical-type-equality.md)
+
+Why Sigil compares aliases and named product types by their canonical normalized form everywhere in the checker, and why this matters more for Claude Code and Codex than for human readability.
+
+**Key topics:** Canonical semantics, structural typing, named product types, AI-first language design, typechecker determinism
+
 ---
 
 ## About These Articles

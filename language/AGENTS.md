@@ -35,6 +35,11 @@ This file is the local authority for:
 
 When in doubt: prefer fewer surface forms and better diagnostics.
 
+For type-system changes, preserve this semantic invariant:
+- aliases and named product types compare by normalized canonical form everywhere equality is checked
+- do not introduce checker-path-specific structural equality behavior
+- sum types remain nominal unless the design explicitly changes
+
 ## Working Rules for Language Development
 
 ### 1) Change the whole pipeline when syntax changes

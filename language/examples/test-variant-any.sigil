@@ -1,5 +1,6 @@
-t Response={body:𝕊,headers:Any,status:ℤ}
+t Headers={}
+t Response={body:𝕊,headers:Headers,status:ℤ}
 t Result=Ok(Response)
 
 λmain()→Result=test()
-λtest()→Result=Ok({body:"ok",headers:({}:Any),status:200})
+λtest()→Result=Ok({body:"ok",headers:{},status:200})

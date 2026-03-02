@@ -1,0 +1,326 @@
+{
+  "TRUE": {
+    "symbol": "⊤",
+    "category": "boolean_literal",
+    "candidates": [
+      {
+        "replacement": "true",
+        "commonalityScore": 1.0,
+        "semanticFit": "high",
+        "reason": "Common boolean literal across mainstream languages."
+      }
+    ]
+  },
+  "FALSE": {
+    "symbol": "⊥",
+    "category": "boolean_literal",
+    "candidates": [
+      {
+        "replacement": "false",
+        "commonalityScore": 1.0,
+        "semanticFit": "high",
+        "reason": "Common boolean literal across mainstream languages."
+      }
+    ]
+  },
+  "LAMBDA": {
+    "symbol": "λ",
+    "category": "function_marker",
+    "candidates": [
+      {
+        "replacement": "fn",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Short, common function introducer in Rust and functional tooling."
+      },
+      {
+        "replacement": "def",
+        "commonalityScore": 0.9,
+        "semanticFit": "high",
+        "reason": "Very common function introducer in Python, Ruby, Elixir and others."
+      },
+      {
+        "replacement": "function",
+        "commonalityScore": 1.0,
+        "semanticFit": "high",
+        "reason": "Canonical full-word function keyword in JavaScript and many tutorials."
+      },
+      {
+        "replacement": "lambda",
+        "commonalityScore": 0.45,
+        "semanticFit": "medium",
+        "reason": "Semantically accurate, but uncommon as the main declaration keyword."
+      }
+    ]
+  },
+  "MATCH": {
+    "symbol": "≡",
+    "category": "match_marker",
+    "candidates": [
+      {
+        "replacement": "match",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Common pattern matching keyword in Rust, OCaml, and many PL discussions."
+      },
+      {
+        "replacement": "switch",
+        "commonalityScore": 0.9,
+        "semanticFit": "medium",
+        "reason": "Widely known branching term, but weaker semantic fit than pattern matching."
+      }
+    ]
+  },
+  "ARROW": {
+    "symbol": "→",
+    "category": "arrow",
+    "candidates": [
+      {
+        "replacement": "->",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Common ASCII arrow in many languages and type signatures."
+      },
+      {
+        "replacement": "=>",
+        "commonalityScore": 0.85,
+        "semanticFit": "medium",
+        "reason": "Common in JavaScript/Scala-family syntax, but overloaded in many contexts."
+      }
+    ]
+  },
+  "NOT": {
+    "symbol": "¬",
+    "category": "boolean_operator",
+    "candidates": [
+      {
+        "replacement": "not",
+        "commonalityScore": 0.9,
+        "semanticFit": "high",
+        "reason": "Common boolean negation word and easy for models to predict."
+      }
+    ]
+  },
+  "AND": {
+    "symbol": "∧",
+    "category": "boolean_operator",
+    "candidates": [
+      {
+        "replacement": "and",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Common boolean conjunction word in many languages and prompts."
+      }
+    ]
+  },
+  "OR": {
+    "symbol": "∨",
+    "category": "boolean_operator",
+    "candidates": [
+      {
+        "replacement": "or",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Common boolean disjunction word in many languages and prompts."
+      }
+    ]
+  },
+  "TypeInt": {
+    "symbol": "ℤ",
+    "category": "primitive_type",
+    "candidates": [
+      {
+        "replacement": "int",
+        "commonalityScore": 1.0,
+        "semanticFit": "high",
+        "reason": "Most common mainstream integer type word."
+      }
+    ]
+  },
+  "TypeFloat": {
+    "symbol": "ℝ",
+    "category": "primitive_type",
+    "candidates": [
+      {
+        "replacement": "float",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Common mainstream floating-point type word."
+      }
+    ]
+  },
+  "TypeBool": {
+    "symbol": "𝔹",
+    "category": "primitive_type",
+    "candidates": [
+      {
+        "replacement": "bool",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Common boolean type name in mainstream typed languages."
+      }
+    ]
+  },
+  "TypeString": {
+    "symbol": "𝕊",
+    "category": "primitive_type",
+    "candidates": [
+      {
+        "replacement": "string",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Common string type name in mainstream languages."
+      }
+    ]
+  },
+  "TypeChar": {
+    "symbol": "ℂ",
+    "category": "primitive_type",
+    "candidates": [
+      {
+        "replacement": "char",
+        "commonalityScore": 0.9,
+        "semanticFit": "high",
+        "reason": "Common character type name in mainstream languages."
+      }
+    ]
+  },
+  "TypeUnit": {
+    "symbol": "𝕌",
+    "category": "primitive_type",
+    "candidates": [
+      {
+        "replacement": "unit",
+        "commonalityScore": 0.65,
+        "semanticFit": "high",
+        "reason": "Common in typed functional languages, though less universal than other primitives."
+      }
+    ]
+  },
+  "TypeNever": {
+    "symbol": "∅",
+    "category": "primitive_type",
+    "candidates": [
+      {
+        "replacement": "never",
+        "commonalityScore": 0.8,
+        "semanticFit": "high",
+        "reason": "Common bottom/never type word in TypeScript, Rust discussions and modern type systems."
+      }
+    ]
+  },
+  "NotEqual": {
+    "symbol": "≠",
+    "category": "comparison_operator",
+    "candidates": [
+      {
+        "replacement": "!=",
+        "commonalityScore": 1.0,
+        "semanticFit": "high",
+        "reason": "Canonical ASCII inequality operator in mainstream languages."
+      }
+    ]
+  },
+  "LessEq": {
+    "symbol": "≤",
+    "category": "comparison_operator",
+    "candidates": [
+      {
+        "replacement": "<=",
+        "commonalityScore": 1.0,
+        "semanticFit": "high",
+        "reason": "Canonical ASCII less-or-equal operator in mainstream languages."
+      }
+    ]
+  },
+  "GreaterEq": {
+    "symbol": "≥",
+    "category": "comparison_operator",
+    "candidates": [
+      {
+        "replacement": ">=",
+        "commonalityScore": 1.0,
+        "semanticFit": "high",
+        "reason": "Canonical ASCII greater-or-equal operator in mainstream languages."
+      }
+    ]
+  },
+  "NamespaceSep": {
+    "symbol": "⋅",
+    "category": "namespace_separator",
+    "candidates": [
+      {
+        "replacement": ".",
+        "commonalityScore": 1.0,
+        "semanticFit": "medium",
+        "reason": "Most common namespace/member separator, though it may collide with existing field access semantics."
+      },
+      {
+        "replacement": "::",
+        "commonalityScore": 0.8,
+        "semanticFit": "medium",
+        "reason": "Common module/type namespace separator in Rust and related languages."
+      }
+    ]
+  },
+  "ListAppend": {
+    "symbol": "⧺",
+    "category": "list_operator",
+    "candidates": [
+      {
+        "replacement": "++",
+        "commonalityScore": 0.75,
+        "semanticFit": "high",
+        "reason": "Common list/string append operator in several functional languages."
+      },
+      {
+        "replacement": "append",
+        "commonalityScore": 0.55,
+        "semanticFit": "medium",
+        "reason": "Readable and common as a verb, but less canonical as infix syntax."
+      }
+    ]
+  },
+  "MAP": {
+    "symbol": "↦",
+    "category": "list_operator",
+    "candidates": [
+      {
+        "replacement": "map",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Very common higher-order function name across mainstream and FP languages."
+      }
+    ]
+  },
+  "FILTER": {
+    "symbol": "⊳",
+    "category": "list_operator",
+    "candidates": [
+      {
+        "replacement": "filter",
+        "commonalityScore": 0.95,
+        "semanticFit": "high",
+        "reason": "Very common higher-order function name across mainstream and FP languages."
+      }
+    ]
+  },
+  "FOLD": {
+    "symbol": "⊕",
+    "category": "list_operator",
+    "candidates": [
+      {
+        "replacement": "fold",
+        "commonalityScore": 0.85,
+        "semanticFit": "high",
+        "reason": "Common higher-order function name in FP and compiler-adjacent ecosystems."
+      },
+      {
+        "replacement": "reduce",
+        "commonalityScore": 0.95,
+        "semanticFit": "medium",
+        "reason": "Extremely common in JavaScript and data tooling, though slightly less precise than fold."
+      }
+    ]
+  }
+}

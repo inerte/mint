@@ -12,8 +12,8 @@ use crate::errors::{format_type, TypeError};
 use crate::types::{ast_type_to_inference_type, types_equal, InferenceType, TFunction, TPrimitive};
 use crate::TypeCheckOptions;
 use sigil_ast::{
-    BinaryOperator, Declaration, Expr, FunctionDecl, LiteralType, LiteralValue, PrimitiveName,
-    Program,
+    BinaryOperator, Declaration, Expr, FunctionDecl, LiteralType, PrimitiveName, Program, Type,
+    TypeDef,
 };
 use std::collections::HashMap;
 
@@ -25,6 +25,8 @@ pub fn type_check(
     _source_code: &str,
     options: TypeCheckOptions,
 ) -> Result<HashMap<String, InferenceType>, TypeError> {
+    validate_surface_types(program)?;
+
     let mut env = TypeEnvironment::create_initial();
     let mut types = HashMap::new();
 
@@ -191,12 +193,215 @@ pub fn type_check(
     Ok(types)
 }
 
+fn validate_surface_types(program: &Program) -> Result<(), TypeError> {
+    for decl in &program.declarations {
+        validate_declaration_surface_types(decl)?;
+    }
+
+    Ok(())
+}
+
+fn validate_declaration_surface_types(decl: &Declaration) -> Result<(), TypeError> {
+    match decl {
+        Declaration::Type(type_decl) => match &type_decl.definition {
+            TypeDef::Alias(alias) => validate_surface_type(&alias.aliased_type),
+            TypeDef::Product(product) => {
+                for field in &product.fields {
+                    validate_surface_type(&field.field_type)?;
+                }
+                Ok(())
+            }
+            TypeDef::Sum(sum) => {
+                for variant in &sum.variants {
+                    for field_type in &variant.types {
+                        validate_surface_type(field_type)?;
+                    }
+                }
+                Ok(())
+            }
+        },
+        Declaration::Function(func_decl) => {
+            for param in &func_decl.params {
+                if let Some(param_type) = &param.type_annotation {
+                    validate_surface_type(param_type)?;
+                }
+            }
+
+            if let Some(return_type) = &func_decl.return_type {
+                validate_surface_type(return_type)?;
+            }
+
+            validate_expr_surface_types(&func_decl.body)
+        }
+        Declaration::Const(const_decl) => {
+            if let Some(annotation) = &const_decl.type_annotation {
+                validate_surface_type(annotation)?;
+            }
+            validate_expr_surface_types(&const_decl.value)
+        }
+        Declaration::Extern(extern_decl) => {
+            if let Some(members) = &extern_decl.members {
+                for member in members {
+                    validate_surface_type(&member.member_type)?;
+                }
+            }
+            Ok(())
+        }
+        Declaration::Test(test_decl) => validate_expr_surface_types(&test_decl.body),
+        Declaration::Import(_) => Ok(()),
+    }
+}
+
+fn validate_expr_surface_types(expr: &Expr) -> Result<(), TypeError> {
+    match expr {
+        Expr::Literal(_) | Expr::Identifier(_) => Ok(()),
+        Expr::Lambda(lambda) => {
+            for param in &lambda.params {
+                if let Some(param_type) = &param.type_annotation {
+                    validate_surface_type(param_type)?;
+                }
+            }
+            validate_surface_type(&lambda.return_type)?;
+            validate_expr_surface_types(&lambda.body)
+        }
+        Expr::Application(app) => {
+            validate_expr_surface_types(&app.func)?;
+            for arg in &app.args {
+                validate_expr_surface_types(arg)?;
+            }
+            Ok(())
+        }
+        Expr::Binary(bin) => {
+            validate_expr_surface_types(&bin.left)?;
+            validate_expr_surface_types(&bin.right)
+        }
+        Expr::Unary(un) => validate_expr_surface_types(&un.operand),
+        Expr::Match(match_expr) => {
+            validate_expr_surface_types(&match_expr.scrutinee)?;
+            for arm in &match_expr.arms {
+                if let Some(guard) = &arm.guard {
+                    validate_expr_surface_types(guard)?;
+                }
+                validate_expr_surface_types(&arm.body)?;
+            }
+            Ok(())
+        }
+        Expr::Let(let_expr) => {
+            validate_expr_surface_types(&let_expr.value)?;
+            validate_expr_surface_types(&let_expr.body)
+        }
+        Expr::If(if_expr) => {
+            validate_expr_surface_types(&if_expr.condition)?;
+            validate_expr_surface_types(&if_expr.then_branch)?;
+            if let Some(else_branch) = &if_expr.else_branch {
+                validate_expr_surface_types(else_branch)?;
+            }
+            Ok(())
+        }
+        Expr::List(list) => {
+            for elem in &list.elements {
+                validate_expr_surface_types(elem)?;
+            }
+            Ok(())
+        }
+        Expr::Record(record) => {
+            for field in &record.fields {
+                validate_expr_surface_types(&field.value)?;
+            }
+            Ok(())
+        }
+        Expr::Tuple(tuple) => {
+            for elem in &tuple.elements {
+                validate_expr_surface_types(elem)?;
+            }
+            Ok(())
+        }
+        Expr::FieldAccess(field_access) => validate_expr_surface_types(&field_access.object),
+        Expr::Index(index_expr) => {
+            validate_expr_surface_types(&index_expr.object)?;
+            validate_expr_surface_types(&index_expr.index)
+        }
+        Expr::Pipeline(pipeline) => {
+            validate_expr_surface_types(&pipeline.left)?;
+            validate_expr_surface_types(&pipeline.right)
+        }
+        Expr::Map(map_expr) => {
+            validate_expr_surface_types(&map_expr.list)?;
+            validate_expr_surface_types(&map_expr.func)
+        }
+        Expr::Filter(filter_expr) => {
+            validate_expr_surface_types(&filter_expr.list)?;
+            validate_expr_surface_types(&filter_expr.predicate)
+        }
+        Expr::Fold(fold_expr) => {
+            validate_expr_surface_types(&fold_expr.list)?;
+            validate_expr_surface_types(&fold_expr.func)?;
+            validate_expr_surface_types(&fold_expr.init)
+        }
+        Expr::MemberAccess(_) => Ok(()),
+        Expr::WithMock(with_mock) => {
+            validate_expr_surface_types(&with_mock.target)?;
+            validate_expr_surface_types(&with_mock.replacement)?;
+            validate_expr_surface_types(&with_mock.body)
+        }
+        Expr::TypeAscription(type_asc) => {
+            validate_expr_surface_types(&type_asc.expr)?;
+            validate_surface_type(&type_asc.ascribed_type)
+        }
+    }
+}
+
+fn validate_surface_type(ty: &Type) -> Result<(), TypeError> {
+    match ty {
+        Type::Primitive(_) => Ok(()),
+        Type::List(list) => validate_surface_type(&list.element_type),
+        Type::Map(map) => {
+            validate_surface_type(&map.key_type)?;
+            validate_surface_type(&map.value_type)
+        }
+        Type::Function(func) => {
+            for param_type in &func.param_types {
+                validate_surface_type(param_type)?;
+            }
+            validate_surface_type(&func.return_type)
+        }
+        Type::Constructor(ctor) => {
+            for type_arg in &ctor.type_args {
+                validate_surface_type(type_arg)?;
+            }
+            Ok(())
+        }
+        Type::Variable(var) => {
+            if var.name == "Any" {
+                Err(TypeError::new(
+                    "The 'Any' type is reserved for untyped FFI trust mode. Use a concrete Sigil type, or use an untyped extern declaration instead.".to_string(),
+                    Some(var.location),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        Type::Tuple(tuple) => {
+            for elem in &tuple.types {
+                validate_surface_type(elem)?;
+            }
+            Ok(())
+        }
+        Type::Qualified(qualified) => {
+            for type_arg in &qualified.type_args {
+                validate_surface_type(type_arg)?;
+            }
+            Ok(())
+        }
+    }
+}
+
 /// Create a constructor function type for a sum type variant
 ///
 /// For example, Some : T → Option[T]
 fn create_constructor_type(
     variant: &sigil_ast::Variant,
-    _type_params: &[String],
+    type_params: &[String],
     type_name: &str,
 ) -> InferenceType {
     // Convert variant field types to inference types
@@ -204,12 +409,13 @@ fn create_constructor_type(
         .types
         .iter()
         .map(|field_type| {
-            // Type parameters become Any for now (full generic tracking needs more infrastructure)
-            if matches!(field_type, sigil_ast::Type::Variable(_)) {
-                InferenceType::Any
-            } else {
-                ast_type_to_inference_type(field_type)
+            // True type parameters become Any for now; named types should stay named.
+            if let sigil_ast::Type::Variable(var_type) = field_type {
+                if type_params.contains(&var_type.name) {
+                    return InferenceType::Any;
+                }
             }
+            ast_type_to_inference_type(field_type)
         })
         .collect();
 
@@ -309,11 +515,6 @@ fn synthesize(env: &TypeEnvironment, expr: &Expr) -> Result<InferenceType, TypeE
         Expr::Pipeline(pipeline) => synthesize_pipeline(env, pipeline),
 
         Expr::TypeAscription(type_asc) => synthesize_type_ascription(env, type_asc),
-
-        _ => Err(TypeError::new(
-            format!("Synthesis not yet implemented for expression type"),
-            None, // TODO: extract location from specific expression variant
-        )),
     }
 }
 
@@ -624,8 +825,6 @@ fn synthesize_match(
     env: &TypeEnvironment,
     match_expr: &sigil_ast::MatchExpr,
 ) -> Result<InferenceType, TypeError> {
-    use sigil_ast::Pattern;
-
     // Synthesize scrutinee type
     let scrutinee_type = synthesize(env, &match_expr.scrutinee)?;
 
@@ -1424,6 +1623,20 @@ mod tests {
         let result = type_check(&program, source, TypeCheckOptions::default());
         // Should succeed - Red is registered as a constructor
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_any_is_rejected_outside_ffi() {
+        let source = "t Response={headers:Any}\nλmain()→Response={headers:{}}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("reserved for untyped FFI trust mode"));
     }
 
     // TODO: Add list pattern test when parser fully supports match expression syntax

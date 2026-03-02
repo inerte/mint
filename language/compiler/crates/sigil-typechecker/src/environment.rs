@@ -194,7 +194,8 @@ impl TypeEnvironment {
                                 .iter()
                                 .map(|f| {
                                     use crate::types::ast_type_to_inference_type;
-                                    (f.name.clone(), ast_type_to_inference_type(&f.field_type))
+                                    let field_type = ast_type_to_inference_type(&f.field_type);
+                                    (f.name.clone(), self.normalize_type(&field_type))
                                 })
                                 .collect();
                             return InferenceType::Record(crate::types::TRecord {

@@ -1,0 +1,9 @@
+t Headers={}
+t Response={body:𝕊,headers:Headers,status:ℤ}
+
+λmain()→Response=test()
+λtest()→Response={
+  body:"ok",
+  headers:{},
+  status:200
+}

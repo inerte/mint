@@ -350,9 +350,9 @@ t Result=Ok(ℤ)|Err(𝕊)
 t Point={x:ℤ,y:ℤ}
 
 λquadrant(p:Point)→𝕊 match p{
-  {x,y} when x=0∧y=0 → "origin"|
-  {x,y} when x>0∧y>0 → "quadrant I"|
-  {x,y} when x<0∧y>0 → "quadrant II"|
+  {x,y} when x=0 and y=0 → "origin"|
+  {x,y} when x>0 and y>0 → "quadrant I"|
+  {x,y} when x<0 and y>0 → "quadrant II"|
   _ → "other"
 }
 ```
@@ -427,8 +427,8 @@ a≥b
 ## Logical
 
 ```sigil
-a∧b
-a∨b
+a and b
+a or b
 ¬a
 ```
 

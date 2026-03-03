@@ -59,30 +59,6 @@
       }
     ]
   },
-  "AND": {
-    "symbol": "∧",
-    "category": "boolean_operator",
-    "candidates": [
-      {
-        "replacement": "and",
-        "commonalityScore": 0.95,
-        "semanticFit": "high",
-        "reason": "Common boolean conjunction word in many languages and prompts."
-      }
-    ]
-  },
-  "OR": {
-    "symbol": "∨",
-    "category": "boolean_operator",
-    "candidates": [
-      {
-        "replacement": "or",
-        "commonalityScore": 0.95,
-        "semanticFit": "high",
-        "reason": "Common boolean disjunction word in many languages and prompts."
-      }
-    ]
-  },
   "TypeInt": {
     "symbol": "ℤ",
     "category": "primitive_type",

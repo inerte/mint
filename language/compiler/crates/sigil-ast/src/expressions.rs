@@ -253,9 +253,9 @@ pub enum BinaryOperator {
     #[cfg_attr(feature = "serde", serde(rename = "≥"))]
     GreaterEq,
     // Logical
-    #[cfg_attr(feature = "serde", serde(rename = "∧"))]
+    #[cfg_attr(feature = "serde", serde(rename = "and"))]
     And,
-    #[cfg_attr(feature = "serde", serde(rename = "∨"))]
+    #[cfg_attr(feature = "serde", serde(rename = "or"))]
     Or,
     // Pipeline
     #[cfg_attr(feature = "serde", serde(rename = "|>"))]
@@ -286,8 +286,8 @@ impl std::fmt::Display for BinaryOperator {
             BinaryOperator::Greater => ">",
             BinaryOperator::LessEq => "≤",
             BinaryOperator::GreaterEq => "≥",
-            BinaryOperator::And => "∧",
-            BinaryOperator::Or => "∨",
+            BinaryOperator::And => "and",
+            BinaryOperator::Or => "or",
             BinaryOperator::Pipe => "|>",
             BinaryOperator::ComposeFwd => ">>",
             BinaryOperator::ComposeBwd => "<<",

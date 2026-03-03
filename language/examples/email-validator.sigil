@@ -130,7 +130,7 @@ i stdlib⋅string
   true → Invalid("Email cannot be empty") |
   false → match #email>320{
     true → Invalid("Email too long (max 320 characters)") |
-    false → match #parts.local=0∧#parts.domain=0{
+    false → match #parts.local=0 and #parts.domain=0{
       true → Invalid("Email must contain exactly one @ symbol") |
       false → validate_email_parts(parts)
     }

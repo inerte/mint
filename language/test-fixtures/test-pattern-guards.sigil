@@ -55,8 +55,8 @@ e console
 
 ⟦ Test 5: Complex guards ⟧
 λtest5(x:ℤ,y:ℤ)→𝕊 match x{
-  a when a>0∧y>0 → "both positive" |
-  a when a>0∨y>0 → "one positive" |
+  a when a>0 and y>0 → "both positive" |
+  a when a>0 or y>0 → "one positive" |
   _ → "neither positive"
 }
 

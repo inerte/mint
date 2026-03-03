@@ -19,7 +19,7 @@ test "nested with_mock uses inner replacement lexically" →!IO {
 }
 
 test "numeric predicates are available in projects" {
-  stdlib⋅numeric.is_even(2)=true∧stdlib⋅numeric.is_odd(3)=true
+  stdlib⋅numeric.is_even(2)=true and stdlib⋅numeric.is_odd(3)=true
 }
 
 test "pure boolean passes" {
@@ -28,6 +28,6 @@ test "pure boolean passes" {
 
 test "with_mock can be used in boolean expressions" →!IO {
   with_mock(ping, λ()→!IO 𝕊="pong") {
-    ping()="pong"∧ping()≠"real"
+    ping()="pong" and ping()≠"real"
   }
 }

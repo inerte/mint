@@ -228,7 +228,7 @@ BinaryOp = ArithOp | CompOp | LogicOp | PipeOp ;
 
 ArithOp = "+" | "-" | "*" | "/" | "%" | "^" ;
 CompOp = "=" | "≠" | "<" | ">" | "≤" | "≥" ;
-LogicOp = "∧" | "∨" ;
+LogicOp = "and" | "or" ;
 PipeOp = "|>" | ">>" | "<<" ;
 
 (* Operator Precedence (highest to lowest):
@@ -236,8 +236,8 @@ PipeOp = "|>" | ">>" | "<<" ;
    2. * / % (multiplication, division, modulo)
    3. + - (addition, subtraction)
    4. = ≠ < > ≤ ≥ (comparison)
-   5. ∧ (logical and)
-   6. ∨ (logical or)
+   5. and (logical and)
+   6. or (logical or)
    7. |> >> << (pipelines and composition)
 *)
 
@@ -398,8 +398,8 @@ Comment = "⟦" , { ? any Unicode character except ⟧ ? } , "⟧" ;
    ≠  - not equal
    ≤  - less than or equal
    ≥  - greater than or equal
-   ∧  - logical and
-   ∨  - logical or
+   and - logical and
+   or  - logical or
    ¬  - logical not
    ∈  - element of (for iteration)
    true  - true (top)

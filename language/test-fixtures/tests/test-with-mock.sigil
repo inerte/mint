@@ -8,7 +8,7 @@ mockable λfetch_status()→!IO 𝕊="real"
 
 test "with_mock body can compose booleans" →!IO {
   with_mock(fetch_status, λ()→!IO 𝕊="temporary") {
-    fetch_status()="temporary"∧fetch_status()≠"real"
+    fetch_status()="temporary" and fetch_status()≠"real"
   }
 }
 

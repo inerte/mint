@@ -4,8 +4,8 @@ e console
 
 λmain()→𝕌=console.log("All tests passed: " ++ test_le(5,10) ++ ", " ++ test_ge(10,5) ++ ", " ++ test_ne(5,10) ++ ", " ++ ¬test_and(true,false) ++ ", " ++ test_or(true,false))
 
-⟦ Test ∧ and ∨ ⟧
-λtest_and(a:𝔹,b:𝔹)→𝔹=a∧b
+⟦ Test and / or ⟧
+λtest_and(a:𝔹,b:𝔹)→𝔹=a and b
 
 ⟦ Test ≤ and ≥ ⟧
 λtest_ge(a:ℤ,b:ℤ)→𝔹=a≥b
@@ -14,5 +14,5 @@ e console
 ⟦ Test ≠ ⟧
 λtest_ne(a:ℤ,b:ℤ)→𝔹=a≠b
 
-⟦ Test ∧ and ∨ ⟧
-λtest_or(a:𝔹,b:𝔹)→𝔹=a∨b
+⟦ Test and / or ⟧
+λtest_or(a:𝔹,b:𝔹)→𝔹=a or b

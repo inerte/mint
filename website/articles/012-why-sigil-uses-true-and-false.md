@@ -110,7 +110,7 @@ It is becoming stricter about using the forms that best serve AI-generated code.
 
 - the boolean type is still `𝔹`
 - boolean semantics do not change
-- operators like `¬`, `∧`, and `∨` are not part of this decision
+- operators like `¬`, `and`, and `or` are not part of this decision
 
 Only the literal spelling changes.
 

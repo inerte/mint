@@ -55,6 +55,11 @@ If you change syntax, audit all impacted layers:
 - runnable examples/tests/fixtures
 - editor grammar (`tools/vscode-extension`)
 
+Current canonical boolean operators:
+- `and`
+- `or`
+- `¬`
+
 Do not land syntax changes that only update the parser.
 
 ### 2) Preserve canonicality

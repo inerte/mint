@@ -165,7 +165,7 @@ These are proper Sigil tests:
 i stdlib⋅numeric
 
 test "numeric.is_even and is_odd basics" {
-  stdlib⋅numeric.is_even(4)=true∧stdlib⋅numeric.is_odd(5)=true
+  stdlib⋅numeric.is_even(4)=true and stdlib⋅numeric.is_odd(5)=true
 }
 ```
 

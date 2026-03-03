@@ -55,23 +55,23 @@ TestDecl = "test" , StringLiteral , "{" , Expr , "}" ;
 
 // tests/fibonacci.test.sigil
 test "fibonacci base cases"{
-  assert_eq(0,fibonacci(0))∧
+  assert_eq(0,fibonacci(0)) and 
   assert_eq(1,fibonacci(1))
 }
 
 test "fibonacci known values"{
-  assert_eq(5,fibonacci(5))∧
-  assert_eq(55,fibonacci(10))∧
+  assert_eq(5,fibonacci(5)) and 
+  assert_eq(55,fibonacci(10)) and 
   assert_eq(6765,fibonacci(20))
 }
 
 test "fibonacci properties"{
-  property("recurrence",gen_int(2,100),λn→fibonacci(n)=fibonacci(n-1)+fibonacci(n-2))∧
+  property("recurrence",gen_int(2,100),λn→fibonacci(n)=fibonacci(n-1)+fibonacci(n-2)) and 
   property("monotonic",gen_int(0,100),λn→fibonacci(n+1)≥fibonacci(n))
 }
 
 test "fibonacci edge cases"{
-  assert_err(fibonacci(-1))∧
+  assert_err(fibonacci(-1)) and 
   assert_ok(fibonacci(0))
 }
 ```
@@ -137,12 +137,12 @@ From `std/test` module (auto-imported in test files):
 
 ### Combining Assertions
 
-Use `∧` (logical AND) to combine assertions in a single test:
+Use `and` (logical AND) to combine assertions in a single test:
 
 ```sigil
 test "user validation"{
-  assert_eq("Alice",user.name)∧
-  assert_eq(25,user.age)∧
+  assert_eq("Alice",user.name) and
+  assert_eq(25,user.age) and
   assert_true(user.active)
 }
 ```
@@ -170,9 +170,9 @@ test "user validation"{
 ```sigil
 test "list reverse properties"{
   property("reverse twice is identity",gen_list(gen_int(0,100),0,20),
-    λlist→reverse(reverse(list))=list)∧
+    λlist→reverse(reverse(list))=list) and
   property("reverse length unchanged",gen_list(gen_int(0,100),0,20),
-    λlist→length(reverse(list))=length(list))∧
+    λlist→length(reverse(list))=length(list)) and
   property("reverse empty is empty",gen_list(gen_int(0,100),0,0),
     λlist→reverse([])=[])
 }
@@ -479,9 +479,9 @@ test "E2E checkout flow - happy path"{
       l cart2=add_to_cart(cart,{id:1,name:"Widget",price:10})
       l order_result=checkout(cart2,{card:"credit_card_123",email:"user@example.com"})
 
-      assert_ok(order_result)∧
-      assert_eq("tx_456",order_result.transaction_id)∧
-      assert_eq(1,count_emails_sent())∧
+      assert_ok(order_result) and 
+      assert_eq("tx_456",order_result.transaction_id) and 
+      assert_eq(1,count_emails_sent()) and 
       assert_eq(9,get_inventory_count(1))  // Was 10, now 9
     }
   }
@@ -492,7 +492,7 @@ test "E2E checkout flow - out of stock"{
   l cart2=add_to_cart(cart,{id:99,name:"Rare Item",price:1000})
   l order_result=checkout(cart2,{card:"card_123",email:"user@example.com"})
 
-  assert_err(order_result)∧
+  assert_err(order_result) and 
   assert_contains("out of stock",order_result.error.msg)
 }
 ```
@@ -512,7 +512,7 @@ test "E2E checkout flow - out of stock"{
 
 ```sigil
 test "fibonacci performance"{
-  assert_faster_than(1ms,λ→fibonacci(10))∧
+  assert_faster_than(1ms,λ→fibonacci(10)) and 
   assert_faster_than(100ms,λ→fibonacci(20))
 }
 

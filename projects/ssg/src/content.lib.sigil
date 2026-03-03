@@ -1,0 +1,360 @@
+t LinkParts={fragment:𝕊,path:𝕊}
+
+i src⋅types
+i stdlib⋅markdown
+i stdlib⋅string
+
+λadd_article_aliases(page:src⋅types.SitePage,routes:[src⋅types.AliasRoute])→[src⋅types.AliasRoute]=
+  l bare_slug=(strip_numeric_prefix(page.meta.slug):𝕊);
+  match bare_slug=page.meta.slug{
+    true→routes|
+    false→routes
+      ⧺[{alias:"/articles/"++bare_slug,route:canonical_route(page)}]
+      ⧺[{alias:"/articles/"++bare_slug++"/",route:canonical_route(page)}]
+  }
+
+λadd_known_aliases(page:src⋅types.SitePage,routes:[src⋅types.AliasRoute])→[src⋅types.AliasRoute] match page.section{
+  src⋅types.Article()→add_article_aliases(page,routes)|
+  src⋅types.Doc()→match page.meta.slug{
+    "philosophy"→routes⧺[{alias:"/about/philosophy",route:canonical_route(page)}]|
+    _→routes
+  }|
+  _→routes
+}
+
+λalias_routes_for_page(page:src⋅types.SitePage)→[src⋅types.AliasRoute]=
+  l route=(canonical_route(page):𝕊);
+  l base_routes=([
+    {alias:page.source_path,route:route},
+    {alias:"/"++page.source_path,route:route},
+    {alias:route,route:route}
+  ]:[src⋅types.AliasRoute]);
+  l with_source_dir=(match page.source_path{
+    "website/articles/README.md"→base_routes
+      ⧺[{alias:"website/articles",route:route}]
+      ⧺[{alias:"website/articles/",route:route}]|
+    _→base_routes
+  }:[src⋅types.AliasRoute]);
+  l with_trailing=(match route{
+    "/"→with_source_dir|
+    _→with_source_dir⧺[{alias:trim_trailing_slash(route),route:route}]
+  }:[src⋅types.AliasRoute]);
+  add_known_aliases(page,with_trailing)
+
+λbase_path_prefix(base_path:𝕊,route:𝕊)→𝕊 match base_path{
+  "/"→route|
+  ""→route|
+  _→trim_trailing_slash(base_path)++route
+}
+
+λblank_page(markdown:𝕊,meta:src⋅types.PageMeta,output_dir:𝕊,section:src⋅types.Section,source_path:𝕊)→src⋅types.SitePage={
+  body_html:"",
+  body_markdown:markdown,
+  meta:meta,
+  output_dir:output_dir,
+  section:section,
+  source_path:source_path
+}
+
+λbuild_alias_routes(data:src⋅types.SiteData)→[src⋅types.AliasRoute]=
+  l home_routes=(alias_routes_for_page(data.home):[src⋅types.AliasRoute]);
+  l intro_routes=(alias_routes_for_page(data.articles_intro):[src⋅types.AliasRoute]);
+  l article_routes=(pages_alias_routes(data.articles):[src⋅types.AliasRoute]);
+  l doc_routes=(pages_alias_routes(data.docs):[src⋅types.AliasRoute]);
+  l spec_routes=(pages_alias_routes(data.spec):[src⋅types.AliasRoute]);
+  home_routes⧺intro_routes⧺article_routes⧺doc_routes⧺spec_routes
+
+λcanonical_route(page:src⋅types.SitePage)→𝕊 match page.output_dir{
+  ""→"/"|
+  dir→"/"++dir++"/"
+}
+
+λcompare_article_pages(left:src⋅types.SitePage,right:src⋅types.SitePage)→𝔹=
+  l left_key=(date_sort_key(left.meta.date):ℤ);
+  l right_key=(date_sort_key(right.meta.date):ℤ);
+  match left_key=right_key{
+    true→compare_text(right.source_path,left.source_path)|
+    false→left_key>right_key
+  }
+
+λcompare_text(left:𝕊,right:𝕊)→𝔹=
+  compare_text_inner(
+    0,
+    stdlib⋅string.to_lower(left),
+    stdlib⋅string.to_lower(right)
+  )
+
+λcompare_text_inner(idx:ℤ,left:𝕊,right:𝕊)→𝔹 match idx≥#left{
+  true→idx<#right|
+  false→match idx≥#right{
+    true→false|
+    false→
+      l left_rank=(sort_char_rank(stdlib⋅string.char_at(idx,left)):ℤ);
+      l right_rank=(sort_char_rank(stdlib⋅string.char_at(idx,right)):ℤ);
+      match left_rank=right_rank{
+        true→compare_text_inner(idx+1,left,right)|
+        false→left_rank<right_rank
+      }
+  }
+}
+
+λcompare_title_pages(left:src⋅types.SitePage,right:src⋅types.SitePage)→𝔹=
+  compare_text(left.meta.slug,right.meta.slug)
+
+λdate_sort_key(date:𝕊)→ℤ match stdlib⋅string.split(" ",date){
+  [month,day_with_comma,year]→
+    l day_text=(stdlib⋅string.replace_all(",","",day_with_comma):𝕊);
+    l month_value=(month_number(month):ℤ);
+    l day_value=(parse_int(day_text):ℤ);
+    l year_value=(parse_int(year):ℤ);
+    match month_value=0 or day_value=0 or year_value=0{
+      true→0|
+      false→(year_value*10000)+(month_value*100)+day_value
+    }|
+  _→0
+}
+
+λdrop_last(parts:[𝕊])→[𝕊] match parts{
+  []→[]|
+  [part,.rest]→match rest{
+    []→[]|
+    _→[part]⧺drop_last(rest)
+  }
+}
+
+λdrop_numeric_prefix(slug:𝕊)→𝕊 match #slug>4 and stdlib⋅string.is_digit(stdlib⋅string.char_at(0,slug)) and stdlib⋅string.is_digit(stdlib⋅string.char_at(1,slug)) and stdlib⋅string.is_digit(stdlib⋅string.char_at(2,slug)) and stdlib⋅string.char_at(3,slug)="-"{
+  true→stdlib⋅string.substring(#slug,slug,4)|
+  false→slug
+}
+
+λfile_dir(path:𝕊)→𝕊=stdlib⋅string.join("/",drop_last(stdlib⋅string.split("/",path)))
+
+λfind_link_close(after_open:𝕊)→ℤ=stdlib⋅string.index_of(after_open,")")
+
+λint_of_digit(ch:𝕊)→ℤ match ch{
+  "0"→0|
+  "1"→1|
+  "2"→2|
+  "3"→3|
+  "4"→4|
+  "5"→5|
+  "6"→6|
+  "7"→7|
+  "8"→8|
+  "9"→9|
+  _→-1
+}
+
+λis_external_link(target:𝕊)→𝔹=
+  stdlib⋅string.starts_with("#",target) or
+  stdlib⋅string.starts_with("http://",target) or
+  stdlib⋅string.starts_with("https://",target) or
+  stdlib⋅string.starts_with("mailto:",target)
+
+λlookup_alias(alias:𝕊,alias_routes:[src⋅types.AliasRoute])→𝕊 match alias_routes{
+  []→""|
+  [route,.rest]→match route.alias=alias{
+    true→route.route|
+    false→lookup_alias(alias,rest)
+  }
+}
+
+λmonth_number(month:𝕊)→ℤ match month{
+  "January"→1|
+  "February"→2|
+  "March"→3|
+  "April"→4|
+  "May"→5|
+  "June"→6|
+  "July"→7|
+  "August"→8|
+  "September"→9|
+  "October"→10|
+  "November"→11|
+  "December"→12|
+  _→0
+}
+
+λnormalize_repo_path(path:𝕊)→𝕊=
+  stdlib⋅string.join("/",normalize_segments(stdlib⋅string.split("/",path),[]))
+
+λnormalize_segments(parts:[𝕊],stack:[𝕊])→[𝕊] match parts{
+  []→stack|
+  [part,.rest]→match part{
+    ""→normalize_segments(rest,stack)|
+    "."→normalize_segments(rest,stack)|
+    ".."→normalize_segments(rest,drop_last(stack))|
+    _→normalize_segments(rest,stack⧺[part])
+  }
+}
+
+λpages_alias_routes(pages:[src⋅types.SitePage])→[src⋅types.AliasRoute] match pages{
+  []→[]|
+  [page,.rest]→
+    l current=(alias_routes_for_page(page):[src⋅types.AliasRoute]);
+    l remaining=(pages_alias_routes(rest):[src⋅types.AliasRoute]);
+    current⧺remaining
+}
+
+λpages_newest_first(pages:[src⋅types.SitePage])→[src⋅types.SitePage]=sort_pages_inner(compare_article_pages,pages)
+
+λpages_sorted_by_title(pages:[src⋅types.SitePage])→[src⋅types.SitePage]=sort_pages_inner(compare_title_pages,pages)
+
+λparse_int(text:𝕊)→ℤ=parse_int_inner(0,0,text)
+
+λparse_int_inner(acc:ℤ,idx:ℤ,text:𝕊)→ℤ match idx≥#text{
+  true→acc|
+  false→
+    l digit=(int_of_digit(stdlib⋅string.char_at(idx,text)):ℤ);
+    match digit<0{
+      true→0|
+      false→parse_int_inner((acc*10)+digit,idx+1,text)
+    }
+}
+
+λrender_page(alias_routes:[src⋅types.AliasRoute],base_path:𝕊,page:src⋅types.SitePage)→src⋅types.SitePage=
+  l rewritten=(rewrite_internal_links(alias_routes,base_path,page.body_markdown,page.source_path):𝕊);
+  {
+    body_html:stdlib⋅markdown.parse(rewritten),
+    body_markdown:page.body_markdown,
+    meta:page.meta,
+    output_dir:page.output_dir,
+    section:page.section,
+    source_path:page.source_path
+  }
+
+λresolve_repo_path(source_path:𝕊,target_path:𝕊)→𝕊 match stdlib⋅string.starts_with("/",target_path){
+  true→normalize_repo_path(stdlib⋅string.substring(#target_path,target_path,1))|
+  false→match stdlib⋅string.starts_with("../docs/",target_path){
+    true→normalize_repo_path("language/docs/"++stdlib⋅string.substring(#target_path,target_path,8))|
+    false→match stdlib⋅string.starts_with("../language/",target_path){
+      true→normalize_repo_path(stdlib⋅string.substring(#target_path,target_path,3))|
+      false→match #file_dir(source_path)>0{
+        true→normalize_repo_path(file_dir(source_path)++"/"++target_path)|
+        false→normalize_repo_path(target_path)
+      }
+    }
+  }
+}
+
+λrewrite_internal_links(alias_routes:[src⋅types.AliasRoute],base_path:𝕊,markdown:𝕊,source_path:𝕊)→𝕊=
+  l open_idx=(stdlib⋅string.index_of(markdown,"]("):ℤ);
+  match open_idx<0{
+    true→markdown|
+    false→
+      l before=(stdlib⋅string.substring(open_idx+2,markdown,0):𝕊);
+      l after_open=(stdlib⋅string.substring(#markdown,markdown,open_idx+2):𝕊);
+      l close_idx=(find_link_close(after_open):ℤ);
+      match close_idx<0{
+        true→markdown|
+        false→
+          l target=(stdlib⋅string.substring(close_idx,after_open,0):𝕊);
+          l after=(stdlib⋅string.substring(#after_open,after_open,close_idx+1):𝕊);
+          before++rewrite_link_target(alias_routes,base_path,source_path,target)++")"++rewrite_internal_links(alias_routes,base_path,after,source_path)
+      }
+  }
+
+λrewrite_link_target(alias_routes:[src⋅types.AliasRoute],base_path:𝕊,source_path:𝕊,target:𝕊)→𝕊 match is_external_link(target){
+  true→target|
+  false→
+    l parts=(split_link_parts(target):LinkParts);
+    l direct=(lookup_alias(parts.path,alias_routes):𝕊);
+    match #direct>0{
+      true→base_path_prefix(base_path,direct)++parts.fragment|
+      false→
+        l repo_path=(resolve_repo_path(source_path,parts.path):𝕊);
+        l resolved=(lookup_alias(repo_path,alias_routes):𝕊);
+        match #resolved>0{
+          true→base_path_prefix(base_path,resolved)++parts.fragment|
+          false→target
+        }
+    }
+}
+
+λsection_name(section:src⋅types.Section)→𝕊 match section{
+  src⋅types.Article()→"Articles"|
+  src⋅types.Doc()→"Docs"|
+  src⋅types.Home()→"Home"|
+  src⋅types.Spec()→"Spec"
+}
+
+λsort_char_rank(ch:𝕊)→ℤ match ch{
+  "-"→0|
+  "."→1|
+  "/"→2|
+  "0"→10|
+  "1"→11|
+  "2"→12|
+  "3"→13|
+  "4"→14|
+  "5"→15|
+  "6"→16|
+  "7"→17|
+  "8"→18|
+  "9"→19|
+  "a"→30|
+  "b"→31|
+  "c"→32|
+  "d"→33|
+  "e"→34|
+  "f"→35|
+  "g"→36|
+  "h"→37|
+  "i"→38|
+  "j"→39|
+  "k"→40|
+  "l"→41|
+  "m"→42|
+  "n"→43|
+  "o"→44|
+  "p"→45|
+  "q"→46|
+  "r"→47|
+  "s"→48|
+  "t"→49|
+  "u"→50|
+  "v"→51|
+  "w"→52|
+  "x"→53|
+  "y"→54|
+  "z"→55|
+  _→90
+}
+
+λsort_insert(compare:λ(src⋅types.SitePage,src⋅types.SitePage)→𝔹,page:src⋅types.SitePage,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
+  []→[page]|
+  [head,.rest]→match compare(page,head){
+    true→[page,head]⧺rest|
+    false→[head]⧺sort_insert(compare,page,rest)
+  }
+}
+
+λsort_pages_inner(compare:λ(src⋅types.SitePage,src⋅types.SitePage)→𝔹,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
+  []→[]|
+  [page,.rest]→sort_insert(compare,page,sort_pages_inner(compare,rest))
+}
+
+λsplit_link_parts(target:𝕊)→LinkParts=
+  l fragment_idx=(stdlib⋅string.index_of(target,"#"):ℤ);
+  match fragment_idx<0{
+    true→{fragment:"",path:target}|
+    false→{
+      fragment:stdlib⋅string.substring(#target,target,fragment_idx),
+      path:stdlib⋅string.substring(fragment_idx,target,0)
+    }
+  }
+
+λstrip_numeric_prefix(slug:𝕊)→𝕊=drop_numeric_prefix(slug)
+
+λtake_first(count:ℤ,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match count≤0{
+  true→[]|
+  false→match pages{
+    []→[]|
+    [page,.rest]→[page]⧺take_first(count-1,rest)
+  }
+}
+
+λtrim_trailing_slash(path:𝕊)→𝕊 match (#path>1) and stdlib⋅string.ends_with(path,"/"){
+  true→trim_trailing_slash(stdlib⋅string.substring(#path-1,path,0))|
+  false→path
+}

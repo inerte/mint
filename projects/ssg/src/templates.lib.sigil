@@ -1,7 +1,142 @@
+i src⋅content
 i src⋅types
 
-λarticle(html:𝕊,meta:src⋅types.ArticleMeta)→𝕊=
-  "<html><body>"++html++"</body></html>"
+λarticle_listing(config:src⋅types.SiteBuildConfig,pages:[src⋅types.SitePage])→𝕊=
+  "<section class=\"listing\"><h2>Latest Articles</h2><ul class=\"page-list\">"++page_cards(config,pages)++"</ul></section>"
 
-λindex(articles:[src⋅types.Article])→𝕊=
-  "<html><body>Index</body></html>"
+λarticle_page(config:src⋅types.SiteBuildConfig,page:src⋅types.SitePage)→𝕊=
+  shell(
+    source_link(config,page),
+    config,
+    breadcrumb(config,page),
+    page.body_html,
+    detail_meta(page),
+    page.meta.title
+  )
+
+λarticles_index(config:src⋅types.SiteBuildConfig,intro_html:𝕊,pages:[src⋅types.SitePage])→𝕊=
+  shell(
+    "",
+    config,
+    section_intro("Design notes and language decisions published from the repo.","Articles"),
+    intro_html++article_listing(config,pages),
+    "",
+    "Articles"
+  )
+
+λbreadcrumb(config:src⋅types.SiteBuildConfig,page:src⋅types.SitePage)→𝕊=
+  "<nav class=\"breadcrumb\"><a href=\""++site_url(config.base_path,"/")++"\">Home</a><span>/</span><a href=\""++section_url(config.base_path,page.section)++"\">"++src⋅content.section_name(page.section)++"</a></nav>"
+
+λdetail_meta(page:src⋅types.SitePage)→𝕊=
+  l author=(page.meta.author:𝕊);
+  l date=(page.meta.date:𝕊);
+  match (#author>0) or (#date>0){
+    true→"<p class=\"page-meta\">"++detail_meta_value(author,date)++"</p>"|
+    false→""
+  }
+
+λdetail_meta_value(author:𝕊,date:𝕊)→𝕊 match (#author>0) and (#date>0){
+  true→date++" · "++author|
+  false→match #date>0{
+    true→date|
+    false→author
+  }
+}
+
+λdocs_index(config:src⋅types.SiteBuildConfig,pages:[src⋅types.SitePage])→𝕊=
+  shell(
+    "",
+    config,
+    section_intro("Reference docs rendered directly from language/docs.","Docs"),
+    "<section class=\"listing\"><ul class=\"page-list\">"++page_cards(config,pages)++"</ul></section>",
+    "",
+    "Docs"
+  )
+
+λfooter(config:src⋅types.SiteBuildConfig)→𝕊 match #config.repo_url>0{
+  true→"<footer class=\"site-footer\"><a href=\""++config.repo_url++"\">GitHub</a></footer>"|
+  false→"<footer class=\"site-footer\">Sigil</footer>"
+}
+
+λgithub_nav(config:src⋅types.SiteBuildConfig)→𝕊 match #config.repo_url>0{
+  true→"<a href=\""++config.repo_url++"\">GitHub</a>"|
+  false→""
+}
+
+λhome_page(articles:[src⋅types.SitePage],config:src⋅types.SiteBuildConfig,docs:[src⋅types.SitePage],home:src⋅types.SitePage,spec:[src⋅types.SitePage])→𝕊=
+  shell(
+    "",
+    config,
+    section_intro(config.site_description,config.site_title),
+    "<div class=\"home-grid\">"++section_card("Design notes, decisions, and change logs.",config,"Browse articles","Articles","/articles/")++section_card("Language guides and reference material.",config,"Read docs","Docs","/docs/")++section_card("Normative language and stdlib specifications.",config,"Read spec","Spec","/spec/")++"</div>"++home.body_html++latest_articles(articles,config)++reference_lists(config,docs,spec),
+    "",
+    home.meta.title
+  )
+
+λlatest_articles(articles:[src⋅types.SitePage],config:src⋅types.SiteBuildConfig)→𝕊=
+  "<section class=\"listing\"><h2>Latest Articles</h2><ul class=\"page-list\">"++page_cards(config,src⋅content.take_first(5,articles))++"</ul></section>"
+
+λnav(config:src⋅types.SiteBuildConfig)→𝕊=
+  "<header class=\"site-header\"><div class=\"site-brand\"><a href=\""++site_url(config.base_path,"/")++"\">"++config.site_title++"</a></div><nav class=\"site-nav\"><a href=\""++site_url(config.base_path,"/articles/")++"\">Articles</a><a href=\""++site_url(config.base_path,"/docs/")++"\">Docs</a><a href=\""++site_url(config.base_path,"/spec/")++"\">Spec</a>"++github_nav(config)++"</nav></header>"
+
+λnot_found_page(config:src⋅types.SiteBuildConfig)→𝕊=
+  shell(
+    "",
+    config,
+    section_intro("The requested route does not exist.","Page not found"),
+    "<p><a href=\""++site_url(config.base_path,"/")++"\">Return home</a></p>",
+    "",
+    "Not Found"
+  )
+
+λpage_card(config:src⋅types.SiteBuildConfig,page:src⋅types.SitePage)→𝕊=
+  "<li class=\"page-card\"><a class=\"page-link\" href=\""++site_url(config.base_path,src⋅content.canonical_route(page))++"\">"++page.meta.title++"</a>"++page_card_meta(page)++"</li>"
+
+λpage_card_meta(page:src⋅types.SitePage)→𝕊 match #page.meta.date>0{
+  true→"<div class=\"page-card-meta\">"++page.meta.date++"</div>"|
+  false→""
+}
+
+λpage_cards(config:src⋅types.SiteBuildConfig,pages:[src⋅types.SitePage])→𝕊 match pages{
+  []→""|
+  [page,.rest]→page_card(config,page)++page_cards(config,rest)
+}
+
+λreference_list(config:src⋅types.SiteBuildConfig,heading:𝕊,pages:[src⋅types.SitePage])→𝕊=
+  "<section class=\"listing compact\"><h2>"++heading++"</h2><ul class=\"page-list\">"++page_cards(config,src⋅content.take_first(6,pages))++"</ul></section>"
+
+λreference_lists(config:src⋅types.SiteBuildConfig,docs:[src⋅types.SitePage],spec:[src⋅types.SitePage])→𝕊=
+  "<div class=\"home-grid secondary\">"++reference_list(config,"Docs",docs)++reference_list(config,"Spec",spec)++"</div>"
+
+λsection_card(body:𝕊,config:src⋅types.SiteBuildConfig,cta:𝕊,heading:𝕊,route:𝕊)→𝕊=
+  "<section class=\"section-card\"><h2>"++heading++"</h2><p>"++body++"</p><a class=\"cta\" href=\""++site_url(config.base_path,route)++"\">"++cta++"</a></section>"
+
+λsection_intro(body:𝕊,title:𝕊)→𝕊=
+  "<section class=\"section-intro\"><h1>"++title++"</h1><p>"++body++"</p></section>"
+
+λsection_url(base_path:𝕊,section:src⋅types.Section)→𝕊 match section{
+  src⋅types.Article()→site_url(base_path,"/articles/")|
+  src⋅types.Doc()→site_url(base_path,"/docs/")|
+  src⋅types.Home()→site_url(base_path,"/")|
+  src⋅types.Spec()→site_url(base_path,"/spec/")
+}
+
+λshell(aside:𝕊,config:src⋅types.SiteBuildConfig,intro:𝕊,main_html:𝕊,meta:𝕊,title:𝕊)→𝕊=
+  "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>"++title++" · "++config.site_title++"</title><meta name=\"description\" content=\""++config.site_description++"\"><link rel=\"stylesheet\" href=\""++site_url(config.base_path,"/assets/site.css")++"\"></head><body><div class=\"site-shell\">"++nav(config)++"<main class=\"site-main\">"++intro++meta++"<article class=\"prose\">"++main_html++"</article>"++aside++"</main>"++footer(config)++"</div></body></html>"
+
+λsite_url(base_path:𝕊,route:𝕊)→𝕊=src⋅content.base_path_prefix(base_path,route)
+
+λsource_link(config:src⋅types.SiteBuildConfig,page:src⋅types.SitePage)→𝕊 match #config.repo_url>0{
+  true→"<p class=\"source-link\"><a href=\""++config.repo_url++"/blob/main/"++page.source_path++"\">View source on GitHub</a></p>"|
+  false→""
+}
+
+λspec_index(config:src⋅types.SiteBuildConfig,pages:[src⋅types.SitePage])→𝕊=
+  shell(
+    "",
+    config,
+    section_intro("Normative language and stdlib specifications rendered from language/spec.","Spec"),
+    "<section class=\"listing\"><ul class=\"page-list\">"++page_cards(config,pages)++"</ul></section>",
+    "",
+    "Spec"
+  )

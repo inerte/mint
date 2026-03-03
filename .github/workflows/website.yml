@@ -1,0 +1,88 @@
+name: website
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/website.yml"
+      - "language/compiler/**"
+      - "language/docs/**"
+      - "language/spec/**"
+      - "projects/ssg/**"
+      - "website/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/website.yml"
+      - "language/compiler/**"
+      - "language/docs/**"
+      - "language/spec/**"
+      - "projects/ssg/**"
+      - "website/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-site:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Build sigil-cli
+        run: cargo build --manifest-path language/compiler/Cargo.toml -p sigil-cli
+
+      - name: Test SSG helpers
+        run: language/compiler/target/debug/sigil test projects/ssg/tests
+
+      - name: Build website
+        env:
+          sigil_site_base_path: /${{ github.event.repository.name }}/
+          sigil_site_repo_url: https://github.com/${{ github.repository }}
+        run: language/compiler/target/debug/sigil run projects/ssg/src/main.sigil
+
+      - name: Verify site output
+        run: |
+          test -f website/.local/site/index.html
+          test -f website/.local/site/articles/index.html
+          test -f website/.local/site/docs/index.html
+          test -f website/.local/site/spec/index.html
+          test -f website/.local/site/assets/site.css
+          rg "Articles|Docs|Spec" website/.local/site/index.html
+
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/.local/site
+
+  deploy-pages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs:
+      - build-site
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4

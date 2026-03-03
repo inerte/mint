@@ -1,17 +1,21 @@
 # Sigil Website
 
-This folder contains the Sigil language website content (GitHub Pages target).
+This website is built from markdown that already lives in the repo. Docs stay in `language/docs`, the spec stays in `language/spec`, and articles stay in `website/articles`; the site generator renders those files in place instead of keeping a mirrored copy.
 
-It is intentionally separate from:
-- `language/` (compiler + language docs/tooling)
-- `projects/` (canonical Sigil example projects)
+## Sections
 
-## Contents
+- [articles/](./articles/) - Design articles documenting language evolution and decisions
+- [language/docs/](../language/docs/) - Reference docs rendered into the site
+- [language/spec/](../language/spec/) - Normative language and stdlib specs rendered into the site
 
-- **[articles/](./articles/)** - Design articles documenting language evolution and decisions
+## Build
 
-## Latest Article
+```bash
+language/compiler/target/debug/sigil run projects/ssg/src/main.sigil
+```
 
-📝 **[Why Sigil Bans Shadowing](./articles/015-why-sigil-bans-shadowing.md)** (March 3, 2026)
+Generated output goes to `website/.local/site/`.
 
-Why Sigil rejects local shadowing so one local name keeps one meaning for both safer refactoring and more deterministic AI-generated code
+## Homepage
+
+The built homepage also includes generated article, docs, and spec indexes so the rendered site stays in sync with repo content automatically.

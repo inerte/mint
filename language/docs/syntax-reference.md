@@ -76,6 +76,12 @@ Within each category:
 
 See [CANONICAL_FORMS.md](./CANONICAL_FORMS.md) for enforcement rules.
 
+Module scope is declaration-only:
+- valid: `t`, `e`, `i`, `c`, `λ`, `mockable λ`, `test`
+- invalid: `l`
+
+`l` is a local expression form, not a top-level declaration. Use `c` for immutable module-level values, or move setup bindings inside `main()` or another function body.
+
 ## Function declarations
 
 ```sigil

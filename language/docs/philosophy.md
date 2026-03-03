@@ -118,6 +118,22 @@ Both compile to `async function`. ALL calls use `await`. No choice, no ambiguity
 - **Future-proof** - Ecosystem moving toward async-first anyway
 - **No mental overhead** - Never decide "should this be async?"
 
+### Declaration-Only Module Scope
+
+Sigil modules do not contain ambient mutable state.
+
+Module scope is declaration-only:
+- `t`
+- `e`
+- `i`
+- `c`
+- `λ`
+- `test`
+
+Local bindings (`l`) belong inside expressions and function bodies, not at top level.
+
+This keeps module interfaces explicit and prevents hidden writable state from becoming part of the language surface. For Claude Code and Codex, that means fewer invisible dependencies and less context-sensitive state to reason about.
+
 **Trade-offs:**
 - Slight performance overhead on pure functions (~microseconds)
 - Requires ES2022+ (top-level await)

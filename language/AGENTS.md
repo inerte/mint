@@ -60,6 +60,12 @@ Current canonical boolean operators:
 - `or`
 - `¬`
 
+Module scope is declaration-only:
+- valid top-level forms: `t`, `e`, `i`, `c`, `λ`, `mockable λ`, `test`
+- never generate top-level `l`
+- use `c` for immutable module-level values
+- move setup bindings inside `main()` or another function body
+
 Do not land syntax changes that only update the parser.
 
 ### 2) Preserve canonicality

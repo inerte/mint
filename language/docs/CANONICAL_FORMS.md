@@ -320,7 +320,36 @@ t User = { name: 𝕊, age: ℤ }
 **Within-category ordering:**
 - Alphabetically by name within each category
 
-#### Rule 6: Parameter Alphabetical Ordering
+#### Rule 6: Module Scope Is Declaration-Only
+
+Top-level Sigil code may only contain declarations.
+
+**Valid at module scope:**
+- `t`
+- `e`
+- `i`
+- `c`
+- `λ`
+- `mockable λ`
+- `test`
+
+**Invalid at module scope:**
+- `l`
+
+```sigil
+✅ VALID - immutable module constant:
+c config=("prod":𝕊)
+λmain()→𝕌=()
+
+❌ REJECTED - top-level local binding:
+l config=("prod":𝕊)
+λmain()→𝕌=()
+⟦ Error: Module scope is declaration-only ⟧
+```
+
+Use `c` for immutable module-level values. Use `l` only inside function bodies, test bodies, or nested expressions.
+
+#### Rule 7: Parameter Alphabetical Ordering
 
 Function parameters must be in alphabetical order by name.
 
@@ -363,7 +392,7 @@ Reorder parameters: a, b, c
 Sigil enforces ONE WAY: canonical parameter ordering.
 ```
 
-#### Rule 7: Effect Alphabetical Ordering
+#### Rule 8: Effect Alphabetical Ordering
 
 Effect annotations must be in alphabetical order.
 
@@ -427,7 +456,7 @@ Sigil enforces ONE way: canonical declaration ordering.
 
 **Rationale:** Types-first ordering enables typed FFI declarations to reference named types. This is a language design choice that prioritizes correctness over convenience.
 
-#### Rule 8: Mandatory Type Ascription
+#### Rule 9: Mandatory Type Ascription
 
 Let binding values and const declarations MUST use type ascription syntax.
 

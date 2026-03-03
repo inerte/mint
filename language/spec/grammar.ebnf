@@ -32,6 +32,9 @@ TopLevelDecl = TypeDecl
              | ConstDecl
              | FunctionDecl ;
 
+(* Module scope is declaration-only.
+   Local bindings use LetExpr and are only valid inside expressions, never as TopLevelDecl. *)
+
 (* ============================================================================ *)
 (* IMPORTS                                                                      *)
 (* ============================================================================ *)

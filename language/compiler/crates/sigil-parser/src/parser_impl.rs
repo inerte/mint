@@ -91,7 +91,7 @@ impl Parser {
             return self.test_declaration();
         }
 
-        Err(self.error("Expected declaration (λ for function, t for type, etc.)"))
+        Err(self.error("Expected top-level declaration (t, e, i, c, λ, mockable λ, or test)"))
     }
 
     fn function_declaration(

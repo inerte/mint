@@ -2,6 +2,7 @@
 
 use sigil_ast::*;
 use sigil_lexer::tokenize;
+use sigil_parser::ParseError;
 use sigil_parser::parse;
 
 // ============================================================================
@@ -186,6 +187,44 @@ fn test_import_declaration() {
             assert_eq!(imp.module_path[1], "list");
         }
         _ => panic!("Expected import declaration"),
+    }
+}
+
+#[test]
+fn test_top_level_let_is_rejected_with_explicit_error() {
+    let source = "l config=(\"prod\":𝕊)\nλmain()→𝕌=()";
+    let tokens = tokenize(source).unwrap();
+    let error = parse(tokens, "test.sigil").unwrap_err();
+
+    match error {
+        ParseError::UnexpectedToken {
+            expected,
+            found,
+            line,
+            column,
+            ..
+        } => {
+            assert!(expected.contains("top-level declaration"));
+            assert_eq!(found, "LET");
+            assert_eq!(line, 1);
+            assert_eq!(column, 1);
+        }
+        other => panic!("Expected UnexpectedToken error, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_local_let_expression_still_parses() {
+    let source = "λmain()→ℤ=l value=(1:ℤ);value";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Function(f) => match &f.body {
+            Expr::Let(_) => {}
+            _ => panic!("Expected let expression in function body"),
+        },
+        _ => panic!("Expected function declaration"),
     }
 }
 

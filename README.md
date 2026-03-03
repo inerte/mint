@@ -8,6 +8,7 @@ This repo contains three distinct things:
 
 ## Start Here
 
+- **Website**: [inerte.github.io/sigil](https://inerte.github.io/sigil/)
 - Language/compiler docs: `language/README.md`
 - Pure Sigil example project: `projects/algorithms/`
 - React + Sigil bridge example: `projects/todo-app/`

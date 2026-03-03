@@ -102,8 +102,6 @@ Unsafe `head` and `tail` remain concrete convenience functions.
 ```sigil
 λclamp(hi:ℤ,lo:ℤ,x:ℤ)→ℤ
 λdivisible(d:ℤ,n:ℤ)→𝔹
-λfactorial(n:ℤ)→ℤ
-λfib(n:ℤ)→ℤ
 λgcd(a:ℤ,b:ℤ)→ℤ
 λin_range(max:ℤ,min:ℤ,x:ℤ)→𝔹
 λis_even(x:ℤ)→𝔹
@@ -116,7 +114,6 @@ Unsafe `head` and `tail` remain concrete convenience functions.
 λmin(a:ℤ,b:ℤ)→ℤ
 λpow(base:ℤ,exp:ℤ)→ℤ
 λrange(start:ℤ,stop:ℤ)→[ℤ]
-λsum_range(a:ℤ,b:ℤ)→ℤ
 ```
 
 ## String Operations

@@ -204,13 +204,13 @@ mod tests {
 
     #[test]
     fn count_error_codes() {
-        // As of implementation: 56 error codes total
-        // 9 lexer + 5 parser + 29 canonical + 2 typecheck + 1 mutability + 8 CLI + 2 runtime = 56
+        // As of implementation: 57 error codes total
+        // 10 lexer + 5 parser + 29 canonical + 2 typecheck + 1 mutability + 8 CLI + 2 runtime = 57
         // (canonical has 29 because both TEST_LOCATION and TEST_PATH exist)
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            56,
-            "Expected 56 error codes, found {}",
+            57,
+            "Expected 57 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

@@ -53,6 +53,12 @@ t IntOption=IntNone|IntSome(ℤ)
   }
 }
 
+⟦ Reduce a list to a single value by threading an accumulator left to right ⟧
+λfold(acc:ℤ,fn:λ(ℤ,ℤ)→ℤ,xs:[ℤ])→ℤ match xs{
+  []→acc|
+  [x,.rest]→fold(fn(acc,x),fn,rest)
+}
+
 ⟦ Get first element of list (unsafe - crashes on empty) ⟧
 λhead(xs:[ℤ])→ℤ match xs{
   [x,.rest]→x
@@ -152,6 +158,12 @@ t IntOption=IntNone|IntSome(ℤ)
     false→false
   }
 }
+
+⟦ Sum all integers in a list ⟧
+λsum(xs:[ℤ])→ℤ=fold(0,sum_step,xs)
+
+⟦ Helper: Add current item into running sum ⟧
+λsum_step(acc:ℤ,x:ℤ)→ℤ=acc+x
 
 ⟦ Get all elements except first (unsafe - crashes on empty) ⟧
 λtail(xs:[ℤ])→[ℤ] match xs{

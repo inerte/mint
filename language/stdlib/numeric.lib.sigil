@@ -4,6 +4,8 @@
    Part of Sigil standard library - canonical implementations only.
 ⟧
 
+i stdlib⋅list
+
 ⟦ Clamp value between min and max ⟧
 λclamp(hi:ℤ,lo:ℤ,x:ℤ)→ℤ=max(lo,min(x,hi))
 
@@ -81,7 +83,7 @@
 }
 
 ⟦ Sum of integers from a to b ⟧
-λsum_range(a:ℤ,b:ℤ)→ℤ match a>b{true→0|false→a+sum_range(a+1,b)}
+λsum_range(a:ℤ,b:ℤ)→ℤ=stdlib⋅list.sum(range(a,b))
 
 ⟦ Sum of integers from 1 to n ⟧
 λsum_to(n:ℤ)→ℤ match n{0→0|value→value+sum_to(value-1)}

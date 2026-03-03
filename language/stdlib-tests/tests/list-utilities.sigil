@@ -1,5 +1,7 @@
 i stdlib⋅list
 
+λappend_digit(acc:ℤ,x:ℤ)→ℤ=acc*10+x
+
 λmain()→𝕌=()
 
 test "list.count counts duplicates" {
@@ -8,6 +10,10 @@ test "list.count counts duplicates" {
 
 test "list.drop clamps naturally" {
   stdlib⋅list.drop(0,[1,2,3])=[1,2,3] and stdlib⋅list.drop(2,[1,2,3,4])=[3,4] and stdlib⋅list.drop(10,[1,2])=[] and stdlib⋅list.drop(-1,[1,2])=[1,2]
+}
+
+test "list.fold reduces left to right" {
+  stdlib⋅list.fold(0,append_digit,[1,2,3])=123 and stdlib⋅list.fold(9,append_digit,[])=9
 }
 
 test "list.last returns option" {
@@ -24,6 +30,10 @@ test "list.remove_first removes only first match" {
 
 test "list.reverse reverses list" {
   stdlib⋅list.reverse([])=[] and stdlib⋅list.reverse([1])=[1] and stdlib⋅list.reverse([1,2,3])=[3,2,1]
+}
+
+test "list.sum sums integer lists" {
+  stdlib⋅list.sum([])=0 and stdlib⋅list.sum([1,2,3,4])=10 and stdlib⋅list.sum([5,-2,1])=4
 }
 
 test "list.take clamps naturally" {

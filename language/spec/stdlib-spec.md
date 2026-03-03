@@ -73,6 +73,7 @@ t Result[T,E]=Ok(T)|Err(E)
 λcontains(item:ℤ,xs:[ℤ])→𝔹
 λcount(item:ℤ,xs:[ℤ])→ℤ
 λdrop(n:ℤ,xs:[ℤ])→[ℤ]
+λfold(acc:ℤ,fn:λ(ℤ,ℤ)→ℤ,xs:[ℤ])→ℤ
 λhead(xs:[ℤ])→ℤ
 λin_bounds(idx:ℤ,xs:[ℤ])→𝔹
 λis_empty(xs:[ℤ])→𝔹
@@ -84,6 +85,7 @@ t Result[T,E]=Ok(T)|Err(E)
 λreverse(xs:[ℤ])→[ℤ]
 λsorted_asc(xs:[ℤ])→𝔹
 λsorted_desc(xs:[ℤ])→𝔹
+λsum(xs:[ℤ])→ℤ
 λtail(xs:[ℤ])→[ℤ]
 λtake(n:ℤ,xs:[ℤ])→[ℤ]
 ```

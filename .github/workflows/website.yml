@@ -65,7 +65,7 @@ jobs:
           test -f website/.local/site/docs/index.html
           test -f website/.local/site/spec/index.html
           test -f website/.local/site/assets/site.css
-          rg "Articles|Docs|Spec" website/.local/site/index.html
+          grep -Eq "Articles|Docs|Spec" website/.local/site/index.html
 
       - name: Upload Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

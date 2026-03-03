@@ -23,7 +23,7 @@ i src⋅int-list-helpers
 
 λmerge_all_runs_count(run_count:ℤ,runs:[[ℤ]])→[ℤ] match run_count≤1{
   true→first_run(runs)|
-  false→merge_all_runs_count((run_count/2)+(run_count%2),merge_pairs(runs))
+  false→merge_all_runs_count(next_run_count(run_count),merge_pairs(runs))
 }
 
 λmerge_pairs(runs:[[ℤ]])→[[ℤ]] match runs{
@@ -43,6 +43,12 @@ i src⋅int-list-helpers
 }
 
 λmerge_sort(xs:[ℤ])→[ℤ]=merge_all_runs(singletons(xs))
+
+λnext_run_count(run_count:ℤ)→ℤ match run_count{
+  0→0|
+  1→1|
+  _→1+next_run_count(run_count-2)
+}
 
 λsingletons(xs:[ℤ])→[[ℤ]] match xs{
   []→[]|

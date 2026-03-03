@@ -347,7 +347,7 @@ impl TypeScriptGenerator {
             self.emit(&format!("import {{ {} }} from '{}';", member_names.join(", "), module_path));
         } else {
             // Import entire namespace
-            let namespace = extern_decl.module_path.last().unwrap();
+            let namespace = sanitize_js_identifier(&extern_decl.module_path.join("_"));
             self.emit(&format!("import * as {} from '{}';", namespace, module_path));
         }
 
@@ -625,7 +625,7 @@ impl TypeScriptGenerator {
         } else if bin.operator == BinaryOperator::NotEqual {
             Ok(format!("!__sigil_deep_equal({}, {})", left, right))
         } else if bin.operator == BinaryOperator::ListAppend {
-            Ok(format!("{}.concat({})", left, right))
+            Ok(format!("({}).concat({})", left, right))
         } else {
             Ok(format!("({} {} {})", left, op, right))
         }
@@ -724,18 +724,12 @@ impl TypeScriptGenerator {
         lines.push("(async () => {".to_string());
         lines.push(format!("  const __match = await {};", scrutinee));
 
-        for (i, arm) in match_expr.arms.iter().enumerate() {
+        for arm in &match_expr.arms {
             let condition = self.generate_pattern_condition(&arm.pattern, "__match")?;
             let body = self.generate_expression(&arm.body)?;
             let bindings = self.generate_pattern_bindings(&arm.pattern, "__match")?;
 
-            if i == 0 {
-                lines.push(format!("  if ({}) {{", condition));
-            } else if matches!(arm.pattern, Pattern::Wildcard(_)) {
-                lines.push("  else {".to_string());
-            } else {
-                lines.push(format!("  else if ({}) {{", condition));
-            }
+            lines.push(format!("  if ({}) {{", condition));
 
             if let Some(binding) = bindings {
                 lines.push(format!("    {}", binding));
@@ -1077,6 +1071,31 @@ mod tests {
     }
 
     #[test]
+    fn test_generate_extern_namespace_uses_full_sanitized_alias() {
+        let source = "e fs⋅promises\nλmain()→𝕌=()";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("import * as fs_promises from 'fs/promises';"));
+    }
+
+    #[test]
+    fn test_generate_match_with_guard_falls_through_to_later_arms() {
+        let source = "λclassify(x:ℤ)→𝕊 match x{n when n>1→\"big\"|0→\"zero\"|_→\"other\"}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("if (__match === 0)"));
+        assert!(!result.contains("else if (__match === 0)"));
+    }
+
+    #[test]
     fn test_generate_list_preserves_nested_lists() {
         let source = "λwrap(xs:[ℤ])→[[ℤ]]=[xs]";
         let tokens = tokenize(source).unwrap();
@@ -1087,6 +1106,19 @@ mod tests {
 
         assert!(result.contains("return [xs];"));
         assert!(!result.contains("[].concat(xs)"));
+    }
+
+    #[test]
+    fn test_generate_list_append_parenthesizes_awaited_left_side() {
+        let source = "λleft()→[ℤ]=[1]\nλright()→[ℤ]=[2]\nλmain()→[ℤ]=left()⧺right()";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains(".concat("));
+        assert!(!result.contains("await left().concat("));
     }
 
     #[test]

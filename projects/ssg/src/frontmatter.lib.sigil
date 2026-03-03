@@ -1,7 +1,161 @@
-t ParseResult={content:𝕊,meta:src⋅types.ArticleMeta}
+t ParseResult={content:𝕊,meta:src⋅types.PageMeta}
+t ParseLinesResult={content_lines:[𝕊],meta:src⋅types.PageMeta}
 
 i src⋅types
+i stdlib⋅string
 
-λparse_frontmatter(markdown:𝕊)→ParseResult=
-  l default_meta=({author:"",date:"",slug:"",title:"Untitled"}:src⋅types.ArticleMeta);
-  {content:markdown,meta:default_meta}
+λapply_frontmatter_line(line:𝕊,meta:src⋅types.PageMeta)→src⋅types.PageMeta=
+  l separator_idx=(stdlib⋅string.index_of(line,":"):ℤ);
+  match separator_idx<0{
+    true→meta|
+    false→
+      l key=(stdlib⋅string.trim(stdlib⋅string.substring(separator_idx,line,0)):𝕊);
+      l raw_value=(stdlib⋅string.substring(#line,line,separator_idx+1):𝕊);
+      l value=(strip_quotes(stdlib⋅string.trim(raw_value)):𝕊);
+      match key{
+        "author"→{author:value,date:meta.date,slug:meta.slug,title:meta.title}|
+        "date"→{author:meta.author,date:value,slug:meta.slug,title:meta.title}|
+        "slug"→{author:meta.author,date:meta.date,slug:value,title:meta.title}|
+        "title"→{author:meta.author,date:meta.date,slug:meta.slug,title:value}|
+        _→meta
+      }
+  }
+
+λcapitalize_words(lowered:𝕊)→𝕊=capitalize_words_inner(true,0,lowered)
+
+λcapitalize_words_inner(capitalize_next:𝔹,idx:ℤ,lowered:𝕊)→𝕊 match idx≥#lowered{
+  true→""|
+  false→
+    l ch=(stdlib⋅string.char_at(idx,lowered):𝕊);
+    match ch{
+      " "→" "++capitalize_words_inner(true,idx+1,lowered)|
+      "-"→"-"++capitalize_words_inner(true,idx+1,lowered)|
+      "_"→"_"++capitalize_words_inner(true,idx+1,lowered)|
+      _→match capitalize_next{
+        true→stdlib⋅string.to_upper(ch)++capitalize_words_inner(false,idx+1,lowered)|
+        false→ch++capitalize_words_inner(false,idx+1,lowered)
+      }
+    }
+}
+
+λcollapse_hyphens(text:𝕊)→𝕊=
+  l collapsed=(stdlib⋅string.replace_all("--","-",text):𝕊);
+  match collapsed=text{
+    true→collapsed|
+    false→collapse_hyphens(collapsed)
+  }
+
+λconsume_frontmatter(lines:[𝕊],meta:src⋅types.PageMeta)→ParseLinesResult match lines{
+  []→{content_lines:[],meta:meta}|
+  [line,.rest]→match line{
+    "---"→{content_lines:rest,meta:meta}|
+    _→consume_frontmatter(rest,apply_frontmatter_line(line,meta))
+  }
+}
+
+λdefault_meta()→src⋅types.PageMeta={author:"",date:"",slug:"",title:""}
+
+λderive_slug(meta:src⋅types.PageMeta,source_path:𝕊)→𝕊 match #meta.slug>0{
+  true→normalize_slug(meta.slug)|
+  false→normalize_slug(filename_stem(source_path))
+}
+
+λderive_title(content:𝕊,meta:src⋅types.PageMeta,source_path:𝕊)→𝕊 match #meta.title>0{
+  true→meta.title|
+  false→
+    l heading=(first_h1_line(stdlib⋅string.split("\n",content)):[𝕊]);
+    match heading{
+      []→humanize_stem(filename_stem(source_path))|
+      [title,.rest]→title
+    }
+}
+
+λdrop_last(parts:[𝕊])→[𝕊] match parts{
+  []→[]|
+  [part,.rest]→match rest{
+    []→[]|
+    _→[part]⧺drop_last(rest)
+  }
+}
+
+λfile_name(path:𝕊)→𝕊 match stdlib⋅string.split("/",path){
+  []→path|
+  parts→last_part(parts)
+}
+
+λfilename_stem(path:𝕊)→𝕊=
+  l name=(file_name(path):𝕊);
+  match stdlib⋅string.ends_with(name,".md"){
+    true→stdlib⋅string.substring(#name-3,name,0)|
+    false→name
+  }
+
+λfirst_h1_line(lines:[𝕊])→[𝕊] match lines{
+  []→[]|
+  [line,.rest]→match stdlib⋅string.starts_with("# ",line){
+    true→[stdlib⋅string.substring(#line,line,2)]|
+    false→first_h1_line(rest)
+  }
+}
+
+λhumanize_stem(stem:𝕊)→𝕊=
+  l lowered=(stdlib⋅string.to_lower(stem):𝕊);
+  l spaced=(stdlib⋅string.replace_all("_"," ",stdlib⋅string.replace_all("-"," ",lowered)):𝕊);
+  capitalize_words(spaced)
+
+λlast_part(parts:[𝕊])→𝕊 match parts{
+  []→""|
+  [part,.rest]→match rest{
+    []→part|
+    _→last_part(rest)
+  }
+}
+
+λnormalize_slug(slug:𝕊)→𝕊=
+  l lowered=(stdlib⋅string.to_lower(slug):𝕊);
+  l with_hyphens=(stdlib⋅string.replace_all(" ","-",stdlib⋅string.replace_all("_","-",lowered)):𝕊);
+  l collapsed=(collapse_hyphens(with_hyphens):𝕊);
+  trim_hyphens(collapsed)
+
+λparse_frontmatter(markdown:𝕊,source_path:𝕊)→ParseResult match stdlib⋅string.split("\n",markdown){
+  []→
+    l meta=(default_meta():src⋅types.PageMeta);
+    l title=(derive_title(markdown,meta,source_path):𝕊);
+    l slug=(derive_slug(meta,source_path):𝕊);
+    {content:markdown,meta:{author:"",date:"",slug:slug,title:title}}|
+  [line,.rest]→match line{
+    "---"→
+      l parsed=(consume_frontmatter(rest,default_meta()):ParseLinesResult);
+      l content=(stdlib⋅string.join("\n",parsed.content_lines):𝕊);
+      l title=(derive_title(content,parsed.meta,source_path):𝕊);
+      l slug=(derive_slug(parsed.meta,source_path):𝕊);
+      {content:content,meta:{author:parsed.meta.author,date:parsed.meta.date,slug:slug,title:title}}|
+    _→
+      l meta=(default_meta():src⋅types.PageMeta);
+      l title=(derive_title(markdown,meta,source_path):𝕊);
+      l slug=(derive_slug(meta,source_path):𝕊);
+      {content:markdown,meta:{author:"",date:"",slug:slug,title:title}}
+  }
+}
+
+λstrip_quotes(value:𝕊)→𝕊 match (#value≥2) and stdlib⋅string.starts_with("\"",value) and stdlib⋅string.ends_with(value,"\""){
+  true→stdlib⋅string.substring(#value-1,value,1)|
+  false→match (#value≥2) and stdlib⋅string.starts_with("'",value) and stdlib⋅string.ends_with(value,"'"){
+    true→stdlib⋅string.substring(#value-1,value,1)|
+    false→value
+  }
+}
+
+λtrim_hyphens(text:𝕊)→𝕊=
+  l left=(trim_leading_hyphens(text):𝕊);
+  trim_trailing_hyphens(left)
+
+λtrim_leading_hyphens(text:𝕊)→𝕊 match (#text>0) and stdlib⋅string.starts_with("-",text){
+  true→trim_leading_hyphens(stdlib⋅string.substring(#text,text,1))|
+  false→text
+}
+
+λtrim_trailing_hyphens(text:𝕊)→𝕊 match (#text>0) and stdlib⋅string.ends_with(text,"-"){
+  true→trim_trailing_hyphens(stdlib⋅string.substring(#text-1,text,0))|
+  false→text
+}

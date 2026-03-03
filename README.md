@@ -26,6 +26,9 @@ pnpm sigil:test:algorithms
 
 # Run Sigil tests in the todo-app Sigil domain
 pnpm sigil:test:todo
+
+# Build the website into website/.local/site
+language/compiler/target/debug/sigil run projects/ssg/src/main.sigil
 ```
 
 ## Notes
@@ -34,3 +37,7 @@ pnpm sigil:test:todo
 - `pnpm test` is for JS/workspace tests that exist; Sigil test runs are the explicit `sigil:test:*` scripts.
 - Sigil user projects should use the canonical layout: `sigil.json`, `src/`, `tests/` (and optional `web/`)
 - This monorepo mixes language implementation and projects intentionally, but the user-facing layout is demonstrated under `projects/`
+
+## Website
+
+The public site is built by `projects/ssg` and published from `website/.local/site` through GitHub Pages. The source markdown remains in `website/`, `language/docs/`, and `language/spec/`; the site generator renders those files directly so the repo does not carry a second docs tree.

@@ -1,99 +1,175 @@
-⟦ Build pipeline for static site generator ⟧
-
-⟦ FFI declarations - fs⋅promises left untyped because mkdir uses options object ⟧
-e console
-e fs⋅promises
+e fs
 e path
-e process
 
+i src⋅content
 i src⋅frontmatter
 i src⋅templates
 i src⋅types
-i stdlib⋅markdown
 i stdlib⋅string
 
-⟦ Add file to list if markdown ⟧
-λadd_if_markdown(file:𝕊,md_files:[𝕊])→[𝕊] match is_markdown_file(file){
-  true → md_files⧺[file]|
-  false → md_files
+λasset_output_dir(config:src⋅types.SiteBuildConfig)→𝕊=join_path(config.output_dir,"assets")
+
+λbuild_site(config:src⋅types.SiteBuildConfig)→!IO 𝕌=
+  l _=(prepare_output_dir(config.output_dir):𝕌);
+  l raw_data=(load_site_data(config):src⋅types.SiteData);
+  l alias_routes=(src⋅content.build_alias_routes(raw_data):[src⋅types.AliasRoute]);
+  l data=(render_site_data(alias_routes,config.base_path,raw_data):src⋅types.SiteData);
+  l _=(copy_static_assets(asset_output_dir(config)):𝕌);
+  l _=(write_page(config,src⋅templates.home_page(data.articles,config,data.docs,data.home,data.spec),data.home):𝕌);
+  l _=(write_page(config,src⋅templates.articles_index(config,data.articles_intro.body_html,data.articles),data.articles_intro):𝕌);
+  l _=(write_pages(config,data.articles):𝕌);
+  l _=(write_index_html(join_path(config.output_dir,"docs"),src⋅templates.docs_index(config,data.docs)):𝕌);
+  l _=(write_pages(config,data.docs):𝕌);
+  l _=(write_index_html(join_path(config.output_dir,"spec"),src⋅templates.spec_index(config,data.spec)):𝕌);
+  l _=(write_pages(config,data.spec):𝕌);
+  write_not_found(config)
+
+λcopy_asset_files(asset_names:[𝕊],asset_source_dir:𝕊,asset_target_dir:𝕊)→!IO 𝕌 match asset_names{
+  []→()|
+  [asset,.rest]→
+    l source=(join_path(asset_source_dir,asset):𝕊);
+    l target=(join_path(asset_target_dir,asset):𝕊);
+    l content=(read_file(source):𝕊);
+    l _=(write_file(content,target):𝕌);
+    copy_asset_files(rest,asset_source_dir,asset_target_dir)
 }
 
-⟦ Main build function ⟧
-λbuild(input_dir:𝕊,output_dir:𝕊)→!IO 𝕌=
-  l _=(ensure_dir(output_dir):𝕌);
-  l all_files=((λ()→[𝕊]=fs⋅promises.readdir(input_dir))():[𝕊]);
-  l num_files=(#all_files:ℤ);
-  l markdown_files=(filter_md_files_inner(all_files,0,[],num_files):[𝕊]);
-  l num_articles=(#markdown_files:ℤ);
-  l articles=(process_all_articles([],0,input_dir,markdown_files,num_articles):[src⋅types.Article]);
-  l _=(write_all_articles(articles,0,num_articles,output_dir):𝕌);
-  write_index(articles,output_dir)
+λcopy_static_assets(asset_target_dir:𝕊)→!IO 𝕌=
+  l asset_source_dir=("website/static":𝕊);
+  l _=(ensure_dir(asset_target_dir):𝕌);
+  l asset_names=(list_dir(asset_source_dir):[𝕊]);
+  copy_asset_files(asset_names,asset_source_dir,asset_target_dir)
 
-⟦ Ensure directory exists ⟧
-λensure_dir(dir:𝕊)→!IO 𝕌=
-  fs⋅promises.mkdir(dir,{recursive:true})
+λensure_dir(dir:𝕊)→!IO 𝕌=fs.promises.mkdir(dir,{recursive:true})
 
-⟦ Filter markdown files helper ⟧
-λfilter_md_files_inner(all_files:[𝕊],idx:ℤ,md_files:[𝕊],num_files:ℤ)→[𝕊] match idx≥num_files{
-  true → md_files|
-  false →
-    l file=(all_files[idx]:𝕊);
-    l next_list=(add_if_markdown(file,md_files):[𝕊]);
-    filter_md_files_inner(all_files,idx+1,next_list,num_files)
+λfilter_markdown_files(files:[𝕊])→[𝕊] match files{
+  []→[]|
+  [file,.rest]→match stdlib⋅string.ends_with(file,".md"){
+    true→[file]⧺filter_markdown_files(rest)|
+    false→filter_markdown_files(rest)
+  }
 }
 
-⟦ Get output filename from slug or input filename ⟧
-λget_output_filename(input_filename:𝕊,meta:src⋅types.ArticleMeta)→𝕊 match meta.slug{
-  slug when #slug>0 → slug++".html"|
-  _ →
-    l len=(#input_filename:ℤ);
-    l basename=(stdlib⋅string.substring(len-4,input_filename,0):𝕊);
-    basename++".html"
+λjoin_path(left:𝕊,right:𝕊)→𝕊=path.join(left,right)
+
+λlist_dir(path:𝕊)→!IO [𝕊]=fs.promises.readdir(path)
+
+λload_articles(config:src⋅types.SiteBuildConfig)→!IO [src⋅types.SitePage]=
+  l files=(filter_markdown_files(list_dir("website/articles")):[𝕊]);
+  l pages=(load_pages_from_files(config,"website/articles",files,src⋅types.Article()):[src⋅types.SitePage]);
+  src⋅content.pages_newest_first(remove_intro_page(pages))
+
+λload_docs(config:src⋅types.SiteBuildConfig)→!IO [src⋅types.SitePage]=
+  l files=(filter_markdown_files(list_dir("language/docs")):[𝕊]);
+  l pages=(load_pages_from_files(config,"language/docs",files,src⋅types.Doc()):[src⋅types.SitePage]);
+  src⋅content.pages_sorted_by_title(pages)
+
+λload_page(config:src⋅types.SiteBuildConfig,section:src⋅types.Section,source_path:𝕊)→!IO src⋅types.SitePage=
+  l markdown=(read_file(source_path):𝕊);
+  l parsed=(src⋅frontmatter.parse_frontmatter(markdown,source_path):src⋅frontmatter.ParseResult);
+  src⋅content.blank_page(parsed.content,parsed.meta,page_output_dir(section,parsed.meta.slug,source_path),section,source_path)
+
+λload_pages_from_files(config:src⋅types.SiteBuildConfig,dir:𝕊,files:[𝕊],section:src⋅types.Section)→!IO [src⋅types.SitePage] match files{
+  []→[]|
+  [file,.rest]→
+    l source_path=(join_path(dir,file):𝕊);
+    l page=(load_page(config,section,source_path):src⋅types.SitePage);
+    [page]⧺load_pages_from_files(config,dir,rest,section)
 }
 
-⟦ Check if file is markdown ⟧
-λis_markdown_file(filename:𝕊)→𝔹=
-  stdlib⋅string.ends_with(filename,".md")
-
-⟦ Process all articles helper ⟧
-λprocess_all_articles(articles:[src⋅types.Article],idx:ℤ,input_dir:𝕊,markdown_files:[𝕊],num_articles:ℤ)→!IO [src⋅types.Article] match idx≥num_articles{
-  true → articles|
-  false →
-    l filename=(markdown_files[idx]:𝕊);
-    l article=(process_article(filename,input_dir):src⋅types.Article);
-    process_all_articles(articles⧺[article],idx+1,input_dir,markdown_files,num_articles)
-}
-
-⟦ Process a single article file ⟧
-λprocess_article(filename:𝕊,input_dir:𝕊)→!IO src⋅types.Article=
-  l filepath=(path.join(input_dir,filename):𝕊);
-  l markdown_content=(fs⋅promises.readFile(filepath,"utf8"):𝕊);
-  l meta=((src⋅frontmatter.parse_frontmatter(markdown_content)).meta:src⋅types.ArticleMeta);
-  l content=((src⋅frontmatter.parse_frontmatter(markdown_content)).content:𝕊);
-  l html=(stdlib⋅markdown.parse(content):𝕊);
+λload_site_data(config:src⋅types.SiteBuildConfig)→!IO src⋅types.SiteData=
+  l home=(load_page(config,src⋅types.Home(),"website/README.md"):src⋅types.SitePage);
+  l articles_intro=(load_page(config,src⋅types.Article(),"website/articles/README.md"):src⋅types.SitePage);
+  l articles=(load_articles(config):[src⋅types.SitePage]);
+  l docs=(load_docs(config):[src⋅types.SitePage]);
+  l spec=(load_spec(config):[src⋅types.SitePage]);
   {
-    filename:get_output_filename(filename,meta),
-    html:html,
-    markdown:content,
-    meta:meta
+    articles:articles,
+    articles_intro:{
+      body_html:articles_intro.body_html,
+      body_markdown:articles_intro.body_markdown,
+      meta:articles_intro.meta,
+      output_dir:"articles",
+      section:articles_intro.section,
+      source_path:articles_intro.source_path
+    },
+    docs:docs,
+    home:{
+      body_html:home.body_html,
+      body_markdown:home.body_markdown,
+      meta:home.meta,
+      output_dir:"",
+      section:home.section,
+      source_path:home.source_path
+    },
+    spec:spec
   }
 
-⟦ Write all articles helper ⟧
-λwrite_all_articles(articles:[src⋅types.Article],idx:ℤ,num_articles:ℤ,output_dir:𝕊)→!IO 𝕌 match idx≥num_articles{
-  true → ()|
-  false →
-    l _=(write_article(articles[idx],output_dir):𝕌);
-    write_all_articles(articles,idx+1,num_articles,output_dir)
+λload_spec(config:src⋅types.SiteBuildConfig)→!IO [src⋅types.SitePage]=
+  l files=(filter_markdown_files(list_dir("language/spec")):[𝕊]);
+  l pages=(load_pages_from_files(config,"language/spec",files,src⋅types.Spec()):[src⋅types.SitePage]);
+  src⋅content.pages_sorted_by_title(pages)
+
+λoutput_dir_path(config:src⋅types.SiteBuildConfig,page:src⋅types.SitePage)→𝕊 match page.output_dir{
+  ""→config.output_dir|
+  dir→join_path(config.output_dir,dir)
 }
 
-⟦ Write article HTML file ⟧
-λwrite_article(article:src⋅types.Article,output_dir:𝕊)→!IO 𝕌=
-  l page_html=(src⋅templates.article(article.html,article.meta):𝕊);
-  l output_path=(path.join(output_dir,article.filename):𝕊);
-  fs⋅promises.writeFile(output_path,page_html,"utf8")
+λpage_output_dir(section:src⋅types.Section,slug:𝕊,source_path:𝕊)→𝕊 match section{
+  src⋅types.Article()→match source_path{
+    "website/articles/README.md"→"articles"|
+    _→"articles/"++slug
+  }|
+  src⋅types.Doc()→"docs/"++slug|
+  src⋅types.Home()→""|
+  src⋅types.Spec()→"spec/"++slug
+}
 
-⟦ Write index page ⟧
-λwrite_index(articles:[src⋅types.Article],output_dir:𝕊)→!IO 𝕌=
-  l index_html=(src⋅templates.index(articles):𝕊);
-  l output_path=(path.join(output_dir,"index.html"):𝕊);
-  fs⋅promises.writeFile(output_path,index_html,"utf8")
+λprepare_output_dir(output_dir:𝕊)→!IO 𝕌=
+  l _=((λ()→𝕌=fs.promises.rm(output_dir,{force:true,recursive:true}))():𝕌);
+  ensure_dir(output_dir)
+
+λread_file(path:𝕊)→!IO 𝕊=fs.promises.readFile(path,"utf8")
+
+λremove_intro_page(pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
+  []→[]|
+  [page,.rest]→match page.source_path{
+    "website/articles/README.md"→remove_intro_page(rest)|
+    _→[page]⧺remove_intro_page(rest)
+  }
+}
+
+λrender_pages(alias_routes:[src⋅types.AliasRoute],base_path:𝕊,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
+  []→[]|
+  [page,.rest]→[src⋅content.render_page(alias_routes,base_path,page)]⧺render_pages(alias_routes,base_path,rest)
+}
+
+λrender_site_data(alias_routes:[src⋅types.AliasRoute],base_path:𝕊,data:src⋅types.SiteData)→src⋅types.SiteData={
+  articles:render_pages(alias_routes,base_path,data.articles),
+  articles_intro:src⋅content.render_page(alias_routes,base_path,data.articles_intro),
+  docs:render_pages(alias_routes,base_path,data.docs),
+  home:src⋅content.render_page(alias_routes,base_path,data.home),
+  spec:render_pages(alias_routes,base_path,data.spec)
+}
+
+λwrite_file(content:𝕊,path:𝕊)→!IO 𝕌=fs.promises.writeFile(path,content,"utf8")
+
+λwrite_index_html(dir:𝕊,html:𝕊)→!IO 𝕌=
+  l _=(ensure_dir(dir):𝕌);
+  write_file(html,join_path(dir,"index.html"))
+
+λwrite_not_found(config:src⋅types.SiteBuildConfig)→!IO 𝕌=
+  write_file(src⋅templates.not_found_page(config),join_path(config.output_dir,"404.html"))
+
+λwrite_page(config:src⋅types.SiteBuildConfig,html:𝕊,page:src⋅types.SitePage)→!IO 𝕌=
+  l dir=(output_dir_path(config,page):𝕊);
+  l _=(ensure_dir(dir):𝕌);
+  write_file(html,join_path(dir,"index.html"))
+
+λwrite_pages(config:src⋅types.SiteBuildConfig,pages:[src⋅types.SitePage])→!IO 𝕌 match pages{
+  []→()|
+  [page,.rest]→
+    l html=(src⋅templates.article_page(config,page):𝕊);
+    l _=(write_page(config,html,page):𝕌);
+    write_pages(config,rest)
+}

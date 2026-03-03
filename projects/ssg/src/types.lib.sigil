@@ -1,24 +1,37 @@
-⟦ SSG Types - Shared type definitions for the static site generator ⟧
+⟦ Shared type definitions for the Sigil website builder ⟧
 
-⟦ Complete article with metadata and content ⟧
-t Article={
-  filename:𝕊,
-  html:𝕊,
-  markdown:𝕊,
-  meta:ArticleMeta
-}
+t AliasRoute={alias:𝕊,route:𝕊}
 
-⟦ Article metadata extracted from frontmatter ⟧
-t ArticleMeta={
+t PageMeta={
   author:𝕊,
   date:𝕊,
   slug:𝕊,
   title:𝕊
 }
 
-⟦ Site configuration ⟧
-t SiteConfig={
-  base_url:𝕊,
-  description:𝕊,
-  title:𝕊
+t Section=Article()|Doc()|Home()|Spec()
+
+t SiteBuildConfig={
+  base_path:𝕊,
+  output_dir:𝕊,
+  repo_url:𝕊,
+  site_description:𝕊,
+  site_title:𝕊
+}
+
+t SiteData={
+  articles:[SitePage],
+  articles_intro:SitePage,
+  docs:[SitePage],
+  home:SitePage,
+  spec:[SitePage]
+}
+
+t SitePage={
+  body_html:𝕊,
+  body_markdown:𝕊,
+  meta:PageMeta,
+  output_dir:𝕊,
+  section:Section,
+  source_path:𝕊
 }

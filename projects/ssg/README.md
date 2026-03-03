@@ -1,0 +1,25 @@
+# Sigil Static Site Generator
+
+`projects/ssg` is the canonical site builder for the repo. It renders the public Sigil website from markdown that already lives in the repo instead of copying docs into a second content tree.
+
+## Source Of Truth
+
+- `website/README.md` for the homepage
+- `website/articles/*.md` for articles
+- `language/docs/*.md` for docs
+- `language/spec/*.md` for spec pages
+
+## Build
+
+```bash
+language/compiler/target/debug/sigil run projects/ssg/src/main.sigil
+```
+
+Generated output goes to `website/.local/site/`.
+
+## Validate
+
+```bash
+language/compiler/target/debug/sigil test projects/ssg/tests
+./compile-all.sh
+```

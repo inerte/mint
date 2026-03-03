@@ -48,6 +48,12 @@ Why Sigil replaced `≡` with `match`, and why common pattern-matching keywords 
 
 **Key topics:** Pattern matching, token efficiency, Claude Code, Codex, canonical syntax, AI-first language design
 
+**March 2, 2026** - [Why Sigil Uses and and or](./014-why-sigil-uses-and-and-or.md)
+
+Why Sigil replaced `∧` and `∨` with `and` and `or`, and why common boolean operators are a better fit than symbolic logic glyphs for AI-generated code.
+
+**Key topics:** Boolean operators, token efficiency, Claude Code, Codex, canonical syntax, AI-first language design
+
 ---
 
 ## About These Articles

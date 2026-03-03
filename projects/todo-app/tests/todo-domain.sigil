@@ -12,14 +12,14 @@ i stdlib⋅numeric
 
 test "todo add prepends item" {
   match src⋅todo-domain.addTodo(1,"Task",[]){
-    [todo]→todo.id=1∧todo.text="Task"∧todo.done=false|
+    [todo]→todo.id=1 and todo.text="Task" and todo.done=false|
     _→false
   }
 }
 
 test "todo clearCompleted keeps active only" {
   match src⋅todo-domain.clearCompleted([Todo{id:1,text:"A",done:true},Todo{id:2,text:"B",done:false}]){
-    [todo]→todo.id=2∧todo.done=false|
+    [todo]→todo.id=2 and todo.done=false|
     _→false
   }
 }
@@ -30,7 +30,7 @@ test "todo completedCount counts completed" {
 
 test "todo completedCount result can use numeric predicates" {
   l count=(src⋅todo-domain.completedCount([Todo{id:1,text:"A",done:true},Todo{id:2,text:"B",done:false},Todo{id:3,text:"C",done:true}]):ℤ);
-  stdlib⋅numeric.is_even(count)=true∧stdlib⋅numeric.in_range(3,0,count)=true
+  stdlib⋅numeric.is_even(count)=true and stdlib⋅numeric.in_range(3,0,count)=true
 }
 
 test "todo delete reduces length" {
@@ -39,7 +39,7 @@ test "todo delete reduces length" {
 
 test "todo delete removes target" {
   match src⋅todo-domain.deleteTodo(1,[Todo{id:1,text:"A",done:false},Todo{id:2,text:"B",done:false}]){
-    [todo]→todo.id=2∧todo.text="B"|
+    [todo]→todo.id=2 and todo.text="B"|
     _→false
   }
 }

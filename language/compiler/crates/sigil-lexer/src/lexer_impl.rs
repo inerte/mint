@@ -457,8 +457,6 @@ impl Lexer {
             '≠' => self.add_token(tokens, TokenType::NotEqual, "≠", start),
             '≤' => self.add_token(tokens, TokenType::LessEq, "≤", start),
             '≥' => self.add_token(tokens, TokenType::GreaterEq, "≥", start),
-            '∧' => self.add_token(tokens, TokenType::AND, "∧", start),
-            '∨' => self.add_token(tokens, TokenType::OR, "∨", start),
             '¬' => self.add_token(tokens, TokenType::NOT, "¬", start),
             '↦' => self.add_token(tokens, TokenType::MAP, "↦", start),
             '⊳' => self.add_token(tokens, TokenType::FILTER, "⊳", start),
@@ -703,6 +701,8 @@ impl Lexer {
             "with_mock" => TokenType::WithMock,
             "when" => TokenType::WHEN,
             "match" => TokenType::MATCH,
+            "and" => TokenType::AND,
+            "or" => TokenType::OR,
             "true" => TokenType::TRUE,
             "false" => TokenType::FALSE,
             _ => {

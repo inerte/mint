@@ -690,7 +690,7 @@ All predicates have explicit type signatures:
 
 ### ~~Missing Unicode Operators~~ ✅ FIXED
 
-**Issue:** ~~Typechecker doesn't support ≤, ≥, ≠, ∧, ∨.~~
+**Issue:** ~~Typechecker doesn't support ≤, ≥, ≠, and, or.~~
 
 **Resolution:** Unicode operators now fully supported in typechecker. Predicates updated to use cleaner Unicode syntax.
 

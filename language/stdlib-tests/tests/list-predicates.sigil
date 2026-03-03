@@ -3,7 +3,7 @@ i stdlib⋅list
 λmain()→𝕌=()
 
 test "list.in_bounds checks valid and invalid indexes" {
-  stdlib⋅list.in_bounds(0,[10,20,30])=true∧stdlib⋅list.in_bounds(3,[10,20,30])=false
+  stdlib⋅list.in_bounds(0,[10,20,30])=true and stdlib⋅list.in_bounds(3,[10,20,30])=false
 }
 
 test "list.sorted_asc accepts ascending list" {

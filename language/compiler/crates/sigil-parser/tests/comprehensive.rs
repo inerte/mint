@@ -405,7 +405,7 @@ fn test_binary_comparison() {
 
 #[test]
 fn test_binary_logical_and() {
-    let source = "λf(x:𝔹,y:𝔹)→𝔹=x∧y";
+    let source = "λf(x:𝔹,y:𝔹)→𝔹=x and y";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -418,6 +418,23 @@ fn test_binary_logical_and() {
                 _ => panic!("Expected binary expression"),
             }
         }
+        _ => panic!("Expected function"),
+    }
+}
+
+#[test]
+fn test_binary_logical_or() {
+    let source = "λf(x:𝔹,y:𝔹)→𝔹=x or y";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Function(f) => match &f.body {
+            Expr::Binary(bin) => {
+                assert_eq!(bin.operator, BinaryOperator::Or);
+            }
+            _ => panic!("Expected binary expression"),
+        },
         _ => panic!("Expected function"),
     }
 }

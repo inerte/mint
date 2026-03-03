@@ -23,7 +23,7 @@ c width=(48:ℤ)
 λcenterY(room:Room)→ℤ=room.y+halfFloor(room.h)
 
 λcorridorL(a:Room,b:Room,x:ℤ,y:ℤ)→𝔹=
-  inH(centerY(a),x,centerX(a),centerX(b),y)∨
+  inH(centerY(a),x,centerX(a),centerX(b),y) or
   inV(centerX(b),x,y,centerY(a),centerY(b))
 
 λhalfFloor(n:ℤ)→ℤ match n{
@@ -32,24 +32,24 @@ c width=(48:ℤ)
   n→1+halfFloor(n-2)
 }
 
-λinH(cy:ℤ,x:ℤ,x1:ℤ,x2:ℤ,y:ℤ)→𝔹=((y=cy)∧(x≥min2(x1,x2)))∧(x≤max2(x1,x2))
+λinH(cy:ℤ,x:ℤ,x1:ℤ,x2:ℤ,y:ℤ)→𝔹=((y=cy) and (x≥min2(x1,x2))) and (x≤max2(x1,x2))
 
-λinRect(rh:ℤ,rw:ℤ,rx:ℤ,ry:ℤ,x:ℤ,y:ℤ)→𝔹=((x≥rx)∧(x<rx+rw))∧((y≥ry)∧(y<ry+rh))
+λinRect(rh:ℤ,rw:ℤ,rx:ℤ,ry:ℤ,x:ℤ,y:ℤ)→𝔹=((x≥rx) and (x<rx+rw)) and ((y≥ry) and (y<ry+rh))
 
 λinRoom(room:Room,x:ℤ,y:ℤ)→𝔹=inRect(room.h,room.w,room.x,room.y,x,y)
 
-λinV(cx:ℤ,x:ℤ,y:ℤ,y1:ℤ,y2:ℤ)→𝔹=((x=cx)∧(y≥min2(y1,y2)))∧(y≤max2(y1,y2))
+λinV(cx:ℤ,x:ℤ,y:ℤ,y1:ℤ,y2:ℤ)→𝔹=((x=cx) and (y≥min2(y1,y2))) and (y≤max2(y1,y2))
 
-λisExit(world:World,x:ℤ,y:ℤ)→𝔹=(x=centerX(world.room3))∧(y=centerY(world.room3))
+λisExit(world:World,x:ℤ,y:ℤ)→𝔹=(x=centerX(world.room3)) and (y=centerY(world.room3))
 
 λisFloor(world:World,x:ℤ,y:ℤ)→𝔹=
-  inRoom(world.room1,x,y)∨
-  inRoom(world.room2,x,y)∨
-  inRoom(world.room3,x,y)∨
-  corridorL(world.room1,world.room2,x,y)∨
+  inRoom(world.room1,x,y) or
+  inRoom(world.room2,x,y) or
+  inRoom(world.room3,x,y) or
+  corridorL(world.room1,world.room2,x,y) or
   corridorL(world.room2,world.room3,x,y)
 
-λisPlayer(world:World,x:ℤ,y:ℤ)→𝔹=(x=centerX(world.room1))∧(y=centerY(world.room1))
+λisPlayer(world:World,x:ℤ,y:ℤ)→𝔹=(x=centerX(world.room1)) and (y=centerY(world.room1))
 
 λmain()→!IO 𝕌={
   l world=(makeWorld(seed0):World);

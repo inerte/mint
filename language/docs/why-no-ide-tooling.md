@@ -214,7 +214,7 @@ Claude Code: *generates dense canonical Sigil*
 λvalidate_email(email:𝕊)→𝔹=
   match email{
     ""→false
-    |s→contains(s,"@")∧contains(s,".")
+    |s→contains(s,"@") and contains(s,".")
   }
 
 Claude Code: "I've created validate_email that returns true if

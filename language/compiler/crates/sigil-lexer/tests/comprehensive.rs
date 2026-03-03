@@ -4,7 +4,7 @@ use sigil_lexer::{tokenize, LexError, TokenType};
 
 #[test]
 fn test_all_unicode_operators() {
-    let source = "λ → match ⋅ ∧ ∨ ¬ ≤ ≥ ≠ ↦ ⊳ ⊕ ⧺";
+    let source = "λ → match ⋅ and or ¬ ≤ ≥ ≠ ↦ ⊳ ⊕ ⧺";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::LAMBDA);
@@ -340,7 +340,7 @@ fn test_error_legacy_false_literal() {
 
 #[test]
 fn test_complex_expression() {
-    let source = "λfoo(x:ℤ,y:ℝ)→𝔹=x>0∧y≠3.14";
+    let source = "λfoo(x:ℤ,y:ℝ)→𝔹=x>0 and y≠3.14";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::LAMBDA);
@@ -350,6 +350,21 @@ fn test_complex_expression() {
     assert_eq!(tokens[4].token_type, TokenType::COLON);
     assert_eq!(tokens[5].token_type, TokenType::TypeInt);
     // ... rest of tokens
+}
+
+#[test]
+fn test_and_or_are_keywords_not_identifiers() {
+    let source = "and or android origin and_then";
+    let tokens = tokenize(source).unwrap();
+
+    assert_eq!(tokens[0].token_type, TokenType::AND);
+    assert_eq!(tokens[1].token_type, TokenType::OR);
+    assert_eq!(tokens[2].token_type, TokenType::IDENTIFIER);
+    assert_eq!(tokens[2].value, "android");
+    assert_eq!(tokens[3].token_type, TokenType::IDENTIFIER);
+    assert_eq!(tokens[3].value, "origin");
+    assert_eq!(tokens[4].token_type, TokenType::IDENTIFIER);
+    assert_eq!(tokens[4].value, "and_then");
 }
 
 #[test]

@@ -45,18 +45,18 @@ With guards, you can express ranges cleanly.
 ⟦ Example 5: Complex Conditions
 
 Guards can use any boolean expression, including
-conjunction (∧), disjunction (∨), and comparisons.
+conjunction (`and`), disjunction (`or`), and comparisons.
 ⟧
 
 λclassifyPoint(p:Point)→𝕊 match p.x{
-  x when x=0∧p.y=0 → "origin" |
+  x when x=0 and p.y=0 → "origin" |
   x when x=0 → "on y-axis" |
   _ when p.y=0 → "on x-axis" |
   x when x=p.y → "on diagonal y=x" |
   x when x=-p.y → "on diagonal y=-x" |
-  x when x>0∧p.y>0 → "quadrant I" |
-  x when x<0∧p.y>0 → "quadrant II" |
-  x when x<0∧p.y<0 → "quadrant III" |
+  x when x>0 and p.y>0 → "quadrant I" |
+  x when x<0 and p.y>0 → "quadrant II" |
+  x when x<0 and p.y<0 → "quadrant III" |
   _ → "quadrant IV"
 }
 

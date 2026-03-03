@@ -167,13 +167,13 @@ i stdlib⋅string
 }
 
 λis_ordered_list(line:𝕊)→𝔹=
-  #line>2∧
-  stdlib⋅string.is_digit(stdlib⋅string.char_at(0,line))∧
+  #line>2 and
+  stdlib⋅string.is_digit(stdlib⋅string.char_at(0,line)) and
   stdlib⋅string.char_at(1,line)="."
 
 λis_unordered_list(line:𝕊)→𝔹=
-  stdlib⋅string.starts_with("- ",line)∨
-  stdlib⋅string.starts_with("* ",line)∨
+  stdlib⋅string.starts_with("- ",line) or
+  stdlib⋅string.starts_with("* ",line) or
   stdlib⋅string.starts_with("+ ",line)
 
 ⟦ Main Export - Parse markdown to HTML ⟧
@@ -216,7 +216,7 @@ Uses field access in pattern guards for the one canonical way to inspect state.
     {state:empty_state(),blocks:flushed⧺[HorizontalRule()]}|
 
   ⟦ Unordered list item - continuing existing ul ⟧
-  false when state.in_list∧state.list_type="ul"∧is_unordered_list(line) →
+  false when state.in_list and state.list_type="ul" and is_unordered_list(line) →
     l item=(extract_list_item(line):𝕊);
     l flushed=(flush_paragraph(state):[Block]);
     {state:{in_code_block:false,code_lang:"",code_lines:[],
@@ -230,7 +230,7 @@ Uses field access in pattern guards for the one canonical way to inspect state.
       in_list:true,list_type:"ul",list_items:[item],para_lines:[]},blocks:flushed}|
 
   ⟦ Ordered list item - continuing existing ol ⟧
-  false when state.in_list∧state.list_type="ol"∧is_ordered_list(line) →
+  false when state.in_list and state.list_type="ol" and is_ordered_list(line) →
     l item=(extract_list_item(line):𝕊);
     l flushed=(flush_paragraph(state):[Block]);
     {state:{in_code_block:false,code_lang:"",code_lines:[],

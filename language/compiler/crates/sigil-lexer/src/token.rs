@@ -40,7 +40,7 @@ pub enum TokenType {
     UpperIdentifier,
 
     // ========================================================================
-    // KEYWORDS (Unicode symbols)
+    // KEYWORDS (canonical symbols + words)
     // ========================================================================
     #[token("λ")]
     LAMBDA,
@@ -144,10 +144,10 @@ pub enum TokenType {
     #[token("≥")]
     GreaterEq,
 
-    #[token("∧")]
+    #[token("and", priority = 3)]
     AND,
 
-    #[token("∨")]
+    #[token("or", priority = 3)]
     OR,
 
     #[token("¬")]

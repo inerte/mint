@@ -1,8 +1,7 @@
+i stdlib⋅list
 i stdlib⋅numeric
 
-λfactorial(n:ℤ)→ℤ=fold(multiply,1,stdlib⋅numeric.range(1,n))
-
-λfold(fn:λ(ℤ,ℤ)→ℤ,init:ℤ,list:[ℤ])→ℤ match list{[]→init|[x,.xs]→fold(fn,fn(init,x),xs)}
+λfactorial(n:ℤ)→ℤ=stdlib⋅list.fold(1,multiply,stdlib⋅numeric.range(1,n))
 
 λmain()→ℤ=factorial(5)
 

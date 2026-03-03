@@ -222,6 +222,20 @@ Drop the first `n` elements.
 λdrop(n:ℤ,xs:[ℤ])→[ℤ]
 ```
 
+### fold
+
+Reduce a list to a single integer by threading an accumulator from left to right.
+
+```sigil
+λfold(acc:ℤ,fn:λ(ℤ,ℤ)→ℤ,xs:[ℤ])→ℤ
+```
+
+Examples:
+```sigil
+stdlib⋅list.fold(0,λ(acc:ℤ,x:ℤ)→ℤ=acc+x,[1,2,3])   ⟦ → 6 ⟧
+stdlib⋅list.fold(0,λ(acc:ℤ,x:ℤ)→ℤ=acc*10+x,[1,2,3]) ⟦ → 123 ⟧
+```
+
 ### in_bounds
 
 Check if an index is valid for a list (in range [0, len-1]).
@@ -315,6 +329,20 @@ Reverse a list.
 
 ```sigil
 λreverse(xs:[ℤ])→[ℤ]
+```
+
+### sum
+
+Sum all integers in a list.
+
+```sigil
+λsum(xs:[ℤ])→ℤ
+```
+
+Examples:
+```sigil
+stdlib⋅list.sum([])          ⟦ → 0 ⟧
+stdlib⋅list.sum([1,2,3,4])   ⟦ → 10 ⟧
 ```
 
 ### tail

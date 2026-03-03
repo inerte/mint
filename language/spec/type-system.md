@@ -207,6 +207,23 @@ Ok : ∀T,E.T → Result[T,E]
 Err : ∀T,E.E → Result[T,E]
 ```
 
+Imported constructors are referenced with fully qualified module syntax:
+
+```sigil
+i src⋅graph-types
+
+src⋅graph-types.Ordering([1,2,3])
+```
+
+Imported constructor patterns use the same qualification:
+
+```sigil
+match result{
+  src⋅graph-types.Ordering(order)→order|
+  src⋅graph-types.CycleDetected()→[]
+}
+```
+
 ### Product Types (Records)
 
 ```sigil

@@ -1,0 +1,3 @@
+t Graph={nodes:[NodeNeighbors]}
+t NodeNeighbors={neighbors:[ℤ],vertex:ℤ}
+t TopologicalSortResult=CycleDetected|Ordering([ℤ])

@@ -103,6 +103,8 @@ pub struct WildcardPattern {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConstructorPattern {
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub module_path: Vec<String>,
     pub name: String,
     pub patterns: Vec<Pattern>,
     pub location: SourceLocation,

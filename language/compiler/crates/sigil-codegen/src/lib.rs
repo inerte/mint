@@ -450,6 +450,22 @@ impl TypeScriptGenerator {
             }
         }
 
+        if let Expr::MemberAccess(member_access) = &app.func {
+            if member_access
+                .member
+                .chars()
+                .next()
+                .is_some_and(|ch| ch.is_uppercase())
+            {
+                let func = self.generate_member_access(member_access)?;
+                let args: Result<Vec<String>, CodegenError> = app.args.iter()
+                    .map(|arg| self.generate_expression(arg))
+                    .collect();
+                let args_str = args?.join(", ");
+                return Ok(format!("await {}({})", func, args_str));
+            }
+        }
+
         // Check if this is a call to an imported function (MemberAccess)
         // If so, wrap with __sigil_call for mock support
         if let Expr::MemberAccess(member_access) = &app.func {
@@ -620,42 +636,10 @@ impl TypeScriptGenerator {
     }
 
     fn generate_list(&mut self, list: &ListExpr) -> Result<String, CodegenError> {
-        if list.elements.is_empty() {
-            return Ok("[]".to_string());
-        }
-
-        if list.elements.len() == 1 {
-            let elem = self.generate_expression(&list.elements[0])?;
-            // Single element - check if it needs to be wrapped
-            match &list.elements[0] {
-                Expr::Application(_) | Expr::Identifier(_) => {
-                    // Could be an array, could be a value - use concat to ensure proper handling
-                    return Ok(format!("[].concat({})", elem));
-                }
-                _ => {
-                    return Ok(format!("[{}]", elem));
-                }
-            }
-        }
-
-        // Multiple elements - use concat for all, wrapping literals in arrays
-        let parts: Result<Vec<String>, CodegenError> = list.elements.iter()
-            .map(|e| {
-                let code = self.generate_expression(e)?;
-                match e {
-                    Expr::Application(_) | Expr::Identifier(_) => {
-                        // Could be array or value, concat handles both
-                        Ok(code)
-                    }
-                    _ => {
-                        // Definitely a single value, wrap it
-                        Ok(format!("[{}]", code))
-                    }
-                }
-            })
+        let elements: Result<Vec<String>, CodegenError> = list.elements.iter()
+            .map(|elem| self.generate_expression(elem))
             .collect();
-
-        Ok(format!("[].concat({})", parts?.join(", ")))
+        Ok(format!("[{}]", elements?.join(", ")))
     }
 
     fn generate_tuple(&mut self, tuple: &TupleExpr) -> Result<String, CodegenError> {
@@ -1071,6 +1055,35 @@ mod tests {
         let result = gen.generate(&program).unwrap();
 
         assert!(result.contains("import * as stdlib_numeric from '../stdlib/numeric.js';"));
+    }
+
+    #[test]
+    fn test_generate_list_preserves_nested_lists() {
+        let source = "λwrap(xs:[ℤ])→[[ℤ]]=[xs]";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("return [xs];"));
+        assert!(!result.contains("[].concat(xs)"));
+    }
+
+    #[test]
+    fn test_generate_qualified_constructor_call_without_mock_wrapper() {
+        let source = "i src⋅graph-types\nλmain()→𝕌=src⋅graph-types.Ordering([])";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            source_file: Some("projects/algorithms/src/topological-sort.sigil".to_string()),
+            output_file: Some("/tmp/projects/algorithms/.local/src/topological-sort.ts".to_string()),
+        });
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("await src_graph_types.Ordering([])"));
+        assert!(!result.contains("__sigil_call(\"extern:src/graph-types.Ordering\""));
     }
 
     #[test]

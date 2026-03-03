@@ -1168,7 +1168,13 @@ impl Parser {
                 }
 
                 self.consume(TokenType::DOT, "Expected \".\" after namespace path")?;
-                let member = self.consume(TokenType::IDENTIFIER, "Expected member name")?.value.clone();
+                let member = if self.match_token(TokenType::IDENTIFIER)
+                    || self.match_token(TokenType::UpperIdentifier)
+                {
+                    self.previous().value.clone()
+                } else {
+                    return Err(self.error("Expected member name"));
+                };
 
                 let end = self.previous().location.end;
                 return Ok(Expr::MemberAccess(MemberAccessExpr {
@@ -1522,10 +1528,59 @@ impl Parser {
             }));
         }
 
-        // Constructor pattern or identifier: Some x, None, x
+        // Constructor pattern or identifier: Some, src⋅mod.Some, x
         if self.match_token(TokenType::UpperIdentifier) {
             let start = self.previous();
             let name = start.value.clone();
+            let mut module_path = Vec::new();
+
+            if self.check(TokenType::NamespaceSep) {
+                module_path.push(name.clone());
+
+                while self.match_token(TokenType::NamespaceSep) {
+                    module_path.push(self.module_path_segment()?);
+                }
+
+                self.consume(
+                    TokenType::DOT,
+                    &format!(
+                        "Expected \".\" after module path \"{}\". Qualified constructors use syntax: module⋅path.Constructor(...)",
+                        module_path.join("⋅")
+                    ),
+                )?;
+
+                let constructor_name = self
+                    .consume(TokenType::UpperIdentifier, "Expected constructor name after \".\"")?
+                    .value
+                    .clone();
+
+                if self.match_token(TokenType::LPAREN) {
+                    let mut patterns = Vec::new();
+                    if !self.check(TokenType::RPAREN) {
+                        loop {
+                            patterns.push(self.pattern()?);
+                            if !self.match_token(TokenType::COMMA) {
+                                break;
+                            }
+                        }
+                    }
+                    self.consume(TokenType::RPAREN, "Expected \")\"")?;
+                    let end = self.previous();
+                    return Ok(Pattern::Constructor(ConstructorPattern {
+                        module_path,
+                        name: constructor_name,
+                        patterns,
+                        location: self.make_location(start.location.start, end.location.end),
+                    }));
+                }
+
+                return Ok(Pattern::Constructor(ConstructorPattern {
+                    module_path,
+                    name: constructor_name,
+                    patterns: vec![],
+                    location: self.make_location(start.location.start, self.previous().location.end),
+                }));
+            }
 
             // Check for constructor with arguments: Some(x, y)
             if self.match_token(TokenType::LPAREN) {
@@ -1541,6 +1596,7 @@ impl Parser {
                 self.consume(TokenType::RPAREN, "Expected \")\"")?;
                 let end = self.previous();
                 return Ok(Pattern::Constructor(ConstructorPattern {
+                    module_path,
                     name,
                     patterns,
                     location: self.make_location(start.location.start, end.location.end),
@@ -1549,18 +1605,68 @@ impl Parser {
 
             // Constructor without arguments: None
             return Ok(Pattern::Constructor(ConstructorPattern {
+                module_path,
                 name,
                 patterns: vec![],
                 location: start.location,
             }));
         }
 
-        // Identifier pattern: x
+        // Identifier pattern: x, or qualified constructor pattern with lowercase module prefix
         if self.match_token(TokenType::IDENTIFIER) {
-            let tok = self.previous();
+            let start = self.previous();
+
+            if self.check(TokenType::NamespaceSep) {
+                let mut module_path = vec![start.value.clone()];
+
+                while self.match_token(TokenType::NamespaceSep) {
+                    module_path.push(self.module_path_segment()?);
+                }
+
+                self.consume(
+                    TokenType::DOT,
+                    &format!(
+                        "Expected \".\" after module path \"{}\". Qualified constructors use syntax: module⋅path.Constructor(...)",
+                        module_path.join("⋅")
+                    ),
+                )?;
+
+                let constructor_name = self
+                    .consume(TokenType::UpperIdentifier, "Expected constructor name after \".\"")?
+                    .value
+                    .clone();
+
+                if self.match_token(TokenType::LPAREN) {
+                    let mut patterns = Vec::new();
+                    if !self.check(TokenType::RPAREN) {
+                        loop {
+                            patterns.push(self.pattern()?);
+                            if !self.match_token(TokenType::COMMA) {
+                                break;
+                            }
+                        }
+                    }
+                    self.consume(TokenType::RPAREN, "Expected \")\"")?;
+                    let end = self.previous();
+                    return Ok(Pattern::Constructor(ConstructorPattern {
+                        module_path,
+                        name: constructor_name,
+                        patterns,
+                        location: self.make_location(start.location.start, end.location.end),
+                    }));
+                }
+
+                return Ok(Pattern::Constructor(ConstructorPattern {
+                    module_path,
+                    name: constructor_name,
+                    patterns: vec![],
+                    location: self.make_location(start.location.start, self.previous().location.end),
+                }));
+            }
+
             return Ok(Pattern::Identifier(IdentifierPattern {
-                name: tok.value.clone(),
-                location: tok.location,
+                name: start.value.clone(),
+                location: start.location,
             }));
         }
 

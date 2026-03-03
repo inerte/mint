@@ -185,7 +185,9 @@ Pattern = LiteralPattern
 LiteralPattern = Literal ;
 VariablePattern = Identifier ;
 WildcardPattern = "_" ;
-ConstructorPattern = UpperIdentifier , [ "(" , PatternList , ")" ] ;
+ConstructorPattern = ConstructorRef , [ "(" , PatternList , ")" ] ;
+ConstructorRef = UpperIdentifier | QualifiedConstructorRef ;
+QualifiedConstructorRef = ModulePath , "." , UpperIdentifier ;
 ListPattern = "[" , [ PatternList ] , "]" | "[" , Pattern , "," , ".." , Identifier , "]" ;
 RecordPattern = "{" , FieldPatternList , "}" ;
 
@@ -271,10 +273,12 @@ ExprList = Expr , { "," , Expr } ;
 
 PrimaryExpr = Literal
             | Identifier
+            | QualifiedMemberRef
             | ListLiteral
             | RecordLiteral
             | TupleLiteral
             | "(" , Expr , ")" ;
+QualifiedMemberRef = ModulePath , "." , ( Identifier | UpperIdentifier ) ;
 
 (* ============================================================================ *)
 (* LITERALS                                                                     *)
@@ -307,6 +311,7 @@ FieldValue = Identifier , ":" , Expr ;
 
 (* Examples:
    [1,2,3]
+   [xs]                 Nested list when xs:[T]
    {active:true,id:42,name:"Alice"}
    (1,"hello",true)
 *)

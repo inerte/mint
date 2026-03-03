@@ -1,0 +1,39 @@
+t Selection={chosen:ℤ,rest:[ℤ]}
+
+i src⋅int-list-helpers
+
+λpermutations(xs:[ℤ])→[[ℤ]] match xs{
+  []→[[]]|
+  _→permutations_from_selections(selections(xs))
+}
+
+λpermutations_from_selections(choices:[Selection])→[[ℤ]] match choices{
+  []→[]|
+  [choice,.tail]→{
+    l chosen_permutations=(permutations(choice.rest):[[ℤ]]);
+    l prefixed=(prepend_all(choice.chosen,chosen_permutations):[[ℤ]]);
+    l remaining=(permutations_from_selections(tail):[[ℤ]]);
+    prefixed⧺remaining
+  }
+}
+
+λprepend_all(item:ℤ,xss:[[ℤ]])→[[ℤ]] match xss{
+  []→[]|
+  [head,.tail]→{
+    l next_lists=(prepend_all(item,tail):[[ℤ]]);
+    [[item]⧺head]⧺next_lists
+  }
+}
+
+λprepend_choice(choices:[Selection],prefix:ℤ)→[Selection] match choices{
+  []→[]|
+  [choice,.tail]→{
+    l next_choices=(prepend_choice(tail,prefix):[Selection]);
+    [Selection{chosen:choice.chosen,rest:[prefix]⧺choice.rest}]⧺next_choices
+  }
+}
+
+λselections(xs:[ℤ])→[Selection] match xs{
+  []→[]|
+  [head,.tail]→[Selection{chosen:head,rest:tail}]⧺prepend_choice(selections(tail),head)
+}

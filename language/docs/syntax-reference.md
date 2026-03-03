@@ -206,6 +206,16 @@ Use imported members with fully qualified namespace access:
 ```sigil
 src⋅todo-domain.completedCount(todos)
 stdlib⋅list.len([1,2,3])
+src⋅graph-types.Ordering([1,2,3])
+```
+
+Imported sum-type constructors use the same fully qualified namespace style in both expressions and match patterns:
+
+```sigil
+λrender(result:src⋅graph-types.TopologicalSortResult)→[ℤ] match result{
+  src⋅graph-types.Ordering(order)→order|
+  src⋅graph-types.CycleDetected()→[]
+}
 ```
 
 Canonical Sigil import roots:
@@ -390,7 +400,12 @@ List literals:
 []
 [1,2,3]
 ["a","b","c"]
+[ [1,2],[3] ]
 ```
+
+List literals preserve nesting exactly as written.
+If `xs:[ℤ]`, then `[xs]` has type `[[ℤ]]`.
+Use `⧺` when you want concatenation.
 
 List patterns:
 

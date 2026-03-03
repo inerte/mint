@@ -305,6 +305,38 @@ fn split_qualified_constructor_name(name: &str) -> Option<(Vec<String>, String)>
     ))
 }
 
+fn constructor_display_name(module_path: &[String], name: &str) -> String {
+    if module_path.is_empty() {
+        name.to_string()
+    } else {
+        format!("{}.{}", module_path.join("⋅"), name)
+    }
+}
+
+fn lookup_constructor_type(
+    env: &TypeEnvironment,
+    module_path: &[String],
+    name: &str,
+) -> Result<Option<InferenceType>, TypeError> {
+    if module_path.is_empty() {
+        return Ok(env.lookup(name));
+    }
+
+    if let Some((type_name, qualified_module_path, variant, type_params)) =
+        env.lookup_qualified_constructor(module_path, name)
+    {
+        let qualified_type_name = format!("{}.{}", qualified_module_path.join("⋅"), type_name);
+        return Ok(Some(create_constructor_type_with_result_name(
+            env,
+            &variant,
+            &type_params,
+            &qualified_type_name,
+        )?));
+    }
+
+    Ok(None)
+}
+
 fn resolve_named_type(
     env: &TypeEnvironment,
     inference_type: &InferenceType,
@@ -641,6 +673,15 @@ fn create_constructor_type(
     type_params: &[String],
     type_name: &str,
 ) -> Result<InferenceType, TypeError> {
+    create_constructor_type_with_result_name(env, variant, type_params, type_name)
+}
+
+fn create_constructor_type_with_result_name(
+    env: &TypeEnvironment,
+    variant: &sigil_ast::Variant,
+    type_params: &[String],
+    result_type_name: &str,
+) -> Result<InferenceType, TypeError> {
     // Convert variant field types to inference types
     let params: Vec<InferenceType> = variant
         .types
@@ -658,7 +699,7 @@ fn create_constructor_type(
 
     // Result type is the constructor with empty type args for now
     let result_type = InferenceType::Constructor(crate::types::TConstructor {
-        name: type_name.to_string(),
+        name: result_type_name.to_string(),
         type_args: vec![],
     });
 
@@ -1261,6 +1302,12 @@ fn synthesize_member_access(
 
     let namespace_type = namespace_type.unwrap();
 
+    if let Some(constructor_type) =
+        lookup_constructor_type(env, &member_access.namespace, &member_access.member)?
+    {
+        return Ok(constructor_type);
+    }
+
     // If namespace is a record (typed extern/import), check member exists
     if let InferenceType::Record(ref record) = namespace_type {
         if let Some(member_type) = record.fields.get(&member_access.member) {
@@ -1693,10 +1740,20 @@ fn check_pattern(
             }
 
             // Look up the constructor in the environment
-            let constructor_type = env.lookup(&constructor_pattern.name);
+            let constructor_type = lookup_constructor_type(
+                env,
+                &constructor_pattern.module_path,
+                &constructor_pattern.name,
+            )?;
             if constructor_type.is_none() {
                 return Err(TypeError::new(
-                    format!("Unknown constructor '{}'", constructor_pattern.name),
+                    format!(
+                        "Unknown constructor '{}'",
+                        constructor_display_name(
+                            &constructor_pattern.module_path,
+                            &constructor_pattern.name
+                        )
+                    ),
                     Some(constructor_pattern.location),
                 ));
             }
@@ -1706,7 +1763,13 @@ fn check_pattern(
             // Constructor should be a function type
             if !matches!(constructor_type, InferenceType::Function(_)) {
                 return Err(TypeError::new(
-                    format!("'{}' is not a constructor", constructor_pattern.name),
+                    format!(
+                        "'{}' is not a constructor",
+                        constructor_display_name(
+                            &constructor_pattern.module_path,
+                            &constructor_pattern.name
+                        )
+                    ),
                     Some(constructor_pattern.location),
                 ));
             }
@@ -1720,7 +1783,10 @@ fn check_pattern(
                         return Err(TypeError::new(
                             format!(
                                 "Constructor '{}' returns '{}', expected '{}'",
-                                constructor_pattern.name,
+                                constructor_display_name(
+                                    &constructor_pattern.module_path,
+                                    &constructor_pattern.name
+                                ),
                                 format_type(&ctor_fn.return_type),
                                 scrutinee_ctor.name
                             ),
@@ -1736,7 +1802,10 @@ fn check_pattern(
                         return Err(TypeError::new(
                             format!(
                                 "Constructor '{}' expects {} arguments, got {}",
-                                constructor_pattern.name,
+                                constructor_display_name(
+                                    &constructor_pattern.module_path,
+                                    &constructor_pattern.name
+                                ),
                                 ctor_fn.params.len(),
                                 patterns.len()
                             ),
@@ -2022,6 +2091,107 @@ mod tests {
         let program = parse(tokens, "test.sigil").unwrap();
 
         let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_qualified_imported_constructor_expression_typechecks() {
+        let source =
+            "i src⋅graph-types\nλmk()→src⋅graph-types.TopologicalSortResult=src⋅graph-types.Ordering([1,2,3])";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut imported_type_registries = HashMap::new();
+        imported_type_registries.insert(
+            "src⋅graph-types".to_string(),
+            HashMap::from([(
+                "TopologicalSortResult".to_string(),
+                TypeInfo {
+                    type_params: vec![],
+                    definition: TypeDef::Sum(sigil_ast::SumType {
+                        variants: vec![
+                            sigil_ast::Variant {
+                                name: "CycleDetected".to_string(),
+                                types: vec![],
+                                location: synthetic_loc(),
+                            },
+                            sigil_ast::Variant {
+                                name: "Ordering".to_string(),
+                                types: vec![Type::List(Box::new(sigil_ast::ListType {
+                                    element_type: Type::Primitive(sigil_ast::PrimitiveType {
+                                        name: PrimitiveName::Int,
+                                        location: synthetic_loc(),
+                                    }),
+                                    location: synthetic_loc(),
+                                }))],
+                                location: synthetic_loc(),
+                            },
+                        ],
+                        location: synthetic_loc(),
+                    }),
+                },
+            )]),
+        );
+
+        let result = type_check(
+            &program,
+            source,
+            TypeCheckOptions {
+                imported_namespaces: None,
+                imported_type_registries: Some(imported_type_registries),
+                source_file: None,
+            },
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_qualified_imported_constructor_pattern_typechecks() {
+        let source = "i src⋅graph-types\nλproject(result:src⋅graph-types.TopologicalSortResult)→[ℤ] match result{src⋅graph-types.Ordering(order)→order|src⋅graph-types.CycleDetected()→[]}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut imported_type_registries = HashMap::new();
+        imported_type_registries.insert(
+            "src⋅graph-types".to_string(),
+            HashMap::from([(
+                "TopologicalSortResult".to_string(),
+                TypeInfo {
+                    type_params: vec![],
+                    definition: TypeDef::Sum(sigil_ast::SumType {
+                        variants: vec![
+                            sigil_ast::Variant {
+                                name: "CycleDetected".to_string(),
+                                types: vec![],
+                                location: synthetic_loc(),
+                            },
+                            sigil_ast::Variant {
+                                name: "Ordering".to_string(),
+                                types: vec![Type::List(Box::new(sigil_ast::ListType {
+                                    element_type: Type::Primitive(sigil_ast::PrimitiveType {
+                                        name: PrimitiveName::Int,
+                                        location: synthetic_loc(),
+                                    }),
+                                    location: synthetic_loc(),
+                                }))],
+                                location: synthetic_loc(),
+                            },
+                        ],
+                        location: synthetic_loc(),
+                    }),
+                },
+            )]),
+        );
+
+        let result = type_check(
+            &program,
+            source,
+            TypeCheckOptions {
+                imported_namespaces: None,
+                imported_type_registries: Some(imported_type_registries),
+                source_file: None,
+            },
+        );
         assert!(result.is_ok());
     }
 

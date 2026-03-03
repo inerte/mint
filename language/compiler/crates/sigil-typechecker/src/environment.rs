@@ -4,7 +4,7 @@
 //! Simplified from HM version - no type schemes, direct InferenceType bindings.
 
 use crate::types::InferenceType;
-use sigil_ast::TypeDef;
+use sigil_ast::{TypeDef, Variant};
 use std::collections::HashMap;
 
 /// Type information for user-defined types
@@ -128,6 +128,48 @@ impl TypeEnvironment {
 
         // Check parent scope
         self.parent.as_ref()?.lookup_qualified_type(module_path, type_name)
+    }
+
+    /// Look up a qualified constructor from an imported module.
+    ///
+    /// Returns the sum type name that owns the constructor and the variant definition.
+    pub fn lookup_qualified_constructor(
+        &self,
+        module_path: &[String],
+        constructor_name: &str,
+    ) -> Option<(String, Vec<String>, Variant, Vec<String>)> {
+        let module_id = module_path.join("⋅");
+
+        if let Some(registry) = self.imported_type_registries.get(&module_id) {
+            let mut matches = Vec::new();
+
+            for (type_name, info) in registry {
+                if let TypeDef::Sum(sum_type) = &info.definition {
+                    for variant in &sum_type.variants {
+                        if variant.name == constructor_name {
+                            matches.push((
+                                type_name.clone(),
+                                module_path.to_vec(),
+                                variant.clone(),
+                                info.type_params.clone(),
+                            ));
+                        }
+                    }
+                }
+            }
+
+            if matches.len() == 1 {
+                return matches.into_iter().next();
+            }
+
+            if matches.len() > 1 {
+                return None;
+            }
+        }
+
+        self.parent
+            .as_ref()?
+            .lookup_qualified_constructor(module_path, constructor_name)
     }
 
     /// Get all exported type names from a module (for error messages)

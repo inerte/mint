@@ -27,8 +27,14 @@ pub enum Pattern {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LiteralPattern {
-    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_pattern_literal_value"))]
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_pattern_literal_value"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(serialize_with = "serialize_pattern_literal_value")
+    )]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_pattern_literal_value")
+    )]
     pub value: PatternLiteralValue,
     #[cfg_attr(feature = "serde", serde(rename = "literalType"))]
     pub literal_type: PatternLiteralType,
@@ -60,7 +66,10 @@ pub enum PatternLiteralType {
 
 // Custom serialization for PatternLiteralValue to match the CLI JSON shape
 #[cfg(feature = "serde")]
-fn serialize_pattern_literal_value<S>(value: &PatternLiteralValue, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_pattern_literal_value<S>(
+    value: &PatternLiteralValue,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -76,7 +85,9 @@ where
 }
 
 #[cfg(feature = "serde")]
-fn deserialize_pattern_literal_value<'de, D>(_deserializer: D) -> Result<PatternLiteralValue, D::Error>
+fn deserialize_pattern_literal_value<'de, D>(
+    _deserializer: D,
+) -> Result<PatternLiteralValue, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -103,6 +114,8 @@ pub struct WildcardPattern {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConstructorPattern {
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub module_path: Vec<String>,
     pub name: String,
     pub patterns: Vec<Pattern>,
     pub location: SourceLocation,
@@ -113,7 +126,7 @@ pub struct ConstructorPattern {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ListPattern {
     pub patterns: Vec<Pattern>,
-    pub rest: Option<String>,  // For [x, .xs] pattern, rest = Some("xs")
+    pub rest: Option<String>, // For [x, .xs] pattern, rest = Some("xs")
     pub location: SourceLocation,
 }
 
@@ -130,7 +143,7 @@ pub struct RecordPattern {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RecordPatternField {
     pub name: String,
-    pub pattern: Option<Pattern>,  // None means just bind the field name
+    pub pattern: Option<Pattern>, // None means just bind the field name
     pub location: SourceLocation,
 }
 

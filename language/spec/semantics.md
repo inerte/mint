@@ -64,6 +64,10 @@ fibonacci(10)    (* Can reduce to 55 *)
 [1,2+3,4]        (* Can reduce to [1,5,4] *)
 ```
 
+List literals preserve element boundaries exactly.
+If `v` is itself a list value, then `[v]` is a one-element outer list whose single element is `v`.
+Concatenation is expressed separately with `⧺`.
+
 ## Small-Step Operational Semantics
 
 ### Notation
@@ -160,6 +164,13 @@ match 2+3{0→"zero"|5→"five"|_→"other"}
 // List pattern matching
 match []{[]→e₁|[x,.xs]→e₂} → e₁
 match [v,.vs]{[]→e₁|[x,.xs]→e₂} → e₂[x:=v,xs:=vs]
+```
+
+In particular:
+
+```
+[[1,2]] ≠ [1,2]
+[xs] does not reduce via concatenation
 ```
 
 **Example**:

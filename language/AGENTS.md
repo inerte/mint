@@ -87,6 +87,13 @@ Sigil is not “many ways to do it.” If adding a feature:
 
 If a parser ambiguity appears, favor the interpretation that preserves globally expected meaning (e.g., arithmetic operators should behave like arithmetic).
 
+Current constructor and list invariants:
+- imported sum-type constructors use fully qualified module syntax in both expressions and patterns
+- canonical example: `src⋅graph-types.Ordering([1,2,3])`
+- canonical imported nullary pattern example: `src⋅graph-types.CycleDetected()`
+- list literals preserve nesting exactly as written
+- use `⧺` only for explicit concatenation; never rely on list literals to flatten values
+
 ### 3) Keep user-facing errors actionable
 
 Error messages should:

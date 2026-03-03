@@ -319,6 +319,15 @@ Constructors are functions that create sum type values:
 
 **Important:** Even nullary constructors (like `Red`, `None`) require `()` to be called.
 
+Imported constructors use the same fully qualified namespace style as imported functions:
+
+```sigil
+i src⋅graph-types
+
+λsorted(order:[ℤ])→src⋅graph-types.TopologicalSortResult=
+  src⋅graph-types.Ordering(order)
+```
+
 ### Pattern Matching
 
 Sum types are deconstructed using pattern matching:
@@ -341,6 +350,12 @@ Sum types are deconstructed using pattern matching:
 λprocessResult(res:Result)→𝕊 match res{
   Ok(value)→"Success: "+value|
   Err(msg)→"Error: "+msg
+}
+
+⟦ Imported constructor patterns use fully qualified names ⟧
+λproject(result:src⋅graph-types.TopologicalSortResult)→[ℤ] match result{
+  src⋅graph-types.Ordering(order)→order|
+  src⋅graph-types.CycleDetected()→[]
 }
 ```
 
@@ -457,6 +472,7 @@ This preserves canonical surface forms by avoiding one overloaded concat operato
 ## Empty List Contextual Typing
 
 The empty list literal `[]` requires type context to determine its element type.
+Non-empty list literals preserve nesting exactly as written; they do not implicitly concatenate inner lists.
 
 **Works in these contexts:**
 - **Function return type**: `λf()→[ℤ]=[]` provides `[ℤ]` context
@@ -489,6 +505,9 @@ t Foo=A|B|C
   B → []|           ⟦ Checked against [ℤ] ⟧
   C → []            ⟦ Checked against [ℤ] ⟧
 }
+
+⟦ Nested list construction preserves shape ⟧
+λwrap(xs:[ℤ])→[[ℤ]]=[xs]
 ```
 
 **Example - Record Literals:**

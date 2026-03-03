@@ -1,0 +1,3 @@
+i src⋅modular-exponentiation
+
+λmain()→ℤ=src⋅modular-exponentiation.mod_pow(5,117,19)

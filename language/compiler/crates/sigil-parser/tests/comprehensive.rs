@@ -229,6 +229,60 @@ fn test_local_let_expression_still_parses() {
 }
 
 #[test]
+fn test_qualified_constructor_application_parses() {
+    let source = "λmain()→𝕌=src⋅graph-types.Ordering([])";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Function(f) => match &f.body {
+            Expr::Application(app) => match &app.func {
+                Expr::MemberAccess(member) => {
+                    assert_eq!(member.namespace, vec!["src".to_string(), "graph-types".to_string()]);
+                    assert_eq!(member.member, "Ordering");
+                }
+                _ => panic!("Expected qualified constructor member access"),
+            },
+            _ => panic!("Expected application expression"),
+        },
+        _ => panic!("Expected function declaration"),
+    }
+}
+
+#[test]
+fn test_qualified_constructor_pattern_parses() {
+    let source = "λmain(result:ℤ)→ℤ match result{src⋅graph-types.Ordering(order)→#order|src⋅graph-types.CycleDetected()→0}";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Function(f) => match &f.body {
+            Expr::Match(match_expr) => {
+                match &match_expr.arms[0].pattern {
+                    Pattern::Constructor(ctor) => {
+                        assert_eq!(ctor.module_path, vec!["src".to_string(), "graph-types".to_string()]);
+                        assert_eq!(ctor.name, "Ordering");
+                        assert_eq!(ctor.patterns.len(), 1);
+                    }
+                    _ => panic!("Expected constructor pattern"),
+                }
+
+                match &match_expr.arms[1].pattern {
+                    Pattern::Constructor(ctor) => {
+                        assert_eq!(ctor.module_path, vec!["src".to_string(), "graph-types".to_string()]);
+                        assert_eq!(ctor.name, "CycleDetected");
+                        assert!(ctor.patterns.is_empty());
+                    }
+                    _ => panic!("Expected constructor pattern"),
+                }
+            }
+            _ => panic!("Expected match expression"),
+        },
+        _ => panic!("Expected function declaration"),
+    }
+}
+
+#[test]
 fn test_extern_declaration_basic() {
     // Extern with members has complex syntax - test basic extern
     let source = "e node⋅fs";

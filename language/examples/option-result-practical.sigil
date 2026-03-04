@@ -1,45 +1,41 @@
+i stdlib⋅option
+i stdlib⋅result
+
 ⟦ Practical Sum Types Example
 
-Demonstrates sum types with concrete (non-generic) examples.
-
-Note: Generic Option[T] and Result[T,E] work for pattern matching,
-but generic utility functions require full generic type inference (not yet implemented).
-This example shows the working pattern with concrete types.
+Demonstrates practical Option[T] and Result[T,E] usage with Sigil's explicit
+generics.
 ⟧
 
-⟦ Type declarations - concrete types for integers ⟧
-t IntOption=IntSome(ℤ)|IntNone
-t IntResult=IntOk(ℤ)|IntErr(𝕊)
-
-⟦ Extract value from IntResult with fallback ⟧
-λget_or_default(fallback:ℤ,res:IntResult)→ℤ match res{
-  IntOk(value)→value|
-  IntErr(_)→fallback
+⟦ Extract value from Result with fallback ⟧
+λget_or_default(fallback:ℤ,res:stdlib⋅result.Result[ℤ,𝕊])→ℤ match res{
+  stdlib⋅result.Ok(value)→value|
+  stdlib⋅result.Err(_)→fallback
 }
 
-⟦ Extract value from IntOption with default ⟧
-λget_or_zero(opt:IntOption)→ℤ match opt{
-  IntSome(x)→x|
-  IntNone→0
+⟦ Extract value from Option with default ⟧
+λget_or_zero(opt:stdlib⋅option.Option[ℤ])→ℤ match opt{
+  stdlib⋅option.Some(x)→x|
+  stdlib⋅option.None()→0
 }
 
-⟦ Check if IntResult is ok ⟧
-λis_ok(res:IntResult)→𝔹 match res{
-  IntOk(_)→true|
-  IntErr(_)→false
+⟦ Check if Result is ok ⟧
+λis_ok(res:stdlib⋅result.Result[ℤ,𝕊])→𝔹 match res{
+  stdlib⋅result.Ok(_)→true|
+  stdlib⋅result.Err(_)→false
 }
 
 ⟦ Main - demonstrate usage ⟧
 λmain()→ℤ=get_or_zero(safe_head([1,2,3]))+get_or_default(0,safe_subtract(10,2))+get_or_default(999,safe_subtract(10,20))
 
 ⟦ Safe list head ⟧
-λsafe_head(xs:[ℤ])→IntOption match xs{
-  []→IntNone()|
-  [x,.rest]→IntSome(x)
+λsafe_head(xs:[ℤ])→stdlib⋅option.Option[ℤ] match xs{
+  []→stdlib⋅option.None()|
+  [x,.rest]→stdlib⋅option.Some(x)
 }
 
 ⟦ Safe subtraction with validation ⟧
-λsafe_subtract(num1:ℤ,num2:ℤ)→IntResult match num2>10{
-  true→IntErr("second number too large")|
-  false→IntOk(num1-num2)
+λsafe_subtract(num1:ℤ,num2:ℤ)→stdlib⋅result.Result[ℤ,𝕊] match num2>10{
+  true→stdlib⋅result.Err("second number too large")|
+  false→stdlib⋅result.Ok(num1-num2)
 }

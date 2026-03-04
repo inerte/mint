@@ -6,7 +6,7 @@ use sigil_ast::{Declaration, Program, Type, TypeDef};
 use sigil_codegen::{CodegenOptions, TypeScriptGenerator};
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
-use sigil_typechecker::{type_check, TypeError, TypeCheckOptions, TypeInfo};
+use sigil_typechecker::{type_check, TypeError, TypeCheckOptions, TypeInfo, TypeScheme};
 use sigil_typechecker::types::{InferenceType, TConstructor, TFunction, TList, TRecord, TTuple};
 use sigil_validator::{validate_canonical_form, ValidationError};
 use std::collections::HashMap;
@@ -214,6 +214,7 @@ pub fn compile_command(
     };
 
     let mut compiled_modules = HashMap::new();
+    let mut compiled_schemes = HashMap::new();
     let mut type_registries = HashMap::new();
     let mut output_files = Vec::new();
     let mut module_outputs: HashMap<String, PathBuf> = HashMap::new(); // Track module ID -> output path
@@ -225,6 +226,7 @@ pub fn compile_command(
         // Build imported namespaces from already-compiled dependencies
         let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
         let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
+        let imported_value_schemes = build_imported_value_schemes(&module.ast, &compiled_schemes);
 
         // Type check with cross-module context
         let typecheck_result = type_check(
@@ -233,6 +235,7 @@ pub fn compile_command(
             Some(TypeCheckOptions {
                 imported_namespaces: Some(imported_namespaces),
                 imported_type_registries: Some(imported_type_regs),
+                imported_value_schemes: Some(imported_value_schemes),
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
             }),
         )
@@ -268,6 +271,7 @@ pub fn compile_command(
         module_outputs.insert(module_id.clone(), output_path);
 
         // Track for dependents
+        compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes.clone());
         compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
         type_registries.insert(
             module_id.clone(),
@@ -339,6 +343,7 @@ pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
     let graph = ModuleGraph::build(file)?;
 
     let mut compiled_modules = HashMap::new();
+    let mut compiled_schemes = HashMap::new();
     let mut type_registries = HashMap::new();
     let mut entry_output_path = PathBuf::new();
 
@@ -349,6 +354,7 @@ pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
         // Build imported namespaces from already-compiled dependencies
         let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
         let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
+        let imported_value_schemes = build_imported_value_schemes(&module.ast, &compiled_schemes);
 
         // Type check with cross-module context
         let typecheck_result = type_check(
@@ -357,6 +363,7 @@ pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
             Some(TypeCheckOptions {
                 imported_namespaces: Some(imported_namespaces),
                 imported_type_registries: Some(imported_type_regs),
+                imported_value_schemes: Some(imported_value_schemes),
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
             }),
         )
@@ -389,6 +396,7 @@ pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
         }
 
         // Track for dependents
+        compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes.clone());
         compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
         type_registries.insert(
             module_id.clone(),
@@ -679,6 +687,7 @@ fn compile_and_run_tests(
     let graph = ModuleGraph::build(file)?;
 
     let mut compiled_modules = HashMap::new();
+    let mut compiled_schemes = HashMap::new();
     let mut type_registries = HashMap::new();
     let mut test_output_path = PathBuf::new();
 
@@ -689,6 +698,7 @@ fn compile_and_run_tests(
         // Build imported namespaces from already-compiled dependencies
         let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
         let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
+        let imported_value_schemes = build_imported_value_schemes(&module.ast, &compiled_schemes);
 
         // Type check with cross-module context
         let typecheck_result = type_check(
@@ -697,6 +707,7 @@ fn compile_and_run_tests(
             Some(TypeCheckOptions {
                 imported_namespaces: Some(imported_namespaces),
                 imported_type_registries: Some(imported_type_regs),
+                imported_value_schemes: Some(imported_value_schemes),
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
             }),
         )
@@ -729,6 +740,7 @@ fn compile_and_run_tests(
         }
 
         // Track for dependents
+        compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes.clone());
         compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
         type_registries.insert(
             module_id.clone(),
@@ -986,6 +998,113 @@ fn build_imported_type_registries(
     }
 
     imported
+}
+
+fn build_imported_value_schemes(
+    ast: &Program,
+    compiled_schemes: &HashMap<String, HashMap<String, TypeScheme>>,
+) -> HashMap<String, HashMap<String, TypeScheme>> {
+    let mut imported = HashMap::new();
+
+    for decl in &ast.declarations {
+        if let Declaration::Import(import_decl) = decl {
+            let module_id = import_decl.module_path.join("⋅");
+
+            if let Some(schemes) = compiled_schemes.get(&module_id) {
+                imported.insert(
+                    module_id.clone(),
+                    schemes
+                        .iter()
+                        .map(|(name, scheme)| {
+                            (
+                                name.clone(),
+                                qualify_scheme_for_module(module_id.as_str(), scheme),
+                            )
+                        })
+                        .collect(),
+                );
+            }
+        }
+    }
+
+    imported
+}
+
+fn qualify_inference_type_for_module(
+    module_id: &str,
+    typ: &sigil_typechecker::InferenceType,
+) -> sigil_typechecker::InferenceType {
+    use sigil_typechecker::InferenceType;
+    use sigil_typechecker::types::{TConstructor, TFunction, TList, TRecord, TTuple, TVar};
+
+    match typ {
+        InferenceType::Primitive(_) | InferenceType::Any => typ.clone(),
+        InferenceType::Var(var) => InferenceType::Var(Box::new(TVar {
+            id: var.id,
+            name: var.name.clone(),
+            instance: var
+                .instance
+                .as_ref()
+                .map(|instance| qualify_inference_type_for_module(module_id, instance)),
+        })),
+        InferenceType::Function(function) => InferenceType::Function(Box::new(TFunction {
+            params: function
+                .params
+                .iter()
+                .map(|param| qualify_inference_type_for_module(module_id, param))
+                .collect(),
+            return_type: qualify_inference_type_for_module(module_id, &function.return_type),
+            effects: function.effects.clone(),
+        })),
+        InferenceType::List(list) => InferenceType::List(Box::new(TList {
+            element_type: qualify_inference_type_for_module(module_id, &list.element_type),
+        })),
+        InferenceType::Tuple(tuple) => InferenceType::Tuple(TTuple {
+            types: tuple
+                .types
+                .iter()
+                .map(|item| qualify_inference_type_for_module(module_id, item))
+                .collect(),
+        }),
+        InferenceType::Record(record) => InferenceType::Record(TRecord {
+            fields: record
+                .fields
+                .iter()
+                .map(|(name, field_type)| {
+                    (
+                        name.clone(),
+                        qualify_inference_type_for_module(module_id, field_type),
+                    )
+                })
+                .collect(),
+            name: record.name.as_ref().map(|name| {
+                if name.contains('.') {
+                    name.clone()
+                } else {
+                    format!("{}.{}", module_id, name)
+                }
+            }),
+        }),
+        InferenceType::Constructor(constructor) => InferenceType::Constructor(TConstructor {
+            name: if constructor.name.contains('.') {
+                constructor.name.clone()
+            } else {
+                format!("{}.{}", module_id, constructor.name)
+            },
+            type_args: constructor
+                .type_args
+                .iter()
+                .map(|arg| qualify_inference_type_for_module(module_id, arg))
+                .collect(),
+        }),
+    }
+}
+
+fn qualify_scheme_for_module(module_id: &str, scheme: &TypeScheme) -> TypeScheme {
+    TypeScheme {
+        quantified_vars: scheme.quantified_vars.clone(),
+        typ: qualify_inference_type_for_module(module_id, &scheme.typ),
+    }
 }
 
 fn qualify_type_in_context(

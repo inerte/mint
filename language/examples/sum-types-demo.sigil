@@ -24,20 +24,20 @@ t Result[T,E]=Ok(T)|Err(E)
 }
 
 ⟦ Example 2: Safe division using Result ⟧
-λdivide(a:ℤ,b:ℤ)→Result match b{
+λdivide(a:ℤ,b:ℤ)→Result[ℤ,𝕊] match b{
   0→Err("division by zero")|
   divisor→Ok(a/divisor)
 }
 
 ⟦ Example 4: Working with Option ⟧
-λfirst[T](list:[T])→Option match list{
+λfirst[T](list:[T])→Option[T] match list{
   []→None()|
   [x,.rest]→Some(x)
 }
 
-λgetOrDefault(default:ℤ,opt:Option)→ℤ match opt{
+λgetOrDefault(default:ℤ,opt:Option[ℤ])→ℤ match opt{
   Some(x)→x|
-  None→default
+  None()→default
 }
 
 ⟦ Main - demonstrate all examples ⟧
@@ -50,7 +50,7 @@ t Result[T,E]=Ok(T)|Err(E)
 }
 
 ⟦ Example 3: Pattern matching on Result ⟧
-λprocessResult(result:Result)→ℤ match result{
+λprocessResult(result:Result[ℤ,𝕊])→ℤ match result{
   Ok(value)→value|
   Err(_)→0
 }

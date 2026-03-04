@@ -199,21 +199,21 @@ Drop the first `n` elements.
 Find the first element that satisfies a predicate.
 
 ```sigil
-λfind(pred:λ(ℤ)→𝔹,xs:[ℤ])→stdlib⋅list.IntOption
+λfind[T](pred:λ(T)→𝔹,xs:[T])→stdlib⋅option.Option[T]
 ```
 
 Examples:
 ```sigil
-stdlib⋅list.find(stdlib⋅numeric.is_even,[1,3,4,6])   ⟦ → stdlib⋅list.IntSome(4) ⟧
-stdlib⋅list.find(stdlib⋅numeric.is_even,[1,3,5])     ⟦ → stdlib⋅list.IntNone() ⟧
+stdlib⋅list.find(stdlib⋅numeric.is_even,[1,3,4,6])   ⟦ → stdlib⋅option.Some(4) ⟧
+stdlib⋅list.find(stdlib⋅numeric.is_even,[1,3,5])     ⟦ → stdlib⋅option.None() ⟧
 ```
 
 ### fold
 
-Reduce a list to a single integer by threading an accumulator from left to right.
+Reduce a list to a single value by threading an accumulator from left to right.
 
 ```sigil
-λfold(acc:ℤ,fn:λ(ℤ,ℤ)→ℤ,xs:[ℤ])→ℤ
+λfold[T,U](acc:U,fn:λ(U,T)→U,xs:[T])→U
 ```
 
 Examples:
@@ -249,26 +249,18 @@ in_bounds(0,[])               ⟦ → false (empty list) ⟧
 
 **Note:** Use the `#` operator for list length instead of a function (e.g., `#[1,2,3]` → `3`).
 
-### IntOption
-
-Concrete optional integer used by safe integer-list access helpers.
-
-```sigil
-t IntOption=IntNone|IntSome(ℤ)
-```
-
 ### last
 
 Get the last element safely.
 
 ```sigil
-λlast(xs:[ℤ])→stdlib⋅list.IntOption
+λlast[T](xs:[T])→stdlib⋅option.Option[T]
 ```
 
 Examples:
 ```sigil
-stdlib⋅list.last([])         ⟦ → stdlib⋅list.IntNone() ⟧
-stdlib⋅list.last([1,2,3])    ⟦ → stdlib⋅list.IntSome(3) ⟧
+stdlib⋅list.last([])         ⟦ → stdlib⋅option.None() ⟧
+stdlib⋅list.last([1,2,3])    ⟦ → stdlib⋅option.Some(3) ⟧
 ```
 
 ### max
@@ -276,13 +268,13 @@ stdlib⋅list.last([1,2,3])    ⟦ → stdlib⋅list.IntSome(3) ⟧
 Get the maximum element safely.
 
 ```sigil
-λmax(xs:[ℤ])→stdlib⋅list.IntOption
+λmax(xs:[ℤ])→stdlib⋅option.Option[ℤ]
 ```
 
 Examples:
 ```sigil
-stdlib⋅list.max([])          ⟦ → stdlib⋅list.IntNone() ⟧
-stdlib⋅list.max([3,9,4])     ⟦ → stdlib⋅list.IntSome(9) ⟧
+stdlib⋅list.max([])          ⟦ → stdlib⋅option.None() ⟧
+stdlib⋅list.max([3,9,4])     ⟦ → stdlib⋅option.Some(9) ⟧
 ```
 
 ### min
@@ -290,13 +282,13 @@ stdlib⋅list.max([3,9,4])     ⟦ → stdlib⋅list.IntSome(9) ⟧
 Get the minimum element safely.
 
 ```sigil
-λmin(xs:[ℤ])→stdlib⋅list.IntOption
+λmin(xs:[ℤ])→stdlib⋅option.Option[ℤ]
 ```
 
 Examples:
 ```sigil
-stdlib⋅list.min([])          ⟦ → stdlib⋅list.IntNone() ⟧
-stdlib⋅list.min([3,9,4])     ⟦ → stdlib⋅list.IntSome(3) ⟧
+stdlib⋅list.min([])          ⟦ → stdlib⋅option.None() ⟧
+stdlib⋅list.min([3,9,4])     ⟦ → stdlib⋅option.Some(3) ⟧
 ```
 
 ### nth
@@ -304,13 +296,13 @@ stdlib⋅list.min([3,9,4])     ⟦ → stdlib⋅list.IntSome(3) ⟧
 Get the item at a zero-based index safely.
 
 ```sigil
-λnth(idx:ℤ,xs:[ℤ])→stdlib⋅list.IntOption
+λnth[T](idx:ℤ,xs:[T])→stdlib⋅option.Option[T]
 ```
 
 Examples:
 ```sigil
-stdlib⋅list.nth(0,[7,8])     ⟦ → stdlib⋅list.IntSome(7) ⟧
-stdlib⋅list.nth(2,[7,8])     ⟦ → stdlib⋅list.IntNone() ⟧
+stdlib⋅list.nth(0,[7,8])     ⟦ → stdlib⋅option.Some(7) ⟧
+stdlib⋅list.nth(2,[7,8])     ⟦ → stdlib⋅option.None() ⟧
 ```
 
 ### product
@@ -965,19 +957,26 @@ t Option[T]=Some(T)|None
 **Usage:**
 ```sigil
 ⟦ Pattern matching on Option ⟧
-λgetOrDefault(opt:Option,default:ℤ)→ℤ match opt{
+λgetOrDefault(default:ℤ,opt:Option[ℤ])→ℤ match opt{
   Some(x)→x|
-  None→default
+  None()→default
 }
 
 ⟦ Safe division returning Option ⟧
-λdivide(a:ℤ,b:ℤ)→Option match b{
+λdivide(a:ℤ,b:ℤ)→Option[ℤ] match b{
   0→None()|
   b→Some(a/b)
 }
 ```
 
-**Note:** Generic utility functions like `map[T,U](opt,fn)` not yet available due to incomplete generic type inference.
+**Implemented helpers:**
+```sigil
+λbind_option[T,U](fn:λ(T)→Option[U],opt:Option[T])→Option[U]
+λis_none[T](opt:Option[T])→𝔹
+λis_some[T](opt:Option[T])→𝔹
+λmap_option[T,U](fn:λ(T)→U,opt:Option[T])→Option[U]
+λunwrap_or[T](fallback:T,opt:Option[T])→T
+```
 
 ### Result[T,E]
 
@@ -997,31 +996,30 @@ t Result[T,E]=Ok(T)|Err(E)
 **Usage:**
 ```sigil
 ⟦ Pattern matching on Result ⟧
-λprocessResult(res:Result)→𝕊 match res{
+λprocessResult(res:Result[𝕊,𝕊])→𝕊 match res{
   Ok(value)→"Success: "+value|
   Err(msg)→"Error: "+msg
 }
 
 ⟦ Safe parsing returning Result ⟧
-λparsePositive(s:𝕊)→Result match validInput(s){
+λparsePositive(s:𝕊)→Result[ℤ,𝕊] match validInput(s){
   true→Ok(parseInt(s))|
   false→Err("invalid input")
 }
 ```
 
+**Implemented helpers:**
+```sigil
+λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E]
+λis_err[T,E](res:Result[T,E])→𝔹
+λis_ok[T,E](res:Result[T,E])→𝔹
+λmap_result[T,U,E](fn:λ(T)→U,res:Result[T,E])→Result[U,E]
+λunwrap_or_result[T,E](fallback:T,res:Result[T,E])→T
+```
+
 **See also:** `examples/sum-types-demo.sigil` for comprehensive examples.
 
 ## Future Additions
-
-### Option/Result Utility Functions
-
-When generic type inference is complete:
-```sigil
-λmap[T,U](opt:Option[T],fn:λ(T)→U)→Option[U]
-λunwrap_or[T](opt:Option[T],default:T)→T
-λmap[T,U,E](res:Result[T,E],fn:λ(T)→U)→Result[U,E]
-λunwrap[T,E](res:Result[T,E])→T
-```
 
 ### String Predicates
 

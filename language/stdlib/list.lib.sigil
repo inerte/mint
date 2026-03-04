@@ -1,42 +1,20 @@
-⟦ List Standard Library
+i stdlib⋅option
 
-   Canonical list utilities and predicates.
-   Part of Sigil standard library - canonical implementations only.
+⟦ Sigil Standard Library - List Operations
 
-   Note: Use # operator for length instead of a function (e.g., #[1,2,3] → 3)
+Generic list helpers that work across element types, plus integer-specialized
+reducers and order predicates.
 ⟧
 
-t IntOption=IntNone|IntSome(ℤ)
-
-⟦ Check if all elements satisfy predicate ⟧
-λall(pred:λ(ℤ)→𝔹,xs:[ℤ])→𝔹 match xs{
-  []→true|
-  [x,.rest]→match pred(x){
-    true→all(pred,rest)|
-    false→false
-  }
-}
-
-⟦ Check if any element satisfies predicate ⟧
-λany(pred:λ(ℤ)→𝔹,xs:[ℤ])→𝔹 match xs{
+λcontains[T](item:T,xs:[T])→𝔹 match xs{
   []→false|
-  [x,.rest]→match pred(x){
-    true→true|
-    false→any(pred,rest)
-  }
-}
-
-⟦ Check if element is in list ⟧
-λcontains(item:ℤ,xs:[ℤ])→𝔹 match xs{
-  []→false|
-  [x,.rest]→match (x=item){
+  [x,.rest]→match x=item{
     true→true|
     false→contains(item,rest)
   }
 }
 
-⟦ Count occurrences of item in list ⟧
-λcount(item:ℤ,xs:[ℤ])→ℤ match xs{
+λcount[T](item:T,xs:[T])→ℤ match xs{
   []→0|
   [x,.rest]→match x=item{
     true→1+count(item,rest)|
@@ -44,163 +22,110 @@ t IntOption=IntNone|IntSome(ℤ)
   }
 }
 
-⟦ Drop first n elements from list ⟧
-λdrop(n:ℤ,xs:[ℤ])→[ℤ] match n≤0{
+λdrop[T](n:ℤ,xs:[T])→[T] match n≤0{
   true→xs|
   false→match xs{
     []→[]|
-    [_,.rest]→drop(n-1,rest)
+    [x,.rest]→drop(n-1,rest)
   }
 }
 
-⟦ Find the first element that satisfies predicate ⟧
-λfind(pred:λ(ℤ)→𝔹,xs:[ℤ])→IntOption=find_helper(pred,xs)
-
-⟦ Helper: Find the first matching element ⟧
-λfind_helper(pred:λ(ℤ)→𝔹,xs:[ℤ])→IntOption match xs{
-  []→IntNone()|
+λfind[T](pred:λ(T)→𝔹,xs:[T])→stdlib⋅option.Option[T] match xs{
+  []→stdlib⋅option.None()|
   [x,.rest]→match pred(x){
-    true→IntSome(x)|
-    false→find_helper(pred,rest)
+    true→stdlib⋅option.Some(x)|
+    false→find(pred,rest)
   }
 }
 
-⟦ Reduce a list to a single value by threading an accumulator left to right ⟧
-λfold(acc:ℤ,fn:λ(ℤ,ℤ)→ℤ,xs:[ℤ])→ℤ match xs{
+λfold[T,U](acc:U,fn:λ(U,T)→U,xs:[T])→U match xs{
   []→acc|
   [x,.rest]→fold(fn(acc,x),fn,rest)
 }
 
-⟦ Check if index is valid for list [0, len-1] ⟧
-λin_bounds(idx:ℤ,xs:[ℤ])→𝔹=in_bounds_helper(idx,xs)
+λin_bounds[T](idx:ℤ,xs:[T])→𝔹=idx≥0 and idx<#xs
 
-⟦ Helper: Check if index is in bounds ⟧
-λin_bounds_helper(idx:ℤ,xs:[ℤ])→𝔹 match (idx≥0){
-  true→idx<#xs|
-  false→false
+λlast[T](xs:[T])→stdlib⋅option.Option[T]=last_helper(stdlib⋅option.None(),xs)
+
+λlast_helper[T](result:stdlib⋅option.Option[T],xs:[T])→stdlib⋅option.Option[T] match xs{
+  []→result|
+  [x,.rest]→last_helper(stdlib⋅option.Some(x),rest)
 }
 
-⟦ Get last element of list safely ⟧
-λlast(xs:[ℤ])→IntOption match xs{
-  []→IntNone()|
-  [x,.rest]→last_non_empty(x,rest)
-}
-
-⟦ Helper: Get last element of non-empty list safely ⟧
-λlast_non_empty(current:ℤ,xs:[ℤ])→IntOption match xs{
-  []→IntSome(current)|
-  [x,.rest]→last_non_empty(x,rest)
-}
-
-⟦ Get maximum element safely ⟧
-λmax(xs:[ℤ])→IntOption match xs{
-  []→IntNone()|
-  [x,.rest]→max_non_empty(x,rest)
-}
-
-⟦ Helper: Get maximum element from a non-empty list ⟧
-λmax_non_empty(current:ℤ,xs:[ℤ])→IntOption match xs{
-  []→IntSome(current)|
-  [x,.rest]→match x>current{
-    true→max_non_empty(x,rest)|
-    false→max_non_empty(current,rest)
+λmax(xs:[ℤ])→stdlib⋅option.Option[ℤ] match xs{
+  []→stdlib⋅option.None()|
+  [x,.rest]→match max(rest){
+    stdlib⋅option.Some(rest_max)→match x>rest_max{
+      true→stdlib⋅option.Some(x)|
+      false→stdlib⋅option.Some(rest_max)
+    }|
+    stdlib⋅option.None()→stdlib⋅option.Some(x)
   }
 }
 
-⟦ Get minimum element safely ⟧
-λmin(xs:[ℤ])→IntOption match xs{
-  []→IntNone()|
-  [x,.rest]→min_non_empty(x,rest)
-}
-
-⟦ Helper: Get minimum element from a non-empty list ⟧
-λmin_non_empty(current:ℤ,xs:[ℤ])→IntOption match xs{
-  []→IntSome(current)|
-  [x,.rest]→match x<current{
-    true→min_non_empty(x,rest)|
-    false→min_non_empty(current,rest)
+λmin(xs:[ℤ])→stdlib⋅option.Option[ℤ] match xs{
+  []→stdlib⋅option.None()|
+  [x,.rest]→match min(rest){
+    stdlib⋅option.Some(rest_min)→match x<rest_min{
+      true→stdlib⋅option.Some(x)|
+      false→stdlib⋅option.Some(rest_min)
+    }|
+    stdlib⋅option.None()→stdlib⋅option.Some(x)
   }
 }
 
-⟦ Get item at index safely ⟧
-λnth(idx:ℤ,xs:[ℤ])→IntOption match idx<0{
-  true→IntNone()|
+λnth[T](idx:ℤ,xs:[T])→stdlib⋅option.Option[T] match idx<0{
+  true→stdlib⋅option.None()|
   false→match xs{
-    []→IntNone()|
+    []→stdlib⋅option.None()|
     [x,.rest]→match idx=0{
-      true→IntSome(x)|
+      true→stdlib⋅option.Some(x)|
       false→nth(idx-1,rest)
     }
   }
 }
 
-⟦ Multiply all integers in a list ⟧
-λproduct(xs:[ℤ])→ℤ=fold(1,product_step,xs)
+λproduct(xs:[ℤ])→ℤ match xs{
+  []→1|
+  [x,.rest]→x*product(rest)
+}
 
-⟦ Helper: Multiply current item into running product ⟧
-λproduct_step(acc:ℤ,x:ℤ)→ℤ=acc*x
-
-⟦ Remove first occurrence of item from list ⟧
-λremove_first(item:ℤ,xs:[ℤ])→[ℤ] match xs{
+λremove_first[T](item:T,xs:[T])→[T] match xs{
   []→[]|
   [x,.rest]→match x=item{
     true→rest|
-    false→[x]⧺remove_first(item,rest)
+    false→([x]:[T])⧺remove_first(item,rest)
   }
 }
 
-⟦ Reverse list ⟧
-λreverse(xs:[ℤ])→[ℤ]=reverse_helper([],xs)
+λreverse[T](xs:[T])→[T]=reverse_helper([],xs)
 
-⟦ Helper: Reverse with accumulator ⟧
-λreverse_helper(acc:[ℤ],xs:[ℤ])→[ℤ] match xs{
+λreverse_helper[T](acc:[T],xs:[T])→[T] match xs{
   []→acc|
-  [x,.rest]→reverse_helper([x]⧺acc,rest)
+  [x,.rest]→reverse_helper(([x]:[T])⧺acc,rest)
 }
 
-⟦ Check if list is sorted in ascending order ⟧
 λsorted_asc(xs:[ℤ])→𝔹 match xs{
   []→true|
-  [_]→true|
-  [a,.tail]→sorted_asc_check(a,tail)
+  [x]→true|
+  [x,y,.rest]→x≤y and sorted_asc(([y]:[ℤ])⧺rest)
 }
 
-⟦ Helper: Check ascending order ⟧
-λsorted_asc_check(prev:ℤ,xs:[ℤ])→𝔹 match xs{
-  []→true|
-  [b,.rest]→match (prev≤b){
-    true→sorted_asc_check(b,rest)|
-    false→false
-  }
-}
-
-⟦ Check if list is sorted in descending order ⟧
 λsorted_desc(xs:[ℤ])→𝔹 match xs{
   []→true|
-  [_]→true|
-  [a,.tail]→sorted_desc_check(a,tail)
+  [x]→true|
+  [x,y,.rest]→x≥y and sorted_desc(([y]:[ℤ])⧺rest)
 }
 
-⟦ Helper: Check descending order ⟧
-λsorted_desc_check(prev:ℤ,xs:[ℤ])→𝔹 match xs{
-  []→true|
-  [b,.rest]→match (prev≥b){
-    true→sorted_desc_check(b,rest)|
-    false→false
-  }
+λsum(xs:[ℤ])→ℤ match xs{
+  []→0|
+  [x,.rest]→x+sum(rest)
 }
 
-⟦ Sum all integers in a list ⟧
-λsum(xs:[ℤ])→ℤ=fold(0,sum_step,xs)
-
-⟦ Helper: Add current item into running sum ⟧
-λsum_step(acc:ℤ,x:ℤ)→ℤ=acc+x
-
-⟦ Take first n elements from list ⟧
-λtake(n:ℤ,xs:[ℤ])→[ℤ] match n≤0{
+λtake[T](n:ℤ,xs:[T])→[T] match n≤0{
   true→[]|
   false→match xs{
     []→[]|
-    [x,.rest]→[x]⧺take(n-1,rest)
+    [x,.rest]→([x]:[T])⧺take(n-1,rest)
   }
 }

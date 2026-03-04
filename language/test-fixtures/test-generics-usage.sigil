@@ -1,0 +1,5 @@
+i stdlib⋅option
+
+λmain()→𝕌=()
+
+λuse_option()→stdlib⋅option.Option[ℤ]=stdlib⋅option.Some(42)

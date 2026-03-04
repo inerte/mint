@@ -226,6 +226,163 @@ pub fn prune(typ: &InferenceType) -> InferenceType {
     }
 }
 
+/// Unify two types, producing a substitution when they are compatible.
+pub fn unify(left: &InferenceType, right: &InferenceType) -> Result<Substitution, String> {
+    let mut subst = Substitution::new();
+    unify_into(left, right, &mut subst)?;
+    Ok(subst)
+}
+
+fn bind_var(tvar: &TVar, typ: &InferenceType, subst: &mut Substitution) -> Result<(), String> {
+    if let Some(existing) = subst.get(&tvar.id).cloned() {
+        return unify_into(&existing, typ, subst);
+    }
+
+    let pruned = prune(typ);
+    if let InferenceType::Var(other) = &pruned {
+        if other.id == tvar.id {
+            return Ok(());
+        }
+    }
+
+    if occurs_in(tvar.id, &pruned, subst) {
+        return Err("Recursive type detected during unification".to_string());
+    }
+
+    subst.insert(tvar.id, pruned);
+    Ok(())
+}
+
+fn occurs_in(id: u32, typ: &InferenceType, subst: &Substitution) -> bool {
+    let typ = apply_subst(subst, typ);
+    match typ {
+        InferenceType::Primitive(_) | InferenceType::Any => false,
+        InferenceType::Var(tvar) => tvar.id == id,
+        InferenceType::Function(func) => {
+            func.params.iter().any(|param| occurs_in(id, param, subst))
+                || occurs_in(id, &func.return_type, subst)
+        }
+        InferenceType::List(list) => occurs_in(id, &list.element_type, subst),
+        InferenceType::Tuple(tuple) => tuple.types.iter().any(|item| occurs_in(id, item, subst)),
+        InferenceType::Record(record) => record
+            .fields
+            .values()
+            .any(|field_type| occurs_in(id, field_type, subst)),
+        InferenceType::Constructor(constructor) => constructor
+            .type_args
+            .iter()
+            .any(|arg| occurs_in(id, arg, subst)),
+    }
+}
+
+fn unify_into(
+    left: &InferenceType,
+    right: &InferenceType,
+    subst: &mut Substitution,
+) -> Result<(), String> {
+    let left = apply_subst(subst, left);
+    let right = apply_subst(subst, right);
+
+    match (&left, &right) {
+        (InferenceType::Any, _) | (_, InferenceType::Any) => Ok(()),
+        (InferenceType::Var(tvar), other) => bind_var(tvar, other, subst),
+        (other, InferenceType::Var(tvar)) => bind_var(tvar, other, subst),
+        (InferenceType::Primitive(p1), InferenceType::Primitive(p2)) if p1.name == p2.name => Ok(()),
+        (InferenceType::List(l1), InferenceType::List(l2)) => {
+            unify_into(&l1.element_type, &l2.element_type, subst)
+        }
+        (InferenceType::Tuple(t1), InferenceType::Tuple(t2)) if t1.types.len() == t2.types.len() => {
+            for (left_item, right_item) in t1.types.iter().zip(&t2.types) {
+                unify_into(left_item, right_item, subst)?;
+            }
+            Ok(())
+        }
+        (InferenceType::Function(f1), InferenceType::Function(f2))
+            if f1.params.len() == f2.params.len() =>
+        {
+            for (left_param, right_param) in f1.params.iter().zip(&f2.params) {
+                unify_into(left_param, right_param, subst)?;
+            }
+            unify_into(&f1.return_type, &f2.return_type, subst)
+        }
+        (InferenceType::Record(r1), InferenceType::Record(r2)) if r1.fields.len() == r2.fields.len() => {
+            for (field_name, left_field) in &r1.fields {
+                let right_field = r2
+                    .fields
+                    .get(field_name)
+                    .ok_or_else(|| format!("Missing record field '{}'", field_name))?;
+                unify_into(left_field, right_field, subst)?;
+            }
+            Ok(())
+        }
+        (InferenceType::Constructor(c1), InferenceType::Constructor(c2))
+            if c1.name == c2.name && c1.type_args.len() == c2.type_args.len() =>
+        {
+            for (left_arg, right_arg) in c1.type_args.iter().zip(&c2.type_args) {
+                unify_into(left_arg, right_arg, subst)?;
+            }
+            Ok(())
+        }
+        _ => Err(format!(
+            "Cannot unify {} with {}",
+            format_inference_type(&left),
+            format_inference_type(&right)
+        )),
+    }
+}
+
+fn format_inference_type(typ: &InferenceType) -> String {
+    match typ {
+        InferenceType::Primitive(p) => p.name.to_string(),
+        InferenceType::Var(tvar) => tvar.name.clone().unwrap_or_else(|| format!("t{}", tvar.id)),
+        InferenceType::Function(func) => {
+            let params = func
+                .params
+                .iter()
+                .map(format_inference_type)
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("λ({})→{}", params, format_inference_type(&func.return_type))
+        }
+        InferenceType::List(list) => format!("[{}]", format_inference_type(&list.element_type)),
+        InferenceType::Tuple(tuple) => format!(
+            "({})",
+            tuple
+                .types
+                .iter()
+                .map(format_inference_type)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        InferenceType::Record(record) => {
+            let mut items = record
+                .fields
+                .iter()
+                .map(|(name, typ)| format!("{}:{}", name, format_inference_type(typ)))
+                .collect::<Vec<_>>();
+            items.sort();
+            format!("{{{}}}", items.join(","))
+        }
+        InferenceType::Constructor(constructor) => {
+            if constructor.type_args.is_empty() {
+                constructor.name.clone()
+            } else {
+                format!(
+                    "{}[{}]",
+                    constructor.name,
+                    constructor
+                        .type_args
+                        .iter()
+                        .map(format_inference_type)
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )
+            }
+        }
+        InferenceType::Any => "Any".to_string(),
+    }
+}
+
 /// Check if two already-canonicalized types are structurally equal.
 ///
 /// This function does not resolve named aliases or named product types by itself.
@@ -278,20 +435,36 @@ pub fn types_equal(t1: &InferenceType, t2: &InferenceType) -> bool {
 ///
 /// Used when type annotations are present in the source
 pub fn ast_type_to_inference_type(ast_type: &AstType) -> InferenceType {
+    ast_type_to_inference_type_with_params(ast_type, None)
+}
+
+/// Convert AST type to InferenceType using an explicit type-parameter environment.
+pub fn ast_type_to_inference_type_with_params(
+    ast_type: &AstType,
+    type_params: Option<&HashMap<String, InferenceType>>,
+) -> InferenceType {
     match ast_type {
         AstType::Primitive(p) => InferenceType::Primitive(TPrimitive { name: p.name }),
 
         AstType::List(list_type) => InferenceType::List(Box::new(TList {
-            element_type: ast_type_to_inference_type(&list_type.element_type),
+            element_type: ast_type_to_inference_type_with_params(&list_type.element_type, type_params),
         })),
 
         AstType::Tuple(tuple_type) => InferenceType::Tuple(TTuple {
-            types: tuple_type.types.iter().map(ast_type_to_inference_type).collect(),
+            types: tuple_type
+                .types
+                .iter()
+                .map(|item| ast_type_to_inference_type_with_params(item, type_params))
+                .collect(),
         }),
 
         AstType::Function(func_type) => InferenceType::Function(Box::new(TFunction {
-            params: func_type.param_types.iter().map(ast_type_to_inference_type).collect(),
-            return_type: ast_type_to_inference_type(&func_type.return_type),
+            params: func_type
+                .param_types
+                .iter()
+                .map(|item| ast_type_to_inference_type_with_params(item, type_params))
+                .collect(),
+            return_type: ast_type_to_inference_type_with_params(&func_type.return_type, type_params),
             effects: if func_type.effects.is_empty() {
                 None
             } else {
@@ -301,25 +474,24 @@ pub fn ast_type_to_inference_type(ast_type: &AstType) -> InferenceType {
 
         AstType::Constructor(tc) => InferenceType::Constructor(TConstructor {
             name: tc.name.clone(),
-            type_args: tc.type_args.iter().map(ast_type_to_inference_type).collect(),
+            type_args: tc
+                .type_args
+                .iter()
+                .map(|item| ast_type_to_inference_type_with_params(item, type_params))
+                .collect(),
         }),
 
         AstType::Variable(var_type) => {
-            // Type variables in AST - could be either:
-            // 1. An actual type parameter (T, U, etc.)
-            // 2. A reference to a named type without args (Color, Option, etc.)
-            // For now, treat uppercase single letters as type params, others as constructors
-            if var_type.name.len() == 1 && var_type.name.chars().next().unwrap().is_uppercase() {
-                // Likely a type parameter: T, U, etc.
-                fresh_type_var(Some(var_type.name.clone()))
-            } else {
-                // Likely a named type reference: Color, Option, etc.
-                // Convert to constructor with empty type args
-                InferenceType::Constructor(TConstructor {
-                    name: var_type.name.clone(),
-                    type_args: vec![],
-                })
+            if let Some(type_param_env) = type_params {
+                if let Some(bound_type) = type_param_env.get(&var_type.name) {
+                    return bound_type.clone();
+                }
             }
+
+            InferenceType::Constructor(TConstructor {
+                name: var_type.name.clone(),
+                type_args: vec![],
+            })
         }
 
         // Other AST type variants can be added as needed

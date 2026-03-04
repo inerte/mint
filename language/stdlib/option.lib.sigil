@@ -14,3 +14,28 @@ alternative to null/undefined.
 ⟧
 
 t Option[T]=Some(T)|None
+
+λbind_option[T,U](fn:λ(T)→Option[U],opt:Option[T])→Option[U] match opt{
+  Some(value)→fn(value)|
+  None()→None()
+}
+
+λis_none[T](opt:Option[T])→𝔹 match opt{
+  Some(value)→false|
+  None()→true
+}
+
+λis_some[T](opt:Option[T])→𝔹 match opt{
+  Some(value)→true|
+  None()→false
+}
+
+λmap_option[T,U](fn:λ(T)→U,opt:Option[T])→Option[U] match opt{
+  Some(value)→Some(fn(value))|
+  None()→None()
+}
+
+λunwrap_or[T](fallback:T,opt:Option[T])→T match opt{
+  Some(value)→value|
+  None()→fallback
+}

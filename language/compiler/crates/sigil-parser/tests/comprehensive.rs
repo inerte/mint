@@ -44,6 +44,23 @@ fn test_function_declaration_unit_return() {
 }
 
 #[test]
+fn test_function_declaration_with_type_params() {
+    let source = "λidentity[T](x:T)→T=x";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Function(f) => {
+            assert_eq!(f.name, "identity");
+            assert_eq!(f.type_params, vec!["T".to_string()]);
+            assert_eq!(f.params.len(), 1);
+            assert_eq!(f.params[0].name, "x");
+        }
+        _ => panic!("Expected function declaration"),
+    }
+}
+
+#[test]
 fn test_function_declaration_mockable() {
     let source = "mockable λfetch()→𝕊=\"\"";
     let tokens = tokenize(source).unwrap();

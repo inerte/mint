@@ -1,0 +1,3 @@
+λidentity[T](x:T)→T=x
+
+λmain()→ℤ=identity(42)

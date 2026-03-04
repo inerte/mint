@@ -34,11 +34,11 @@ t Option[T]=Some(T)|None
 **Functions:**
 
 ```sigil
-λmap_option[T,U](fn:λ(T)→U,opt:Option[T])→Option[U] match opt{Some(v)→Some(fn(v))|None→None}
-λbind_option[T,U](opt:Option[T],fn:λ(T)→Option[U])→Option[U] match opt{Some(v)→fn(v)|None→None}
-λunwrap_or[T](opt:Option[T],default:T)→T match opt{Some(v)→v|None→default}
-λis_some[T](opt:Option[T])→𝔹 match opt{Some(_)→true|None→false}
-λis_none[T](opt:Option[T])→𝔹 match opt{Some(_)→false|None→true}
+λmap_option[T,U](fn:λ(T)→U,opt:Option[T])→Option[U] match opt{Some(v)→Some(fn(v))|None()→None()}
+λbind_option[T,U](fn:λ(T)→Option[U],opt:Option[T])→Option[U] match opt{Some(v)→fn(v)|None()→None()}
+λunwrap_or[T](fallback:T,opt:Option[T])→T match opt{Some(v)→v|None()→fallback}
+λis_some[T](opt:Option[T])→𝔹 match opt{Some(_)→true|None()→false}
+λis_none[T](opt:Option[T])→𝔹 match opt{Some(_)→false|None()→true}
 ```
 
 ### Result[T,E]
@@ -57,8 +57,8 @@ t Result[T,E]=Ok(T)|Err(E)
 
 ```sigil
 λmap_result[T,U,E](fn:λ(T)→U,res:Result[T,E])→Result[U,E] match res{Ok(v)→Ok(fn(v))|Err(e)→Err(e)}
-λbind_result[T,U,E](res:Result[T,E],fn:λ(T)→Result[U,E])→Result[U,E] match res{Ok(v)→fn(v)|Err(e)→Err(e)}
-λunwrap_or_result[T,E](res:Result[T,E],default:T)→T match res{Ok(v)→v|Err(_)→default}
+λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E] match res{Ok(v)→fn(v)|Err(e)→Err(e)}
+λunwrap_or_result[T,E](fallback:T,res:Result[T,E])→T match res{Ok(v)→v|Err(_)→fallback}
 λis_ok[T,E](res:Result[T,E])→𝔹 match res{Ok(_)→true|Err(_)→false}
 λis_err[T,E](res:Result[T,E])→𝔹 match res{Ok(_)→false|Err(_)→true}
 ```
@@ -68,35 +68,32 @@ t Result[T,E]=Ok(T)|Err(E)
 ### Implemented `stdlib⋅list` Functions
 
 ```sigil
-λall(pred:λ(ℤ)→𝔹,xs:[ℤ])→𝔹
-λany(pred:λ(ℤ)→𝔹,xs:[ℤ])→𝔹
-λcontains(item:ℤ,xs:[ℤ])→𝔹
-λcount(item:ℤ,xs:[ℤ])→ℤ
-λdrop(n:ℤ,xs:[ℤ])→[ℤ]
-λfind(pred:λ(ℤ)→𝔹,xs:[ℤ])→IntOption
-λfold(acc:ℤ,fn:λ(ℤ,ℤ)→ℤ,xs:[ℤ])→ℤ
-λin_bounds(idx:ℤ,xs:[ℤ])→𝔹
- t IntOption=IntNone|IntSome(ℤ)
-λlast(xs:[ℤ])→IntOption
-λmax(xs:[ℤ])→IntOption
-λmin(xs:[ℤ])→IntOption
-λnth(idx:ℤ,xs:[ℤ])→IntOption
+λcontains[T](item:T,xs:[T])→𝔹
+λcount[T](item:T,xs:[T])→ℤ
+λdrop[T](n:ℤ,xs:[T])→[T]
+λfind[T](pred:λ(T)→𝔹,xs:[T])→Option[T]
+λfold[T,U](acc:U,fn:λ(U,T)→U,xs:[T])→U
+λin_bounds[T](idx:ℤ,xs:[T])→𝔹
+λlast[T](xs:[T])→Option[T]
+λmax(xs:[ℤ])→Option[ℤ]
+λmin(xs:[ℤ])→Option[ℤ]
+λnth[T](idx:ℤ,xs:[T])→Option[T]
 λproduct(xs:[ℤ])→ℤ
-λremove_first(item:ℤ,xs:[ℤ])→[ℤ]
-λreverse(xs:[ℤ])→[ℤ]
+λremove_first[T](item:T,xs:[T])→[T]
+λreverse[T](xs:[T])→[T]
 λsorted_asc(xs:[ℤ])→𝔹
 λsorted_desc(xs:[ℤ])→𝔹
 λsum(xs:[ℤ])→ℤ
-λtake(n:ℤ,xs:[ℤ])→[ℤ]
+λtake[T](n:ℤ,xs:[T])→[T]
 ```
 
-Safe element access uses `IntOption`:
-- `last([])→IntNone()`
-- `find(pred,[])→IntNone()`
-- `max([])→IntNone()`
-- `min([])→IntNone()`
-- `nth(-1,xs)→IntNone()`
-- `nth(idx,xs)→IntNone()` when out of bounds
+Safe element access uses `Option[T]`:
+- `last([])→None()`
+- `find(pred,[])→None()`
+- `max([])→None()`
+- `min([])→None()`
+- `nth(-1,xs)→None()`
+- `nth(idx,xs)→None()` when out of bounds
 
 ### Implemented `stdlib⋅numeric` Helpers
 

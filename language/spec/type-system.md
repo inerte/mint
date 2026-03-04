@@ -62,13 +62,16 @@ If variable `x` has type scheme `σ` in environment `Γ`, then `x` has type `σ`
 Γ ⊢ λx→e : τ₁ → τ₂
 ```
 
-#### Let Binding (Polymorphism)
+#### Let Binding (Monomorphic)
 
 ```
-Γ ⊢ e₁ : σ    Γ, x : σ ⊢ e₂ : τ
+Γ ⊢ e₁ : τ₁    Γ, x : τ₁ ⊢ e₂ : τ₂
 ────────────────────────────────
-Γ ⊢ l x=e₁;e₂ : τ
+Γ ⊢ l x=e₁;e₂ : τ₂
 ```
+
+Local `l` bindings do **not** undergo Hindley-Milner let-generalization.
+Only explicitly generic top-level declarations introduce quantified type schemes.
 
 Where `σ` is the generalization of the type of `e₁`.
 

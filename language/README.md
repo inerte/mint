@@ -196,6 +196,9 @@ t Result[T,E]=Ok(T)|Err(E)
 t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
 ```
 
+Sigil supports explicit parametric polymorphism on top-level declarations.
+It does not use Hindley-Milner let-polymorphism for local bindings.
+
 ### Built-in List Operations
 ```sigil
 ⟦ Map: ↦ - Apply function to each element ⟧

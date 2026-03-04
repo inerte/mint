@@ -1,4 +1,4 @@
-use crate::types::{EffectSet, InferenceType};
+use crate::types::{EffectSet, InferenceType, TypeScheme};
 use sigil_ast::{
     BinaryOperator, ExternDecl, IdentifierExpr, ImportDecl, LiteralExpr, Param, Pattern,
     PipelineOperator, SourceLocation, TypeDecl, UnaryOperator,
@@ -8,6 +8,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeCheckResult {
     pub declaration_types: HashMap<String, InferenceType>,
+    pub declaration_schemes: HashMap<String, TypeScheme>,
     pub typed_program: TypedProgram,
 }
 
@@ -30,6 +31,7 @@ pub enum TypedDeclaration {
 pub struct TypedFunctionDecl {
     pub name: String,
     pub is_mockable: bool,
+    pub type_params: Vec<String>,
     pub params: Vec<Param>,
     pub return_type: InferenceType,
     pub effects: Option<EffectSet>,

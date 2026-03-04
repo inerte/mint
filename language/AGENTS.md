@@ -99,6 +99,10 @@ Current constructor and list invariants:
 - effectful operations start in source order, even when their resolution overlaps
 - `↦` and `⊳` require pure callbacks; `⊕` is the ordered reduction form
 - `!Async` is not a valid effect annotation
+- Sigil supports explicit parametric polymorphism on top-level declarations
+- do not describe Sigil as using Hindley-Milner let-polymorphism
+- prefer canonical `Option[T]` / `Result[T,E]` over monomorphic wrappers like `IntOption`
+- generic lambdas and call-site type arguments like `f[ℤ](x)` are not part of Sigil's surface
 
 ### 3) Keep user-facing errors actionable
 

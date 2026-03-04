@@ -103,10 +103,17 @@ impl Parser {
         let name = self.consume(TokenType::IDENTIFIER, "Expected function name")?.value.clone();
 
         // Optional generic type parameters: λfunc[T,U](...)
+        let mut type_params = Vec::new();
         if self.match_token(TokenType::LBRACKET) {
-            // Skip type parameters for now (they'll be in type inference)
-            while !self.check(TokenType::RBRACKET) && !self.is_at_end() {
-                self.advance();
+            loop {
+                type_params.push(
+                    self.consume(TokenType::UpperIdentifier, "Expected type parameter")?
+                        .value
+                        .clone(),
+                );
+                if !self.match_token(TokenType::COMMA) {
+                    break;
+                }
             }
             self.consume(TokenType::RBRACKET, "Expected \"]\" after type parameters")?;
         }
@@ -147,6 +154,7 @@ impl Parser {
         Ok(Declaration::Function(FunctionDecl {
             name,
             is_mockable,
+            type_params,
             params,
             effects,
             return_type,

@@ -1,11 +1,11 @@
 //! Sigil Type Checker - Type Environment
 //!
 //! Manages variable bindings during type checking.
-//! Simplified from HM version - no type schemes, direct InferenceType bindings.
+//! Uses explicit schemes for declared generic bindings without HM let-polymorphism.
 
-use crate::types::InferenceType;
+use crate::types::{apply_subst, fresh_type_var, InferenceType, Substitution, TypeScheme};
 use sigil_ast::{TypeDef, Variant};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Type information for user-defined types
 #[derive(Debug, Clone)]
@@ -27,9 +27,11 @@ pub struct BindingMeta {
 #[derive(Debug, Clone)]
 pub struct TypeEnvironment {
     bindings: HashMap<String, InferenceType>,
+    schemes: HashMap<String, TypeScheme>,
     binding_meta: HashMap<String, BindingMeta>,
     type_registry: HashMap<String, TypeInfo>,               // User-defined types
     imported_type_registries: HashMap<String, HashMap<String, TypeInfo>>, // Types from imported modules
+    imported_value_schemes: HashMap<String, HashMap<String, TypeScheme>>,
     parent: Option<Box<TypeEnvironment>>,
 }
 
@@ -38,9 +40,11 @@ impl TypeEnvironment {
     pub fn new() -> Self {
         Self {
             bindings: HashMap::new(),
+            schemes: HashMap::new(),
             binding_meta: HashMap::new(),
             type_registry: HashMap::new(),
             imported_type_registries: HashMap::new(),
+            imported_value_schemes: HashMap::new(),
             parent: None,
         }
     }
@@ -49,9 +53,11 @@ impl TypeEnvironment {
     fn with_parent(parent: TypeEnvironment) -> Self {
         Self {
             bindings: HashMap::new(),
+            schemes: HashMap::new(),
             binding_meta: HashMap::new(),
             type_registry: HashMap::new(),
             imported_type_registries: HashMap::new(),
+            imported_value_schemes: HashMap::new(),
             parent: Some(Box::new(parent)),
         }
     }
@@ -62,6 +68,10 @@ impl TypeEnvironment {
     pub fn lookup(&self, name: &str) -> Option<InferenceType> {
         if let Some(typ) = self.bindings.get(name) {
             return Some(typ.clone());
+        }
+
+        if let Some(scheme) = self.schemes.get(name) {
+            return Some(instantiate_scheme(scheme));
         }
 
         // Search parent scope
@@ -75,9 +85,20 @@ impl TypeEnvironment {
         self.bindings.insert(name, typ);
     }
 
+    /// Bind an explicitly generic declaration as a scheme.
+    pub fn bind_scheme(&mut self, name: String, scheme: TypeScheme) {
+        self.schemes.insert(name, scheme);
+    }
+
     /// Bind a variable with metadata
     pub fn bind_with_meta(&mut self, name: String, typ: InferenceType, meta: BindingMeta) {
         self.bindings.insert(name.clone(), typ);
+        self.binding_meta.insert(name, meta);
+    }
+
+    /// Bind an explicitly generic declaration as a scheme with metadata.
+    pub fn bind_scheme_with_meta(&mut self, name: String, scheme: TypeScheme, meta: BindingMeta) {
+        self.schemes.insert(name.clone(), scheme);
         self.binding_meta.insert(name, meta);
     }
 
@@ -115,6 +136,15 @@ impl TypeEnvironment {
         self.imported_type_registries.insert(module_id, types);
     }
 
+    /// Register exported value schemes from an imported module.
+    pub fn register_imported_value_schemes(
+        &mut self,
+        module_id: String,
+        value_schemes: HashMap<String, TypeScheme>,
+    ) {
+        self.imported_value_schemes.insert(module_id, value_schemes);
+    }
+
     /// Look up a qualified type from an imported module
     ///
     /// Example: lookup_qualified_type(["src", "types"], "ArticleMeta")
@@ -128,6 +158,24 @@ impl TypeEnvironment {
 
         // Check parent scope
         self.parent.as_ref()?.lookup_qualified_type(module_path, type_name)
+    }
+
+    /// Look up an imported value member with fresh instantiation.
+    pub fn lookup_qualified_value(
+        &self,
+        module_path: &[String],
+        member_name: &str,
+    ) -> Option<InferenceType> {
+        let module_id = module_path.join("⋅");
+        if let Some(registry) = self.imported_value_schemes.get(&module_id) {
+            if let Some(scheme) = registry.get(member_name) {
+                return Some(instantiate_scheme(scheme));
+            }
+        }
+
+        self.parent
+            .as_ref()?
+            .lookup_qualified_value(module_path, member_name)
     }
 
     /// Look up a qualified constructor from an imported module.
@@ -201,6 +249,11 @@ impl TypeEnvironment {
         self.bindings.clone()
     }
 
+    /// Get all explicit schemes in this scope (for tooling/exports).
+    pub fn get_schemes(&self) -> HashMap<String, TypeScheme> {
+        self.schemes.clone()
+    }
+
     /// Create the initial environment with built-in operators
     pub fn create_initial() -> TypeEnvironment {
         let env = TypeEnvironment::new();
@@ -221,14 +274,22 @@ impl TypeEnvironment {
     pub fn normalize_type(&self, ty: &InferenceType) -> InferenceType {
         match ty {
             InferenceType::Constructor(ctor) => {
-                // Look up the constructor in the type registry
-                if let Some(type_info) = self.lookup_type(&ctor.name) {
+                let qualified_lookup = split_qualified_type_name(&ctor.name)
+                    .and_then(|(module_path, type_name)| self.lookup_qualified_type(&module_path, &type_name));
+                let local_lookup = self.lookup_type(&ctor.name);
+
+                if let Some(type_info) = qualified_lookup.or(local_lookup) {
+                    let type_param_bindings =
+                        build_type_param_bindings(&type_info.type_params, &ctor.type_args);
                     // Resolve type definition to its underlying structure
                     match &type_info.definition {
                         TypeDef::Alias(alias) => {
                             // Convert the aliased AST type to InferenceType and normalize recursively
-                            use crate::types::ast_type_to_inference_type;
-                            let underlying = ast_type_to_inference_type(&alias.aliased_type);
+                            use crate::types::ast_type_to_inference_type_with_params;
+                            let underlying = ast_type_to_inference_type_with_params(
+                                &alias.aliased_type,
+                                Some(&type_param_bindings),
+                            );
                             // Recursively normalize in case of nested aliases
                             return self.normalize_type(&underlying);
                         }
@@ -238,8 +299,11 @@ impl TypeEnvironment {
                                 .fields
                                 .iter()
                                 .map(|f| {
-                                    use crate::types::ast_type_to_inference_type;
-                                    let field_type = ast_type_to_inference_type(&f.field_type);
+                                    use crate::types::ast_type_to_inference_type_with_params;
+                                    let field_type = ast_type_to_inference_type_with_params(
+                                        &f.field_type,
+                                        Some(&type_param_bindings),
+                                    );
                                     (f.name.clone(), self.normalize_type(&field_type))
                                 })
                                 .collect();
@@ -300,6 +364,76 @@ impl TypeEnvironment {
             }
             // Other types don't need normalization
             _ => ty.clone(),
+        }
+    }
+}
+
+fn split_qualified_type_name(name: &str) -> Option<(Vec<String>, String)> {
+    let dot_index = name.rfind('.')?;
+    let module_id = &name[..dot_index];
+    let type_name = &name[dot_index + 1..];
+    Some((
+        module_id.split('⋅').map(|part| part.to_string()).collect(),
+        type_name.to_string(),
+    ))
+}
+
+fn build_type_param_bindings(
+    type_params: &[String],
+    type_args: &[InferenceType],
+) -> HashMap<String, InferenceType> {
+    type_params
+        .iter()
+        .cloned()
+        .zip(type_args.iter().cloned())
+        .collect()
+}
+
+fn instantiate_scheme(scheme: &TypeScheme) -> InferenceType {
+    let mut subst: Substitution = HashMap::new();
+    for var_id in &scheme.quantified_vars {
+        subst.insert(*var_id, fresh_type_var(None));
+    }
+    apply_subst(&subst, &scheme.typ)
+}
+
+pub fn explicit_scheme(typ: &InferenceType, quantified_vars: &HashSet<u32>) -> TypeScheme {
+    TypeScheme {
+        quantified_vars: quantified_vars.clone(),
+        typ: typ.clone(),
+    }
+}
+
+pub fn collect_type_var_ids(typ: &InferenceType, ids: &mut HashSet<u32>) {
+    match typ {
+        InferenceType::Primitive(_) | InferenceType::Any => {}
+        InferenceType::Var(tvar) => {
+            ids.insert(tvar.id);
+            if let Some(instance) = &tvar.instance {
+                collect_type_var_ids(instance, ids);
+            }
+        }
+        InferenceType::Function(func) => {
+            for param in &func.params {
+                collect_type_var_ids(param, ids);
+            }
+            collect_type_var_ids(&func.return_type, ids);
+        }
+        InferenceType::List(list) => collect_type_var_ids(&list.element_type, ids),
+        InferenceType::Tuple(tuple) => {
+            for item in &tuple.types {
+                collect_type_var_ids(item, ids);
+            }
+        }
+        InferenceType::Record(record) => {
+            for field_type in record.fields.values() {
+                collect_type_var_ids(field_type, ids);
+            }
+        }
+        InferenceType::Constructor(constructor) => {
+            for arg in &constructor.type_args {
+                collect_type_var_ids(arg, ids);
+            }
         }
     }
 }

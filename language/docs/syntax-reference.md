@@ -88,12 +88,22 @@ Module scope is declaration-only:
 λadd(x:ℤ,y:ℤ)→ℤ=x+y
 ```
 
+Generic top-level functions use explicit type parameters on the declaration:
+
+```sigil
+λidentity[T](x:T)→T=x
+λmap_option[T,U](fn:λ(T)→U,opt:Option[T])→Option[U]=...
+```
+
 Rules:
 - function name is required
 - parameter types are required
 - return type is required
+- generic type parameters are allowed on top-level `λ` declarations
 - `=` is required for regular expression bodies
 - `=` is omitted when body starts with match (`match ...`)
+- generic lambdas are not supported
+- call-site type arguments like `f[ℤ](x)` are not supported
 
 Match-body form:
 

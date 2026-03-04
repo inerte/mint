@@ -24,6 +24,7 @@ use std::collections::HashMap;
 pub struct TypeCheckOptions {
     pub imported_namespaces: Option<HashMap<String, InferenceType>>,
     pub imported_type_registries: Option<HashMap<String, HashMap<String, TypeInfo>>>,
+    pub imported_value_schemes: Option<HashMap<String, HashMap<String, TypeScheme>>>,
     pub source_file: Option<String>,
 }
 

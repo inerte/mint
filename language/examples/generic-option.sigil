@@ -1,0 +1,4 @@
+i stdlib⋅option
+
+λmain()→stdlib⋅option.Option[ℤ]=
+  stdlib⋅option.map_option(λ(x:ℤ)→ℤ=x*2,stdlib⋅option.Some(21))

@@ -148,16 +148,20 @@ The bidirectional type checker is fully implemented and integrated into the comp
 - `errors.rs` - Error formatting
 - `bidirectional.rs` - Core type checking algorithm
 
-### Current Phase: Monomorphic Types
+### Current Phase: Explicit Generics Without HM
 
-**Phase 1** (Implemented): All basic types without polymorphism
+Sigil now supports **explicit parametric polymorphism** at declaration boundaries.
+
+Implemented today:
 - Primitive types: `ℤ` (Int), `𝕊` (String), `𝔹` (Bool), `𝕌` (Unit)
 - Function types: `λ(T₁,...,Tₙ)→R`
 - List types: `[T]`
 - Tuple types: `(T₁,T₂,...,Tₙ)`
 - Record types: `{field₁:T₁, field₂:T₂, ...}`
+- Generic type declarations: `Option[T]`, `Result[T,E]`, user-defined generic ADTs
+- Generic top-level function declarations: `λmap[T,U](fn:λ(T)→U,list:[T])→[U]`
 - Canonical form requires record fields to be alphabetically ordered everywhere records appear
-- No generics (each function is monomorphic)
+- Local bindings remain monomorphic unless they refer to an explicitly generic top-level declaration
 
 **Type equality** uses canonical structural comparison:
 ```typescript
@@ -189,13 +193,16 @@ c opts=({recursive:true}:MkdirOptions)
 Sigil keeps **sum types nominal**. A sum type does not normalize into a structural
 record payload just because one of its variants carries a record.
 
-### Future Phase: Polymorphism
+Sigil does **not** use Hindley-Milner let-polymorphism:
+- `l id=...` does not become implicitly polymorphic
+- lambdas are not generic declarations
+- there is no call-site type argument syntax like `f[ℤ](x)`
 
-**Phase 2** (Future): Add parametric polymorphism if needed
-- Reintroduce unification for generics
-- Support `∀T.` quantifiers
-- Example: `λmap[T,U](fn:λ(T)→U, list:[T])→[U]`
-- Still simpler than full HM because checking mode reduces inference burden
+Generic instantiation is driven by ordinary bidirectional typing:
+- argument types
+- expected return types
+- type ascriptions
+- pattern-match scrutinee types
 
 ### Future Phase: Advanced Features
 
@@ -205,20 +212,20 @@ record payload just because one of its variants carries a record.
 - **Effect tracking**: `λread()→!IO 𝕊`
 - **Dependent types**: If needed for verification
 
-All these are **easier** to add with bidirectional typing than with Hindley-Milner.
+All these remain easier to add on top of bidirectional typing than on top of Hindley-Milner.
 
 ## Comparison: Bidirectional vs Hindley-Milner
 
 | Feature | Hindley-Milner | Bidirectional |
 |---------|----------------|---------------|
-| **Type annotations** | Optional | Mandatory |
+| **Type annotations** | Optional | Mandatory in canonical positions |
 | **Best for** | Type inference | Type checking |
 | **Error messages** | "Failed to unify X and Y" | "Expected X, got Y at line:col" |
-| **Implementation** | Complex (unification, generalization) | Simpler (structural equality) |
+| **Implementation** | Complex (generalization + implicit polymorphic locals) | Simpler and more explicit |
 | **Code size** | ~1,468 lines (inference + unification + patterns) | ~829 lines |
 | **Extensibility** | Hard to extend | Natural framework |
 | **Performance** | Good for inference | Excellent for checking |
-| **Fit for Sigil** | Designed for different use case | Perfect fit |
+| **Fit for Sigil** | Too much hidden behavior | Matches Sigil's machine-first explicitness |
 
 ## Pattern Matching Type Checking
 

@@ -25,14 +25,14 @@ cat > test-project/sigil.json << 'EOF'
 }
 EOF
 
-cat > test-project/src/utils.sigil << 'EOF'
-export λ double(x: ℤ) → ℤ = x * 2
-export λ triple(x: ℤ) → ℤ = x * 3
+cat > test-project/src/utils.lib.sigil << 'EOF'
+λdouble(x:ℤ)→ℤ=x*2
+λtriple(x:ℤ)→ℤ=x*3
 EOF
 
 cat > test-project/src/main.sigil << 'EOF'
 i src⋅utils
-λ main() → ℤ = src⋅utils.double(21)
+λmain()→ℤ=src⋅utils.double(21)
 EOF
 
 echo "Running: cd test-project && ../target/debug/sigil run src/main.sigil --human"
@@ -44,15 +44,15 @@ echo ""
 # Test 2: Multiple imports
 echo "Test 2: Multiple imports in one file"
 echo "--------------------------------------"
-cat > test-project/src/math.sigil << 'EOF'
-export λ add(x: ℤ, y: ℤ) → ℤ = x + y
-export λ subtract(x: ℤ, y: ℤ) → ℤ = x - y
+cat > test-project/src/math.lib.sigil << 'EOF'
+λadd(x:ℤ,y:ℤ)→ℤ=x+y
+λsubtract(x:ℤ,y:ℤ)→ℤ=x-y
 EOF
 
 cat > test-project/src/calc.sigil << 'EOF'
-i src⋅utils
 i src⋅math
-λ main() → ℤ = src⋅math.add(src⋅utils.double(10), src⋅utils.triple(5))
+i src⋅utils
+λmain()→ℤ=src⋅math.add(src⋅utils.double(10),src⋅utils.triple(5))
 EOF
 
 echo "Running: cd test-project && ../target/debug/sigil run src/calc.sigil --human"
@@ -64,18 +64,18 @@ echo ""
 # Test 3: Nested module dependencies
 echo "Test 3: Transitive dependencies (A imports B imports C)"
 echo "---------------------------------------------------------"
-cat > test-project/src/base.sigil << 'EOF'
-export λ increment(x: ℤ) → ℤ = x + 1
+cat > test-project/src/base.lib.sigil << 'EOF'
+λincrement(x:ℤ)→ℤ=x+1
 EOF
 
-cat > test-project/src/derived.sigil << 'EOF'
+cat > test-project/src/derived.lib.sigil << 'EOF'
 i src⋅base
-export λ add_two(x: ℤ) → ℤ = src⋅base.increment(src⋅base.increment(x))
+λadd_two(x:ℤ)→ℤ=src⋅base.increment(src⋅base.increment(x))
 EOF
 
 cat > test-project/src/app.sigil << 'EOF'
 i src⋅derived
-λ main() → ℤ = src⋅derived.add_two(5)
+λmain()→ℤ=src⋅derived.add_two(5)
 EOF
 
 echo "Running: cd test-project && ../target/debug/sigil run src/app.sigil --human"

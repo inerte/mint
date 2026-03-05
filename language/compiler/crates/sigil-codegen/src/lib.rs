@@ -272,6 +272,51 @@ impl TypeScriptGenerator {
         self.emit("function __sigil_time_now_instant() {");
         self.emit("  return { epoch_millis: Date.now() };");
         self.emit("}");
+        self.emit("function __sigil_url_query_map_from_search(search) {");
+        self.emit("  const params = new URLSearchParams(search);");
+        self.emit("  return __sigil_map_from_entries(Array.from(params.entries()));");
+        self.emit("}");
+        self.emit("function __sigil_url_from_absolute(absolute) {");
+        self.emit("  const protocol = absolute.protocol.endsWith(':') ? absolute.protocol.slice(0, -1) : absolute.protocol;");
+        self.emit("  const port = absolute.port.length > 0 ? { __tag: \"Some\", __fields: [Number(absolute.port)] } : { __tag: \"None\", __fields: [] };");
+        self.emit("  return {");
+        self.emit("    fragment: absolute.hash || '',");
+        self.emit("    host: absolute.hostname || '',");
+        self.emit("    path: absolute.pathname || '',");
+        self.emit("    port,");
+        self.emit("    protocol,");
+        self.emit("    query: __sigil_url_query_map_from_search(absolute.search || ''),");
+        self.emit("    query_string: absolute.search || ''");
+        self.emit("  };");
+        self.emit("}");
+        self.emit("function __sigil_url_from_relative(input) {");
+        self.emit("  const fragmentIndex = input.indexOf('#');");
+        self.emit("  const fragment = fragmentIndex >= 0 ? input.slice(fragmentIndex) : '';");
+        self.emit("  const withoutFragment = fragmentIndex >= 0 ? input.slice(0, fragmentIndex) : input;");
+        self.emit("  const queryIndex = withoutFragment.indexOf('?');");
+        self.emit("  const path = queryIndex >= 0 ? withoutFragment.slice(0, queryIndex) : withoutFragment;");
+        self.emit("  const queryString = queryIndex >= 0 ? withoutFragment.slice(queryIndex) : '';");
+        self.emit("  return {");
+        self.emit("    fragment,");
+        self.emit("    host: '',");
+        self.emit("    path,");
+        self.emit("    port: { __tag: \"None\", __fields: [] },");
+        self.emit("    protocol: '',");
+        self.emit("    query: __sigil_url_query_map_from_search(queryString),");
+        self.emit("    query_string: queryString");
+        self.emit("  };");
+        self.emit("}");
+        self.emit("function __sigil_url_parse_result(input) {");
+        self.emit("  try {");
+        self.emit("    const absolutePattern = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;");
+        self.emit("    if (absolutePattern.test(input)) {");
+        self.emit("      return { __tag: \"Ok\", __fields: [__sigil_url_from_absolute(new URL(input))] };");
+        self.emit("    }");
+        self.emit("    return { __tag: \"Ok\", __fields: [__sigil_url_from_relative(input)] };");
+        self.emit("  } catch (error) {");
+        self.emit("    return { __tag: \"Err\", __fields: [{ message: error instanceof Error ? error.message : String(error) }] };");
+        self.emit("  }");
+        self.emit("}");
         self.emit("function __sigil_is_map(value) {");
         self.emit(
             "  return !!value && typeof value === 'object' && Array.isArray(value.__sigil_map);",
@@ -796,6 +841,9 @@ impl TypeScriptGenerator {
                 if module == "stdlib/time" {
                     return self.generate_time_intrinsic(member, args);
                 }
+                if module == "stdlib/url" {
+                    return self.generate_url_intrinsic(member, args);
+                }
                 if module == "core/map" {
                     return self.generate_map_intrinsic(member, args);
                 }
@@ -822,6 +870,13 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/time.lib.sigil"))
                 {
                     return self.generate_time_intrinsic(&name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/url.lib.sigil"))
+                {
+                    return self.generate_url_intrinsic(&name.name, args);
                 }
                 if self
                     .source_file
@@ -1098,6 +1153,45 @@ impl TypeScriptGenerator {
         }
     }
 
+    fn generate_url_intrinsic(
+        &mut self,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+
+        match member {
+            "get_query" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__key, __url]) => __sigil_map_get(__url.query, __key))",
+                self.js_all(&generated_args)
+            ))),
+            "has_query" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__key, __url]) => __sigil_map_has(__url.query, __key))",
+                self.js_all(&generated_args)
+            ))),
+            "is_absolute" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__url) => __url.protocol.length > 0)",
+                generated_args[0]
+            ))),
+            "is_anchor" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__url) => __url.path.length === 0 && __url.fragment.length > 0)",
+                generated_args[0]
+            ))),
+            "parse" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__input) => __sigil_url_parse_result(__input))",
+                generated_args[0]
+            ))),
+            "suffix" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__url) => __url.query_string + __url.fragment)",
+                generated_args[0]
+            ))),
+            _ => Ok(None),
+        }
+    }
+
     fn generate_constructor_call(
         &mut self,
         call: &TypedConstructorCallExpr,
@@ -1136,6 +1230,11 @@ impl TypeScriptGenerator {
         }
         if call.namespace.join("/") == "stdlib/time" {
             if let Some(intrinsic) = self.generate_time_intrinsic(&call.member, &call.args)? {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/") == "stdlib/url" {
+            if let Some(intrinsic) = self.generate_url_intrinsic(&call.member, &call.args)? {
                 return Ok(intrinsic);
             }
         }

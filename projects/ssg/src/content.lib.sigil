@@ -1,9 +1,8 @@
-t LinkParts={fragment:𝕊,path:𝕊}
-
 i src⋅types
 i stdlib⋅markdown
 i stdlib⋅string
 i stdlib⋅time
+i stdlib⋅url
 
 λadd_article_aliases(page:src⋅types.SitePage,routes:[src⋅types.AliasRoute])→[src⋅types.AliasRoute]=
   l bare_slug=(strip_numeric_prefix(page.meta.slug):𝕊);
@@ -124,11 +123,11 @@ i stdlib⋅time
 
 λfind_link_close(after_open:𝕊)→ℤ=stdlib⋅string.index_of(after_open,")")
 
-λis_external_link(target:𝕊)→𝔹=
-  stdlib⋅string.starts_with("#",target) or
-  stdlib⋅string.starts_with("http://",target) or
-  stdlib⋅string.starts_with("https://",target) or
-  stdlib⋅string.starts_with("mailto:",target)
+λis_external_link(target:stdlib⋅url.Url)→𝔹=
+  stdlib⋅url.is_anchor(target) or
+  target.protocol="http" or
+  target.protocol="https" or
+  target.protocol="mailto"
 
 λlookup_alias(alias:𝕊,alias_routes:[src⋅types.AliasRoute])→𝕊 match alias_routes{
   []→""|
@@ -205,21 +204,24 @@ i stdlib⋅time
       }
   }
 
-λrewrite_link_target(alias_routes:[src⋅types.AliasRoute],base_path:𝕊,source_path:𝕊,target:𝕊)→𝕊 match is_external_link(target){
-  true→target|
-  false→
-    l parts=(split_link_parts(target):LinkParts);
-    l direct=(lookup_alias(parts.path,alias_routes):𝕊);
-    match #direct>0{
-      true→base_path_prefix(base_path,direct)++parts.fragment|
-      false→
-        l repo_path=(resolve_repo_path(source_path,parts.path):𝕊);
-        l resolved=(lookup_alias(repo_path,alias_routes):𝕊);
-        match #resolved>0{
-          true→base_path_prefix(base_path,resolved)++parts.fragment|
-          false→target
-        }
-    }
+λrewrite_link_target(alias_routes:[src⋅types.AliasRoute],base_path:𝕊,source_path:𝕊,target:𝕊)→𝕊 match stdlib⋅url.parse(target){
+  Err(_)→target|
+  Ok(parsed_target)→match is_external_link(parsed_target){
+    true→target|
+    false→
+      l suffix=(stdlib⋅url.suffix(parsed_target):𝕊);
+      l direct=(lookup_alias(parsed_target.path,alias_routes):𝕊);
+      match #direct>0{
+        true→base_path_prefix(base_path,direct)++suffix|
+        false→
+          l repo_path=(resolve_repo_path(source_path,parsed_target.path):𝕊);
+          l resolved=(lookup_alias(repo_path,alias_routes):𝕊);
+          match #resolved>0{
+            true→base_path_prefix(base_path,resolved)++suffix|
+            false→target
+          }
+      }
+  }
 }
 
 λsection_name(section:src⋅types.Section)→𝕊 match section{
@@ -291,16 +293,6 @@ i stdlib⋅time
   []→[]|
   [page,.rest]→sort_insert(compare,page,sort_pages_inner(compare,rest))
 }
-
-λsplit_link_parts(target:𝕊)→LinkParts=
-  l fragment_idx=(stdlib⋅string.index_of(target,"#"):ℤ);
-  match fragment_idx<0{
-    true→{fragment:"",path:target}|
-    false→{
-      fragment:stdlib⋅string.substring(#target,target,fragment_idx),
-      path:stdlib⋅string.substring(fragment_idx,target,0)
-    }
-  }
 
 λstrip_numeric_prefix(slug:𝕊)→𝕊=drop_numeric_prefix(slug)
 

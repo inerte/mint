@@ -1,0 +1,13 @@
+e console
+i stdlib⋅string
+i stdlib⋅url
+
+λmain()→𝕌 match stdlib⋅url.parse("https://sigil.dev/docs?lang=sigil#intro"){
+  Ok(parsed)→
+    l summary=("protocol="++parsed.protocol++", host="++parsed.host++", path="++parsed.path++", suffix="++stdlib⋅url.suffix(parsed):𝕊);
+    console.log(summary)
+    ()|
+  Err(err)→
+    console.log("url parse error: "++err.message)
+    ()
+}

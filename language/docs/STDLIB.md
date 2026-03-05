@@ -14,6 +14,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ String predicates (prefix/suffix checking) - `stdlib/string`
 - ✅ JSON parsing/serialization - `stdlib/json`
 - ✅ Time parsing/comparison/clock - `stdlib/time`
+- ✅ URL parsing/query helpers - `stdlib/url`
 - ✅ Core prelude vocabulary (Option, Result) - `core/prelude` (implicit)
 - ✅ Length operator (`#`) - works on strings and lists
 
@@ -30,6 +31,7 @@ i stdlib⋅json
 i stdlib⋅numeric
 i stdlib⋅string
 i stdlib⋅time
+i stdlib⋅url
 
 ⟦ Use with fully qualified names ⟧
 λmain()→𝕌=console.log(
@@ -91,7 +93,7 @@ Sigil uses file-based visibility:
 
 There is no `export` keyword.
 
-## JSON and Time
+## JSON, Time, and URL
 
 `stdlib⋅json` exposes a typed JSON AST with safe parsing:
 
@@ -117,6 +119,21 @@ i stdlib⋅time
   match stdlib⋅time.parse_iso("2026-03-03"){
     Ok(instant)→
       l _=(stdlib⋅time.to_epoch_millis(instant):ℤ);
+      ()|
+    Err(_)→()
+  }
+```
+
+`stdlib⋅url` exposes strict parse results and typed URL fields for both absolute and relative targets:
+
+```sigil
+i stdlib⋅url
+
+λmain()→𝕌=
+  match stdlib⋅url.parse("../language/spec/cli-json.md?view=raw#schema"){
+    Ok(url)→
+      l _=(url.path:𝕊);
+      l _2=(stdlib⋅url.suffix(url):𝕊);
       ()|
     Err(_)→()
   }

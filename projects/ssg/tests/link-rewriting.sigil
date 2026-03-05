@@ -27,3 +27,7 @@ test "link rewriting rewrites docs and articles" {
 test "link rewriting leaves external links unchanged" {
   src⋅content.rewrite_internal_links(alias_routes(),"/sigil","Visit [Claude](https://claude.com)","website/README.md")="Visit [Claude](https://claude.com)"
 }
+
+test "link rewriting preserves query and fragment suffixes" {
+  src⋅content.rewrite_internal_links(alias_routes(),"/sigil","Read [spec](../language/spec/cli-json.md?view=raw#schema)","website/articles/015-why-sigil-bans-shadowing.md")="Read [spec](/sigil/spec/cli-json/?view=raw#schema)"
+}

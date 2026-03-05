@@ -81,6 +81,7 @@ Examples:
 - `stdlib⋅string` owns string helpers like `join`
 - `stdlib⋅json` owns JSON parsing/value helpers
 - `stdlib⋅time` owns clock and ISO timestamp handling
+- `stdlib⋅url` owns URL parsing/query helpers
 
 The design rule is pragmatic:
 - a large stdlib is fine

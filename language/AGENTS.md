@@ -105,13 +105,13 @@ Current constructor and list invariants:
 - `Option`, `Result`, `Some`, `None`, `Ok`, and `Err` are implicit core vocabulary from `core⋅prelude`
 - `Map` is a core collection concept with type syntax `{K↦V}` and literal syntax `{key↦value,...}` / `{↦}`
 - helper operations for foundational core types stay namespaced under `core⋅...`
-- `stdlib⋅json` and `stdlib⋅time` are canonical stdlib modules (not core vocabulary)
+- `stdlib⋅json`, `stdlib⋅time`, and `stdlib⋅url` are canonical stdlib modules (not core vocabulary)
 - prefixes are not intrinsically valuable; canonical ownership is
 - future changes should decide intentionally whether a concept belongs in:
   - implicit core vocabulary
   - a namespaced module surface
   - backend/runtime only
-- prefer putting operational formats/protocols (json, time, http, markdown) in `stdlib`
+- prefer putting operational formats/protocols (json, time, url, http, markdown) in `stdlib`
 - promote concepts to core only when they are universal language-shaping vocabulary
 - records and maps are distinct:
   - records are fixed-shape structural products using `:`

@@ -32,16 +32,12 @@ t NodeRequest={
 
 t NodeResponse={}
 
-t ParsedUrl={
-  pathname:𝕊
-}
-
 ⟦ External FFI bindings ⟧
 e console
 e http
-e url
 i core⋅map
 i stdlib⋅string
+i stdlib⋅url
 
 ⟦ Helper: Create a JSON response ⟧
 λjson(body:𝕊,status:ℤ)→Response={
@@ -101,8 +97,13 @@ Usage:
   ⟦ Create HTTP server with request handler ⟧
   (http.createServer(λ(node_req:NodeRequest,node_res:NodeResponse)→!IO 𝕌={
     ⟦ Parse URL to extract path ⟧
-    l parsed_url=(url.parse(node_req.url,true):ParsedUrl);
-    l path=(parsed_url.pathname:𝕊);
+    l path=(match stdlib⋅url.parse(node_req.url){
+      Ok(parsed_url)→match #parsed_url.path>0{
+        true→parsed_url.path|
+        false→"/"
+      }|
+      Err(_)→"/"
+    }:𝕊);
 
     ⟦ Extract method ⟧
     l method=(node_req.method:𝕊);

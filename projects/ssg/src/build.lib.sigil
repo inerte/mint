@@ -1,3 +1,5 @@
+e fs⋅promises
+
 i src⋅content
 i src⋅frontmatter
 i src⋅templates
@@ -41,10 +43,11 @@ i stdlib⋅time
   [asset,.rest]→
     l source=(stdlib⋅path.join(asset_source_dir,asset):𝕊);
     l target=(stdlib⋅path.join(asset_target_dir,asset):𝕊);
-    l content=(stdlib⋅file.read_text(source):𝕊);
-    l _=(stdlib⋅file.write_text(content,target):𝕌);
+    l _=(copy_file(source,target):𝕌);
     copy_asset_files(rest,asset_source_dir,asset_target_dir)
 }
+
+λcopy_file(source:𝕊,target:𝕊)→!IO 𝕌=fs⋅promises.copyFile(source,target)
 
 λcopy_static_assets(asset_target_dir:𝕊)→!IO 𝕌=
   l asset_source_dir=("website/static":𝕊);

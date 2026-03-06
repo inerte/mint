@@ -4,7 +4,7 @@ A programming language for Claude Code and other AI coding agents.
 
 ## Getting Started
 
-Here's how to write "Hello World" in Sigil:
+Here's how to write "Hello World" in Sigil (for now at least, until models learn more about Sigil):
 
 ```bash
 claude "Write a Hello World in Sigil and run it"
@@ -18,7 +18,7 @@ claude "Write a Hello World in Sigil and run it"
 
 **Radical Canonicalization** - ONE way to write everything. No style debates, no formatting discussions. The compiler enforces canonical forms for filenames, declarations, parameters, even whitespace.
 
-**Zero Ambiguity** - Explicit types, no shadowing, deterministic execution. Code means exactly what it says. Perfect for AI code generation.
+**Zero Ambiguity** - Explicit bidirectional types, no shadowing, deterministic execution. Code means exactly what it says. Perfect for AI code generation.
 
 **Concurrent by Default** - Built for async I/O without await syntax. Functions compose naturally with effects tracked in the type system.
 
@@ -38,4 +38,4 @@ test sum_test()→Unit|AssertionFailure =
 
 ---
 
-This website is built from markdown that lives in the repo. Docs stay in `language/docs`, specs in `language/spec`. <a href="/about-site/">Learn more about the site →</a>
+This website is built from markdown using a Static Site Generator built in Sigil. Docs stay in `language/docs`, specs in `language/spec`. <a href="/about-site/">Learn more about the site →</a>

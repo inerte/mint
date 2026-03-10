@@ -705,6 +705,43 @@ t Response={body:String,headers:Headers,status:Int}
 `serve` is long-lived: once the server is listening, the process remains active
 until it is terminated externally.
 
+### std/tcpClient
+
+Canonical one-request, one-response TCP client.
+
+```sigil
+t TcpError={kind:TcpErrorKind,message:String}
+t TcpErrorKind=Connection()|InvalidAddress()|Protocol()|Timeout()
+t TcpRequest={host:String,message:String,port:Int}
+t TcpResponse={message:String}
+
+λrequest(request:TcpRequest)→!IO Result[TcpResponse,TcpError]
+λsend(host:String,message:String,port:Int)→!IO Result[TcpResponse,TcpError]
+```
+
+Semantics:
+- requests are UTF-8 text
+- the client writes one newline-delimited message and expects one newline-delimited response
+- address validation, socket failure, timeout, and framing failure return `Err(TcpError)`
+
+### std/tcpServer
+
+Canonical one-request, one-response TCP server.
+
+```sigil
+t Request={host:String,message:String,port:Int}
+t Response={message:String}
+
+λresponse(message:String)→Response
+λserve(handler:λ(Request)→!IO Response,port:Int)→!IO Unit
+```
+
+Semantics:
+- the server reads one UTF-8 line per connection
+- the handler returns one UTF-8 line response
+- the server closes each connection after the response is written
+- `serve` is long-lived once listening succeeds
+
 ### std/test
 
 Testing utilities

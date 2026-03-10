@@ -405,6 +405,101 @@ impl TypeScriptGenerator {
         self.emit("  console.log(`Server running at http://localhost:${String(port)}`);");
         self.emit("  await new Promise(() => {});");
         self.emit("}");
+        self.emit("function __sigil_tcp_error(kind, message) {");
+        self.emit("  return { kind: { __tag: kind, __fields: [] }, message: String(message) };");
+        self.emit("}");
+        self.emit("function __sigil_tcp_is_valid_host(host) {");
+        self.emit("  return typeof host === 'string' && host.length > 0;");
+        self.emit("}");
+        self.emit("function __sigil_tcp_is_valid_port(port) {");
+        self.emit("  return Number.isInteger(port) && port > 0 && port <= 65535;");
+        self.emit("}");
+        self.emit("function __sigil_tcp_first_line(buffer) {");
+        self.emit("  const index = buffer.indexOf('\\n');");
+        self.emit("  return index === -1 ? null : buffer.slice(0, index).replace(/\\r$/, '');");
+        self.emit("}");
+        self.emit("async function __sigil_tcp_request(request) {");
+        self.emit("  if (!__sigil_tcp_is_valid_host(request?.host) || !__sigil_tcp_is_valid_port(request?.port)) {");
+        self.emit("    return { __tag: 'Err', __fields: [__sigil_tcp_error('InvalidAddress', 'TCP requests require a valid host and port')] };");
+        self.emit("  }");
+        self.emit("  const { Socket } = await import('node:net');");
+        self.emit("  return await new Promise((resolve) => {");
+        self.emit("    const socket = new Socket();");
+        self.emit("    let settled = false;");
+        self.emit("    let received = '';");
+        self.emit("    const finish = (value) => {");
+        self.emit("      if (settled) return;");
+        self.emit("      settled = true;");
+        self.emit("      socket.destroy();");
+        self.emit("      resolve(value);");
+        self.emit("    };");
+        self.emit("    socket.setEncoding('utf8');");
+        self.emit("    socket.setTimeout(5000);");
+        self.emit("    socket.once('connect', () => {");
+        self.emit("      socket.write(`${String(request.message)}\\n`);");
+        self.emit("    });");
+        self.emit("    socket.on('data', (chunk) => {");
+        self.emit("      received += String(chunk);");
+        self.emit("      const line = __sigil_tcp_first_line(received);");
+        self.emit("      if (line !== null) {");
+        self.emit("        finish({ __tag: 'Ok', __fields: [{ message: line }] });");
+        self.emit("      }");
+        self.emit("    });");
+        self.emit("    socket.once('timeout', () => {");
+        self.emit("      finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Timeout', 'TCP request timed out')] });");
+        self.emit("    });");
+        self.emit("    socket.once('error', (error) => {");
+        self.emit("      finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Connection', error instanceof Error ? error.message : String(error))] });");
+        self.emit("    });");
+        self.emit("    socket.once('close', () => {");
+        self.emit("      if (!settled) {");
+        self.emit("        finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', 'TCP response closed before a newline-delimited message was received')] });");
+        self.emit("      }");
+        self.emit("    });");
+        self.emit("    socket.connect(request.port, request.host);");
+        self.emit("  });");
+        self.emit("}");
+        self.emit("async function __sigil_tcp_serve(handler, port) {");
+        self.emit("  const { createServer } = await import('node:net');");
+        self.emit("  const server = createServer((socket) => {");
+        self.emit("    socket.setEncoding('utf8');");
+        self.emit("    let received = '';");
+        self.emit("    let handled = false;");
+        self.emit("    socket.on('data', async (chunk) => {");
+        self.emit("      if (handled) return;");
+        self.emit("      received += String(chunk);");
+        self.emit("      const line = __sigil_tcp_first_line(received);");
+        self.emit("      if (line === null) return;");
+        self.emit("      handled = true;");
+        self.emit("      try {");
+        self.emit("        const request = {");
+        self.emit("          host: String(socket.remoteAddress ?? ''),");
+        self.emit("          message: line,");
+        self.emit("          port: Number(port)");
+        self.emit("        };");
+        self.emit("        const response = await Promise.resolve(handler(request));");
+        self.emit("        socket.write(`${String(response.message)}\\n`, () => socket.end());");
+        self.emit("      } catch (error) {");
+        self.emit("        const message = error instanceof Error ? error.message : String(error);");
+        self.emit("        socket.write(`${message}\\n`, () => socket.end());");
+        self.emit("      }");
+        self.emit("    });");
+        self.emit("    socket.once('end', () => {");
+        self.emit("      if (!handled) {");
+        self.emit("        socket.write('protocol error: missing newline-delimited request\\n', () => socket.end());");
+        self.emit("      }");
+        self.emit("    });");
+        self.emit("    socket.once('error', () => {");
+        self.emit("      socket.destroy();");
+        self.emit("    });");
+        self.emit("  });");
+        self.emit("  await new Promise((resolve, reject) => {");
+        self.emit("    server.once('error', reject);");
+        self.emit("    server.listen(port, () => resolve(undefined));");
+        self.emit("  });");
+        self.emit("  console.log(`TCP server running at tcp://127.0.0.1:${String(port)}`);");
+        self.emit("  await new Promise(() => {});");
+        self.emit("}");
         self.emit("function __sigil_is_map(value) {");
         self.emit(
             "  return !!value && typeof value === 'object' && Array.isArray(value.__sigil_map);",
@@ -549,6 +644,24 @@ impl TypeScriptGenerator {
             .is_some_and(|path| path.ends_with("language/stdlib/httpServer.lib.sigil"))
         {
             if self.generate_stdlib_http_server_function(func)? {
+                return Ok(());
+            }
+        }
+        if self
+            .source_file
+            .as_deref()
+            .is_some_and(|path| path.ends_with("language/stdlib/tcpClient.lib.sigil"))
+        {
+            if self.generate_stdlib_tcp_client_function(func)? {
+                return Ok(());
+            }
+        }
+        if self
+            .source_file
+            .as_deref()
+            .is_some_and(|path| path.ends_with("language/stdlib/tcpServer.lib.sigil"))
+        {
+            if self.generate_stdlib_tcp_server_function(func)? {
                 return Ok(());
             }
         }
@@ -779,6 +892,78 @@ impl TypeScriptGenerator {
         self.indent += 1;
         self.emit(&format!(
             "return {}.then(([__handler, __port]) => __sigil_http_serve(__handler, __port));",
+            self.js_all(&[self.js_ready(&params[0]), self.js_ready(&params[1])])
+        ));
+        self.indent -= 1;
+        self.emit("}");
+        Ok(true)
+    }
+
+    fn generate_stdlib_tcp_client_function(
+        &mut self,
+        func: &TypedFunctionDecl,
+    ) -> Result<bool, CodegenError> {
+        if func.name != "request" {
+            return Ok(false);
+        }
+
+        let params: Vec<String> = func
+            .params
+            .iter()
+            .map(|p| sanitize_js_identifier(&p.name))
+            .collect();
+        let params_str = params.join(", ");
+        let export_keyword = if self.should_export_from_lib() {
+            "export function"
+        } else {
+            "function"
+        };
+
+        self.emit(&format!(
+            "{} {}({}) {{",
+            export_keyword,
+            sanitize_js_identifier(&func.name),
+            params_str
+        ));
+        self.indent += 1;
+        self.emit(&format!(
+            "return {}.then((__request) => __sigil_tcp_request(__request));",
+            self.js_ready(&params[0])
+        ));
+        self.indent -= 1;
+        self.emit("}");
+        Ok(true)
+    }
+
+    fn generate_stdlib_tcp_server_function(
+        &mut self,
+        func: &TypedFunctionDecl,
+    ) -> Result<bool, CodegenError> {
+        if func.name != "serve" {
+            return Ok(false);
+        }
+
+        let params: Vec<String> = func
+            .params
+            .iter()
+            .map(|p| sanitize_js_identifier(&p.name))
+            .collect();
+        let params_str = params.join(", ");
+        let export_keyword = if self.should_export_from_lib() {
+            "export function"
+        } else {
+            "function"
+        };
+
+        self.emit(&format!(
+            "{} {}({}) {{",
+            export_keyword,
+            sanitize_js_identifier(&func.name),
+            params_str
+        ));
+        self.indent += 1;
+        self.emit(&format!(
+            "return {}.then(([__handler, __port]) => __sigil_tcp_serve(__handler, __port));",
             self.js_all(&[self.js_ready(&params[0]), self.js_ready(&params[1])])
         ));
         self.indent -= 1;
@@ -1048,6 +1233,12 @@ impl TypeScriptGenerator {
                 if module == "stdlib/httpServer" {
                     return self.generate_http_server_intrinsic(member, args);
                 }
+                if module == "stdlib/tcpClient" {
+                    return self.generate_tcp_client_intrinsic(member, args);
+                }
+                if module == "stdlib/tcpServer" {
+                    return self.generate_tcp_server_intrinsic(member, args);
+                }
                 if module == "stdlib/time" {
                     return self.generate_time_intrinsic(member, args);
                 }
@@ -1087,6 +1278,20 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/httpServer.lib.sigil"))
                 {
                     return self.generate_http_server_intrinsic(&name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/tcpClient.lib.sigil"))
+                {
+                    return self.generate_tcp_client_intrinsic(&name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/tcpServer.lib.sigil"))
+                {
+                    return self.generate_tcp_server_intrinsic(&name.name, args);
                 }
                 if self
                     .source_file
@@ -1409,6 +1614,44 @@ impl TypeScriptGenerator {
         match member {
             "serve" if generated_args.len() == 2 => Ok(Some(format!(
                 "{}.then(([__handler, __port]) => __sigil_http_serve(__handler, __port))",
+                self.js_all(&generated_args)
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn generate_tcp_client_intrinsic(
+        &mut self,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+
+        match member {
+            "request" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__request) => __sigil_tcp_request(__request))",
+                generated_args[0]
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn generate_tcp_server_intrinsic(
+        &mut self,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+
+        match member {
+            "serve" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handler, __port]) => __sigil_tcp_serve(__handler, __port))",
                 self.js_all(&generated_args)
             ))),
             _ => Ok(None),

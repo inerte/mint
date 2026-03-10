@@ -14,7 +14,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ String operations (manipulation, searching) - `stdlib/string`
 - ✅ String predicates (prefix/suffix checking) - `stdlib/string`
 - ✅ File system operations - `stdlib/file`
-- ✅ HTTP client and server - `stdlib/httpClient`, `stdlib/httpServer`
+- ✅ HTTP and TCP clients and servers - `stdlib/httpClient`, `stdlib/httpServer`, `stdlib/tcpClient`, `stdlib/tcpServer`
 - ✅ JSON parsing/serialization - `stdlib/json`
 - ✅ Path manipulation - `stdlib/path`
 - ✅ Time parsing/comparison/clock - `stdlib/time`
@@ -249,6 +249,43 @@ i stdlib⋅httpServer
 
 `serve` is a long-lived runtime entrypoint: once the server is listening, the
 process stays open until it is terminated externally.
+
+## TCP Client and Server
+
+`stdlib⋅tcpClient` is the canonical one-request, one-response TCP client layer:
+
+```sigil
+i stdlib⋅tcpClient
+
+λmain()→!IO Unit=
+  match stdlib⋅tcpClient.send("127.0.0.1","ping",45120){
+    Ok(response)→
+      l _=(response.message:String);
+      ()|
+    Err(error)→
+      l _=(error.message:String);
+      ()
+  }
+```
+
+The canonical framing model is:
+- UTF-8 text only
+- one newline-delimited request per connection
+- one newline-delimited response per connection
+
+`stdlib⋅tcpServer` is the matching minimal TCP server layer:
+
+```sigil
+i stdlib⋅tcpServer
+
+λhandle(request:stdlib⋅tcpServer.Request)→!IO stdlib⋅tcpServer.Response=
+  stdlib⋅tcpServer.response(request.message)
+
+λmain()→!IO Unit=stdlib⋅tcpServer.serve(handle,45120)
+```
+
+`serve` is long-lived: once the TCP server is listening, the process stays open
+until it is terminated externally.
 
 ## List Predicates
 

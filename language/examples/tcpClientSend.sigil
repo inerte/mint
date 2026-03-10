@@ -1,0 +1,8 @@
+⟦ Send one newline-delimited TCP request and print the response. ⟧
+
+i stdlib⋅tcpClient
+
+λmain()→!IO String match stdlib⋅tcpClient.send("127.0.0.1","ping",45120){
+  Ok(response)→response.message|
+  Err(error)→"ERR:"++error.message
+}

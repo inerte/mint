@@ -1,6 +1,6 @@
 ⟦ Raw JSON becomes a trusted exact record before business logic sees it. ⟧
 
-t Message={createdAt:stdlib⋅time.Instant,text:𝕊}
+t Message={createdAt:stdlib⋅time.Instant,text:String}
 
 i stdlib⋅decode
 i stdlib⋅json

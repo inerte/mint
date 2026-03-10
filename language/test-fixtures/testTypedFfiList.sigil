@@ -1,10 +1,10 @@
 ⟦ TEST: Typed FFI with list return type ⟧
 
-e fs⋅promises : { readdir : λ(𝕊) → [𝕊] }
+e fs⋅promises : { readdir : λ(String) → [String] }
 
-λcountFiles(dir:𝕊)→ℤ={
-  l files=(fs⋅promises.readdir(dir):[𝕊]);
-  #files  ⟦ Works because files is [𝕊], not Any ⟧
+λcountFiles(dir:String)→Int={
+  l files=(fs⋅promises.readdir(dir):[String]);
+  #files  ⟦ Works because files is [String], not Any ⟧
 }
 
-λmain()→𝕌=()
+λmain()→Unit=()

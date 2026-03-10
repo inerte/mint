@@ -4,4 +4,4 @@
 
 e console
 
-λ main() → 𝕌 = console.log("Hello, " ++ "World!")
+λ main() → Unit = console.log("Hello, " ++ "World!")

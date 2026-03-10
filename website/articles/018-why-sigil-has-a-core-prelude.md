@@ -88,7 +88,7 @@ So Sigil now makes the distinction explicit:
 Fixed-shape products use `:`
 
 ```sigil
-t Response={body:𝕊,status:ℤ}
+t Response={body:String,status:Int}
 Response{body:"OK",status:200}
 ```
 
@@ -98,7 +98,7 @@ Dynamic keyed collections use `↦`
 
 ```sigil
 {"content-type"↦"text/plain","x-id"↦"42"}
-({↦}:{𝕊↦𝕊})
+({↦}:{String↦String})
 ```
 
 This is the important distinction, not whether map operations happen to be implemented with JavaScript under the hood.

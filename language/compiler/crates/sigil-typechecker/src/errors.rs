@@ -75,21 +75,21 @@ impl TypeError {
 
 /// Format a type for display in error messages
 ///
-/// Uses Sigil Unicode symbols (ℤ, 𝔹, 𝕊) for readability
+/// Uses Sigil source spellings for readability
 pub fn format_type(typ: &InferenceType) -> String {
     // Follow instances (dereferencing)
     let typ = prune(typ);
 
     match &typ {
         InferenceType::Primitive(p) => {
-            // Use Sigil Unicode symbols
             match p.name {
-                PrimitiveName::Int => "ℤ".to_string(),
-                PrimitiveName::Float => "ℝ".to_string(),
-                PrimitiveName::Bool => "𝔹".to_string(),
-                PrimitiveName::String => "𝕊".to_string(),
-                PrimitiveName::Char => "ℂ".to_string(),
-                PrimitiveName::Unit => "𝕌".to_string(),
+                PrimitiveName::Int => "Int".to_string(),
+                PrimitiveName::Float => "Float".to_string(),
+                PrimitiveName::Bool => "Bool".to_string(),
+                PrimitiveName::String => "String".to_string(),
+                PrimitiveName::Char => "Char".to_string(),
+                PrimitiveName::Unit => "Unit".to_string(),
+                PrimitiveName::Never => "Never".to_string(),
             }
         }
 
@@ -206,12 +206,12 @@ mod tests {
         let int_type = InferenceType::Primitive(TPrimitive {
             name: PrimitiveName::Int,
         });
-        assert_eq!(format_type(&int_type), "ℤ");
+        assert_eq!(format_type(&int_type), "Int");
 
         let bool_type = InferenceType::Primitive(TPrimitive {
             name: PrimitiveName::Bool,
         });
-        assert_eq!(format_type(&bool_type), "𝔹");
+        assert_eq!(format_type(&bool_type), "Bool");
     }
 
     #[test]
@@ -222,6 +222,6 @@ mod tests {
         let list_type = InferenceType::List(Box::new(crate::types::TList {
             element_type: int_type,
         }));
-        assert_eq!(format_type(&list_type), "[ℤ]");
+        assert_eq!(format_type(&list_type), "[Int]");
     }
 }

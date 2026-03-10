@@ -51,7 +51,7 @@ const add = new Function('a', 'b', 'return a + b');
 
 **Sigil - ONE way:**
 ```sigil
-λadd(a:ℤ,b:ℤ)→ℤ=a+b
+λadd(a:Int,b:Int)→Int=a+b
 ```
 
 That applies to ordering as well:
@@ -107,14 +107,14 @@ That leads to four canonical rules:
 Practical example:
 
 ```sigil
-t Message={createdAt:stdlib⋅time.Instant,text:𝕊}
+t Message={createdAt:stdlib⋅time.Instant,text:String}
 ```
 
 If code has a `Message`, then `createdAt` is there.
 If `createdAt` might be absent, the canonical encoding is:
 
 ```sigil
-t MaybeMessage={createdAt:Option[stdlib⋅time.Instant],text:𝕊}
+t MaybeMessage={createdAt:Option[stdlib⋅time.Instant],text:String}
 ```
 
 not an open record, a partial record, or ambient nullability.
@@ -178,11 +178,11 @@ The problem with a naive async-first language is not the Promise boundary. It is
 
 ```sigil
 ⟦ Pure function - still promise-shaped ⟧
-λadd(a:ℤ,b:ℤ)→ℤ=a+b
+λadd(a:Int,b:Int)→Int=a+b
 
 ⟦ I/O function - same surface form ⟧
 e fs⋅promises
-λread(path:𝕊)→!IO 𝕊=fs⋅promises.readFile(path,"utf8")
+λread(path:String)→!IO String=fs⋅promises.readFile(path,"utf8")
 ```
 
 Both use the same source form. The compiler starts work early and only joins it at strict demand points like arithmetic, branching, matching, indexing, and final observable results.
@@ -217,14 +217,14 @@ If a name is already bound in a function, lambda, or match scope, nested scopes 
 
 ```sigil
 ⟦ GOOD ⟧
-λprocess_user(name:𝕊)→𝕊={
-  l normalized_name=(stdlib⋅string.trim(name):𝕊);
+λprocess_user(name:String)→String={
+  l normalized_name=(stdlib⋅string.trim(name):String);
   normalized_name
 }
 
 ⟦ BAD ⟧
-λprocess_user(name:𝕊)→𝕊={
-  l name=(stdlib⋅string.trim(name):𝕊);
+λprocess_user(name:String)→String={
+  l name=(stdlib⋅string.trim(name):String);
   name
 }
 ```
@@ -255,11 +255,11 @@ More code fits in LLM context windows = better understanding = better code gener
 - `λ` instead of `function` (1 char vs 8)
 - `→` instead of `:` or `=>` (1 char vs 1-2, but semantically richer)
 - `match` instead of bespoke symbolic control-flow markers
-- Unicode type symbols: `ℤℝ𝔹𝕊` instead of `Int,Float,Bool,String`
+- Unicode type symbols: `IntFloatBoolString` instead of `Int,Float,Bool,String`
 
 **Result:** Current benchmarks show ~10-15% fewer tokens than TypeScript on average (see `language/benchmarks/RESULTS.md`)
 
-**Why Unicode?** Modern LLMs tokenize Unicode efficiently, and it provides unambiguous semantic meaning. `ℤ` universally means "integers" in mathematics.
+**Why Unicode?** Modern LLMs tokenize Unicode efficiently, and it provides unambiguous semantic meaning. `Int` universally means "integers" in mathematics.
 
 ### 3. Zero Ambiguity
 
@@ -323,7 +323,7 @@ Code is machine-optimal → Claude Code explains → Humans understand via AI
 
 **Development Flow:**
 ```
-fibonacci.sigil       # Dense canonical code: λfibonacci(n:ℤ)→ℤ match n{...}
+fibonacci.sigil       # Dense canonical code: λfibonacci(n:Int)→Int match n{...}
   ↓ (Claude Code reads via compiler CLI)
 Natural language explanation on demand
 ```
@@ -338,7 +338,7 @@ Natural language explanation on demand
 ```
 Developer: "Create email validation function"
 Claude Code: [Generates dense canonical code]
-Claude Code: "I've created validate_email(email:𝕊)→𝔹!Error that checks..."
+Claude Code: "I've created validate_email(email:String)→Bool!Error that checks..."
 Developer: Asks questions via Claude Code (never touches dense syntax)
 Git: Commits .sigil file
 ```
@@ -378,7 +378,7 @@ Git: Commits .sigil file
 **Response:** We benchmark this! If `λ` tokenizes to multiple tokens vs `fn` to one, we'll reconsider. But early evidence suggests modern LLM tokenizers handle common Unicode efficiently.
 
 **Benefits:**
-- Universal mathematical meaning (ℤ = integers, ∀ = forall)
+- Universal mathematical meaning (Int = integers, ∀ = forall)
 - More information per character
 - Beautiful rendering in modern editors
 - Unambiguous semantics

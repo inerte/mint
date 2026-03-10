@@ -1,33 +1,33 @@
-t Todo={done:𝔹,id:ℤ,text:𝕊}
+t Todo={done:Bool,id:Int,text:String}
 
-λaddTodo(id:ℤ,text:𝕊,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
+λaddTodo(id:Int,text:String,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
 
-λcanAdd(text:𝕊)→𝔹=text≠""
+λcanAdd(text:String)→Bool=text≠""
 
-λclearCompleted(todos:[Todo])→[Todo]=todos⊳λ(todo:Todo)→𝔹=¬todo.done
+λclearCompleted(todos:[Todo])→[Todo]=todos⊳λ(todo:Todo)→Bool=¬todo.done
 
-λcompletedCount(todos:[Todo])→ℤ=todos⊕(λ(acc:ℤ,todo:Todo)→ℤ match todo.done{
+λcompletedCount(todos:[Todo])→Int=todos⊕(λ(acc:Int,todo:Todo)→Int match todo.done{
   true→acc+1|
   false→acc
 })⊕0
 
-λdeleteTodo(targetId:ℤ,todos:[Todo])→[Todo]=todos⊳λ(todo:Todo)→𝔹=todo.id≠targetId
+λdeleteTodo(targetId:Int,todos:[Todo])→[Todo]=todos⊳λ(todo:Todo)→Bool=todo.id≠targetId
 
-λeditTodo(newText:𝕊,targetId:ℤ,todos:[Todo])→[Todo]=todos↦λ(todo:Todo)→Todo match todo.id=targetId{
+λeditTodo(newText:String,targetId:Int,todos:[Todo])→[Todo]=todos↦λ(todo:Todo)→Todo match todo.id=targetId{
   true→Todo{done:todo.done,id:todo.id,text:newText}|
   false→todo
 }
 
-λisVisible(done:𝔹,filter:𝕊)→𝔹 match filter{
+λisVisible(done:Bool,filter:String)→Bool match filter{
   "all"→true|
   "active"→¬done|
   "completed"→done|
   _→true
 }
 
-λremainingCount(completed:ℤ,total:ℤ)→ℤ=total-completed
+λremainingCount(completed:Int,total:Int)→Int=total-completed
 
-λtoggleTodo(targetId:ℤ,todos:[Todo])→[Todo]=todos↦λ(todo:Todo)→Todo match todo.id=targetId{
+λtoggleTodo(targetId:Int,todos:[Todo])→[Todo]=todos↦λ(todo:Todo)→Todo match todo.id=targetId{
   true→Todo{done:¬todo.done,id:todo.id,text:todo.text}|
   false→todo
 }

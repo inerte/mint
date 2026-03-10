@@ -28,7 +28,7 @@ Here's what the workflow looked like:
 ```
 Developer opens fibonacci.sigil in VS Code
   ↓
-VS Code syntax highlights: λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|...}
+VS Code syntax highlights: λfibonacci(n:Int)→Int match n{0→0|1→1|...}
   ↓
 Developer hovers over function
   ↓
@@ -117,12 +117,12 @@ Claude Code reads these diagnostics and explains them to humans in natural langu
 Sigil enforces one way to write anything:
 
 ```sigil
-λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 ```
 
 Not:
 - `function fibonacci(n: Int): Int = ...` (wrong keywords)
-- `λ fibonacci(n:ℤ) → ℤ = ...` (wrong spacing)
+- `λ fibonacci(n:Int) → Int = ...` (wrong spacing)
 - `def fib(n) { ... }` (missing types)
 
 There's only one valid token sequence. No ambiguity. No style debates. Claude Code generates it correctly every time.
@@ -142,8 +142,8 @@ Claude Code uses this to verify correctness after generating code.
 Strong type inference with mandatory annotations:
 
 ```sigil
-⟦ Type error: Cannot pass 𝕊 where ℤ expected ⟧
-λadd(a:ℤ,b:ℤ)→ℤ=a+b
+⟦ Type error: Cannot pass String where Int expected ⟧
+λadd(a:Int,b:Int)→Int=a+b
 test "add strings"=add("1","2") match 3  ⟦ Error here ⟧
 ```
 
@@ -211,7 +211,7 @@ Here's what actually happens when you develop with Sigil in 2026:
 Developer: "Create a function to validate email addresses"
 
 Claude Code: *generates dense canonical Sigil*
-λvalidate_email(email:𝕊)→𝔹=
+λvalidate_email(email:String)→Bool=
   match email{
     ""→false
     |s→contains(s,"@") and contains(s,".")
@@ -221,7 +221,7 @@ Claude Code: "I've created validate_email that returns true if
 the email contains both @ and . characters, false otherwise."
 ```
 
-The developer never writes `λvalidate_email(email:𝕊)→𝔹=...` by hand. They describe intent, Claude Code generates canonical syntax.
+The developer never writes `λvalidate_email(email:String)→Bool=...` by hand. They describe intent, Claude Code generates canonical syntax.
 
 ### Understanding Code
 
@@ -229,13 +229,13 @@ The developer never writes `λvalidate_email(email:𝕊)→𝔹=...` by hand. Th
 Developer: "What does fibonacci.sigil do?"
 
 Claude Code: *reads fibonacci.sigil*
-λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 
 Claude Code: "This is a recursive Fibonacci implementation:
 - Base case: fib(0)=0, fib(1)=1
 - Recursive case: fib(n)=fib(n-1)+fib(n-2)
 - Uses pattern matching for the three cases
-- Returns integer (ℤ) given integer input"
+- Returns integer (Int) given integer input"
 ```
 
 No hovering over symbols. No clicking through documentation. Just ask.
@@ -247,8 +247,8 @@ Developer: "Why is the compiler complaining?"
 
 Claude Code: *reads compiler output*
 Error: Type mismatch in function call
-Expected: ℤ
-Found: 𝕊
+Expected: Int
+Found: String
 At: fibonacci("5")
 
 Claude Code: "You're passing a string '5' to fibonacci, which
@@ -264,7 +264,7 @@ Developer: "Add memoization to fibonacci"
 
 Claude Code: *edits fibonacci.sigil with canonical syntax*
 c memo={...}
-λfibonacci(n:ℤ)→ℤ=
+λfibonacci(n:Int)→Int=
   match memo[n]{
     Some(cached)→cached
     |None→...

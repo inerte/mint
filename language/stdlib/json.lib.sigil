@@ -5,25 +5,25 @@
   Runtime behavior is provided by compiler intrinsics for stdlib⋅json.
 ⟧
 
-t JsonError={message:𝕊}
-t JsonValue=JsonArray([JsonValue])|JsonBool(𝔹)|JsonNull|JsonNumber(ℝ)|JsonObject({𝕊↦JsonValue})|JsonString(𝕊)
+t JsonError={message:String}
+t JsonValue=JsonArray([JsonValue])|JsonBool(Bool)|JsonNull|JsonNumber(Float)|JsonObject({String↦JsonValue})|JsonString(String)
 
 λasArray(value:JsonValue)→Option[[JsonValue]]=None()
 
-λasBool(value:JsonValue)→Option[𝔹]=None()
+λasBool(value:JsonValue)→Option[Bool]=None()
 
-λasNumber(value:JsonValue)→Option[ℝ]=None()
+λasNumber(value:JsonValue)→Option[Float]=None()
 
-λasObject(value:JsonValue)→Option[{𝕊↦JsonValue}]=None()
+λasObject(value:JsonValue)→Option[{String↦JsonValue}]=None()
 
-λasString(value:JsonValue)→Option[𝕊]=None()
+λasString(value:JsonValue)→Option[String]=None()
 
-λgetField(key:𝕊,obj:{𝕊↦JsonValue})→Option[JsonValue]=None()
+λgetField(key:String,obj:{String↦JsonValue})→Option[JsonValue]=None()
 
-λgetIndex(arr:[JsonValue],idx:ℤ)→Option[JsonValue]=None()
+λgetIndex(arr:[JsonValue],idx:Int)→Option[JsonValue]=None()
 
-λisNull(value:JsonValue)→𝔹=false
+λisNull(value:JsonValue)→Bool=false
 
-λparse(input:𝕊)→Result[JsonValue,JsonError]=Err({message:"JSON parse intrinsic unavailable"})
+λparse(input:String)→Result[JsonValue,JsonError]=Err({message:"JSON parse intrinsic unavailable"})
 
-λstringify(value:JsonValue)→𝕊=""
+λstringify(value:JsonValue)→String=""

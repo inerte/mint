@@ -5,16 +5,16 @@
 
   Example:
     i stdlib⋅ffiNodePath
-    λgetConfigPath()→𝕊=path.join(["config", "app.json"])
+    λgetConfigPath()→String=path.join(["config", "app.json"])
 ⟧
 
 e path : {
-  basename : λ(𝕊) → 𝕊,
-  dirname : λ(𝕊) → 𝕊,
-  extname : λ(𝕊) → 𝕊,
-  join : λ(𝕊, 𝕊) → 𝕊,
-  normalize : λ(𝕊) → 𝕊,
-  relative : λ(𝕊, 𝕊) → 𝕊
+  basename : λ(String) → String,
+  dirname : λ(String) → String,
+  extname : λ(String) → String,
+  join : λ(String, String) → String,
+  normalize : λ(String) → String,
+  relative : λ(String, String) → String
 }
 
 ⟦ Note: join and resolve are variadic in Node.js but Sigil doesn't support

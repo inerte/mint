@@ -4,30 +4,30 @@
   Canonical filesystem path helpers over normalized forward-slash paths.
 ⟧
 
-t RelativeState={left:[𝕊],right:[𝕊]}
+t RelativeState={left:[String],right:[String]}
 
 i stdlib⋅list
 i stdlib⋅string
 
-λbasename(value:𝕊)→𝕊 match stdlib⋅list.last(splitNonempty(normalize(value))){
+λbasename(value:String)→String match stdlib⋅list.last(splitNonempty(normalize(value))){
   Some(segment)→segment|
   None()→normalize(value)
 }
 
-λdirname(value:𝕊)→𝕊=
-  l normalized=(normalize(value):𝕊);
+λdirname(value:String)→String=
+  l normalized=(normalize(value):String);
   dirnameFromSegments(stdlib⋅string.startsWith("/",normalized),splitNonempty(normalized))
 
-λdirnameFromSegments(isAbsolute:𝔹,segments:[𝕊])→𝕊 match #segments≤1{
+λdirnameFromSegments(isAbsolute:Bool,segments:[String])→String match #segments≤1{
   true→rootOrCurrent(isAbsolute)|
   false→pathFromSegments(isAbsolute,stdlib⋅list.take(#segments-1,segments))
 }
 
-λextname(value:𝕊)→𝕊=
-  l name=(basename(value):𝕊);
+λextname(value:String)→String=
+  l name=(basename(value):String);
   extnameFromParts(name,stdlib⋅string.split(".",name))
 
-λextnameFromParts(name:𝕊,parts:[𝕊])→𝕊 match #parts≤1{
+λextnameFromParts(name:String,parts:[String])→String match #parts≤1{
   true→""|
   false→match stdlib⋅string.startsWith(".",name) and #parts=2{
     true→""|
@@ -38,15 +38,15 @@ i stdlib⋅string
   }
 }
 
-λfilterEmpty(segments:[𝕊])→[𝕊] match segments{
+λfilterEmpty(segments:[String])→[String] match segments{
   []→[]|
   [segment,.rest]→match #segment=0{
     true→filterEmpty(rest)|
-    false→([segment]:[𝕊])⧺filterEmpty(rest)
+    false→([segment]:[String])⧺filterEmpty(rest)
   }
 }
 
-λjoin(left:𝕊,right:𝕊)→𝕊 match #left=0{
+λjoin(left:String,right:String)→String match #left=0{
   true→normalize(right)|
   false→match #right=0{
     true→normalize(left)|
@@ -54,35 +54,35 @@ i stdlib⋅string
   }
 }
 
-λnormalize(value:𝕊)→𝕊=
-  l isAbsolute=(stdlib⋅string.startsWith("/",value):𝔹);
-  l segments=(normalizeSegments([],isAbsolute,filterEmpty(stdlib⋅string.split("/",value))):[𝕊]);
+λnormalize(value:String)→String=
+  l isAbsolute=(stdlib⋅string.startsWith("/",value):Bool);
+  l segments=(normalizeSegments([],isAbsolute,filterEmpty(stdlib⋅string.split("/",value))):[String]);
   pathFromSegments(isAbsolute,segments)
 
-λnormalizeSegments(acc:[𝕊],isAbsolute:𝔹,segments:[𝕊])→[𝕊] match segments{
+λnormalizeSegments(acc:[String],isAbsolute:Bool,segments:[String])→[String] match segments{
   []→stdlib⋅list.reverse(acc)|
   [segment,.rest]→match segment="."{
     true→normalizeSegments(acc,isAbsolute,rest)|
     false→match segment=".."{
       true→normalizeSegmentsParent(acc,isAbsolute,rest)|
-      false→normalizeSegments(([segment]:[𝕊])⧺acc,isAbsolute,rest)
+      false→normalizeSegments(([segment]:[String])⧺acc,isAbsolute,rest)
     }
   }
 }
 
-λnormalizeSegmentsParent(acc:[𝕊],isAbsolute:𝔹,rest:[𝕊])→[𝕊] match acc{
+λnormalizeSegmentsParent(acc:[String],isAbsolute:Bool,rest:[String])→[String] match acc{
   []→match isAbsolute{
     true→normalizeSegments([],isAbsolute,rest)|
     false→normalizeSegments([".."],isAbsolute,rest)
   }|
   [head,.more]→match head=".."{
-    true→normalizeSegments(([".."]:[𝕊])⧺acc,isAbsolute,rest)|
+    true→normalizeSegments(([".."]:[String])⧺acc,isAbsolute,rest)|
     false→normalizeSegments(more,isAbsolute,rest)
   }
 }
 
-λpathFromSegments(isAbsolute:𝔹,segments:[𝕊])→𝕊=
-  l body=(stdlib⋅string.join("/",segments):𝕊);
+λpathFromSegments(isAbsolute:Bool,segments:[String])→String=
+  l body=(stdlib⋅string.join("/",segments):String);
   match isAbsolute{
     true→match #body=0{
       true→"/"|
@@ -94,13 +94,13 @@ i stdlib⋅string
     }
   }
 
-λrelative(from:𝕊,to:𝕊)→𝕊=
-  l fromSegments=(splitNonempty(normalize(from)):[𝕊]);
+λrelative(from:String,to:String)→String=
+  l fromSegments=(splitNonempty(normalize(from)):[String]);
   l state=(relativeDropCommon(fromSegments,splitNonempty(normalize(to))):RelativeState);
-  l upward=(repeatSegment(#state.left,".."):[𝕊]);
+  l upward=(repeatSegment(#state.left,".."):[String]);
   pathFromSegments(false,upward⧺state.right)
 
-λrelativeDropCommon(left:[𝕊],right:[𝕊])→RelativeState match left{
+λrelativeDropCommon(left:[String],right:[String])→RelativeState match left{
   []→{left:[],right:right}|
   [leftHead,.leftRest]→match right{
     []→{left:left,right:[]}|
@@ -111,14 +111,14 @@ i stdlib⋅string
   }
 }
 
-λrepeatSegment(count:ℤ,segment:𝕊)→[𝕊] match count≤0{
+λrepeatSegment(count:Int,segment:String)→[String] match count≤0{
   true→[]|
-  false→([segment]:[𝕊])⧺repeatSegment(count-1,segment)
+  false→([segment]:[String])⧺repeatSegment(count-1,segment)
 }
 
-λrootOrCurrent(isAbsolute:𝔹)→𝕊 match isAbsolute{
+λrootOrCurrent(isAbsolute:Bool)→String match isAbsolute{
   true→"/"|
   false→"."
 }
 
-λsplitNonempty(value:𝕊)→[𝕊]=filterEmpty(stdlib⋅string.split("/",value))
+λsplitNonempty(value:String)→[String]=filterEmpty(stdlib⋅string.split("/",value))

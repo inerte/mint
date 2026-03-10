@@ -11,4 +11,4 @@ i src⋅graphTypes
   ]
 }
 
-λmain()→[ℤ]=src⋅breadthFirstSearch.breadthFirstSearch(demoGraph(),1)
+λmain()→[Int]=src⋅breadthFirstSearch.breadthFirstSearch(demoGraph(),1)

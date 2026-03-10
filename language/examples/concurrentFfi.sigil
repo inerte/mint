@@ -1,14 +1,14 @@
 ⟦ Typed FFI calls also compose under the concurrentByDefault model. ⟧
 
-t AssetPair={config:𝕊,template:𝕊}
+t AssetPair={config:String,template:String}
 
 e fs⋅promises : {
-  readFile : λ(𝕊, 𝕊) → 𝕊
+  readFile : λ(String, String) → String
 }
 
-λloadConfig()→𝕊=fs⋅promises.readFile("config.json","utf8")
+λloadConfig()→String=fs⋅promises.readFile("config.json","utf8")
 
-λloadTemplate()→𝕊=fs⋅promises.readFile("template.html","utf8")
+λloadTemplate()→String=fs⋅promises.readFile("template.html","utf8")
 
 λmain()→AssetPair={
   l config=loadConfig();

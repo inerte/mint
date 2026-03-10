@@ -258,7 +258,7 @@ sigilc fix myfile.sigil
 SIGIL-CANON-TRAILING-WHITESPACE
 File: user-service.lib.sigil
 Line: 23
-Found: trailing spaces after "λadd(x:ℤ,y:ℤ)→ℤ=x+y   "
+Found: trailing spaces after "λadd(x:Int,y:Int)→Int=x+y   "
                                               ^^^
 
 Sigil enforces ONE WAY: no trailing whitespace.

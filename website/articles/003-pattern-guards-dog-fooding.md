@@ -34,7 +34,7 @@ Here's what the code looked like **without** pattern guards:
 
 ```sigil
 ⟦ Hypothetical pre-guards syntax - deeply nested matches ⟧
-λparse_line(state:ParseState, line:𝕊)→(ParseState,[Block]) match state{
+λparse_line(state:ParseState, line:String)→(ParseState,[Block]) match state{
   {in_code=true,..} → match is_code_fence(line){
     true → close_code_block(state)|
     false → accumulate_code_line(state,line)
@@ -96,7 +96,7 @@ The `when` keyword makes it crystal clear: "match this pattern, AND check this c
 
 **Design decisions:**
 1. **Guard after pattern:** Bindings are established before guard evaluation
-2. **Must be boolean:** Type checker enforces `𝔹` type for guards
+2. **Must be boolean:** Type checker enforces `Bool` type for guards
 3. **Fall-through:** If guard is `false`, try the next arm
 4. **Backward compatible:** Patterns without guards work exactly as before
 
@@ -145,7 +145,7 @@ if (arm.guard) {
   const guardType = synthesize(armEnv, arm.guard);
   const boolType: InferenceType = { kind: 'primitive', name: 'Bool' };
   if (!typesEqual(guardType, boolType)) {
-    throw new TypeError(`Pattern guard must have type 𝔹, got ${formatType(guardType)}`);
+    throw new TypeError(`Pattern guard must have type Bool, got ${formatType(guardType)}`);
   }
 }
 ```
@@ -176,7 +176,7 @@ Now the markdown parser looks like this:
 
 ```sigil
 ⟦ With pattern guards - clean and linear ⟧
-λparse_line(state:ParseState, line:𝕊)→(ParseState,[Block]) match state{
+λparse_line(state:ParseState, line:String)→(ParseState,[Block]) match state{
   {in_code=true,..} when is_code_fence(line) → close_code_block(state)|
   {in_code=true,..} → accumulate_code_line(state,line)|
   {in_code=false,..} when is_code_fence(line) → start_code_block(state,line)|
@@ -197,9 +197,9 @@ Pattern guards aren't just for parsers. They're useful anywhere you need to:
 
 **Validate data:**
 ```sigil
-t User={name:𝕊,age:ℤ}
+t User={name:String,age:Int}
 
-λvalidate(u:User)→𝕊 match u{
+λvalidate(u:User)→String match u{
   {name,age} when age<0 → "invalid age"|
   {name,..} when #name=0 → "invalid name"|
   {name,age} → "valid"
@@ -208,7 +208,7 @@ t User={name:𝕊,age:ℤ}
 
 **Range checking:**
 ```sigil
-λclassify(n:ℤ)→𝕊 match n{
+λclassify(n:Int)→String match n{
   x when x>100 → "large"|
   x when x>10 → "medium"|
   x when x>0 → "small"|
@@ -218,9 +218,9 @@ t User={name:𝕊,age:ℤ}
 
 **Conditional unpacking:**
 ```sigil
-t Result=Ok(ℤ)|Err(𝕊)
+t Result=Ok(Int)|Err(String)
 
-λprocess(r:Result)→𝕊 match r{
+λprocess(r:Result)→String match r{
   Ok(n) when n>100 → "big success"|
   Ok(n) when n>0 → "success"|
   Ok(_) → "zero or negative"|
@@ -253,7 +253,7 @@ sigil --version
 ```
 
 ```sigil
-λclassify(n:ℤ)→𝕊 match n{
+λclassify(n:Int)→String match n{
   x when x>10 → "big"|
   x when x>0 → "small"|
   _ → "non-positive"
@@ -269,14 +269,14 @@ Pattern guards suggest a broader pattern: **state machines as a language constru
 Right now we write:
 ```sigil
 match state{
-  {mode:𝕊,..} when mode="active" → ...
+  {mode:String,..} when mode="active" → ...
 }
 ```
 
 What if we had:
 ```sigil
 machine ParserState{
-  Idle(input:𝕊) when #input>0 → Parsing |
+  Idle(input:String) when #input>0 → Parsing |
   Parsing when complete → Done |
   Done → Idle
 }

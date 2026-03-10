@@ -1,7 +1,7 @@
 i src⋅content
 i src⋅types
 
-λdocPage(slug:𝕊)→src⋅types.SitePage=
+λdocPage(slug:String)→src⋅types.SitePage=
   src⋅content.blankPage(
     "",
     {author:"",category:"",date:"",description:"",slug:slug,title:slug},
@@ -19,7 +19,7 @@ i src⋅types
     "website/README.md"
   )
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "article route uses section slug" {
   l page=(src⋅content.blankPage("",{author:"",category:"",date:"",description:"",slug:"hello-world",title:"Hello World"},"articles/hello-world",src⋅types.Article(),"website/articles/hello-world.md"):src⋅types.SitePage);

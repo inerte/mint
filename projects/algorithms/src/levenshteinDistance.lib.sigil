@@ -1,8 +1,8 @@
 i stdlib⋅string
 
-λlevenshtein(left:𝕊,right:𝕊)→ℤ=levenshteinFrom(left,0,right,0)
+λlevenshtein(left:String,right:String)→Int=levenshteinFrom(left,0,right,0)
 
-λlevenshteinFrom(left:𝕊,leftIdx:ℤ,right:𝕊,rightIdx:ℤ)→ℤ match leftIdx=#left{
+λlevenshteinFrom(left:String,leftIdx:Int,right:String,rightIdx:Int)→Int match leftIdx=#left{
   true→#right-rightIdx|
   false→match rightIdx=#right{
     true→#left-leftIdx|
@@ -17,9 +17,9 @@ i stdlib⋅string
   }
 }
 
-λmin2(a:ℤ,b:ℤ)→ℤ match a≤b{
+λmin2(a:Int,b:Int)→Int match a≤b{
   true→a|
   false→b
 }
 
-λmin3(a:ℤ,b:ℤ,third:ℤ)→ℤ=min2(min2(a,b),third)
+λmin3(a:Int,b:Int,third:Int)→Int=min2(min2(a,b),third)

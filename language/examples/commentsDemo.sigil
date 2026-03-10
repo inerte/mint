@@ -2,7 +2,7 @@
    This demonstrates how to use multi-line comments in Sigil.
    Comments use white square brackets and can appear anywhere. ⟧
 
-λfactorial(n:ℤ)→ℤ match n{
+λfactorial(n:Int)→Int match n{
   0→1|  ⟦ base case: 0! = 1 ⟧
   1→1|  ⟦ base case: 1! = 1 ⟧
   value→value*⟦ multiply n by (n-1)! ⟧factorial(value-1)
@@ -12,4 +12,4 @@
    - Inline comments mid-expression
    - Multi-line explanatory comments
    - Comments don't affect execution ⟧
-λmain()→ℤ=factorial(⟦ calculate 5! ⟧5)
+λmain()→Int=factorial(⟦ calculate 5! ⟧5)

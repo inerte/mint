@@ -57,8 +57,8 @@ TypedMember = Identifier , ":" , Type ;
 
 (* Examples:
    e console
-   e console : { log : λ(𝕊) → 𝕌, error : λ(𝕊) → 𝕌 }
-   e fs⋅promises : { readFile : λ(𝕊, 𝕊) → 𝕊, writeFile : λ(𝕊, 𝕊, 𝕊) → 𝕌 }
+   e console : { log : λ(String) → Unit, error : λ(String) → Unit }
+   e fs⋅promises : { readFile : λ(String, String) → String, writeFile : λ(String, String, String) → Unit }
 *)
 
 (* Note: Untyped externs (e console) use "trust mode" - all members return Any.
@@ -91,7 +91,7 @@ TypeAlias = Type ;
 (* Examples:
    t Option[T]=Some(T)|None
    t Result[T,E]=Ok(T)|Err(E)
-   t User={email:𝕊,id:ℤ,name:𝕊}
+   t User={email:String,id:Int,name:String}
 *)
 
 (* ============================================================================ *)
@@ -105,12 +105,12 @@ Type = PrimitiveType
      | TypeConstructor
      | TypeVariable ;
 
-PrimitiveType = "ℤ"     (* Int *)
-              | "ℝ"     (* Float *)
-              | "𝔹"     (* Bool *)
-              | "𝕊"     (* String *)
-              | "ℂ"     (* Char *)
-              | "𝕌"     (* Unit *)
+PrimitiveType = "Int"     (* Int *)
+              | "Float"     (* Float *)
+              | "Bool"     (* Bool *)
+              | "String"     (* String *)
+              | "Char"     (* Char *)
+              | "Unit"     (* Unit *)
               ;
 
 (* Shorthand aliases (deprecated in favor of Unicode) *)
@@ -124,10 +124,10 @@ TypeVariable = UpperIdentifier ;
 TypeList = Type , { "," , Type } ;
 
 (* Examples:
-   [ℤ]               List of integers
-   {𝕊:ℤ}             Map from string to int
-   λ(ℤ,ℤ)→ℤ          Function taking two ints, returning int
-   Option[𝕊]         Type constructor application
+   [Int]               List of integers
+   {String:Int}             Map from string to int
+   λ(Int,Int)→Int          Function taking two ints, returning int
+   Option[String]         Type constructor application
 *)
 
 (* ============================================================================ *)
@@ -140,8 +140,8 @@ ParamList = Param , { "," , Param } ;
 Param = Identifier , [ ":" , Type ] ;
 
 (* Examples:
-   λadd(x:ℤ,y:ℤ)→ℤ=x+y
-   λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+   λadd(x:Int,y:Int)→Int=x+y
+   λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 *)
 
 (* Note: Match bodies omit "=" as the canonical function-body form. *)
@@ -153,7 +153,7 @@ Param = Identifier , [ ":" , Type ] ;
 
 ConstDecl = "c" , Identifier , [ ":" , Type ] , "=" , Expr ;
 
-(* Example: c PI:ℝ=3.14159 *)
+(* Example: c PI:Float=3.14159 *)
 
 (* ============================================================================ *)
 (* EXPRESSIONS                                                                  *)
@@ -356,7 +356,7 @@ Comment = "⟦" , { ? any Unicode character except ⟧ ? } , "⟧" ;
    1. NO spaces around operators: x+y not x + y
    2. NO spaces in function calls: f(x,y) not f(x, y)
    3. SINGLE space after commas in parameter lists: f(x,y) → f(x, y)
-   4. SINGLE space after ":" in type annotations: x:ℤ not x : ℤ
+   4. SINGLE space after ":" in type annotations: x:Int not x : Int
    5. NO trailing whitespace on any line
    6. EXACTLY one newline at EOF
    7. Maximum one blank line between declarations
@@ -392,12 +392,12 @@ Comment = "⟦" , { ? any Unicode character except ⟧ ? } , "⟧" ;
    match - pattern match
 
    Types:
-   ℤ  - integers (Z from number theory)
-   ℝ  - reals (R from number theory)
-   𝔹  - booleans (B double-struck)
-   𝕊  - strings (S double-struck)
-   ℂ  - characters (C from complex numbers, repurposed)
-   𝕌  - unit (U double-struck)
+   Int  - integers (Z from number theory)
+   Float  - reals (R from number theory)
+   Bool  - booleans (B double-struck)
+   String  - strings (S double-struck)
+   Char  - characters (C from complex numbers, repurposed)
+   Unit  - unit (U double-struck)
 
    Operators:
    ≠  - not equal
@@ -409,7 +409,7 @@ Comment = "⟦" , { ? any Unicode character except ⟧ ? } , "⟧" ;
    ∈  - element of (for iteration)
    true  - true (top)
    false  - false (bottom)
-   ∅  - empty/never (empty set)
+   Never  - empty/never (empty set)
 
    Composition:
    |> - pipe forward
@@ -422,10 +422,10 @@ Comment = "⟦" , { ? any Unicode character except ⟧ ? } , "⟧" ;
 (* ============================================================================ *)
 
 (* Functions can be annotated with effects:
-   λread_file(path:𝕊)→Result[𝕊,IoError]!IO
+   λread_file(path:String)→Result[String,IoError]!IO
 
    Effect syntax: !EffectName
-   Multiple effects: !Error!IO!Network
+   Multiple effects: !Error !IO !Network
 
    Pure functions have no effect annotation (default)
 *)
@@ -435,7 +435,7 @@ Comment = "⟦" , { ? any Unicode character except ⟧ ? } , "⟧" ;
 (* ============================================================================ *)
 
 (* Example 1: Fibonacci *)
-(* λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)} *)
+(* λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)} *)
 
 (* Example 2: Map function *)
 (* λmap[T,U](fn:λ(T)→U,list:[T])→[U] match list{[]→[]|[x,.xs]→[fn(x),.map(fn,xs)]} *)
@@ -446,10 +446,10 @@ Comment = "⟦" , { ? any Unicode character except ⟧ ? } , "⟧" ;
 (* Example 4: Type definitions *)
 (* t Option[T]=Some(T)|None *)
 (* t Result[T,E]=Ok(T)|Err(E) *)
-(* t User={active:𝔹,email:𝕊,id:ℤ,name:𝕊} *)
+(* t User={active:Bool,email:String,id:Int,name:String} *)
 
 (* Example 5: Pipeline *)
-(* λprocess_users(users:[User])→[𝕊]=users|>filter(λu→u.active)|>map(λu→u.name) *)
+(* λprocess_users(users:[User])→[String]=users|>filter(λu→u.active)|>map(λu→u.name) *)
 
 (* ============================================================================ *)
 (* END OF GRAMMAR                                                               *)

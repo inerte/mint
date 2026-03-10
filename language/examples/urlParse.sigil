@@ -2,9 +2,9 @@ e console
 i stdlib⋅string
 i stdlib⋅url
 
-λmain()→𝕌 match stdlib⋅url.parse("https://sigil.dev/docs?lang=sigil#intro"){
+λmain()→Unit match stdlib⋅url.parse("https://sigil.dev/docs?lang=sigil#intro"){
   Ok(parsed)→
-    l summary=("protocol="++parsed.protocol++", host="++parsed.host++", path="++parsed.path++", suffix="++stdlib⋅url.suffix(parsed):𝕊);
+    l summary=("protocol="++parsed.protocol++", host="++parsed.host++", path="++parsed.path++", suffix="++stdlib⋅url.suffix(parsed):String);
     console.log(summary)
     ()|
   Err(err)→

@@ -2,4 +2,4 @@
    Expected output: 42
 ⟧
 
-λ main() → ℤ = 42
+λ main() → Int = 42

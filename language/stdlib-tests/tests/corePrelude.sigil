@@ -1,7 +1,7 @@
 i core⋅option
 i core⋅result
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "core prelude exposes option constructors without import" {
   match Some(42){

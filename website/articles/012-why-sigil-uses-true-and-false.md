@@ -108,7 +108,7 @@ It is becoming stricter about using the forms that best serve AI-generated code.
 
 ## What Is Not Changing
 
-- the boolean type is still `𝔹`
+- the boolean type is still `Bool`
 - boolean semantics do not change
 - operators like `¬`, `and`, and `or` are not part of this decision
 

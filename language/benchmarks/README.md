@@ -113,16 +113,33 @@ The authoritative metric is **whole-file rewrite + retokenize**, not isolated sy
 This matters because replacing a Unicode symbol with a word can introduce separators and change neighboring tokenization.
 The default JSON report is written to `language/benchmarks/results/unicode-replacements.json`.
 
+### Primitive Type Switch Benchmark
+
+To measure the specific impact of switching primitive type spellings from legacy
+Unicode glyphs to the current capitalized ASCII forms, run:
+
+```bash
+node language/benchmarks/tools/primitive-switch-benchmark.js
+```
+
+The script:
+
+- rewrites the selected files in memory back to the old Unicode primitive spellings
+- retokenizes both versions with the local tokenizer harness
+- reports per-file before/after counts and deltas
+
+The published baseline remains `openai_cl100k_base`.
+
 Example:
 
 ```sigil
-λends_with(s:𝕊,suffix:𝕊)→𝔹=false
+λends_with(s:String,suffix:String)→Bool=false
 ```
 
 may become:
 
 ```sigil
-function ends_with(s:𝕊,suffix:𝕊)→𝔹=false
+function ends_with(s:String,suffix:String)→Bool=false
 ```
 
 The inserted space is part of the real replacement cost and must be measured.
@@ -138,7 +155,7 @@ The inserted space is part of the real replacement cost and must be measured.
 
 **Example (factorial):**
 ```
-Sigil:       λfactorial(n:ℤ)→ℤ match n{0→1|1→1|n→n*factorial(n-1)}
+Sigil:       λfactorial(n:Int)→Int match n{0→1|1→1|n→n*factorial(n-1)}
 TypeScript: function factorial(n: number): number {
               if (n === 0 || n === 1) return 1;
               return n * factorial(n - 1);

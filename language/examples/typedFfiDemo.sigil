@@ -5,23 +5,23 @@
 ⟧
 
 e console : {
-  log : λ(𝕊) → 𝕌
+  log : λ(String) → Unit
 }
 
 e fs⋅promises : {
-  readFile : λ(𝕊, 𝕊) → 𝕊,
-  writeFile : λ(𝕊, 𝕊) → 𝕌
+  readFile : λ(String, String) → String,
+  writeFile : λ(String, String) → Unit
 }
 
 e path : {
-  join : λ(𝕊, 𝕊) → 𝕊
+  join : λ(String, String) → String
 }
 
-λmain()→𝕌={
+λmain()→Unit={
   console.log("Typed FFI demonstration")
 }
 
-λreadConfig(filename:𝕊)→𝕊={
-  l configPath=(path.join("config", filename):𝕊);
+λreadConfig(filename:String)→String={
+  l configPath=(path.join("config", filename):String);
   fs⋅promises.readFile(configPath, "utf8")
 }

@@ -53,7 +53,7 @@ The compiler analyzes ALL recursive calls and checks how each parameter's argume
 
 ##### ✅ ALLOWED: GCD (both params structural)
 ```sigil
-λgcd(a:ℤ,b:ℤ)→ℤ match b{0→a|b→gcd(b,a%b)}
+λgcd(a:Int,b:Int)→Int match b{0→a|b→gcd(b,a%b)}
 ```
 - `a` → `b` (swap, structural transformation)
 - `b` → `a%b` (modulo, always decreases)
@@ -61,7 +61,7 @@ The compiler analyzes ALL recursive calls and checks how each parameter's argume
 
 ##### ✅ ALLOWED: Power (query + structural)
 ```sigil
-λpower(base:ℤ,exp:ℤ)→ℤ match exp{0→1|exp→base*power(base,exp-1)}
+λpower(base:Int,exp:Int)→Int match exp{0→1|exp→base*power(base,exp-1)}
 ```
 - `base` → `base` (query, unchanged)
 - `exp` → `exp-1` (structural, decreases)
@@ -69,7 +69,7 @@ The compiler analyzes ALL recursive calls and checks how each parameter's argume
 
 ##### ✅ ALLOWED: Nth Element (parallel decomposition)
 ```sigil
-λnth(list:[ℤ],n:ℤ)→ℤ match (list,n){
+λnth(list:[Int],n:Int)→Int match (list,n){
   ([x,.xs],0)→x|
   ([x,.xs],n)→nth(xs,n-1)
 }
@@ -80,7 +80,7 @@ The compiler analyzes ALL recursive calls and checks how each parameter's argume
 
 ##### ❌ BLOCKED: Factorial with Accumulator
 ```sigil
-λfactorial(n:ℤ,acc:ℤ)→ℤ match n{0→acc|n→factorial(n-1,n*acc)}
+λfactorial(n:Int,acc:Int)→Int match n{0→acc|n→factorial(n-1,n*acc)}
 ```
 - `n` → `n-1` (structural, decreases)
 - `acc` → `n*acc` (ACCUMULATOR, multiplies/grows)
@@ -98,11 +98,11 @@ The parameter(s) [acc] are accumulators (grow during recursion).
 Sigil does NOT support tail-call optimization or accumulator-passing style.
 
 Accumulator pattern (FORBIDDEN):
-  λfactorial(n:ℤ,acc:ℤ)→ℤ match n{0→acc|n→factorial(n-1,n*acc)}
+  λfactorial(n:Int,acc:Int)→Int match n{0→acc|n→factorial(n-1,n*acc)}
   - Parameter 'acc' only grows (n*acc) → ACCUMULATOR
 
 Legitimate multi-parameter (ALLOWED):
-  λgcd(a:ℤ,b:ℤ)→ℤ match b{0→a|b→gcd(b,a%b)}
+  λgcd(a:Int,b:Int)→Int match b{0→a|b→gcd(b,a%b)}
   - Both 'a' and 'b' transform algorithmically → structural
 
 Use simple recursion without accumulator parameters.
@@ -110,7 +110,7 @@ Use simple recursion without accumulator parameters.
 
 ##### ❌ BLOCKED: List Reverse with Accumulator
 ```sigil
-λreverse(lst:[ℤ],acc:[ℤ])→[ℤ] match lst{[]→acc|[x,.xs]→reverse(xs,[x])}
+λreverse(lst:[Int],acc:[Int])→[Int] match lst{[]→acc|[x,.xs]→reverse(xs,[x])}
 ```
 - `lst` → `xs` (structural, list tail)
 - `acc` → `[x]` (ACCUMULATOR, list grows)
@@ -128,13 +128,13 @@ Use simple recursion without accumulator parameters.
 
 ```sigil
 ❌ COMPILE ERROR - Boolean matching when value matching works:
-λisZero(n:ℤ)→𝔹 match (n=0){
+λisZero(n:Int)→Bool match (n=0){
   true→true|
   false→false
 }
 
 ✅ COMPILES - Direct value matching:
-λisZero(n:ℤ)→𝔹 match n{
+λisZero(n:Int)→Bool match n{
   0→true|
   _→false
 }
@@ -144,7 +144,7 @@ Use simple recursion without accumulator parameters.
 
 ```sigil
 ✅ COMPILES - Complex conditions (no simpler form exists):
-λclassify(x:ℤ,y:ℤ)→𝕊 match (x>0,y>0){
+λclassify(x:Int,y:Int)→String match (x>0,y>0){
   (true,true)→"quadrant 1"|
   (true,false)→"quadrant 4"|
   (false,true)→"quadrant 2"|

@@ -10,7 +10,7 @@ t Entry[K,V]={key:K,value:V}
 
 λentries[K,V](map:{K↦V})→[Entry[K,V]]=[]
 
-λfilter[K,V](map:{K↦V},pred:λ(K,V)→𝔹)→{K↦V}=({↦}:{K↦V})
+λfilter[K,V](map:{K↦V},pred:λ(K,V)→Bool)→{K↦V}=({↦}:{K↦V})
 
 λfold[K,V,U](fn:λ(U,K,V)→U,init:U,map:{K↦V})→U=init
 
@@ -18,7 +18,7 @@ t Entry[K,V]={key:K,value:V}
 
 λget[K,V](key:K,map:{K↦V})→Option[V]=None()
 
-λhas[K,V](key:K,map:{K↦V})→𝔹=false
+λhas[K,V](key:K,map:{K↦V})→Bool=false
 
 λinsert[K,V](key:K,map:{K↦V},value:V)→{K↦V}=({↦}:{K↦V})
 
@@ -32,6 +32,6 @@ t Entry[K,V]={key:K,value:V}
 
 λsingleton[K,V](key:K,value:V)→{K↦V}=({↦}:{K↦V})
 
-λsize[K,V](map:{K↦V})→ℤ=0
+λsize[K,V](map:{K↦V})→Int=0
 
 λvalues[K,V](map:{K↦V})→[V]=[]

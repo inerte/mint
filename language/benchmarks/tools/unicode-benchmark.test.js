@@ -3,7 +3,7 @@ import { buildBoundarySnippet, rewriteFileForTokenType } from './sigil-rewrite.j
 import { measureStringWithAllTokenizers } from './tokenizers.js';
 
 const lambdaFile = {
-  source: 'λends_with(s:𝕊,suffix:𝕊)→𝔹=false\n',
+  source: 'λends_with(s:String,suffix:String)→Bool=false\n',
   tokens: [
     { type: 'LAMBDA', start: { offset: 0, index: 0 }, end: { offset: 1, index: 1 } },
     { type: 'IDENTIFIER', start: { offset: 1, index: 1 }, end: { offset: 10, index: 10 } },
@@ -15,7 +15,7 @@ const lambdaFile = {
 };
 
 const rewrittenLambda = rewriteFileForTokenType(lambdaFile, 'LAMBDA', 'function');
-assert.equal(rewrittenLambda, 'function ends_with(s:𝕊,suffix:𝕊)→𝔹=false\n');
+assert.equal(rewrittenLambda, 'function ends_with(s:String,suffix:String)→Bool=false\n');
 
 const snippet = buildBoundarySnippet(lambdaFile, lambdaFile.symbols[0], 'fn', 8);
 assert.equal(snippet.before, 'λends_wit');

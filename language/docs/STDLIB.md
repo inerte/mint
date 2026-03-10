@@ -39,7 +39,7 @@ i stdlib⋅time
 i stdlib⋅url
 
 ⟦ Use with fully qualified names ⟧
-λmain()→𝕌=console.log(
+λmain()→Unit=console.log(
   stdlib⋅string.intToString(#[1,2,3]) ++ " " ++
   stdlib⋅time.formatIso(stdlib⋅time.fromEpochMillis(0))
 )
@@ -53,13 +53,13 @@ The `#` operator is a **built-in language operator** that returns the length of 
 
 **Syntax:**
 ```sigil
-#expression → ℤ
+#expression → Int
 ```
 
 **Type Checking:**
-- Works on strings (`𝕊`) and lists (`[T]`)
+- Works on strings (`String`) and lists (`[T]`)
 - Compile error for other types
-- Always returns integer (`ℤ`)
+- Always returns integer (`Int`)
 
 **Examples:**
 ```sigil
@@ -106,10 +106,10 @@ There is no `export` keyword.
 i stdlib⋅file
 i stdlib⋅path
 
-λmain()→!IO 𝕌=
-  l out=(stdlib⋅path.join("/tmp","sigil.txt"):𝕊);
-  l _=(stdlib⋅file.writeText("hello",out):𝕌);
-  l _2=(stdlib⋅file.readText(out):𝕊);
+λmain()→!IO Unit=
+  l out=(stdlib⋅path.join("/tmp","sigil.txt"):String);
+  l _=(stdlib⋅file.writeText("hello",out):Unit);
+  l _2=(stdlib⋅file.readText(out):String);
   ()
 ```
 
@@ -118,9 +118,9 @@ i stdlib⋅path
 ```sigil
 i stdlib⋅path
 
-λmain()→𝕌=
-  l _=(stdlib⋅path.basename("website/articles/hello.md"):𝕊);
-  l _2=(stdlib⋅path.join("website","articles"):𝕊);
+λmain()→Unit=
+  l _=(stdlib⋅path.basename("website/articles/hello.md"):String);
+  l _2=(stdlib⋅path.join("website","articles"):String);
   ()
 ```
 
@@ -129,7 +129,7 @@ i stdlib⋅path
 ```sigil
 i stdlib⋅json
 
-λmain()→𝕌=
+λmain()→Unit=
   match stdlib⋅json.parse("{\"ok\":true}"){
     Ok(value)→match stdlib⋅json.asObject(value){
       Some(_)→()|
@@ -147,7 +147,7 @@ i stdlib⋅decode
 i stdlib⋅json
 i stdlib⋅time
 
-t Message={createdAt:stdlib⋅time.Instant,text:𝕊}
+t Message={createdAt:stdlib⋅time.Instant,text:String}
 
 λinstant(value:stdlib⋅json.JsonValue)→Result[stdlib⋅time.Instant,stdlib⋅decode.DecodeError] match stdlib⋅decode.string(value){
   Ok(text)→
@@ -180,10 +180,10 @@ field. Sigil does not use open or partial records for this.
 ```sigil
 i stdlib⋅time
 
-λmain()→𝕌=
+λmain()→Unit=
   match stdlib⋅time.parseIso("2026-03-03"){
     Ok(instant)→
-      l _=(stdlib⋅time.toEpochMillis(instant):ℤ);
+      l _=(stdlib⋅time.toEpochMillis(instant):Int);
       ()|
     Err(_)→()
   }
@@ -194,11 +194,11 @@ i stdlib⋅time
 ```sigil
 i stdlib⋅url
 
-λmain()→𝕌=
+λmain()→Unit=
   match stdlib⋅url.parse("../language/spec/cli-json.md?view=raw#schema"){
     Ok(url)→
-      l _=(url.path:𝕊);
-      l _2=(stdlib⋅url.suffix(url):𝕊);
+      l _=(url.path:String);
+      l _2=(stdlib⋅url.suffix(url):String);
       ()|
     Err(_)→()
   }
@@ -213,7 +213,7 @@ i stdlib⋅url
 Check if a list is sorted in ascending order.
 
 ```sigil
-λsorted_asc(xs:[ℤ])→𝔹
+λsorted_asc(xs:[Int])→Bool
 ```
 
 **Examples:**
@@ -231,7 +231,7 @@ sorted_asc([5])        ⟦ → true (single element is sorted) ⟧
 Check if a list is sorted in descending order.
 
 ```sigil
-λsorted_desc(xs:[ℤ])→𝔹
+λsorted_desc(xs:[Int])→Bool
 ```
 
 **Examples:**
@@ -245,7 +245,7 @@ sorted_desc([1,2,3])   ⟦ → false ⟧
 Check if all elements in a list satisfy a predicate.
 
 ```sigil
-λall(pred:λ(ℤ)→𝔹,xs:[ℤ])→𝔹
+λall(pred:λ(Int)→Bool,xs:[Int])→Bool
 ```
 
 **Examples:**
@@ -262,7 +262,7 @@ all(is_even,[2,4,6])          ⟦ → true ⟧
 Check if any element in a list satisfies a predicate.
 
 ```sigil
-λany(pred:λ(ℤ)→𝔹,xs:[ℤ])→𝔹
+λany(pred:λ(Int)→Bool,xs:[Int])→Bool
 ```
 
 **Examples:**
@@ -279,7 +279,7 @@ any(is_prime,[4,6,8,7])       ⟦ → true (7 is prime) ⟧
 Check if an element exists in a list.
 
 ```sigil
-λcontains(item:ℤ,xs:[ℤ])→𝔹
+λcontains(item:Int,xs:[Int])→Bool
 ```
 
 **Examples:**
@@ -296,7 +296,7 @@ contains(1,[])                ⟦ → false ⟧
 Count occurrences of an element in a list.
 
 ```sigil
-λcount(item:ℤ,xs:[ℤ])→ℤ
+λcount(item:Int,xs:[Int])→Int
 ```
 
 ### drop
@@ -304,7 +304,7 @@ Count occurrences of an element in a list.
 Drop the first `n` elements.
 
 ```sigil
-λdrop(n:ℤ,xs:[ℤ])→[ℤ]
+λdrop(n:Int,xs:[Int])→[Int]
 ```
 
 ### find
@@ -312,7 +312,7 @@ Drop the first `n` elements.
 Find the first element that satisfies a predicate.
 
 ```sigil
-λfind[T](pred:λ(T)→𝔹,xs:[T])→Option[T]
+λfind[T](pred:λ(T)→Bool,xs:[T])→Option[T]
 ```
 
 Examples:
@@ -331,8 +331,8 @@ Reduce a list to a single value by threading an accumulator from left to right.
 
 Examples:
 ```sigil
-stdlib⋅list.fold(0,λ(acc:ℤ,x:ℤ)→ℤ=acc+x,[1,2,3])   ⟦ → 6 ⟧
-stdlib⋅list.fold(0,λ(acc:ℤ,x:ℤ)→ℤ=acc*10+x,[1,2,3]) ⟦ → 123 ⟧
+stdlib⋅list.fold(0,λ(acc:Int,x:Int)→Int=acc+x,[1,2,3])   ⟦ → 6 ⟧
+stdlib⋅list.fold(0,λ(acc:Int,x:Int)→Int=acc*10+x,[1,2,3]) ⟦ → 123 ⟧
 ```
 
 ### in_bounds
@@ -340,7 +340,7 @@ stdlib⋅list.fold(0,λ(acc:ℤ,x:ℤ)→ℤ=acc*10+x,[1,2,3]) ⟦ → 123 ⟧
 Check if an index is valid for a list (in range [0, len-1]).
 
 ```sigil
-λin_bounds(idx:ℤ,xs:[ℤ])→𝔹
+λin_bounds(idx:Int,xs:[Int])→Bool
 ```
 
 **Examples:**
@@ -381,7 +381,7 @@ stdlib⋅list.last([1,2,3])    ⟦ → Some(3) ⟧
 Get the maximum element safely.
 
 ```sigil
-λmax(xs:[ℤ])→Option[ℤ]
+λmax(xs:[Int])→Option[Int]
 ```
 
 Examples:
@@ -395,7 +395,7 @@ stdlib⋅list.max([3,9,4])     ⟦ → Some(9) ⟧
 Get the minimum element safely.
 
 ```sigil
-λmin(xs:[ℤ])→Option[ℤ]
+λmin(xs:[Int])→Option[Int]
 ```
 
 Examples:
@@ -409,7 +409,7 @@ stdlib⋅list.min([3,9,4])     ⟦ → Some(3) ⟧
 Get the item at a zero-based index safely.
 
 ```sigil
-λnth[T](idx:ℤ,xs:[T])→Option[T]
+λnth[T](idx:Int,xs:[T])→Option[T]
 ```
 
 Examples:
@@ -423,7 +423,7 @@ stdlib⋅list.nth(2,[7,8])     ⟦ → None() ⟧
 Multiply all integers in a list.
 
 ```sigil
-λproduct(xs:[ℤ])→ℤ
+λproduct(xs:[Int])→Int
 ```
 
 Examples:
@@ -437,7 +437,7 @@ stdlib⋅list.product([2,3,4])    ⟦ → 24 ⟧
 Remove the first occurrence of an element.
 
 ```sigil
-λremove_first(item:ℤ,xs:[ℤ])→[ℤ]
+λremove_first(item:Int,xs:[Int])→[Int]
 ```
 
 ### reverse
@@ -445,7 +445,7 @@ Remove the first occurrence of an element.
 Reverse a list.
 
 ```sigil
-λreverse(xs:[ℤ])→[ℤ]
+λreverse(xs:[Int])→[Int]
 ```
 
 ### sum
@@ -453,7 +453,7 @@ Reverse a list.
 Sum all integers in a list.
 
 ```sigil
-λsum(xs:[ℤ])→ℤ
+λsum(xs:[Int])→Int
 ```
 
 Examples:
@@ -467,7 +467,7 @@ stdlib⋅list.sum([1,2,3,4])   ⟦ → 10 ⟧
 Take the first `n` elements.
 
 ```sigil
-λtake(n:ℤ,xs:[ℤ])→[ℤ]
+λtake(n:Int,xs:[Int])→[Int]
 ```
 
 ## Numeric Helpers
@@ -479,7 +479,7 @@ Take the first `n` elements.
 Build an ascending integer range, inclusive at both ends.
 
 ```sigil
-λrange(start:ℤ,stop:ℤ)→[ℤ]
+λrange(start:Int,stop:Int)→[Int]
 ```
 
 Examples:
@@ -500,7 +500,7 @@ Comprehensive string manipulation functions. These are **compiler intrinsics** -
 Get character at index.
 
 ```sigil
-λchar_at(idx:ℤ,s:𝕊)→𝕊
+λchar_at(idx:Int,s:String)→String
 ```
 
 **Examples:**
@@ -516,7 +516,7 @@ stdlib⋅string.char_at(4,"hello")    ⟦ → "o" ⟧
 Get substring from start to end index.
 
 ```sigil
-λsubstring(end:ℤ,s:𝕊,start:ℤ)→𝕊
+λsubstring(end:Int,s:String,start:Int)→String
 ```
 
 **Examples:**
@@ -532,7 +532,7 @@ stdlib⋅string.substring(3,"hello",0)           ⟦ → "hel" ⟧
 Take first n characters.
 
 ```sigil
-λtake(n:ℤ,s:𝕊)→𝕊
+λtake(n:Int,s:String)→String
 ```
 
 **Examples:**
@@ -548,7 +548,7 @@ stdlib⋅string.take(5,"hi")       ⟦ → "hi" (takes available chars) ⟧
 Drop first n characters.
 
 ```sigil
-λdrop(n:ℤ,s:𝕊)→𝕊
+λdrop(n:Int,s:String)→String
 ```
 
 **Examples:**
@@ -564,7 +564,7 @@ stdlib⋅string.drop(5,"hi")       ⟦ → "" (drops all available) ⟧
 Split a string on newline characters.
 
 ```sigil
-λlines(s:𝕊)→[𝕊]
+λlines(s:String)→[String]
 ```
 
 **Examples:**
@@ -580,7 +580,7 @@ stdlib⋅string.lines("hello")      ⟦ → ["hello"] ⟧
 Convert to uppercase.
 
 ```sigil
-λto_upper(s:𝕊)→𝕊
+λto_upper(s:String)→String
 ```
 
 **Examples:**
@@ -595,7 +595,7 @@ stdlib⋅string.to_upper("hello")    ⟦ → "HELLO" ⟧
 Convert to lowercase.
 
 ```sigil
-λto_lower(s:𝕊)→𝕊
+λto_lower(s:String)→String
 ```
 
 **Examples:**
@@ -610,7 +610,7 @@ stdlib⋅string.to_lower("WORLD")    ⟦ → "world" ⟧
 Remove leading and trailing whitespace.
 
 ```sigil
-λtrim(s:𝕊)→𝕊
+λtrim(s:String)→String
 ```
 
 **Examples:**
@@ -626,7 +626,7 @@ stdlib⋅string.trim("\n\ttest\n")   ⟦ → "test" ⟧
 Find index of first occurrence (returns -1 if not found).
 
 ```sigil
-λindex_of(s:𝕊,search:𝕊)→ℤ
+λindex_of(s:String,search:String)→Int
 ```
 
 **Examples:**
@@ -642,7 +642,7 @@ stdlib⋅string.index_of("hello","xyz")            ⟦ → -1 ⟧
 Split string by delimiter.
 
 ```sigil
-λsplit(delimiter:𝕊,s:𝕊)→[𝕊]
+λsplit(delimiter:String,s:String)→[String]
 ```
 
 **Examples:**
@@ -658,7 +658,7 @@ stdlib⋅string.split("\n","line1\nline2")   ⟦ → ["line1","line2"] ⟧
 Replace all occurrences of pattern with replacement.
 
 ```sigil
-λreplace_all(pattern:𝕊,replacement:𝕊,s:𝕊)→𝕊
+λreplace_all(pattern:String,replacement:String,s:String)→String
 ```
 
 **Examples:**
@@ -673,7 +673,7 @@ stdlib⋅string.replace_all("hello","hi","hello hello")    ⟦ → "hi hi" ⟧
 Repeat a string `count` times.
 
 ```sigil
-λrepeat(count:ℤ,s:𝕊)→𝕊
+λrepeat(count:Int,s:String)→String
 ```
 
 **Examples:**
@@ -695,7 +695,7 @@ Boolean validation predicates for string properties. These are **compiler intrin
 Check if string starts with prefix.
 
 ```sigil
-λstarts_with(prefix:𝕊,s:𝕊)→𝔹
+λstarts_with(prefix:String,s:String)→Bool
 ```
 
 **Examples:**
@@ -713,7 +713,7 @@ stdlib⋅string.starts_with("# ","Title")      ⟦ → false ⟧
 Check if string ends with suffix.
 
 ```sigil
-λends_with(s:𝕊,suffix:𝕊)→𝔹
+λends_with(s:String,suffix:String)→Bool
 ```
 
 **Examples:**
@@ -731,7 +731,7 @@ stdlib⋅string.ends_with("test.txt",".sigil")      ⟦ → false ⟧
 Check whether a string is exactly one decimal digit.
 
 ```sigil
-λis_digit(s:𝕊)→𝔹
+λis_digit(s:String)→Bool
 ```
 
 **Examples:**
@@ -747,7 +747,7 @@ stdlib⋅string.is_digit("42")    ⟦ → false ⟧
 Join lines with newline separators.
 
 ```sigil
-λunlines(lines:[𝕊])→𝕊
+λunlines(lines:[String])→String
 ```
 
 **Examples:**
@@ -774,7 +774,7 @@ This follows Sigil's "ONE way to do things" philosophy.
 Absolute value of an integer.
 
 ```sigil
-λabs(x:ℤ)→ℤ
+λabs(x:Int)→Int
 ```
 
 Examples:
@@ -788,7 +788,7 @@ stdlib⋅numeric.abs(7)    ⟦ → 7 ⟧
 Quotient and remainder pair returned by `divmod`.
 
 ```sigil
-t DivMod={quotient:ℤ,remainder:ℤ}
+t DivMod={quotient:Int,remainder:Int}
 ```
 
 ### divmod
@@ -796,7 +796,7 @@ t DivMod={quotient:ℤ,remainder:ℤ}
 Return integer quotient and Euclidean remainder together.
 
 ```sigil
-λdivmod(a:ℤ,b:ℤ)→stdlib⋅numeric.DivMod
+λdivmod(a:Int,b:Int)→stdlib⋅numeric.DivMod
 ```
 
 Examples:
@@ -810,7 +810,7 @@ stdlib⋅numeric.divmod(-17,5)   ⟦ → DivMod{quotient:-4,remainder:3} ⟧
 Check if a number is positive (> 0).
 
 ```sigil
-λis_positive(x:ℤ)→𝔹
+λis_positive(x:Int)→Bool
 ```
 
 **Examples:**
@@ -825,7 +825,7 @@ is_positive(0)                ⟦ → false ⟧
 Check if a number is negative (< 0).
 
 ```sigil
-λis_negative(x:ℤ)→𝔹
+λis_negative(x:Int)→Bool
 ```
 
 **Examples:**
@@ -840,7 +840,7 @@ is_negative(0)                ⟦ → false ⟧
 Check if a number is non-negative (>= 0).
 
 ```sigil
-λis_non_negative(x:ℤ)→𝔹
+λis_non_negative(x:Int)→Bool
 ```
 
 **Examples:**
@@ -855,7 +855,7 @@ is_non_negative(-1)           ⟦ → false ⟧
 Check if a number is even.
 
 ```sigil
-λis_even(x:ℤ)→𝔹
+λis_even(x:Int)→Bool
 ```
 
 **Examples:**
@@ -870,7 +870,7 @@ is_even(0)                    ⟦ → true ⟧
 Check if a number is odd.
 
 ```sigil
-λis_odd(x:ℤ)→𝔹
+λis_odd(x:Int)→Bool
 ```
 
 **Examples:**
@@ -886,7 +886,7 @@ is_odd(4)                     ⟦ → false ⟧
 Check if a number is prime.
 
 ```sigil
-λis_prime(n:ℤ)→𝔹
+λis_prime(n:Int)→Bool
 ```
 
 **Examples:**
@@ -908,7 +908,7 @@ is_prime(0)                   ⟦ → false ⟧
 Least common multiple.
 
 ```sigil
-λlcm(a:ℤ,b:ℤ)→ℤ
+λlcm(a:Int,b:Int)→Int
 ```
 
 Examples:
@@ -923,7 +923,7 @@ stdlib⋅numeric.lcm(0,7)     ⟦ → 0 ⟧
 Euclidean modulo with a non-negative remainder.
 
 ```sigil
-λmod(a:ℤ,b:ℤ)→ℤ
+λmod(a:Int,b:Int)→Int
 ```
 
 Examples:
@@ -938,7 +938,7 @@ stdlib⋅numeric.mod(17,-5)    ⟦ → 2 ⟧
 Check if a number is in the inclusive range [min, max].
 
 ```sigil
-λin_range(x:ℤ,min:ℤ,max:ℤ)→𝔹
+λin_range(x:Int,min:Int,max:Int)→Bool
 ```
 
 **Examples:**
@@ -956,7 +956,7 @@ in_range(10,1,10)             ⟦ → true (inclusive bounds) ⟧
 Return `-1`, `0`, or `1` based on the sign of the input.
 
 ```sigil
-λsign(x:ℤ)→ℤ
+λsign(x:Int)→Int
 ```
 
 Examples:
@@ -972,7 +972,7 @@ stdlib⋅numeric.sign(12)    ⟦ → 1 ⟧
 
 ```sigil
 ⟦ Validate input before processing ⟧
-λprocess_positive(x:ℤ)→𝕊 match is_positive(x){
+λprocess_positive(x:Int)→String match is_positive(x){
   false→"Error: Must be positive"|
   true→"Processing..."
 }
@@ -982,21 +982,21 @@ stdlib⋅numeric.sign(12)    ⟦ → 1 ⟧
 
 ```sigil
 ⟦ Filter primes from a list ⟧
-λget_primes(xs:[ℤ])→[ℤ]=xs⊳is_prime
+λget_primes(xs:[Int])→[Int]=xs⊳is_prime
 ```
 
 ### Higher-Order Validation
 
 ```sigil
 ⟦ Check all values are in range ⟧
-λall_in_range(xs:[ℤ])→𝔹=all(λx→in_range(x,0,100),xs)
+λall_in_range(xs:[Int])→Bool=all(λx→in_range(x,0,100),xs)
 ```
 
 ### Precondition Checks
 
 ```sigil
 ⟦ Algorithm that requires sorted input ⟧
-λbinary_search(xs:[ℤ],target:ℤ)→𝕊 match sorted_asc(xs){
+λbinary_search(xs:[Int],target:Int)→String match sorted_asc(xs){
   false→"Error: List must be sorted"|
   true→"Searching..."
 }
@@ -1015,8 +1015,8 @@ Each predicate has exactly ONE implementation:
 
 Predicates can use helper functions for complex logic:
 ```sigil
-λis_prime(n:ℤ)→𝔹=...
-λis_prime_helper(n:ℤ,divisor:ℤ)→𝔹=...  ⟦ Allowed ⟧
+λis_prime(n:Int)→Bool=...
+λis_prime_helper(n:Int,divisor:Int)→Bool=...  ⟦ Allowed ⟧
 ```
 
 ### Pure Functions
@@ -1064,13 +1064,13 @@ t Option[T]=Some(T)|None
 **Usage:**
 ```sigil
 ⟦ Pattern matching on Option ⟧
-λgetOrDefault(default:ℤ,opt:Option[ℤ])→ℤ match opt{
+λgetOrDefault(default:Int,opt:Option[Int])→Int match opt{
   Some(x)→x|
   None()→default
 }
 
 ⟦ Safe division returning Option ⟧
-λdivide(a:ℤ,b:ℤ)→Option[ℤ] match b{
+λdivide(a:Int,b:Int)→Option[Int] match b{
   0→None()|
   b→Some(a/b)
 }
@@ -1079,8 +1079,8 @@ t Option[T]=Some(T)|None
 **Implemented helpers:**
 ```sigil
 λbind_option[T,U](fn:λ(T)→Option[U],opt:Option[T])→Option[U]
-λis_none[T](opt:Option[T])→𝔹
-λis_some[T](opt:Option[T])→𝔹
+λis_none[T](opt:Option[T])→Bool
+λis_some[T](opt:Option[T])→Bool
 λmap_option[T,U](fn:λ(T)→U,opt:Option[T])→Option[U]
 λunwrap_or[T](fallback:T,opt:Option[T])→T
 ```
@@ -1097,13 +1097,13 @@ t Result[T,E]=Ok(T)|Err(E)
 **Usage:**
 ```sigil
 ⟦ Pattern matching on Result ⟧
-λprocessResult(res:Result[𝕊,𝕊])→𝕊 match res{
+λprocessResult(res:Result[String,String])→String match res{
   Ok(value)→"Success: "+value|
   Err(msg)→"Error: "+msg
 }
 
 ⟦ Safe parsing returning Result ⟧
-λparsePositive(s:𝕊)→Result[ℤ,𝕊] match validInput(s){
+λparsePositive(s:String)→Result[Int,String] match validInput(s){
   true→Ok(parseInt(s))|
   false→Err("invalid input")
 }
@@ -1112,8 +1112,8 @@ t Result[T,E]=Ok(T)|Err(E)
 **Implemented helpers:**
 ```sigil
 λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E]
-λis_err[T,E](res:Result[T,E])→𝔹
-λis_ok[T,E](res:Result[T,E])→𝔹
+λis_err[T,E](res:Result[T,E])→Bool
+λis_ok[T,E](res:Result[T,E])→Bool
 λmap_result[T,U,E](fn:λ(T)→U,res:Result[T,E])→Result[U,E]
 λunwrap_or_result[T,E](fallback:T,res:Result[T,E])→T
 ```
@@ -1137,9 +1137,9 @@ i core⋅result
 Canonical type and literal forms:
 
 ```sigil
-{𝕊↦𝕊}
+{String↦String}
 {"content-type"↦"text/plain"}
-({↦}:{𝕊↦𝕊})
+({↦}:{String↦String})
 ```
 
 Canonical helper module:
@@ -1153,16 +1153,16 @@ i core⋅map
 ### String Predicates
 
 ```sigil
-λstr_contains(s:𝕊,substr:𝕊)→𝔹
-λstr_starts_with(s:𝕊,prefix:𝕊)→𝔹
-λstr_ends_with(s:𝕊,suffix:𝕊)→𝔹
-λstr_is_empty(s:𝕊)→𝔹
+λstr_contains(s:String,substr:String)→Bool
+λstr_starts_with(s:String,prefix:String)→Bool
+λstr_ends_with(s:String,suffix:String)→Bool
+λstr_is_empty(s:String)→Bool
 ```
 
 ### List Utility Functions
 
 ```sigil
-λlen[T](xs:[T])→ℤ
+λlen[T](xs:[T])→Int
 λhead[T](xs:[T])→Option[T]
 λtail[T](xs:[T])→[T]
 λreverse[T](xs:[T])→[T]
@@ -1174,13 +1174,13 @@ Predicates will integrate with the future contract system:
 
 ```sigil
 ⟦ Today - manual validation ⟧
-λbinary_search(xs:[ℤ],target:ℤ)→ℤ match sorted_asc(xs){
+λbinary_search(xs:[Int],target:Int)→Int match sorted_asc(xs){
   false→-1|
   true→...
 }
 
 ⟦ Future - contracts with predicates ⟧
-λbinary_search(xs:[ℤ],target:ℤ)→ℤ
+λbinary_search(xs:[Int],target:Int)→Int
   [requires sorted_asc(xs)]
   [ensures in_range(result,0,len(xs))]
 =...

@@ -8,26 +8,26 @@ No npm dependencies, no library choices - just import and use.
 ⟧
 
 ⟦ HTTP request type ⟧
-t Headers={𝕊↦𝕊}
+t Headers={String↦String}
 
 t Request={
-  body:𝕊,
+  body:String,
   headers:Headers,
-  method:𝕊,
-  path:𝕊
+  method:String,
+  path:String
 }
 
 ⟦ HTTP response type ⟧
 t Response={
-  body:𝕊,
+  body:String,
   headers:Headers,
-  status:ℤ
+  status:Int
 }
 
 ⟦ Opaque Node callback adapter types ⟧
 t NodeRequest={
-  method:𝕊,
-  url:𝕊
+  method:String,
+  url:String
 }
 
 t NodeResponse={}
@@ -40,15 +40,15 @@ i stdlib⋅string
 i stdlib⋅url
 
 ⟦ Helper: Create a JSON response ⟧
-λjson(body:𝕊,status:ℤ)→Response={
+λjson(body:String,status:Int)→Response={
   body:body,
   headers:{"content-type"↦"application/json; charset=utf-8"},
   status:status
 }
 
 ⟦ Helper: Log HTTP request to console ⟧
-λlogRequest(req:Request)→!IO 𝕌={
-  l logLine=(req.method++" "++req.path:𝕊);
+λlogRequest(req:Request)→!IO Unit={
+  l logLine=(req.method++" "++req.path:String);
   console.log(logLine)
 }
 
@@ -60,21 +60,21 @@ i stdlib⋅url
 }
 
 ⟦ Helper: Create a 404 with custom message ⟧
-λnotFoundMsg(path:𝕊)→Response={
+λnotFoundMsg(path:String)→Response={
   body:"<h1>404 Not Found</h1><p>Path: "++path++"</p>",
   headers:{"content-type"↦"text/html; charset=utf-8"},
   status:404
 }
 
 ⟦ Helper: Create a 200 OK response ⟧
-λok(body:𝕊)→Response={
+λok(body:String)→Response={
   body:body,
   headers:{"content-type"↦"text/html; charset=utf-8"},
   status:200
 }
 
 ⟦ Helper: Create a custom response ⟧
-λresponse(body:𝕊,contentType:𝕊,status:ℤ)→Response={
+λresponse(body:String,contentType:String,status:Int)→Response={
   body:body,
   headers:{"content-type"↦contentType},
   status:status
@@ -88,14 +88,14 @@ Usage:
     stdlib⋅httpServer.ok("<h1>Hello World</h1>")
   }
 
-  λmain()→!IO 𝕌={
+  λmain()→!IO Unit={
     stdlib⋅httpServer.serve(handleRequest,3000)
   }
 ⟧
 
-λserve(handler:λ(Request)→!IO Response,port:ℤ)→!IO 𝕌={
+λserve(handler:λ(Request)→!IO Response,port:Int)→!IO Unit={
   ⟦ Create HTTP server with request handler ⟧
-  (http.createServer(λ(nodeReq:NodeRequest,nodeRes:NodeResponse)→!IO 𝕌={
+  (http.createServer(λ(nodeReq:NodeRequest,nodeRes:NodeResponse)→!IO Unit={
     ⟦ Parse URL to extract path ⟧
     l path=(match stdlib⋅url.parse(nodeReq.url){
       Ok(parsedUrl)→match #parsedUrl.path>0{
@@ -103,10 +103,10 @@ Usage:
         false→"/"
       }|
       Err(_)→"/"
-    }:𝕊);
+    }:String);
 
     ⟦ Extract method ⟧
-    l method=(nodeReq.method:𝕊);
+    l method=(nodeReq.method:String);
 
     ⟦ For v1, use a placeholder header map until Node header conversion is wired in ⟧
     l headers=({"content-type"↦""}:Headers);
@@ -115,7 +115,7 @@ Usage:
     ⟦ For now, body parsing is stubbed to keep the canonical HTTP wrapper compiling ⟧
 
     ⟦ Request body parsing not implemented yet (v1 stub) ⟧
-    l body=("":𝕊);
+    l body=("":String);
 
     ⟦ Build Sigil Request object ⟧
     l sigilRequest=({
@@ -133,15 +133,15 @@ Usage:
     l responseHeaders=(sigilResponse.headers:Headers);
 
     ⟦ TODO: Write response to nodeRes once callback second-parameter binding is stable in typechecker ⟧
-    l status=(sigilResponse.status:ℤ);
-    l bodyHtml=(sigilResponse.body:𝕊);
-    l noop=(status:ℤ);
-    l noop2=(bodyHtml:𝕊);
-    l noop3=(core⋅map.get("content-type",responseHeaders):Option[𝕊]);
+    l status=(sigilResponse.status:Int);
+    l bodyHtml=(sigilResponse.body:String);
+    l noop=(status:Int);
+    l noop2=(bodyHtml:String);
+    l noop3=(core⋅map.get("content-type",responseHeaders):Option[String]);
 
     ()
-  })).listen(port,λ()→!IO 𝕌={
-    l portStr=(stdlib⋅string.intToString(port):𝕊);
+  })).listen(port,λ()→!IO Unit={
+    l portStr=(stdlib⋅string.intToString(port):String);
     console.log("Server running at http://localhost:"++portStr)
     ()
   })
@@ -150,7 +150,7 @@ Usage:
 }
 
 ⟦ Helper: Create a 500 Internal Server Error response ⟧
-λserverError(message:𝕊)→Response={
+λserverError(message:String)→Response={
   body:"<h1>500 Internal Server Error</h1><p>"++message++"</p>",
   headers:{"content-type"↦"text/html; charset=utf-8"},
   status:500

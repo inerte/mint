@@ -4,9 +4,9 @@
   their resolution before the final record is observed.
 ⟧
 
-t Pair={a:𝕊,b:𝕊}
+t Pair={a:String,b:String}
 
-λfirst()→!IO 𝕊="first"
+λfirst()→!IO String="first"
 
 λmain()→!IO Pair={
   l a=first();
@@ -14,4 +14,4 @@ t Pair={a:𝕊,b:𝕊}
   {a:a,b:b}
 }
 
-λsecond()→!IO 𝕊="second"
+λsecond()→!IO String="second"

@@ -1582,7 +1582,7 @@ fn synthesize_binary(
     });
 
     match bin.operator {
-        // Arithmetic operators: ℤ → ℤ → ℤ
+        // Arithmetic operators: Int → Int → Int
         BinaryOperator::Add
         | BinaryOperator::Subtract
         | BinaryOperator::Multiply
@@ -1602,7 +1602,7 @@ fn synthesize_binary(
             Ok(int_type)
         }
 
-        // Comparison operators: ℤ → ℤ → 𝔹
+        // Comparison operators: Int → Int → Bool
         BinaryOperator::Less
         | BinaryOperator::Greater
         | BinaryOperator::LessEq
@@ -1612,7 +1612,7 @@ fn synthesize_binary(
             Ok(bool_type)
         }
 
-        // Equality operators: T → T → 𝔹 (polymorphic)
+        // Equality operators: T → T → Bool (polymorphic)
         BinaryOperator::Equal | BinaryOperator::NotEqual => {
             let (normalized_left, normalized_right) = canonical_pair(env, &left_type, &right_type);
             if !types_equal(&normalized_left, &normalized_right) {
@@ -1628,14 +1628,14 @@ fn synthesize_binary(
             Ok(bool_type)
         }
 
-        // Logical operators: 𝔹 → 𝔹 → 𝔹
+        // Logical operators: Bool → Bool → Bool
         BinaryOperator::And | BinaryOperator::Or => {
             check(env, &bin.left, &bool_type)?;
             check(env, &bin.right, &bool_type)?;
             Ok(bool_type)
         }
 
-        // String concatenation: 𝕊 → 𝕊 → 𝕊
+        // String concatenation: String → String → String
         BinaryOperator::Append => {
             check(env, &bin.left, &string_type)?;
             check(env, &bin.right, &string_type)?;
@@ -1911,7 +1911,7 @@ fn synthesize_match(
         if !types_equal(&normalized_guard, &normalized_bool) {
             return Err(TypeError::new(
                 format!(
-                    "Pattern guard must have type 𝔹, got {}",
+                    "Pattern guard must have type Bool, got {}",
                     format_type(&normalized_guard)
                 ),
                 Some(match_expr.location),
@@ -1938,7 +1938,7 @@ fn synthesize_match(
             if !types_equal(&normalized_guard, &normalized_bool) {
                 return Err(TypeError::new(
                     format!(
-                        "Pattern guard must have type 𝔹, got {}",
+                        "Pattern guard must have type Bool, got {}",
                         format_type(&normalized_guard)
                     ),
                     Some(match_expr.location),
@@ -2018,7 +2018,7 @@ fn synthesize_field_access(
         return Ok(InferenceType::Any);
     }
 
-    // Normalize the type to resolve type aliases (e.g., EmailParts -> {local:𝕊,domain:𝕊})
+    // Normalize the type to resolve type aliases (e.g., EmailParts -> {local:String,domain:String})
     let normalized_type = env.normalize_type(&obj_type);
 
     // Must be a record type
@@ -2223,7 +2223,7 @@ fn synthesize_filter(
             ));
         }
 
-        // Predicate should be T → 𝔹
+        // Predicate should be T → Bool
         if pred.params.len() != 1 {
             return Err(TypeError::new(
                 format!("Filter (⊳) predicate should take 1 parameter, got {}", pred.params.len()),
@@ -2246,7 +2246,7 @@ fn synthesize_filter(
         let (normalized_return, normalized_bool) = canonical_pair(env, &pred.return_type, &bool_type);
         if !types_equal(&normalized_return, &normalized_bool) {
             return Err(TypeError::new(
-                format!("Filter (⊳) predicate must return 𝔹, got {}", format_type(&normalized_return)),
+                format!("Filter (⊳) predicate must return Bool, got {}", format_type(&normalized_return)),
                 Some(filter_expr.location),
             ));
         }
@@ -2944,7 +2944,7 @@ mod tests {
 
     #[test]
     fn test_simple_integer_function() {
-        let source = "λadd(x:ℤ,y:ℤ)→ℤ=x+y";
+        let source = "λadd(x:Int,y:Int)→Int=x+y";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -2958,7 +2958,7 @@ mod tests {
 
     #[test]
     fn test_type_mismatch() {
-        let source = "λbad(x:ℤ)→𝕊=x";
+        let source = "λbad(x:Int)→String=x";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -2968,7 +2968,7 @@ mod tests {
 
     #[test]
     fn test_literal_types() {
-        let source = "λf()→ℤ=42";
+        let source = "λf()→Int=42";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -2978,7 +2978,7 @@ mod tests {
 
     #[test]
     fn test_function_application() {
-        let source = "λadd(x:ℤ,y:ℤ)→ℤ=x+y\nλmain()→ℤ=add(1,2)";
+        let source = "λadd(x:Int,y:Int)→Int=x+y\nλmain()→Int=add(1,2)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3015,7 +3015,7 @@ mod tests {
 
     #[test]
     fn test_const_annotation_normalizes_named_product_type() {
-        let source = "t MkdirOptions={recursive:𝔹}\nc opts=({recursive:true}:MkdirOptions)\nλmain()→𝕌=()";
+        let source = "t MkdirOptions={recursive:Bool}\nc opts=({recursive:true}:MkdirOptions)\nλmain()→Unit=()";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3025,7 +3025,7 @@ mod tests {
 
     #[test]
     fn test_list_append_normalizes_named_product_type() {
-        let source = "t Todo={done:𝔹,id:ℤ,text:𝕊}\nλmain()→[Todo]=[{done:false,id:1,text:\"a\"}]⧺[Todo{done:false,id:2,text:\"b\"}]";
+        let source = "t Todo={done:Bool,id:Int,text:String}\nλmain()→[Todo]=[{done:false,id:1,text:\"a\"}]⧺[Todo{done:false,id:2,text:\"b\"}]";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3035,7 +3035,7 @@ mod tests {
 
     #[test]
     fn test_map_normalizes_named_product_type() {
-        let source = "t Todo={done:𝔹,id:ℤ,text:𝕊}\nλkeep(todo:Todo)→Todo=todo\nλmain()→[Todo]=[{done:false,id:1,text:\"a\"}]↦keep";
+        let source = "t Todo={done:Bool,id:Int,text:String}\nλkeep(todo:Todo)→Todo=todo\nλmain()→[Todo]=[{done:false,id:1,text:\"a\"}]↦keep";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3045,7 +3045,7 @@ mod tests {
 
     #[test]
     fn test_map_rejects_effectful_callback() {
-        let source = "λdouble(x:ℤ)→!IO ℤ=x*2\nλmain()→[ℤ]=[1,2,3]↦double";
+        let source = "λdouble(x:Int)→!IO Int=x*2\nλmain()→[Int]=[1,2,3]↦double";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3056,7 +3056,7 @@ mod tests {
 
     #[test]
     fn test_filter_rejects_effectful_callback() {
-        let source = "λkeep(x:ℤ)→!IO 𝔹=x>0\nλmain()→[ℤ]=[1,2,3]⊳keep";
+        let source = "λkeep(x:Int)→!IO Bool=x>0\nλmain()→[Int]=[1,2,3]⊳keep";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3067,7 +3067,7 @@ mod tests {
 
     #[test]
     fn test_named_product_equality_uses_canonical_form() {
-        let source = "t Todo={done:𝔹,id:ℤ,text:𝕊}\nλmain()→𝔹=(({done:false,id:1,text:\"a\"}:Todo)={done:false,id:1,text:\"a\"})";
+        let source = "t Todo={done:Bool,id:Int,text:String}\nλmain()→Bool=(({done:false,id:1,text:\"a\"}:Todo)={done:false,id:1,text:\"a\"})";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3077,7 +3077,7 @@ mod tests {
 
     #[test]
     fn test_named_product_normalizes_inside_generic_constructor_args() {
-        let source = "t Error={code:ℤ,msg:𝕊}\nt Response={body:𝕊,headers:{𝕊↦𝕊},status:ℤ}\nλmain()→Result[Response,Error]=Ok(Response{body:\"OK\",headers:({↦}:{𝕊↦𝕊}),status:200})";
+        let source = "t Error={code:Int,msg:String}\nt Response={body:String,headers:{String↦String},status:Int}\nλmain()→Result[Response,Error]=Ok(Response{body:\"OK\",headers:({↦}:{String↦String}),status:200})";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3087,7 +3087,7 @@ mod tests {
 
     #[test]
     fn test_sum_types_remain_nominal_after_normalization() {
-        let source = "t Box={value:ℤ}\nt Wrap=Wrap(Box)\nλmain()→Wrap=({value:1}:Wrap)";
+        let source = "t Box={value:Int}\nt Wrap=Wrap(Box)\nλmain()→Wrap=({value:1}:Wrap)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3097,7 +3097,7 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_product_type_resolves_for_field_access() {
-        let source = "i src⋅types\nλslug_len(meta:src⋅types.ArticleMeta)→ℤ=#meta.slug";
+        let source = "i src⋅types\nλslug_len(meta:src⋅types.ArticleMeta)→Int=#meta.slug";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3164,7 +3164,7 @@ mod tests {
 
     #[test]
     fn test_local_named_product_return_type_resolves_for_field_access() {
-        let source = "t ParseResult={content:𝕊}\nλparse()→ParseResult={content:\"x\"}\nλmain()→ℤ=#(parse().content)";
+        let source = "t ParseResult={content:String}\nλparse()→ParseResult={content:\"x\"}\nλmain()→Int=#(parse().content)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3174,7 +3174,7 @@ mod tests {
 
     #[test]
     fn test_exact_record_rejects_missing_field() {
-        let source = "t Message={createdAt:𝕊,text:𝕊}\nλmain()→Message={createdAt:\"2026-03-07T00:00:00.000Z\"}";
+        let source = "t Message={createdAt:String,text:String}\nλmain()→Message={createdAt:\"2026-03-07T00:00:00.000Z\"}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3184,7 +3184,7 @@ mod tests {
 
     #[test]
     fn test_exact_record_rejects_extra_field() {
-        let source = "t Message={createdAt:𝕊,text:𝕊}\nλmain()→Message={createdAt:\"2026-03-07T00:00:00.000Z\",debug:\"no\",text:\"hello\"}";
+        let source = "t Message={createdAt:String,text:String}\nλmain()→Message={createdAt:\"2026-03-07T00:00:00.000Z\",debug:\"no\",text:\"hello\"}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3194,7 +3194,7 @@ mod tests {
 
     #[test]
     fn test_exact_records_do_not_width_subtype() {
-        let source = "t Message={createdAt:𝕊,text:𝕊}\nt Summary={text:𝕊}\nλheadline(summary:Summary)→𝕊=summary.text\nλmain()→𝕊=headline(({createdAt:\"2026-03-07T00:00:00.000Z\",text:\"hello\"}:Message))";
+        let source = "t Message={createdAt:String,text:String}\nt Summary={text:String}\nλheadline(summary:Summary)→String=summary.text\nλmain()→String=headline(({createdAt:\"2026-03-07T00:00:00.000Z\",text:\"hello\"}:Message))";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3205,7 +3205,7 @@ mod tests {
 
     #[test]
     fn test_validated_wrapper_stays_distinct_from_primitive() {
-        let source = "t UserId=UserId(ℤ)\nλmain()→UserId=42";
+        let source = "t UserId=UserId(Int)\nλmain()→UserId=42";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3215,7 +3215,7 @@ mod tests {
 
     #[test]
     fn test_function_alias_normalizes_for_application() {
-        let source = "t Decoder[T]=λ(𝕊)→Result[T,𝕊]\nλparseInt(text:𝕊)→Result[ℤ,𝕊]=Ok(42)\nλrun(decoder:Decoder[ℤ],input:𝕊)→Result[ℤ,𝕊]=decoder(input)";
+        let source = "t Decoder[T]=λ(String)→Result[T,String]\nλparseInt(text:String)→Result[Int,String]=Ok(42)\nλrun(decoder:Decoder[Int],input:String)→Result[Int,String]=decoder(input)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3277,7 +3277,7 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_constructor_pattern_typechecks() {
-        let source = "i src⋅graphTypes\nλproject(result:src⋅graphTypes.TopologicalSortResult)→[ℤ] match result{src⋅graphTypes.Ordering(order)→order|src⋅graphTypes.CycleDetected()→[]}";
+        let source = "i src⋅graphTypes\nλproject(result:src⋅graphTypes.TopologicalSortResult)→[Int] match result{src⋅graphTypes.Ordering(order)→order|src⋅graphTypes.CycleDetected()→[]}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3328,7 +3328,7 @@ mod tests {
 
     #[test]
     fn test_explicit_generic_function_typechecks() {
-        let source = "λidentity[T](x:T)→T=x\nλmain()→ℤ=identity(42)";
+        let source = "λidentity[T](x:T)→T=x\nλmain()→Int=identity(42)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3338,7 +3338,7 @@ mod tests {
 
     #[test]
     fn test_imported_generic_constructor_typechecks() {
-        let source = "i core⋅prelude\nλmain()→Option[ℤ]=Some(42)";
+        let source = "i core⋅prelude\nλmain()→Option[Int]=Some(42)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3619,7 +3619,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_map_literal_typechecks() {
-        let source = "λmain()→{𝕊↦ℤ}={\"a\"↦1}";
+        let source = "λmain()→{String↦Int}={\"a\"↦1}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3629,13 +3629,13 @@ mod tests {
 
     #[test]
     fn test_local_bindings_do_not_generalize() {
-        let ok_source = "λmain()→ℤ=l id=(λ(x:ℤ)→ℤ=x);id(42)";
+        let ok_source = "λmain()→Int=l id=(λ(x:Int)→Int=x);id(42)";
         let ok_tokens = tokenize(ok_source).unwrap();
         let ok_program = parse(ok_tokens, "test.sigil").unwrap();
         let ok_result = type_check(&ok_program, ok_source, TypeCheckOptions::default());
         assert!(ok_result.is_ok());
 
-        let failing_source = "λmain()→𝕌=l id=(λ(x:ℤ)→ℤ=x);id(\"oops\")";
+        let failing_source = "λmain()→Unit=l id=(λ(x:Int)→Int=x);id(\"oops\")";
         let failing_tokens = tokenize(failing_source).unwrap();
         let failing_program = parse(failing_tokens, "test.sigil").unwrap();
         let failing_result =

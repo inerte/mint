@@ -91,20 +91,20 @@ i stdlib⋅string
 
 ⟦ 3. Types third ⟧
 t Color=Red|Green|Blue
-t Point={x:ℤ,y:ℤ}
-t User={name:𝕊,age:ℤ}
+t Point={x:Int,y:Int}
+t User={name:String,age:Int}
 
 ⟦ 4. Consts fourth ⟧
 c MAX_RETRIES=5
 c TIMEOUT=1000
 
 ⟦ 5. Non-exported functions (alphabetically) ⟧
-λhelper(n:ℤ)→ℤ=n+1
-λvalidate(s:𝕊)→𝔹=#s>0
+λhelper(n:Int)→Int=n+1
+λvalidate(s:String)→Bool=#s>0
 
 ⟦ 6. Exported functions (alphabetically) ⟧
-export λcreateUser(name:𝕊)→User={name:name,age:0}
-export λformatPoint(p:Point)→𝕊=stdlib⋅string.int_to_string(p.x)
+export λcreateUser(name:String)→User={name:name,age:0}
+export λformatPoint(p:Point)→String=stdlib⋅string.int_to_string(p.x)
 
 ⟦ 7. Tests last ⟧
 test "creates user with default age"={
@@ -142,8 +142,8 @@ This is crucial: **Sigil supports forward references**.
 You can write:
 
 ```sigil
-λfoo()→ℤ=bar()  ⟦ bar() is defined below - OK! ⟧
-λbar()→ℤ=42
+λfoo()→Int=bar()  ⟦ bar() is defined below - OK! ⟧
+λbar()→Int=42
 ```
 
 The typechecker uses **two-pass checking**:
@@ -191,8 +191,8 @@ Sigil enforces ONE way: canonical declaration ordering.
 ### Wrong Alphabetical Order
 
 ```sigil
-t User={name:𝕊,age:ℤ}
-t Point={x:ℤ,y:ℤ}    ⟦ ERROR: Point comes before User alphabetically ⟧
+t User={name:String,age:Int}
+t Point={x:Int,y:Int}    ⟦ ERROR: Point comes before User alphabetically ⟧
 ```
 
 **Error:**
@@ -212,8 +212,8 @@ Sigil enforces ONE way: canonical declaration ordering.
 ### Export Before Non-Export
 
 ```sigil
-export λcreateUser(name:𝕊)→User={name:name,age:0}
-λhelper(n:ℤ)→ℤ=n+1  ⟦ ERROR: non-exported after exported ⟧
+export λcreateUser(name:String)→User={name:name,age:0}
+λhelper(n:Int)→Int=n+1  ⟦ ERROR: non-exported after exported ⟧
 ```
 
 **Error:**
@@ -242,21 +242,21 @@ This would be valid in most languages:
 
 ```sigil
 ⟦ Random order - different in every file ⟧
-export λcreateUser(name:𝕊)→User={name:name,age:0}
+export λcreateUser(name:String)→User={name:name,age:0}
 
-t User={name:𝕊,age:ℤ}
+t User={name:String,age:Int}
 
 i stdlib⋅string
 
-λhelper(n:ℤ)→ℤ=n+1
+λhelper(n:Int)→Int=n+1
 
 e console
 
 c MAX_RETRIES=5
 
-t Point={x:ℤ,y:ℤ}
+t Point={x:Int,y:Int}
 
-export λformatPoint(p:Point)→𝕊=stdlib⋅string.int_to_string(p.x)
+export λformatPoint(p:Point)→String=stdlib⋅string.int_to_string(p.x)
 
 c TIMEOUT=1000
 ```
@@ -278,16 +278,16 @@ e console
 
 i stdlib⋅string
 
-t Point={x:ℤ,y:ℤ}
-t User={name:𝕊,age:ℤ}
+t Point={x:Int,y:Int}
+t User={name:String,age:Int}
 
 c MAX_RETRIES=5
 c TIMEOUT=1000
 
-λhelper(n:ℤ)→ℤ=n+1
+λhelper(n:Int)→Int=n+1
 
-export λcreateUser(name:𝕊)→User={name:name,age:0}
-export λformatPoint(p:Point)→𝕊=stdlib⋅string.int_to_string(p.x)
+export λcreateUser(name:String)→User={name:name,age:0}
+export λformatPoint(p:Point)→String=stdlib⋅string.int_to_string(p.x)
 ```
 
 **Benefits:**
@@ -533,8 +533,8 @@ Create a file with messy ordering:
 
 ```sigil
 ⟦ out-of-order.sigil ⟧
-λfoo()→ℤ=42
-t MyType=ℤ
+λfoo()→Int=42
+t MyType=Int
 i stdlib⋅list
 ```
 
@@ -562,9 +562,9 @@ Category order: e → i → t → c → λ → test
 ⟦ canonical.sigil ⟧
 i stdlib⋅list
 
-t MyType=ℤ
+t MyType=Int
 
-λfoo()→ℤ=42
+λfoo()→Int=42
 ```
 
 Compiles successfully. Zero complaints.

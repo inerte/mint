@@ -80,7 +80,7 @@ Our SSG demonstrates how stdlib components compose:
 ```sigil
 i stdlib⋅markdown
 
-λmain()→!IO 𝕌={
+λmain()→!IO Unit={
   l md="# Hello\n\nThis is **bold** text.";
   l html=stdlib⋅markdown.parse(md);
   console.log(html)
@@ -120,7 +120,7 @@ i stdlib⋅http_server
     stdlib⋅http_server.not_found()
 }
 
-λmain()→!IO 𝕌={
+λmain()→!IO Unit={
   stdlib⋅http_server.serve(3000,handle)
 }
 ```
@@ -142,7 +142,7 @@ i stdlib⋅io          ⟦ File I/O ⟧
 i stdlib⋅markdown    ⟦ Markdown parsing ⟧
 i stdlib⋅string  ⟦ String operations ⟧
 
-λbuild(input_dir:𝕊,output_dir:𝕊)→!IO 𝕌={
+λbuild(input_dir:String,output_dir:String)→!IO Unit={
   ⟦ 1. Read all .md files ⟧
   l files=list_markdown_files(input_dir);
 

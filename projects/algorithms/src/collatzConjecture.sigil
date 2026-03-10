@@ -1,11 +1,11 @@
-λcollatz(n:ℤ)→[ℤ] match n{
+λcollatz(n:Int)→[Int] match n{
   1→[1]|
   value→[value]⧺collatz(nextCollatz(value))
 }
 
-λmain()→[ℤ]=collatz(13)
+λmain()→[Int]=collatz(13)
 
-λnextCollatz(n:ℤ)→ℤ match n%2{
+λnextCollatz(n:Int)→Int match n%2{
   0→(n)/2|
   _→3*n+1
 }

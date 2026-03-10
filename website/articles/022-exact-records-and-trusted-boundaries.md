@@ -26,7 +26,7 @@ Sigil wants to make that distinction mechanically obvious.
 If internal business logic has a value like:
 
 ```sigil
-t Message={createdAt:stdlib⋅time.Instant,text:𝕊}
+t Message={createdAt:stdlib⋅time.Instant,text:String}
 ```
 
 then `Message` means:
@@ -40,7 +40,7 @@ So once code has a `Message`, it should just use `message.createdAt`.
 If `createdAt` might actually be absent, Sigil wants that fact in the type:
 
 ```sigil
-t MaybeMessage={createdAt:Option[stdlib⋅time.Instant],text:𝕊}
+t MaybeMessage={createdAt:Option[stdlib⋅time.Instant],text:String}
 ```
 
 That is the practical rule:
@@ -75,7 +75,7 @@ i stdlib⋅decode
 i stdlib⋅json
 i stdlib⋅time
 
-t Message={createdAt:stdlib⋅time.Instant,text:𝕊}
+t Message={createdAt:stdlib⋅time.Instant,text:String}
 
 λinstant(value:stdlib⋅json.JsonValue)→Result[stdlib⋅time.Instant,stdlib⋅decode.DecodeError] match stdlib⋅decode.string(value){
   Ok(text)→
@@ -105,13 +105,13 @@ That is the whole point:
 
 ## Validated Values Should Stop Looking Raw
 
-Sometimes plain `𝕊` or `ℤ` is too weak for internal code.
+Sometimes plain `String` or `Int` is too weak for internal code.
 
 For example:
 
 ```sigil
-t Email=Email(𝕊)
-t UserId=UserId(ℤ)
+t Email=Email(String)
+t UserId=UserId(Int)
 ```
 
 These are not aliases.

@@ -2,7 +2,7 @@
 
 i stdlib⋅json
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "json parse returns Err for invalid input" {
   match stdlib⋅json.parse("{bad"){

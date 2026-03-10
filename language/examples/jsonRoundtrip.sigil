@@ -1,8 +1,8 @@
 i stdlib⋅json
 
-λmain()→𝕌 match stdlib⋅json.parse("{\"name\":\"sigil\",\"stable\":true}"){
+λmain()→Unit match stdlib⋅json.parse("{\"name\":\"sigil\",\"stable\":true}"){
     Ok(value)→
-      l _=(stdlib⋅json.stringify(value):𝕊);
+      l _=(stdlib⋅json.stringify(value):String);
       ()|
     Err(_)→()
   }

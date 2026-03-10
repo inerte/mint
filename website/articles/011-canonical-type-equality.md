@@ -16,21 +16,21 @@ Sigil had several checker paths that compared raw synthesized types directly.
 That produced behavior like this:
 
 ```sigil
-t MkdirOptions={recursive:𝔹}
+t MkdirOptions={recursive:Bool}
 c opts=({recursive:true}:MkdirOptions)
 ```
 
 and:
 
 ```sigil
-t Todo={done:𝔹,id:ℤ,text:𝕊}
-λaddTodo(id:ℤ,text:𝕊,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
+t Todo={done:Bool,id:Int,text:String}
+λaddTodo(id:Int,text:String,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
 ```
 
 Both examples are obviously the same explicit type relation:
 
-- `MkdirOptions` vs `{recursive:𝔹}`
-- `Todo` vs `{done:𝔹,id:ℤ,text:𝕊}`
+- `MkdirOptions` vs `{recursive:Bool}`
+- `Todo` vs `{done:Bool,id:Int,text:String}`
 
 But some checker paths accepted them while others rejected them.
 
@@ -58,14 +58,14 @@ Sigil now follows one invariant everywhere equality-sensitive checks happen:
 Examples:
 
 ```sigil
-t UserId=ℤ
-t Todo={done:𝔹,id:ℤ,text:𝕊}
+t UserId=Int
+t Todo={done:Bool,id:Int,text:String}
 ```
 
 Canonical semantic forms:
 
-- `UserId` → `ℤ`
-- `Todo` → `{done:𝔹,id:ℤ,text:𝕊}`
+- `UserId` → `Int`
+- `Todo` → `{done:Bool,id:Int,text:String}`
 
 So the checker compares the normalized forms, not the unresolved names.
 

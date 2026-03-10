@@ -8,12 +8,12 @@ Canonical operations over the core Option type.
   None()→None()
 }
 
-λisNone[T](opt:Option[T])→𝔹 match opt{
+λisNone[T](opt:Option[T])→Bool match opt{
   Some(value)→false|
   None()→true
 }
 
-λisSome[T](opt:Option[T])→𝔹 match opt{
+λisSome[T](opt:Option[T])→Bool match opt{
   Some(value)→true|
   None()→false
 }

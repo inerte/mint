@@ -51,7 +51,7 @@ TestDecl = "test" , StringLiteral , "{" , Expr , "}" ;
 
 ```sigil
 // fibonacci.sigil
-λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 
 // tests/fibonacci.test.sigil
 test "fibonacci base cases"{
@@ -107,32 +107,32 @@ From `std/test` module (auto-imported in test files):
 
 ```sigil
 // Equality
-λassert_eq[T](expected:T,actual:T)→𝕌
-λassert_ne[T](a:T,b:T)→𝕌
+λassert_eq[T](expected:T,actual:T)→Unit
+λassert_ne[T](a:T,b:T)→Unit
 
 // Booleans
-λassert(condition:𝔹,msg:𝕊)→𝕌
-λassert_true(value:𝔹)→𝕌
-λassert_false(value:𝔹)→𝕌
+λassert(condition:Bool,msg:String)→Unit
+λassert_true(value:Bool)→Unit
+λassert_false(value:Bool)→Unit
 
 // Option/Result
 λassert_ok[T,E](result:Result[T,E])→T
 λassert_err[T,E](result:Result[T,E])→E
 λassert_some[T](option:Option[T])→T
-λassert_none[T](option:Option[T])→𝕌
+λassert_none[T](option:Option[T])→Unit
 
 // Collections
-λassert_contains[T](item:T,list:[T])→𝕌
-λassert_empty[T](list:[T])→𝕌
-λassert_length[T](expected:ℤ,list:[T])→𝕌
+λassert_contains[T](item:T,list:[T])→Unit
+λassert_empty[T](list:[T])→Unit
+λassert_length[T](expected:Int,list:[T])→Unit
 
 // Numeric
-λassert_approx(expected:ℝ,actual:ℝ,epsilon:ℝ)→𝕌
-λassert_greater(a:ℤ,b:ℤ)→𝕌
-λassert_less(a:ℤ,b:ℤ)→𝕌
+λassert_approx(expected:Float,actual:Float,epsilon:Float)→Unit
+λassert_greater(a:Int,b:Int)→Unit
+λassert_less(a:Int,b:Int)→Unit
 
 // Panics/Exceptions
-λassert_panics[T](fn:λ()→T)→𝕌
+λassert_panics[T](fn:λ()→T)→Unit
 ```
 
 ### Combining Assertions
@@ -153,15 +153,15 @@ test "user validation"{
 
 ```sigil
 // Property testing
-λproperty[T](name:𝕊,gen:Generator[T],prop:λ(T)→𝔹)→𝕌!Test
-λcheck_all[T](values:[T],prop:λ(T)→𝔹)→𝕌
+λproperty[T](name:String,gen:Generator[T],prop:λ(T)→Bool)→Unit!Test
+λcheck_all[T](values:[T],prop:λ(T)→Bool)→Unit
 
 // Built-in generators
-λgen_int(min:ℤ,max:ℤ)→Generator[ℤ]
-λgen_float(min:ℝ,max:ℝ)→Generator[ℝ]
-λgen_bool()→Generator[𝔹]
-λgen_string(min_len:ℤ,max_len:ℤ)→Generator[𝕊]
-λgen_list[T](gen:Generator[T],min_len:ℤ,max_len:ℤ)→Generator[[T]]
+λgen_int(min:Int,max:Int)→Generator[Int]
+λgen_float(min:Float,max:Float)→Generator[Float]
+λgen_bool()→Generator[Bool]
+λgen_string(min_len:Int,max_len:Int)→Generator[String]
+λgen_list[T](gen:Generator[T],min_len:Int,max_len:Int)→Generator[[T]]
 λgen_option[T](gen:Generator[T])→Generator[Option[T]]
 ```
 
@@ -343,7 +343,7 @@ AI: Tests approved. Generating implementation...
 $ sigilc review src/fibonacci.sigil.map
 
 [Shows AI explanation of generated code]
-λfibonacci(n:ℤ)→ℤ
+λfibonacci(n:Int)→Int
 
 Summary: "Computes nth Fibonacci number using recursive approach"
 Explanation: "Pattern matching on n: F(0)=0, F(1)=1, else F(n)=F(n-1)+F(n-2)"
@@ -432,13 +432,13 @@ AI Explanation:
   This suggests the second base case (n=1→1) is either missing or incorrect.
 
   Looking at your code:
-    λfibonacci(n:ℤ)→ℤ match n{0→0|n→fibonacci(n-1)+fibonacci(n-2)}
+    λfibonacci(n:Int)→Int match n{0→0|n→fibonacci(n-1)+fibonacci(n-2)}
 
   The problem: You only have one base case (0→0). When n=1, it falls through
   to the recursive case, which calls fibonacci(0) + fibonacci(-1).
 
   Suggested fix:
-    λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+    λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
                                 ^^^^ Add this base case
 ```
 
@@ -503,9 +503,9 @@ test "E2E checkout flow - out of stock"{
 
 ```sigil
 // std/test/bench module
-λbenchmark(name:𝕊,fn:λ()→𝕌)→Duration
-λassert_faster_than(max_duration:Duration,fn:λ()→𝕌)→𝕌
-λassert_slower_than(min_duration:Duration,fn:λ()→𝕌)→𝕌
+λbenchmark(name:String,fn:λ()→Unit)→Duration
+λassert_faster_than(max_duration:Duration,fn:λ()→Unit)→Unit
+λassert_slower_than(min_duration:Duration,fn:λ()→Unit)→Unit
 ```
 
 ### Example
@@ -546,7 +546,7 @@ Overall: 100% coverage
 
 ```
 src/fibonacci.sigil:
-  1: λfibonacci(n:ℤ)→ℤ match n{        ✓ Executed
+  1: λfibonacci(n:Int)→Int match n{        ✓ Executed
   2:   0→0|                      ✓ Executed (2 times)
   3:   1→1|                      ✓ Executed (2 times)
   4:   n→fibonacci(n-1)+         ✓ Executed (15 times)

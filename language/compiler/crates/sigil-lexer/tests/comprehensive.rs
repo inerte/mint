@@ -24,8 +24,8 @@ fn test_all_unicode_operators() {
 }
 
 #[test]
-fn test_all_type_symbols() {
-    let source = "ℤ ℝ 𝔹 𝕊 ℂ 𝕌 ∅";
+fn test_all_primitive_type_keywords() {
+    let source = "Int Float Bool String Char Unit Never";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::TypeInt);
@@ -346,7 +346,7 @@ fn test_error_legacy_false_literal() {
 
 #[test]
 fn test_complex_expression() {
-    let source = "λfoo(x:ℤ,y:ℝ)→𝔹=x>0 and y≠3.14";
+    let source = "λfoo(x:Int,y:Float)→Bool=x>0 and y≠3.14";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::LAMBDA);

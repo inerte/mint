@@ -15,7 +15,7 @@ Before this change, Sigil allowed `test` blocks anywhere:
 
 ```sigil
 // examples/fibonacci.sigil
-λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 
 test "fibonacci works" {  // Allowed but not canonical
   fibonacci(5)=5
@@ -39,7 +39,7 @@ We evaluated three options:
 ### Option 1: Test Annotations on Functions ❌
 ```sigil
 #[test]
-λtest_fibonacci()→𝔹=fibonacci(5)=5
+λtest_fibonacci()→Bool=fibonacci(5)=5
 ```
 **Problem:** Introduces decorators, adds syntax complexity, tests still scattered.
 
@@ -52,7 +52,7 @@ We evaluated three options:
 ### Option 3: Canonical Test Directory + File Purpose ✅
 ```sigil
 // tests/fibonacci.sigil
-λmain()→𝕌=()
+λmain()→Unit=()
 test "fibonacci works" { ... }
 ```
 **Winner:** Single location rule, enforces file purpose, zero ambiguity.
@@ -64,7 +64,7 @@ test "fibonacci works" { ... }
 This means:
 
 1. **Location enforcement**: Test blocks ONLY in `tests/` directories
-2. **Purpose enforcement**: Test files MUST have `λmain()→𝕌=()`
+2. **Purpose enforcement**: Test files MUST have `λmain()→Unit=()`
 3. **Export restriction**: Test files CANNOT have exports (they're executables, not libraries)
 
 This preserves Sigil's binary file classification:
@@ -81,7 +81,7 @@ Every test file follows the same pattern:
 // tests/listPredicates.sigil
 i stdlib⋅list
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "list.in_bounds checks valid and invalid indexes" {
   stdlib⋅list.in_bounds(0,[10,20,30])=true and stdlib⋅list.in_bounds(3,[10,20,30])=false
@@ -98,12 +98,12 @@ test "list.sorted_desc accepts descending list" {
 
 **Structure:**
 1. Imports (if needed)
-2. `λmain()→𝕌=()` function (always)
+2. `λmain()→Unit=()` function (always)
 3. Test blocks (one or more)
 
 **Why `main()` if tests run independently?**
 
-The `main()→𝕌` function is a **marker for executable status**, not the entry point for test execution. When you run `sigil test tests/`, the compiler:
+The `main()→Unit` function is a **marker for executable status**, not the entry point for test execution. When you run `sigil test tests/`, the compiler:
 
 1. Scans `tests/` for `.sigil` files
 2. Compiles each file (building module graph)
@@ -120,7 +120,7 @@ The validator catches three violations with actionable error messages:
 
 ```sigil
 // examples/fibonacci.sigil
-λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 
 test "fibonacci works" {  // ❌ ERROR
   fibonacci(5)=5
@@ -141,7 +141,7 @@ Move this file to a tests/ directory (e.g., tests/fibonacci.sigil).
 Sigil enforces ONE way: tests live in tests/ directories.
 ```
 
-**Fix:** Move the entire file to `tests/fibonacci.sigil` and add `λmain()→𝕌=()`.
+**Fix:** Move the entire file to `tests/fibonacci.sigil` and add `λmain()→Unit=()`.
 
 ### Violation 2: Test File Without `main()` Function
 
@@ -163,28 +163,28 @@ Error: SIGIL-CANON-FILE-PURPOSE-NONE
 This file has no purpose declaration.
 
 Files must be EITHER:
-  - Executable: λmain()→𝕌=() (no exports)
+  - Executable: λmain()→Unit=() (no exports)
   - Library: export λ... or export t... (no main)
 
 This file is in tests/ and contains test blocks.
 Test files are executables.
 
-Add: λmain()→𝕌=()
+Add: λmain()→Unit=()
 
 Sigil enforces ONE way: every file has exactly one purpose.
 ```
 
-**Fix:** Add `λmain()→𝕌=()` to the file.
+**Fix:** Add `λmain()→Unit=()` to the file.
 
 ### Violation 3: Test File With Exports
 
 ```sigil
 // tests/my-test.sigil
-export λhelper()→ℤ=42  // ❌ ERROR: exports in test file
+export λhelper()→Int=42  // ❌ ERROR: exports in test file
 
 test "example" { true }
 
-λmain()→𝕌=()
+λmain()→Unit=()
 ```
 
 **Compiler error:**
@@ -268,7 +268,7 @@ fn validate_file_purpose(program: &Program) -> Result<(), ValidationError> {
 
     match (has_main, has_exports, has_tests) {
         (false, false, true) => Err(ValidationError::FilePurposeNone {
-            hint: "Test files must have λmain()→𝕌=()"
+            hint: "Test files must have λmain()→Unit=()"
         }),
         (true, true, _) => Err(ValidationError::FilePurposeBoth),
         (_, true, true) => Err(ValidationError::TestNoExports),
@@ -319,7 +319,7 @@ These were already in `tests/` directories but lacked the executable marker:
   // tests/listPredicates.sigil
   i stdlib⋅list
 
-+ λmain()→𝕌=()
++ λmain()→Unit=()
 
   test "list.in_bounds checks valid indexes" {
     stdlib⋅list.in_bounds(0,[10,20,30])=true
@@ -350,7 +350,7 @@ language/tests/string-ops.sigil               # ✅ canonical location
 
 Files that had neither `main()` nor exports:
 
-- **Example files**: Added `λmain()→𝕌=()` to make them executables
+- **Example files**: Added `λmain()→Unit=()` to make them executables
 - **Stdlib files**: Added `export` to make them libraries
 - **Test fixtures**: Added `main()` or restructured
 
@@ -390,7 +390,7 @@ Every Sigil project:
   tests/fibonacci.sigil        ← tests (executable with test blocks)
 ```
 
-**What the AI learns:** "Tests always go in `tests/`, always have `main()→𝕌=()`, always contain test blocks."
+**What the AI learns:** "Tests always go in `tests/`, always have `main()→Unit=()`, always contain test blocks."
 
 **Result:** Deterministic test generation. Same prompt, same structure, every time.
 
@@ -444,7 +444,7 @@ The canonical pattern is now second nature:
 // tests/my-feature.sigil
 i stdlib⋅list
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "my feature works correctly" {
   stdlib⋅list.length([1,2,3])=3
@@ -458,7 +458,7 @@ test "handles edge cases" {
 **Remember:**
 1. File location: `tests/` directory
 2. Imports first (if needed)
-3. `λmain()→𝕌=()` function
+3. `λmain()→Unit=()` function
 4. Test blocks
 
 **That's it.** No other organization is valid. No decisions to make.
@@ -583,7 +583,7 @@ echo 'test "x" { true }' > /tmp/tests/no-main.sigil
 ```
 Error: SIGIL-CANON-FILE-PURPOSE-NONE
 This file has no purpose declaration.
-Test files must have λmain()→𝕌=()
+Test files must have λmain()→Unit=()
 ```
 
 **Verified:** ✅ Test files without `main()` are rejected.
@@ -593,9 +593,9 @@ Test files must have λmain()→𝕌=()
 ```bash
 # Create test file with exports
 cat > /tmp/tests/with-export.sigil << 'EOF'
-export λf()→ℤ=1
+export λf()→Int=1
 test "x" { true }
-λmain()→𝕌=()
+λmain()→Unit=()
 EOF
 ./target/debug/sigil compile /tmp/tests/with-export.sigil
 ```
@@ -665,7 +665,7 @@ test blocks can only appear in files under tests/ directories.
 # Create canonical test file
 mkdir -p /tmp/tests
 cat > /tmp/tests/my-test.sigil << 'EOF'
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "this will work" {
   1+1=2

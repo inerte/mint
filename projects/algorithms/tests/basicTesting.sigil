@@ -1,18 +1,18 @@
 i stdlib⋅numeric
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
-mockable λping()→!IO 𝕊="real"
+mockable λping()→!IO String="real"
 
 test "mockable function can be overridden" →!IO {
-  withMock(ping, λ()→!IO 𝕊="fake") {
+  withMock(ping, λ()→!IO String="fake") {
     ping()="fake"
   }
 }
 
 test "nested withMock uses inner replacement lexically" →!IO {
-  withMock(ping, λ()→!IO 𝕊="outer") {
-    withMock(ping, λ()→!IO 𝕊="inner") {
+  withMock(ping, λ()→!IO String="outer") {
+    withMock(ping, λ()→!IO String="inner") {
       ping()="inner"
     }
   }
@@ -27,7 +27,7 @@ test "pure boolean passes" {
 }
 
 test "withMock can be used in boolean expressions" →!IO {
-  withMock(ping, λ()→!IO 𝕊="pong") {
+  withMock(ping, λ()→!IO String="pong") {
     ping()="pong" and ping()≠"real"
   }
 }

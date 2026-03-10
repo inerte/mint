@@ -1,6 +1,6 @@
 i stdlib⋅numeric
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "numeric.abs returns magnitude" {
   stdlib⋅numeric.abs(-5)=5 and stdlib⋅numeric.abs(0)=0 and stdlib⋅numeric.abs(7)=7

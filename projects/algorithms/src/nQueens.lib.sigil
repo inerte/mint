@@ -1,16 +1,16 @@
 i stdlib⋅list
 
-λnQueens(size:ℤ)→[[ℤ]] match size≤0{
+λnQueens(size:Int)→[[Int]] match size≤0{
   true→[]|
   false→placeQueens([],0,size)
 }
 
-λplaceQueens(placedRev:[ℤ],row:ℤ,size:ℤ)→[[ℤ]] match row=size{
+λplaceQueens(placedRev:[Int],row:Int,size:Int)→[[Int]] match row=size{
   true→wrapSolution(stdlib⋅list.reverse(placedRev))|
   false→tryColumns(0,placedRev,row,size)
 }
 
-λsafeAgainst(col:ℤ,distance:ℤ,placedRev:[ℤ])→𝔹 match placedRev{
+λsafeAgainst(col:Int,distance:Int,placedRev:[Int])→Bool match placedRev{
   []→true|
   [placedCol,.tail]→match placedCol=col or placedCol+distance=col or placedCol-distance=col{
     true→false|
@@ -18,26 +18,26 @@ i stdlib⋅list
   }
 }
 
-λtryColumns(col:ℤ,placedRev:[ℤ],row:ℤ,size:ℤ)→[[ℤ]] match col≥size{
+λtryColumns(col:Int,placedRev:[Int],row:Int,size:Int)→[[Int]] match col≥size{
   true→[]|
   false→match safeAgainst(col,1,placedRev){
     true→{
-      l placedSolutions=(placeQueens([col]⧺placedRev,row+1,size):[[ℤ]]);
-      l skippedSolutions=(tryColumns(col+1,placedRev,row,size):[[ℤ]]);
+      l placedSolutions=(placeQueens([col]⧺placedRev,row+1,size):[[Int]]);
+      l skippedSolutions=(tryColumns(col+1,placedRev,row,size):[[Int]]);
       placedSolutions⧺skippedSolutions
     }|
     false→tryColumns(col+1,placedRev,row,size)
   }
 }
 
-λwrapAll(cols:[ℤ],partials:[[ℤ]])→[[ℤ]] match cols{
+λwrapAll(cols:[Int],partials:[[Int]])→[[Int]] match cols{
   []→partials|
   [head,.tail]→wrapAll(tail,wrapHead(head,partials))
 }
 
-λwrapHead(head:ℤ,partials:[[ℤ]])→[[ℤ]] match partials{
+λwrapHead(head:Int,partials:[[Int]])→[[Int]] match partials{
   []→[]|
   [partial,.tail]→[[head]⧺partial]⧺wrapHead(head,tail)
 }
 
-λwrapSolution(cols:[ℤ])→[[ℤ]]=wrapAll(cols,[[]])
+λwrapSolution(cols:[Int])→[[Int]]=wrapAll(cols,[[]])

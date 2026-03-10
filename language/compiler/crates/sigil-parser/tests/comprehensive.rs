@@ -11,7 +11,7 @@ use sigil_parser::parse;
 
 #[test]
 fn test_function_declaration_simple() {
-    let source = "λadd(x:ℤ,y:ℤ)→ℤ=x+y";
+    let source = "λadd(x:Int,y:Int)→Int=x+y";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -30,7 +30,7 @@ fn test_function_declaration_simple() {
 
 #[test]
 fn test_function_declaration_unit_return() {
-    let source = "λfoo()→𝕌=()";
+    let source = "λfoo()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -62,7 +62,7 @@ fn test_function_declaration_with_type_params() {
 
 #[test]
 fn test_function_declaration_mockable() {
-    let source = "mockable λfetch()→𝕊=\"\"";
+    let source = "mockable λfetch()→String=\"\"";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -77,7 +77,7 @@ fn test_function_declaration_mockable() {
 
 #[test]
 fn test_function_with_effects() {
-    let source = "λread_file()→!IO𝕊=\"\"";
+    let source = "λread_file()→!IO String=\"\"";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -92,7 +92,7 @@ fn test_function_with_effects() {
 
 #[test]
 fn test_function_multiple_effects() {
-    let source = "λfetch()→!IO!Network𝕊=\"\"";
+    let source = "λfetch()→!IO !Network String=\"\"";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -132,7 +132,7 @@ fn test_type_declaration_sum_type() {
 
 #[test]
 fn test_type_declaration_product() {
-    let source = "t Point={x:ℤ,y:ℤ}";
+    let source = "t Point={x:Int,y:Int}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -175,7 +175,7 @@ fn test_type_declaration_function_alias() {
 #[test]
 fn test_multiple_params() {
     // Test function with multiple parameters
-    let source = "λadd(x:ℤ,y:ℤ,z:ℤ)→ℤ=x+y+z";
+    let source = "λadd(x:Int,y:Int,z:Int)→Int=x+y+z";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -189,7 +189,7 @@ fn test_multiple_params() {
 
 #[test]
 fn test_const_declaration() {
-    let source = "c pi=(3.14:ℝ)";
+    let source = "c pi=(3.14:Float)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -204,7 +204,7 @@ fn test_const_declaration() {
 
 #[test]
 fn test_boolean_literals_parse() {
-    let source = "λpick(flag:𝔹)→𝔹 match flag{true→true|false→false}";
+    let source = "λpick(flag:Bool)→Bool match flag{true→true|false→false}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -229,7 +229,7 @@ fn test_import_declaration() {
 
 #[test]
 fn test_top_level_let_is_rejected_with_explicit_error() {
-    let source = "l config=(\"prod\":𝕊)\nλmain()→𝕌=()";
+    let source = "l config=(\"prod\":String)\nλmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let error = parse(tokens, "test.sigil").unwrap_err();
 
@@ -252,7 +252,7 @@ fn test_top_level_let_is_rejected_with_explicit_error() {
 
 #[test]
 fn test_local_let_expression_still_parses() {
-    let source = "λmain()→ℤ=l value=(1:ℤ);value";
+    let source = "λmain()→Int=l value=(1:Int);value";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -267,7 +267,7 @@ fn test_local_let_expression_still_parses() {
 
 #[test]
 fn test_qualified_constructor_application_parses() {
-    let source = "λmain()→𝕌=src⋅graphTypes.Ordering([])";
+    let source = "λmain()→Unit=src⋅graphTypes.Ordering([])";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -288,7 +288,7 @@ fn test_qualified_constructor_application_parses() {
 
 #[test]
 fn test_qualified_constructor_pattern_parses() {
-    let source = "λmain(result:ℤ)→ℤ match result{src⋅graphTypes.Ordering(order)→#order|src⋅graphTypes.CycleDetected()→0}";
+    let source = "λmain(result:Int)→Int match result{src⋅graphTypes.Ordering(order)→#order|src⋅graphTypes.CycleDetected()→0}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -342,7 +342,7 @@ fn test_extern_declaration_basic() {
 
 #[test]
 fn test_integer_literal() {
-    let source = "λf()→ℤ=42";
+    let source = "λf()→Int=42";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -362,7 +362,7 @@ fn test_integer_literal() {
 
 #[test]
 fn test_float_literal() {
-    let source = "λf()→ℝ=3.14";
+    let source = "λf()→Float=3.14";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -381,7 +381,7 @@ fn test_float_literal() {
 
 #[test]
 fn test_string_literal() {
-    let source = r#"λf()→𝕊="hello""#;
+    let source = r#"λf()→String="hello""#;
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -401,7 +401,7 @@ fn test_string_literal() {
 
 #[test]
 fn test_char_literal() {
-    let source = "λf()→ℂ='a'";
+    let source = "λf()→Char='a'";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -421,7 +421,7 @@ fn test_char_literal() {
 
 #[test]
 fn test_unit_literal() {
-    let source = "λf()→𝕌=()";
+    let source = "λf()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -440,7 +440,7 @@ fn test_unit_literal() {
 
 #[test]
 fn test_identifier_expression() {
-    let source = "λf(x:ℤ)→ℤ=x";
+    let source = "λf(x:Int)→Int=x";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -459,7 +459,7 @@ fn test_identifier_expression() {
 
 #[test]
 fn test_binary_addition() {
-    let source = "λf()→ℤ=1+2";
+    let source = "λf()→Int=1+2";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -478,7 +478,7 @@ fn test_binary_addition() {
 
 #[test]
 fn test_binary_subtraction() {
-    let source = "λf()→ℤ=5-3";
+    let source = "λf()→Int=5-3";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -497,7 +497,7 @@ fn test_binary_subtraction() {
 
 #[test]
 fn test_binary_multiplication() {
-    let source = "λf()→ℤ=3*4";
+    let source = "λf()→Int=3*4";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -516,7 +516,7 @@ fn test_binary_multiplication() {
 
 #[test]
 fn test_binary_comparison() {
-    let source = "λf()→𝔹=5>3";
+    let source = "λf()→Bool=5>3";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -535,7 +535,7 @@ fn test_binary_comparison() {
 
 #[test]
 fn test_binary_logical_and() {
-    let source = "λf(x:𝔹,y:𝔹)→𝔹=x and y";
+    let source = "λf(x:Bool,y:Bool)→Bool=x and y";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -554,7 +554,7 @@ fn test_binary_logical_and() {
 
 #[test]
 fn test_binary_logical_or() {
-    let source = "λf(x:𝔹,y:𝔹)→𝔹=x or y";
+    let source = "λf(x:Bool,y:Bool)→Bool=x or y";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -571,7 +571,7 @@ fn test_binary_logical_or() {
 
 #[test]
 fn test_unary_negation() {
-    let source = "λf()→ℤ=-5";
+    let source = "λf()→Int=-5";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -590,7 +590,7 @@ fn test_unary_negation() {
 
 #[test]
 fn test_unary_not() {
-    let source = "λf(x:𝔹)→𝔹=¬x";
+    let source = "λf(x:Bool)→Bool=¬x";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -609,7 +609,7 @@ fn test_unary_not() {
 
 #[test]
 fn test_function_application() {
-    let source = "λf()→ℤ=add(1,2)";
+    let source = "λf()→Int=add(1,2)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -629,7 +629,7 @@ fn test_function_application() {
 #[test]
 fn test_lambda_expression() {
     // Lambda expressions require specific syntax - test with simpler case
-    let source = "λf()→ℤ=add(1,2)";
+    let source = "λf()→Int=add(1,2)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -639,7 +639,7 @@ fn test_lambda_expression() {
 
 #[test]
 fn test_list_literal_empty() {
-    let source = "λf()→[ℤ]=[]";
+    let source = "λf()→[Int]=[]";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -658,7 +658,7 @@ fn test_list_literal_empty() {
 
 #[test]
 fn test_list_literal_with_elements() {
-    let source = "λf()→[ℤ]=[1,2,3]";
+    let source = "λf()→[Int]=[1,2,3]";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -678,7 +678,7 @@ fn test_list_literal_with_elements() {
 #[test]
 fn test_simple_expression_parses() {
     // Tuple syntax may vary - test that basic expressions parse
-    let source = "λf()→ℤ=42";
+    let source = "λf()→Int=42";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -708,7 +708,7 @@ fn test_record_literal() {
 
 #[test]
 fn test_record_type_rejects_open_tail_syntax() {
-    let source = "t User={id:ℤ,..rest}";
+    let source = "t User={id:Int,..rest}";
     let tokens = tokenize(source).unwrap();
     let error = parse(tokens, "test.lib.sigil").unwrap_err();
 
@@ -726,7 +726,7 @@ fn test_record_literal_rejects_open_tail_syntax() {
 
 #[test]
 fn test_record_pattern_rejects_open_tail_syntax() {
-    let source = "λf(point:Point)→𝔹 match point{{x,..rest}→true}";
+    let source = "λf(point:Point)→Bool match point{{x,..rest}→true}";
     let tokens = tokenize(source).unwrap();
     let error = parse(tokens, "test.sigil").unwrap_err();
 
@@ -735,7 +735,7 @@ fn test_record_pattern_rejects_open_tail_syntax() {
 
 #[test]
 fn test_field_access() {
-    let source = "λf(p:Point)→ℤ=p.x";
+    let source = "λf(p:Point)→Int=p.x";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -755,7 +755,7 @@ fn test_field_access() {
 #[test]
 fn test_list_expression_parses() {
     // Index syntax may vary - test list parsing
-    let source = "λf()→[ℤ]=[1,2]";
+    let source = "λf()→[Int]=[1,2]";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -764,7 +764,7 @@ fn test_list_expression_parses() {
 
 #[test]
 fn test_operator_precedence_addition_multiplication() {
-    let source = "λf()→ℤ=1+2*3";
+    let source = "λf()→Int=1+2*3";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -791,7 +791,7 @@ fn test_operator_precedence_addition_multiplication() {
 
 #[test]
 fn test_parenthesized_expression() {
-    let source = "λf()→ℤ=(1+2)*3";
+    let source = "λf()→Int=(1+2)*3";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -815,7 +815,7 @@ fn test_parenthesized_expression() {
 
 #[test]
 fn test_pattern_literal_integer() {
-    let source = "t Result=Ok(ℤ)|Err(𝕊)";
+    let source = "t Result=Ok(Int)|Err(String)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -825,7 +825,7 @@ fn test_pattern_literal_integer() {
 
 #[test]
 fn test_pattern_identifier() {
-    let source = "t Wrapper=Wrap(ℤ)";
+    let source = "t Wrapper=Wrap(Int)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -838,7 +838,7 @@ fn test_pattern_identifier() {
 
 #[test]
 fn test_type_primitive_int() {
-    let source = "λf()→ℤ=0";
+    let source = "λf()→Int=0";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -857,7 +857,7 @@ fn test_type_primitive_int() {
 
 #[test]
 fn test_type_list() {
-    let source = "λf()→[ℤ]=[]";
+    let source = "λf()→[Int]=[]";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -875,7 +875,7 @@ fn test_type_list() {
 #[test]
 fn test_basic_type_annotations() {
     // Test that type annotations parse correctly
-    let source = "λf()→ℤ=0";
+    let source = "λf()→Int=0";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -890,7 +890,7 @@ fn test_basic_type_annotations() {
 #[test]
 fn test_function_type_annotation() {
     // Function types require specific syntax - test basic case
-    let source = "λf()→ℤ=1";
+    let source = "λf()→Int=1";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -899,7 +899,7 @@ fn test_function_type_annotation() {
 
 #[test]
 fn test_type_constructor() {
-    let source = "λf()→Maybe[ℤ]=Some(42)";
+    let source = "λf()→Maybe[Int]=Some(42)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -919,7 +919,7 @@ fn test_type_constructor() {
 
 #[test]
 fn test_map_literal_and_type_parse() {
-    let source = "λf()→{𝕊↦ℤ}={\"a\"↦1,\"b\"↦2}";
+    let source = "λf()→{String↦Int}={\"a\"↦1,\"b\"↦2}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -946,7 +946,7 @@ fn test_map_literal_and_type_parse() {
 
 #[test]
 fn test_empty_map_literal_parse() {
-    let source = "λf()→{𝕊↦ℤ}={↦}";
+    let source = "λf()→{String↦Int}={↦}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -961,7 +961,7 @@ fn test_empty_map_literal_parse() {
 
 #[test]
 fn test_map_type_alias_parses() {
-    let source = "t Headers={𝕊↦𝕊}";
+    let source = "t Headers={String↦String}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -979,7 +979,7 @@ fn test_map_type_alias_parses() {
 
 #[test]
 fn test_record_literal_rejects_string_key_with_colon() {
-    let source = "λf()→𝕌={\"content-type\":\"text/plain\"}";
+    let source = "λf()→Unit={\"content-type\":\"text/plain\"}";
     let tokens = tokenize(source).unwrap();
     let err = parse(tokens, "test.sigil").unwrap_err();
     let message = format!("{:?}", err);
@@ -988,7 +988,7 @@ fn test_record_literal_rejects_string_key_with_colon() {
 
 #[test]
 fn test_record_map_literal_cannot_mix_colon_and_map_arrow() {
-    let source = "λf()→𝕌={foo:1,\"bar\"↦2}";
+    let source = "λf()→Unit={foo:1,\"bar\"↦2}";
     let tokens = tokenize(source).unwrap();
     assert!(parse(tokens, "test.sigil").is_err());
 }
@@ -1008,7 +1008,7 @@ fn test_error_missing_return_type() {
 
 #[test]
 fn test_error_missing_param_type() {
-    let source = "λf(x)→ℤ=x";
+    let source = "λf(x)→Int=x";
     let tokens = tokenize(source).unwrap();
     let result = parse(tokens, "test.sigil");
 
@@ -1017,7 +1017,7 @@ fn test_error_missing_param_type() {
 
 #[test]
 fn test_error_unclosed_paren() {
-    let source = "λf(x:ℤ→ℤ=x";
+    let source = "λf(x:Int→Int=x";
     let tokens = tokenize(source).unwrap();
     let result = parse(tokens, "test.sigil");
 
@@ -1026,7 +1026,7 @@ fn test_error_unclosed_paren() {
 
 #[test]
 fn test_multiple_declarations() {
-    let source = "λf()→ℤ=0\nλg()→ℤ=1";
+    let source = "λf()→Int=0\nλg()→Int=1";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -1035,7 +1035,7 @@ fn test_multiple_declarations() {
 
 #[test]
 fn test_complex_nested_expression() {
-    let source = "λf()→ℤ=(1+2)*(3-4)";
+    let source = "λf()→Int=(1+2)*(3-4)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -1049,7 +1049,7 @@ fn test_complex_nested_expression() {
 #[test]
 fn test_tuple_matching_rejected() {
     // Tuple pattern matching in match expressions (not supported)
-  let source = r#"λbinary_search(xs:[ℤ],target:ℤ,low:ℤ,high:ℤ)→ℤ=
+  let source = r#"λbinary_search(xs:[Int],target:Int,low:Int,high:Int)→Int=
   match (high<low,xs[0]=target,xs[0]<target){
     (true,_,_)→-1|
     (false,true,_)→0|
@@ -1071,7 +1071,7 @@ fn test_tuple_matching_rejected() {
 #[test]
 fn test_deeply_nested_lambdas_parse() {
     // Complex nested lambda expression
-    let source = "λmain()→ℤ=(λ(x:ℤ)→match x{0→1|x→x*(λ(y:ℤ)→match y{0→1|y→y*1})(x-1)})(4)";
+    let source = "λmain()→Int=(λ(x:Int)→match x{0→1|x→x*(λ(y:Int)→match y{0→1|y→y*1})(x-1)})(4)";
 
     let tokens = tokenize(source).unwrap();
     let result = parse(tokens, "test.sigil");
@@ -1089,7 +1089,7 @@ fn test_deeply_nested_lambdas_parse() {
 #[test]
 fn test_y_combinator_parse() {
     // Y-combinator factorial implementation
-    let source = "λy(f:λ(λ(ℤ)→ℤ)→λ(ℤ)→ℤ)→λ(ℤ)→ℤ=λ(x:ℤ)→f(y(f))(x)\nλfactGen(rec:λ(ℤ)→ℤ)→λ(ℤ)→ℤ=λ(n:ℤ)→match n{0→1|1→1|n→n*rec(n-1)}";
+    let source = "λy(f:λ(λ(Int)→Int)→λ(Int)→Int)→λ(Int)→Int=λ(x:Int)→f(y(f))(x)\nλfactGen(rec:λ(Int)→Int)→λ(Int)→Int=λ(n:Int)→match n{0→1|1→1|n→n*rec(n-1)}";
 
     let tokens = tokenize(source).unwrap();
     let result = parse(tokens, "test.sigil");

@@ -72,13 +72,13 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-PARSE-CONST-NAME
 **Description:** Constant name must be lowercase.
 **Message:** "invalid constant name"
-**Example:** `c Pi=(3.14:ℝ)` → should be `c pi=(3.14:ℝ)`
+**Example:** `c Pi=(3.14:Float)` → should be `c pi=(3.14:Float)`
 **How to fix:** Use lowercase for constant names
 
 ### SIGIL-PARSE-CONST-UNTYPED
 **Description:** Constant value must have type ascription.
 **Message:** "const value must use type ascription: c name=(value:Type)"
-**Example:** `c x=5` → should be `c x=(5:ℤ)`
+**Example:** `c x=5` → should be `c x=(5:Int)`
 **How to fix:** Wrap value with type ascription (value:Type)
 
 ### SIGIL-PARSE-NS-SEP
@@ -90,7 +90,7 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-PARSE-LOCAL-BINDING
 **Description:** Invalid local binding keyword.
 **Message:** "invalid local binding keyword"
-**Example:** `let x=5` → should be `l x=(5:ℤ)`
+**Example:** `let x=5` → should be `l x=(5:Int)`
 **How to fix:** Use `l` not `let` for local bindings
 
 ### SIGIL-PARSE-UNEXPECTED-TOKEN
@@ -153,12 +153,12 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-EXEC-NEEDS-MAIN
 **Description:** Executable files (.sigil) must have main() function.
 **Message:** "Executable files must have main() function"
-**How to fix:** Add main()→𝕌=() or rename to .lib.sigil
+**How to fix:** Add main()→Unit=() or rename to .lib.sigil
 
 ### SIGIL-CANON-TEST-NEEDS-MAIN
 **Description:** Test files must have main() function.
 **Message:** "Test files must have main() function"
-**How to fix:** Add main()→𝕌=() to test file
+**How to fix:** Add main()→Unit=() to test file
 
 ### SIGIL-CANON-TEST-LOCATION
 **Description:** Test blocks must be in files under tests/ directory.
@@ -225,7 +225,7 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-RECURSION-ACCUMULATOR
 **Description:** Accumulator-passing style detected.
 **Message:** "Accumulator-passing style detected in function 'name'"
-**Example:** `λfact(n:ℤ,acc:ℤ)→ℤ match n{0→acc|n→fact(n-1,n*acc)}`
+**Example:** `λfact(n:Int,acc:Int)→Int match n{0→acc|n→fact(n-1,n*acc)}`
 **How to fix:** Use simple recursion without accumulator parameters
 
 ### SIGIL-CANON-RECURSION-COLLECTION-NONSTRUCTURAL
@@ -252,19 +252,19 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-PARAM-ORDER
 **Description:** Function parameters out of alphabetical order.
 **Message:** "Parameter 'X' out of alphabetical order in function 'name'"
-**Example:** `λf(z:ℤ,a:ℤ)→ℤ=a+z` → should be `λf(a:ℤ,z:ℤ)→ℤ=a+z`
+**Example:** `λf(z:Int,a:Int)→Int=a+z` → should be `λf(a:Int,z:Int)→Int=a+z`
 **How to fix:** Sort parameters alphabetically by name
 
 ### SIGIL-CANON-EFFECT-ORDER
 **Description:** Function effects out of alphabetical order.
 **Message:** "Effect 'X' out of alphabetical order in function 'name'"
-**Example:** `λf()→!IO!Error 𝕌=()` → should be `λf()→!Error!IO 𝕌=()`
+**Example:** `λf()→!IO !Error Unit=()` → should be `λf()→!Error !IO Unit=()`
 **How to fix:** Sort effects alphabetically
 
 ### SIGIL-CANON-RECORD-TYPE-FIELD-ORDER
 **Description:** Product type fields out of alphabetical order.
 **Message:** "Record type field 'X' out of alphabetical order in 'TypeName'"
-**Example:** `t User={name:𝕊,age:ℤ}` → should be `t User={age:ℤ,name:𝕊}`
+**Example:** `t User={name:String,age:Int}` → should be `t User={age:Int,name:String}`
 **How to fix:** Sort record type fields alphabetically by field name
 
 ### SIGIL-CANON-RECORD-LITERAL-FIELD-ORDER
@@ -282,13 +282,13 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-NO-SHADOWING
 **Description:** Local binding shadows an existing local binding from the same or an enclosing lexical scope.
 **Message:** "Binding 'name' shadows an existing X binding"
-**Example:** `λf(value:ℤ)→ℤ=l value=(2:ℤ);value`
+**Example:** `λf(value:Int)→Int=l value=(2:Int);value`
 **How to fix:** Use a new name instead of rebinding an existing local, parameter, lambda parameter, or pattern binding
 
 ### SIGIL-CANON-LET-UNTYPED
 **Description:** Let binding must have type ascription.
 **Message:** "Let binding 'name' must have type ascription"
-**Example:** `l x=5` → should be `l x=(5:ℤ)`
+**Example:** `l x=5` → should be `l x=(5:Int)`
 **How to fix:** Use type ascription: l name=(value:Type)
 
 ### SIGIL-CANON-DECL-CATEGORY-ORDER

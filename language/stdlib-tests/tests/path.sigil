@@ -2,7 +2,7 @@
 
 i stdlib⋅path
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "path basename returns last segment" {
   stdlib⋅path.basename("website/articles/hello.md")="hello.md"

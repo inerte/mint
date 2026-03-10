@@ -60,7 +60,7 @@
     ]
   },
   "TypeInt": {
-    "symbol": "ℤ",
+    "symbol": "Int",
     "category": "primitive_type",
     "candidates": [
       {
@@ -72,7 +72,7 @@
     ]
   },
   "TypeFloat": {
-    "symbol": "ℝ",
+    "symbol": "Float",
     "category": "primitive_type",
     "candidates": [
       {
@@ -84,7 +84,7 @@
     ]
   },
   "TypeBool": {
-    "symbol": "𝔹",
+    "symbol": "Bool",
     "category": "primitive_type",
     "candidates": [
       {
@@ -96,7 +96,7 @@
     ]
   },
   "TypeString": {
-    "symbol": "𝕊",
+    "symbol": "String",
     "category": "primitive_type",
     "candidates": [
       {
@@ -108,7 +108,7 @@
     ]
   },
   "TypeChar": {
-    "symbol": "ℂ",
+    "symbol": "Char",
     "category": "primitive_type",
     "candidates": [
       {
@@ -120,7 +120,7 @@
     ]
   },
   "TypeUnit": {
-    "symbol": "𝕌",
+    "symbol": "Unit",
     "category": "primitive_type",
     "candidates": [
       {
@@ -132,7 +132,7 @@
     ]
   },
   "TypeNever": {
-    "symbol": "∅",
+    "symbol": "Never",
     "category": "primitive_type",
     "candidates": [
       {

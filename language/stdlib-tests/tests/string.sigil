@@ -2,7 +2,7 @@
 
 i stdlib⋅string
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 ⟦ Test # operator on strings ⟧
 test "# returns string length" {

@@ -11,4 +11,4 @@ i src⋅graphTypes
   ]
 }
 
-λmain()→[ℤ]=src⋅depthFirstSearch.depthFirstSearch(demoGraph(),1)
+λmain()→[Int]=src⋅depthFirstSearch.depthFirstSearch(demoGraph(),1)

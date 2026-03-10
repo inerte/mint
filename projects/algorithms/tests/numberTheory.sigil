@@ -2,7 +2,7 @@ i src⋅extendedGcd
 i src⋅modularExponentiation
 i src⋅sieveOfEratosthenes
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "extended gcd returns gcd 2 for 240 and 46" {
   (src⋅extendedGcd.extendedGcd(240,46)).gcd=2

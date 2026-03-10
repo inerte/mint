@@ -24,7 +24,7 @@ pub enum Type {
     Qualified(QualifiedType),
 }
 
-/// Primitive type: Int, Float, Bool, String, Char, Unit
+/// Primitive type: Int, Float, Bool, String, Char, Unit, Never
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PrimitiveType {
@@ -42,6 +42,7 @@ pub enum PrimitiveName {
     String,
     Char,
     Unit,
+    Never,
 }
 
 impl std::fmt::Display for PrimitiveName {
@@ -53,6 +54,7 @@ impl std::fmt::Display for PrimitiveName {
             PrimitiveName::String => write!(f, "String"),
             PrimitiveName::Char => write!(f, "Char"),
             PrimitiveName::Unit => write!(f, "Unit"),
+            PrimitiveName::Never => write!(f, "Never"),
         }
     }
 }

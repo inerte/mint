@@ -1,6 +1,6 @@
 i stdlib⋅list
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "list.inBounds checks valid and invalid indexes" {
   stdlib⋅list.inBounds(0,[10,20,30])=true and stdlib⋅list.inBounds(3,[10,20,30])=false

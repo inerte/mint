@@ -467,15 +467,6 @@ impl Lexer {
             'λ' => self.add_token(tokens, TokenType::LAMBDA, "λ", start),
             '→' => self.add_token(tokens, TokenType::ARROW, "→", start),
 
-            // Unicode type symbols
-            'ℤ' => self.add_token(tokens, TokenType::TypeInt, "ℤ", start),
-            'ℝ' => self.add_token(tokens, TokenType::TypeFloat, "ℝ", start),
-            '𝔹' => self.add_token(tokens, TokenType::TypeBool, "𝔹", start),
-            '𝕊' => self.add_token(tokens, TokenType::TypeString, "𝕊", start),
-            'ℂ' => self.add_token(tokens, TokenType::TypeChar, "ℂ", start),
-            '𝕌' => self.add_token(tokens, TokenType::TypeUnit, "𝕌", start),
-            '∅' => self.add_token(tokens, TokenType::TypeNever, "∅", start),
-
             // Legacy boolean literals
             '⊤' => {
                 return Err(LexError::LegacyBoolLiteral {
@@ -706,6 +697,13 @@ impl Lexer {
             "or" => TokenType::OR,
             "true" => TokenType::TRUE,
             "false" => TokenType::FALSE,
+            "Int" => TokenType::TypeInt,
+            "Float" => TokenType::TypeFloat,
+            "Bool" => TokenType::TypeBool,
+            "String" => TokenType::TypeString,
+            "Char" => TokenType::TypeChar,
+            "Unit" => TokenType::TypeUnit,
+            "Never" => TokenType::TypeNever,
             _ => {
                 if first_char.is_uppercase() {
                     TokenType::UpperIdentifier

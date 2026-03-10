@@ -1,7 +1,7 @@
 i src⋅content
 i src⋅types
 
-λarticlePage(date:𝕊,slug:𝕊)→src⋅types.SitePage=
+λarticlePage(date:String,slug:String)→src⋅types.SitePage=
   src⋅content.blankPage(
     "",
     {author:"Sigil",category:"",date:date,description:"",slug:slug,title:slug},
@@ -10,7 +10,7 @@ i src⋅types
     "website/articles/"++slug++".md"
   )
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "article ordering uses newest date first" {
   l pages=([

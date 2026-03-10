@@ -1,14 +1,14 @@
-t Todo={done:𝔹,id:ℤ,text:𝕊}
+t Todo={done:Bool,id:Int,text:String}
 
 i src⋅todoDomain
 i stdlib⋅numeric
 
-λlenTodos(todos:[Todo])→ℤ match todos{
+λlenTodos(todos:[Todo])→Int match todos{
   []→0|
   [_,.rest]→1+lenTodos(rest)
 }
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "todo add prepends item" {
   match src⋅todoDomain.addTodo(1,"Task",[]){
@@ -29,7 +29,7 @@ test "todo completedCount counts completed" {
 }
 
 test "todo completedCount result can use numeric predicates" {
-  l count=(src⋅todoDomain.completedCount([Todo{done:true,id:1,text:"A"},Todo{done:false,id:2,text:"B"},Todo{done:true,id:3,text:"C"}]):ℤ);
+  l count=(src⋅todoDomain.completedCount([Todo{done:true,id:1,text:"A"},Todo{done:false,id:2,text:"B"},Todo{done:true,id:3,text:"C"}]):Int);
   stdlib⋅numeric.isEven(count)=true and stdlib⋅numeric.inRange(3,0,count)=true
 }
 

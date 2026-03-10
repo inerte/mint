@@ -500,7 +500,7 @@ impl Parser {
             });
         }
 
-        // Optional type annotation: e console : { log : (𝕊) → 𝕌, ... }
+        // Optional type annotation: e console : { log : (String) → Unit, ... }
         let members = if self.match_token(TokenType::COLON) {
             self.consume(TokenType::LBRACE, "Expected \"{\" after \":\" in typed extern declaration")?;
             let mut members_list = Vec::new();
@@ -672,6 +672,13 @@ impl Parser {
             let loc = self.previous().location;
             return Ok(Type::Primitive(PrimitiveType {
                 name: PrimitiveName::Unit,
+                location: loc,
+            }));
+        }
+        if self.match_token(TokenType::TypeNever) {
+            let loc = self.previous().location;
+            return Ok(Type::Primitive(PrimitiveType {
+                name: PrimitiveName::Never,
                 location: loc,
             }));
         }
@@ -2028,7 +2035,7 @@ mod tests {
 
     #[test]
     fn test_simple_function() {
-        let source = "λ add(x: ℤ, y: ℤ) → ℤ = x + y";
+        let source = "λ add(x: Int, y: Int) → Int = x + y";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
         assert_eq!(program.declarations.len(), 1);

@@ -1,0 +1,8 @@
+⟦ A minimal TCP echo server using stdlib⋅tcpServer. ⟧
+
+i stdlib⋅tcpServer
+
+λhandle(request:stdlib⋅tcpServer.Request)→!IO stdlib⋅tcpServer.Response=
+  stdlib⋅tcpServer.response(request.message)
+
+λmain()→!IO Unit=stdlib⋅tcpServer.serve(handle,45120)

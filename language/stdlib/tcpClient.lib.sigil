@@ -1,0 +1,33 @@
+⟦ stdlib⋅tcpClient - Canonical TCP Client for Sigil
+
+Provides the typed Sigil surface for one-request, one-response TCP exchanges.
+Runtime behavior is implemented by the compiler runtime for stdlib⋅tcpClient.
+⟧
+
+t TcpError={
+  kind:TcpErrorKind,
+  message:String
+}
+
+t TcpErrorKind=Connection()|InvalidAddress()|Protocol()|Timeout()
+
+t TcpRequest={
+  host:String,
+  message:String,
+  port:Int
+}
+
+t TcpResponse={
+  message:String
+}
+
+λrequest(request:TcpRequest)→!IO Result[TcpResponse,TcpError]=Err({
+  kind:Connection(),
+  message:"tcp client runtime unavailable"
+})
+
+λsend(host:String,message:String,port:Int)→!IO Result[TcpResponse,TcpError]=request({
+  host:host,
+  message:message,
+  port:port
+})

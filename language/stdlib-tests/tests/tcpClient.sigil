@@ -1,0 +1,28 @@
+⟦ Tests for stdlib⋅tcpClient ⟧
+
+i stdlib⋅tcpClient
+
+λmain()→Unit=()
+
+test "tcp client request record preserves host port and message" {
+  l request=({
+    host:"127.0.0.1",
+    message:"ping",
+    port:45120
+  }:stdlib⋅tcpClient.TcpRequest);
+  request.host="127.0.0.1" and request.message="ping" and request.port=45120
+}
+
+test "tcp client send invalid host returns err" →!IO {
+  match stdlib⋅tcpClient.send("","ping",45120){
+    Ok(_)→false|
+    Err(error)→error.message="TCP requests require a valid host and port"
+  }
+}
+
+test "tcp client send invalid port returns err" →!IO {
+  match stdlib⋅tcpClient.send("127.0.0.1","ping",0){
+    Ok(_)→false|
+    Err(error)→error.message="TCP requests require a valid host and port"
+  }
+}

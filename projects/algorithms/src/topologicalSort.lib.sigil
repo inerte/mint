@@ -2,14 +2,14 @@ i src⋅graphHelpers
 i src⋅graphTypes
 i stdlib⋅list
 
-λcountEdgesToVertex(neighbors:[ℤ],target:ℤ)→ℤ=stdlib⋅list.count(target,neighbors)
+λcountEdgesToVertex(neighbors:[Int],target:Int)→Int=stdlib⋅list.count(target,neighbors)
 
-λindegreeFromSources(graph:src⋅graphTypes.Graph,sources:[ℤ],target:ℤ)→ℤ match sources{
+λindegreeFromSources(graph:src⋅graphTypes.Graph,sources:[Int],target:Int)→Int match sources{
   []→0|
   [source,.tail]→countEdgesToVertex(src⋅graphHelpers.neighborsOf(graph,source),target)+indegreeFromSources(graph,tail,target)
 }
 
-λpickZeroCandidate(candidates:[ℤ],graph:src⋅graphTypes.Graph,remaining:[ℤ])→ℤ match candidates{
+λpickZeroCandidate(candidates:[Int],graph:src⋅graphTypes.Graph,remaining:[Int])→Int match candidates{
   []→-1|
   [vertex,.tail]→match indegreeFromSources(graph,remaining,vertex)=0{
     true→vertex|
@@ -17,12 +17,12 @@ i stdlib⋅list
   }
 }
 
-λpickZeroIndegree(graph:src⋅graphTypes.Graph,remaining:[ℤ])→ℤ=pickZeroCandidate(remaining,graph,remaining)
+λpickZeroIndegree(graph:src⋅graphTypes.Graph,remaining:[Int])→Int=pickZeroCandidate(remaining,graph,remaining)
 
-λtopologicalLoop(graph:src⋅graphTypes.Graph,ordered:[ℤ],remaining:[ℤ])→src⋅graphTypes.TopologicalSortResult match remaining{
+λtopologicalLoop(graph:src⋅graphTypes.Graph,ordered:[Int],remaining:[Int])→src⋅graphTypes.TopologicalSortResult match remaining{
   []→src⋅graphTypes.Ordering(ordered)|
   _→{
-    l nextVertex=(pickZeroIndegree(graph,remaining):ℤ);
+    l nextVertex=(pickZeroIndegree(graph,remaining):Int);
     match nextVertex=-1{
       true→src⋅graphTypes.CycleDetected()|
       false→topologicalLoop(graph,ordered⧺[nextVertex],stdlib⋅list.removeFirst(nextVertex,remaining))

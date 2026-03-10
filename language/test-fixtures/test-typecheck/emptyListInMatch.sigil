@@ -2,24 +2,24 @@
 
 t Foo=A|B|C
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 ⟦ Case 1: First arm non-empty, second arm empty ⟧
-λtest1(x:Foo)→[ℤ] match x{
+λtest1(x:Foo)→[Int] match x{
   A → [1,2,3]|
   B → []|
   C → [4,5]
 }
 
 ⟦ Case 2: Multiple empty arms after non-empty ⟧
-λtest2(x:Foo)→[𝕊] match x{
+λtest2(x:Foo)→[String] match x{
   A → ["hello"]|
   B → []|
   C → []
 }
 
 ⟦ Case 3: Nested match with empty list ⟧
-λtest3(x:Foo,y:Foo)→[ℤ] match x{
+λtest3(x:Foo,y:Foo)→[Int] match x{
   A → [1]|
   B → match y{
     A → [2]|

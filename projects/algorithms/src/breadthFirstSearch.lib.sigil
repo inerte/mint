@@ -2,19 +2,19 @@ i src⋅graphHelpers
 i src⋅graphTypes
 i stdlib⋅list
 
-λbfsLoop(graph:src⋅graphTypes.Graph,queue:[ℤ],visited:[ℤ])→[ℤ] match queue{
+λbfsLoop(graph:src⋅graphTypes.Graph,queue:[Int],visited:[Int])→[Int] match queue{
   []→visited|
   [head,.tail]→match stdlib⋅list.contains(head,visited){
     true→bfsLoop(graph,tail,visited)|
     false→{
-      l nextQueue=(tail⧺src⋅graphHelpers.neighborsOf(graph,head):[ℤ]);
-      l nextVisited=(visited⧺[head]:[ℤ]);
+      l nextQueue=(tail⧺src⋅graphHelpers.neighborsOf(graph,head):[Int]);
+      l nextVisited=(visited⧺[head]:[Int]);
       bfsLoop(graph,nextQueue,nextVisited)
     }
   }
 }
 
-λbreadthFirstSearch(graph:src⋅graphTypes.Graph,start:ℤ)→[ℤ] match src⋅graphHelpers.hasVertex(graph,start){
+λbreadthFirstSearch(graph:src⋅graphTypes.Graph,start:Int)→[Int] match src⋅graphHelpers.hasVertex(graph,start){
   true→bfsLoop(graph,[start],[])|
   false→[]
 }

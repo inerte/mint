@@ -1,7 +1,7 @@
 ⟦ Tests for stdlib⋅decode ⟧
 
 t Message={createdAt:stdlib⋅time.Instant,id:TodoId}
-t TodoId=TodoId(ℤ)
+t TodoId=TodoId(Int)
 
 i core⋅map
 i stdlib⋅decode
@@ -17,7 +17,7 @@ i stdlib⋅time
   Err(error)→Err(error)
 }
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 λmessage(value:stdlib⋅json.JsonValue)→Result[Message,stdlib⋅decode.DecodeError] match stdlib⋅decode.field(instant,"createdAt")(value){
   Ok(createdAt)→
@@ -56,7 +56,7 @@ test "decode.dict decodes object values" {
 test "decode.field reports missing required field path" {
   match stdlib⋅decode.run(
     stdlib⋅decode.field(stdlib⋅decode.string,"name"),
-    stdlib⋅json.JsonObject((({↦}:{𝕊↦stdlib⋅json.JsonValue}):{𝕊↦stdlib⋅json.JsonValue}))
+    stdlib⋅json.JsonObject((({↦}:{String↦stdlib⋅json.JsonValue}):{String↦stdlib⋅json.JsonValue}))
   ){
     Ok(_)→false|
     Err(error)→error={message:"missing required field",path:["name"]}
@@ -78,7 +78,7 @@ test "decode.list prefixes failing index path" {
 test "decode.optionalField returns None when key is absent" {
   match stdlib⋅decode.run(
     stdlib⋅decode.optionalField(stdlib⋅decode.string,"name"),
-    stdlib⋅json.JsonObject((({↦}:{𝕊↦stdlib⋅json.JsonValue}):{𝕊↦stdlib⋅json.JsonValue}))
+    stdlib⋅json.JsonObject((({↦}:{String↦stdlib⋅json.JsonValue}):{String↦stdlib⋅json.JsonValue}))
   ){
     Ok(value)→match value{
       None()→true|

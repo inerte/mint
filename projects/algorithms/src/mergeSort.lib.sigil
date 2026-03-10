@@ -1,4 +1,4 @@
-λfirstRun(runs:[[ℤ]])→[ℤ] match runs{
+λfirstRun(runs:[[Int]])→[Int] match runs{
   []→[]|
   [head,.tail]→match tail{
     []→head|
@@ -6,7 +6,7 @@
   }
 }
 
-λmerge(left:[ℤ],right:[ℤ])→[ℤ] match left{
+λmerge(left:[Int],right:[Int])→[Int] match left{
   []→right|
   [leftHead,.leftTail]→match right{
     []→left|
@@ -17,50 +17,50 @@
   }
 }
 
-λmergeAllRuns(runs:[[ℤ]])→[ℤ]=mergeAllRunsCount(#runs,runs)
+λmergeAllRuns(runs:[[Int]])→[Int]=mergeAllRunsCount(#runs,runs)
 
-λmergeAllRunsCount(runCount:ℤ,runs:[[ℤ]])→[ℤ] match runCount≤1{
+λmergeAllRunsCount(runCount:Int,runs:[[Int]])→[Int] match runCount≤1{
   true→firstRun(runs)|
   false→mergeAllRunsCount(nextRunCount(runCount),mergePairs(runs))
 }
 
-λmergePairs(runs:[[ℤ]])→[[ℤ]] match runs{
+λmergePairs(runs:[[Int]])→[[Int]] match runs{
   []→[]|
   [head,.tail]→match tail{
     []→{
-      l wrappedHead=(wrapRun(head):[[ℤ]]);
+      l wrappedHead=(wrapRun(head):[[Int]]);
       wrappedHead
     }|
     [right,.rest]→{
-      l merged=(merge(head,right):[ℤ]);
-      l remainingPairs=(mergePairs(rest):[[ℤ]]);
-      l wrappedMerged=(wrapRun(merged):[[ℤ]]);
+      l merged=(merge(head,right):[Int]);
+      l remainingPairs=(mergePairs(rest):[[Int]]);
+      l wrappedMerged=(wrapRun(merged):[[Int]]);
       wrappedMerged⧺remainingPairs
     }
   }
 }
 
-λmergeSort(xs:[ℤ])→[ℤ]=mergeAllRuns(singletons(xs))
+λmergeSort(xs:[Int])→[Int]=mergeAllRuns(singletons(xs))
 
-λnextRunCount(runCount:ℤ)→ℤ match runCount{
+λnextRunCount(runCount:Int)→Int match runCount{
   0→0|
   1→1|
   _→1+nextRunCount(runCount-2)
 }
 
-λsingletons(xs:[ℤ])→[[ℤ]] match xs{
+λsingletons(xs:[Int])→[[Int]] match xs{
   []→[]|
   [head,.tail]→[[head]]⧺singletons(tail)
 }
 
-λwrapAll(partials:[[ℤ]],values:[ℤ])→[[ℤ]] match values{
+λwrapAll(partials:[[Int]],values:[Int])→[[Int]] match values{
   []→partials|
   [head,.tail]→wrapAll(wrapHead(head,partials),tail)
 }
 
-λwrapHead(head:ℤ,partials:[[ℤ]])→[[ℤ]] match partials{
+λwrapHead(head:Int,partials:[[Int]])→[[Int]] match partials{
   []→[]|
   [partial,.tail]→[partial⧺[head]]⧺wrapHead(head,tail)
 }
 
-λwrapRun(run:[ℤ])→[[ℤ]]=wrapAll([[]],run)
+λwrapRun(run:[Int])→[[Int]]=wrapAll([[]],run)

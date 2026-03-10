@@ -9,16 +9,16 @@ e console
 e process
 
 ⟦ Print debug info ⟧
-λdebug(msg:𝕊)→!IO 𝕌=console.debug(msg)
+λdebug(msg:String)→!IO Unit=console.debug(msg)
 
 ⟦ Print to stderr ⟧
-λeprintln(msg:𝕊)→!IO 𝕌=console.error(msg)
+λeprintln(msg:String)→!IO Unit=console.error(msg)
 
 ⟦ Print to stdout (without newline) ⟧
-λprint(msg:𝕊)→!IO 𝕌=process.stdout.write(msg)
+λprint(msg:String)→!IO Unit=process.stdout.write(msg)
 
 ⟦ Print to stdout (with newline) ⟧
-λprintln(msg:𝕊)→!IO 𝕌=console.log(msg)
+λprintln(msg:String)→!IO Unit=console.log(msg)
 
 ⟦ Print warning ⟧
-λwarn(msg:𝕊)→!IO 𝕌=console.warn(msg)
+λwarn(msg:String)→!IO Unit=console.warn(msg)

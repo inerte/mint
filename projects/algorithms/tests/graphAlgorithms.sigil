@@ -21,9 +21,9 @@ i src⋅topologicalSort
   ]
 }
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
-λorderRespects(from:ℤ,order:[ℤ],to:ℤ)→𝔹=
+λorderRespects(from:Int,order:[Int],to:Int)→Bool=
   src⋅linearSearch.linearSearch(from,order)<src⋅linearSearch.linearSearch(to,order)
 
 test "depth first search is deterministic" {

@@ -87,25 +87,25 @@ pub enum TokenType {
     // ========================================================================
     // TYPE SYMBOLS
     // ========================================================================
-    #[token("ℤ")]
+    #[token("Int", priority = 2)]
     TypeInt,
 
-    #[token("ℝ")]
+    #[token("Float", priority = 2)]
     TypeFloat,
 
-    #[token("𝔹")]
+    #[token("Bool", priority = 2)]
     TypeBool,
 
-    #[token("𝕊")]
+    #[token("String", priority = 2)]
     TypeString,
 
-    #[token("ℂ")]
+    #[token("Char", priority = 2)]
     TypeChar,
 
-    #[token("𝕌")]
+    #[token("Unit", priority = 2)]
     TypeUnit,
 
-    #[token("∅")]
+    #[token("Never", priority = 2)]
     TypeNever,
 
     // ========================================================================

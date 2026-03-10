@@ -4,18 +4,18 @@
   Use `⊕` for ordered reductions.
 ⟧
 
-⟦ Map: [1,2,3] ↦ λ(x:ℤ)→ℤ=x*2 ⟧
-λdoubleAll(xs:[ℤ])→[ℤ]=xs↦λ(x:ℤ)→ℤ=x*2
+⟦ Map: [1,2,3] ↦ λ(x:Int)→Int=x*2 ⟧
+λdoubleAll(xs:[Int])→[Int]=xs↦λ(x:Int)→Int=x*2
 
 ⟦ Chaining: filter, then map ⟧
-λfilterThenMap(xs:[ℤ])→[ℤ]=(xs⊳λ(x:ℤ)→𝔹=x>0)↦λ(x:ℤ)→ℤ=x*x
+λfilterThenMap(xs:[Int])→[Int]=(xs⊳λ(x:Int)→Bool=x>0)↦λ(x:Int)→Int=x*x
 
-⟦ Filter: [1,2,3,4,5] ⊳ λ(x:ℤ)→𝔹=x>2 ⟧
-λkeepLarge(xs:[ℤ])→[ℤ]=xs⊳λ(x:ℤ)→𝔹=x>2
+⟦ Filter: [1,2,3,4,5] ⊳ λ(x:Int)→Bool=x>2 ⟧
+λkeepLarge(xs:[Int])→[Int]=xs⊳λ(x:Int)→Bool=x>2
 
-λmain()→ℤ=
-  l nums=([1,2,3,4,5]:[ℤ]);
+λmain()→Int=
+  l nums=([1,2,3,4,5]:[Int]);
   sum(nums)
 
-⟦ Fold: [1,2,3] ⊕ λ(acc:ℤ,x:ℤ)→ℤ=acc+x ⊕ 0 ⟧
-λsum(xs:[ℤ])→ℤ=xs⊕(λ(acc:ℤ,x:ℤ)→ℤ=acc+x)⊕0
+⟦ Fold: [1,2,3] ⊕ λ(acc:Int,x:Int)→Int=acc+x ⊕ 0 ⟧
+λsum(xs:[Int])→Int=xs⊕(λ(acc:Int,x:Int)→Int=acc+x)⊕0

@@ -1,6 +1,6 @@
 i stdlib⋅json
 
-λmain()→𝕌 match stdlib⋅json.parse("{\"profile\":{\"name\":\"sigil\"}}"){
+λmain()→Unit match stdlib⋅json.parse("{\"profile\":{\"name\":\"sigil\"}}"){
     Ok(value)→
       match stdlib⋅json.asObject(value){
         Some(root)→

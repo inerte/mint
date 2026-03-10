@@ -19,7 +19,7 @@ That's it. Exactly ONE way to do FFI (canonical form).
 ```sigil
 e console
 
-λmain()→𝕌=console.log("Hello from Sigil!")
+λmain()→Unit=console.log("Hello from Sigil!")
 ```
 
 ### Node.js Built-ins
@@ -27,9 +27,9 @@ e console
 ```sigil
 e fs⋅promises
 
-λwriteFile(path:𝕊,content:𝕊)→𝕌=fs⋅promises.writeFile(path,content)
+λwriteFile(path:String,content:String)→Unit=fs⋅promises.writeFile(path,content)
 
-λmain()→𝕌=writeFile("output.txt","Hello, Sigil!")
+λmain()→Unit=writeFile("output.txt","Hello, Sigil!")
 ```
 
 ### NPM Packages
@@ -43,9 +43,9 @@ Then use it:
 ```sigil
 e axios
 
-λfetchUser(id:ℤ)→𝕌=axios.get("https://api.example.com/users/" + id)
+λfetchUser(id:Int)→Unit=axios.get("https://api.example.com/users/" + id)
 
-λmain()→𝕌=fetchUser(123)
+λmain()→Unit=fetchUser(123)
 ```
 
 ## How It Works
@@ -79,7 +79,7 @@ This catches typos WITHOUT needing type annotations!
 
 ```sigil
 e fs⋅promises
-λmain()→𝕌=fs⋅promises.readFile("file.txt","utf-8")
+λmain()→Unit=fs⋅promises.readFile("file.txt","utf-8")
 ```
 
 Compiles to:
@@ -106,14 +106,14 @@ export async function main() {
 
 ```sigil
 e console
-λmain()→𝕌=console.log("works!")
+λmain()→Unit=console.log("works!")
 ```
 
 ### ❌ Fails - Typo in member
 
 ```sigil
 e console
-λmain()→𝕌=console.logg("typo!")
+λmain()→Unit=console.logg("typo!")
 ```
 
 ```
@@ -126,7 +126,7 @@ Check for typos or see module documentation.
 
 ```sigil
 e axios
-λmain()→𝕌=axios.get("url")
+λmain()→Unit=axios.get("url")
 ```
 
 ```
@@ -155,13 +155,13 @@ general-purpose surface type you should write in Sigil source.
 You can optionally provide type signatures for extern members:
 
 ```sigil
-t MkdirOptions = { recursive: 𝔹 }
+t MkdirOptions = { recursive: Bool }
 
 e fs⋅promises : {
-  mkdir : λ(𝕊, MkdirOptions) → 𝕌
+  mkdir : λ(String, MkdirOptions) → Unit
 }
 
-λensureDir(dir:𝕊)→𝕌={
+λensureDir(dir:String)→Unit={
   l opts=({recursive:true}:MkdirOptions);
   fs⋅promises.mkdir(dir, opts)
 }
@@ -175,13 +175,13 @@ e fs⋅promises : {
 
 Typed FFI relies on the same canonical structural equality rule used throughout the
 checker: aliases and named product types normalize before compatibility checks.
-That means `MkdirOptions` and `{recursive:𝔹}` are treated as the same explicit type
+That means `MkdirOptions` and `{recursive:Bool}` are treated as the same explicit type
 meaning when validating the `mkdir` call. This is canonical semantic comparison, not
 type inference.
 
 When modeling JavaScript data:
-- fixed-shape objects should use records like `{recursive:𝔹}`
-- dynamic dictionaries should use core maps like `{𝕊↦𝕊}`
+- fixed-shape objects should use records like `{recursive:Bool}`
+- dynamic dictionaries should use core maps like `{String↦String}`
 
 Example: HTTP headers are maps, not records.
 
@@ -199,12 +199,12 @@ e module⋅path : {
 
 ```sigil
 ✅ VALID: Type before extern
-t MkdirOptions = { recursive: 𝔹 }
-e fs⋅promises : { mkdir : λ(𝕊, MkdirOptions) → 𝕌 }
+t MkdirOptions = { recursive: Bool }
+e fs⋅promises : { mkdir : λ(String, MkdirOptions) → Unit }
 
 ❌ INVALID: Extern before type (compiler error)
-e fs⋅promises : { mkdir : λ(𝕊, MkdirOptions) → 𝕌 }
-t MkdirOptions = { recursive: 𝔹 }
+e fs⋅promises : { mkdir : λ(String, MkdirOptions) → Unit }
+t MkdirOptions = { recursive: Bool }
 ```
 
 This is why Sigil's canonical declaration ordering is: **`t → e → i → c → λ → test`**
@@ -218,9 +218,9 @@ Sigil uses one promise-shaped runtime model for FFI too. Promise-returning FFI c
 ```sigil
 e fs⋅promises
 
-λread_file(path:𝕊)→!IO 𝕊=fs⋅promises.readFile(path,"utf8")
+λread_file(path:String)→!IO String=fs⋅promises.readFile(path,"utf8")
 
-λmain()→!IO 𝕊=read_file("data.txt")
+λmain()→!IO String=read_file("data.txt")
 ```
 
 Compiles to:
@@ -291,10 +291,10 @@ Use functional APIs or wrapper functions.
 ```sigil
 e console
 
-λlog(msg:𝕊)→𝕌=console.log(msg)
-λerror(msg:𝕊)→𝕌=console.error(msg)
+λlog(msg:String)→Unit=console.log(msg)
+λerror(msg:String)→Unit=console.error(msg)
 
-λmain()→𝕌={
+λmain()→Unit={
   log("Info message")
   error("Error message")
 }
@@ -305,8 +305,8 @@ e console
 ```sigil
 e fs⋅promises
 
-λreadFile(path:𝕊)→𝕌=fs⋅promises.readFile(path,"utf-8")
-λwriteFile(path:𝕊,content:𝕊)→𝕌=fs⋅promises.writeFile(path,content)
+λreadFile(path:String)→Unit=fs⋅promises.readFile(path,"utf-8")
+λwriteFile(path:String,content:String)→Unit=fs⋅promises.writeFile(path,content)
 ```
 
 ### 3. Validate at Boundaries

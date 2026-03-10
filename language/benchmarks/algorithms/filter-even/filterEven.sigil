@@ -1,3 +1,3 @@
-λfilterEven(xs:[ℤ])→[ℤ]=xs⊳isEven
-λisEven(x:ℤ)→𝔹=x%2=0
-λmain()→[ℤ]=filterEven([1,2,3,4,5,6])
+λfilterEven(xs:[Int])→[Int]=xs⊳isEven
+λisEven(x:Int)→Bool=x%2=0
+λmain()→[Int]=filterEven([1,2,3,4,5,6])

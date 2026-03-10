@@ -37,13 +37,13 @@ If variable `x` has type scheme `σ` in environment `Γ`, then `x` has type `σ`
 #### Literals
 
 ```
-Γ ⊢ n : ℤ           (integer literals)
-Γ ⊢ f : ℝ           (float literals)
-Γ ⊢ true : 𝔹           (true)
-Γ ⊢ false : 𝔹           (false)
-Γ ⊢ "s" : 𝕊         (string literals)
-Γ ⊢ 'c' : ℂ         (char literals)
-Γ ⊢ () : 𝕌          (unit)
+Γ ⊢ n : Int           (integer literals)
+Γ ⊢ f : Float           (float literals)
+Γ ⊢ true : Bool           (true)
+Γ ⊢ false : Bool           (false)
+Γ ⊢ "s" : String         (string literals)
+Γ ⊢ 'c' : Char         (char literals)
+Γ ⊢ () : Unit          (unit)
 ```
 
 #### Function Application
@@ -147,8 +147,8 @@ When using an explicitly polymorphic top-level value, instantiate it with fresh 
 
 ```sigil
 λidentity[T](x:T)→T=x
-identity(5)        (* T instantiated to ℤ *)
-identity("hi")     (* T instantiated to 𝕊 *)
+identity(5)        (* T instantiated to Int *)
+identity("hi")     (* T instantiated to String *)
 ```
 
 ## Primitive Types
@@ -157,13 +157,13 @@ identity("hi")     (* T instantiated to 𝕊 *)
 
 | Symbol | Name | Description | Values |
 |--------|------|-------------|--------|
-| `ℤ` | Integer | Whole numbers | `-2147483648` to `2147483647` |
-| `ℝ` | Float | Floating point | IEEE 754 double precision |
-| `𝔹` | Boolean | Truth values | `true` (true), `false` (false) |
-| `𝕊` | String | UTF-8 strings | `"hello"` |
-| `ℂ` | Character | Unicode character | `'a'` |
-| `𝕌` | Unit | Empty type | `()` |
-| `∅` | Never | Uninhabited type | No values (for diverging functions) |
+| `Int` | Integer | Whole numbers | `-2147483648` to `2147483647` |
+| `Float` | Float | Floating point | IEEE 754 double precision |
+| `Bool` | Boolean | Truth values | `true` (true), `false` (false) |
+| `String` | String | UTF-8 strings | `"hello"` |
+| `Char` | Character | Unicode character | `'a'` |
+| `Unit` | Unit | Empty type | `()` |
+| `Never` | Never | Uninhabited type | No values (for diverging functions) |
 
 ### Type Constructors
 
@@ -216,13 +216,13 @@ match result{
 ### Product Types (Records)
 
 ```sigil
-t User={email:𝕊,id:ℤ,name:𝕊}
-t Point={x:ℝ,y:ℝ}
+t User={email:String,id:Int,name:String}
+t Point={x:Float,y:Float}
 ```
 
 **Type Rules**:
 - Fields have names and types
-- Field access: `user.name` has type `𝕊` if `user : User`
+- Field access: `user.name` has type `String` if `user : User`
 - Record literals must include all fields
 - Record types are **closed exact products**
 - Missing fields are rejected
@@ -239,8 +239,8 @@ Attempts to write open/partial-record forms are rejected with `SIGIL-CANON-RECOR
 ### Type Aliases
 
 ```sigil
-t UserId=ℤ
-t Email=𝕊
+t UserId=Int
+t Email=String
 ```
 
 Type aliases create synonyms, not new types (structural typing).
@@ -249,8 +249,8 @@ If a value must remain distinct from its raw representation, use a named wrapper
 type instead of an alias:
 
 ```sigil
-t Email=Email(𝕊)
-t UserId=UserId(ℤ)
+t Email=Email(String)
+t UserId=UserId(Int)
 ```
 
 This is the canonical way to represent validated boundary values that should not
@@ -282,7 +282,7 @@ owns conversion into trusted internal types.
 Example:
 
 ```sigil
-t Message={createdAt:Instant,text:𝕊}
+t Message={createdAt:Instant,text:String}
 
 ⟦ raw JSON must be decoded before business logic sees Message ⟧
 ```
@@ -299,8 +299,8 @@ whenever compatibility/equality is checked.
 Informally:
 
 ```
-normalize(UserId) = ℤ            if t UserId=ℤ
-normalize(Todo) = {done:𝔹,id:ℤ,text:𝕊}
+normalize(UserId) = Int            if t UserId=Int
+normalize(Todo) = {done:Bool,id:Int,text:String}
 ```
 
 Compatibility is then checked on normalized forms:
@@ -331,10 +331,10 @@ Sum types remain nominal and are not normalized into structural payload shapes.
 
 Example:
 ```sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
+λadd(x:Int,y:Int)→Int=x+y
 ```
 
-Type: `λ(ℤ,ℤ)→ℤ`
+Type: `λ(Int,Int)→Int`
 
 ### Higher-Order Functions
 
@@ -351,15 +351,15 @@ Type: `∀T,U.λ(λ(T)→U,[T])→[U]`
 Functions are **not curried** by default (unlike Haskell). Multi-argument functions take tuples implicitly:
 
 ```sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
+λadd(x:Int,y:Int)→Int=x+y
 ```
 
-Type is `λ(ℤ,ℤ)→ℤ`, **not** `λ(ℤ)→λ(ℤ)→ℤ`.
+Type is `λ(Int,Int)→Int`, **not** `λ(Int)→λ(Int)→Int`.
 
 To create curried functions explicitly:
 
 ```sigil
-λadd(x:ℤ)→λ(ℤ)→ℤ=λy→x+y
+λadd(x:Int)→λ(Int)→Int=λy→x+y
 ```
 
 ## Pattern Matching Type Rules
@@ -370,7 +370,7 @@ Pattern matches must cover all possible values:
 
 ```sigil
 (* OK - exhaustive *)
-λsign(n:ℤ)→𝕊 match n{
+λsign(n:Int)→String match n{
   0→"zero"|
   n→match n>0{true→"positive"|false→"negative"}
 }
@@ -388,14 +388,14 @@ Patterns introduce bindings with inferred types:
 ```sigil
 match option{
   Some(x)→x+1|    (* x : T where option : Option[T] *)
-  None→0           (* return type must match: ℤ *)
+  None→0           (* return type must match: Int *)
 }
 ```
 
 ### Type Constraints from Patterns
 
 ```sigil
-λlength[T](list:[T])→ℤ match list{
+λlength[T](list:[T])→Int match list{
   []→0|
   [x,.xs]→1+length(xs)
 }
@@ -412,8 +412,8 @@ match option{
 Functions can declare effects:
 
 ```sigil
-λread_file(path:𝕊)→Result[𝕊,IoError]!IO
-λfetch_url(url:𝕊)→Result[𝕊,HttpError]!Network
+λread_file(path:String)→Result[String,IoError]!IO
+λfetch_url(url:String)→Result[String,HttpError]!Network
 ```
 
 **Syntax**: `!EffectName`
@@ -423,7 +423,7 @@ Functions can declare effects:
 Functions without effect annotations are pure:
 
 ```sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y    (* Pure, no effects *)
+λadd(x:Int,y:Int)→Int=x+y    (* Pure, no effects *)
 ```
 
 ### Effect Inference
@@ -431,7 +431,7 @@ Functions without effect annotations are pure:
 Effects are inferred from function calls:
 
 ```sigil
-λprocess_file(path:𝕊)→Result[ℤ,Error]!IO=
+λprocess_file(path:String)→Result[Int,Error]!IO=
   l content=read_file(path)?;    (* read_file has !IO *)
   l lines=split(content,"\n");   (* split is pure *)
   Ok(count_lines(lines))
@@ -470,7 +470,7 @@ print(x);     (* ERROR: x was moved *)
 Use `&` for immutable borrows, `&mut` for mutable borrows:
 
 ```sigil
-λlength[T](list:&[T])→ℤ=...    (* Borrows list, doesn't take ownership *)
+λlength[T](list:&[T])→Int=...    (* Borrows list, doesn't take ownership *)
 
 l x=[1,2,3];
 l len=length(&x);               (* Borrow x *)
@@ -514,8 +514,8 @@ The lifetime of the returned reference is tied to the input `list`.
 W(Γ, e) = (S, τ)
 where S is a substitution and τ is a type
 
-W(Γ, x) = (∅, inst(Γ(x)))
-W(Γ, n) = (∅, ℤ)
+W(Γ, x) = (Never, inst(Γ(x)))
+W(Γ, n) = (Never, Int)
 W(Γ, λx→e) =
   let α = fresh type variable
       (S, τ) = W(Γ[x:α], e)
@@ -533,7 +533,7 @@ W(Γ, e₁(e₂)) =
 Unification finds a substitution `S` such that `S(τ₁) = S(τ₂)`:
 
 ```
-unify(ℤ, ℤ) = ∅
+unify(Int, Int) = Never
 unify(α, τ) = [α ↦ τ]  if α ∉ FV(τ)  (occurs check)
 unify(τ, α) = [α ↦ τ]  if α ∉ FV(τ)
 unify(τ₁→τ₂, τ₃→τ₄) =
@@ -548,8 +548,8 @@ Common type errors:
 
 1. **Type mismatch**:
    ```sigil
-   λadd(x:ℤ,y:ℤ)→ℤ=x+y
-   add(5,"hello")    (* ERROR: expected ℤ, got 𝕊 *)
+   λadd(x:Int,y:Int)→Int=x+y
+   add(5,"hello")    (* ERROR: expected Int, got String *)
    ```
 
 2. **Non-exhaustive pattern match**:
@@ -566,7 +566,7 @@ Common type errors:
 
 4. **Effect mismatch**:
    ```sigil
-   λpure_fn(x:ℤ)→ℤ=read_file("data.txt")  (* ERROR: !IO effect in pure function *)
+   λpure_fn(x:Int)→Int=read_file("data.txt")  (* ERROR: !IO effect in pure function *)
    ```
 
 ## Type Examples
@@ -608,9 +608,9 @@ Type inference:
 ### Example 3: Fibonacci with Memoization
 
 ```sigil
-t Memo={cache:{ℤ:ℤ}}
+t Memo={cache:{Int:Int}}
 
-λfib_memo(n:ℤ,memo:&mut Memo)→ℤ=
+λfib_memo(n:Int,memo:&mut Memo)→Int=
   match memo.cache.get(n){
     Some(result)→result|
     None→
@@ -626,9 +626,9 @@ t Memo={cache:{ℤ:ℤ}}
 
 Types:
 - `memo : &mut Memo` (mutable borrow)
-- `memo.cache : {ℤ:ℤ}`
-- `memo.cache.get(n) : Option[ℤ]`
-- `result : ℤ`
+- `memo.cache : {Int:Int}`
+- `memo.cache.get(n) : Option[Int]`
+- `result : Int`
 
 ## Type System Extensions (Future)
 
@@ -643,15 +643,15 @@ t Functor[F[_]]={
 ### Dependent Types
 
 ```sigil
-t Vec[T,n:ℤ]=[T]  (* Vector of length n *)
+t Vec[T,n:Int]=[T]  (* Vector of length n *)
 
-λhead[T,n:ℤ](v:Vec[T,n])→T where n>0=...
+λhead[T,n:Int](v:Vec[T,n])→T where n>0=...
 ```
 
 ### Row Polymorphism
 
 ```sigil
-t User={id:ℤ,name:𝕊,..r}  (* User with at least id and name; row tail follows fixed fields *)
+t User={id:Int,name:String,..r}  (* User with at least id and name; row tail follows fixed fields *)
 ```
 
 ## References

@@ -4,59 +4,59 @@
    Part of Sigil standard library - canonical implementations only.
 ⟧
 
-t DivMod={quotient:ℤ,remainder:ℤ}
+t DivMod={quotient:Int,remainder:Int}
 
 ⟦ Absolute value ⟧
-λabs(x:ℤ)→ℤ match x<0{true→-x|false→x}
+λabs(x:Int)→Int match x<0{true→-x|false→x}
 
 ⟦ Clamp value between min and max ⟧
-λclamp(hi:ℤ,lo:ℤ,x:ℤ)→ℤ=max(lo,min(x,hi))
+λclamp(hi:Int,lo:Int,x:Int)→Int=max(lo,min(x,hi))
 
 ⟦ Check if n is divisible by d ⟧
-λdivisible(d:ℤ,n:ℤ)→𝔹=n%d=0
+λdivisible(d:Int,n:Int)→Bool=n%d=0
 
 ⟦ Quotient and Euclidean remainder pair ⟧
-λdivmod(a:ℤ,b:ℤ)→DivMod={
-  l remainder=(mod(a,b):ℤ);
+λdivmod(a:Int,b:Int)→DivMod={
+  l remainder=(mod(a,b):Int);
   DivMod{quotient:((a-remainder)/b),remainder:remainder}
 }
 
 ⟦ Greatest common divisor (Euclidean algorithm) ⟧
-λgcd(a:ℤ,b:ℤ)→ℤ match b{0→a|divisor→gcd(divisor,a%divisor)}
+λgcd(a:Int,b:Int)→Int match b{0→a|divisor→gcd(divisor,a%divisor)}
 
 ⟦ Check if value is in range [min, max] (inclusive) ⟧
-λinRange(max:ℤ,min:ℤ,x:ℤ)→𝔹=inRangeHelper(max,min,x)
+λinRange(max:Int,min:Int,x:Int)→Bool=inRangeHelper(max,min,x)
 
 ⟦ Helper: Range checking ⟧
-λinRangeHelper(max:ℤ,min:ℤ,x:ℤ)→𝔹 match (x≥min){
+λinRangeHelper(max:Int,min:Int,x:Int)→Bool match (x≥min){
   true→x≤max|
   false→false
 }
 
 ⟦ Check if value is even ⟧
-λisEven(x:ℤ)→𝔹=(x%2)=0
+λisEven(x:Int)→Bool=(x%2)=0
 
 ⟦ Check if value is negative ⟧
-λisNegative(x:ℤ)→𝔹=x<0
+λisNegative(x:Int)→Bool=x<0
 
 ⟦ Check if value is non-negative (≥0) ⟧
-λisNonNegative(x:ℤ)→𝔹=x≥0
+λisNonNegative(x:Int)→Bool=x≥0
 
 ⟦ Check if value is odd ⟧
-λisOdd(x:ℤ)→𝔹=¬(isEven(x))
+λisOdd(x:Int)→Bool=¬(isEven(x))
 
 ⟦ Check if value is positive ⟧
-λisPositive(x:ℤ)→𝔹=x>0
+λisPositive(x:Int)→Bool=x>0
 
 ⟦ Check if value is prime ⟧
-λisPrime(n:ℤ)→𝔹 match n{
+λisPrime(n:Int)→Bool match n{
   0→false|
   1→false|
   value→isPrimeHelper(2,value)
 }
 
 ⟦ Helper: Prime checking ⟧
-λisPrimeHelper(divisor:ℤ,n:ℤ)→𝔹 match (divisor*divisor>n){
+λisPrimeHelper(divisor:Int,n:Int)→Bool match (divisor*divisor>n){
   true→true|
   false→match (n%divisor≠0){
     true→isPrimeHelper(divisor+1,n)|
@@ -65,23 +65,23 @@ t DivMod={quotient:ℤ,remainder:ℤ}
 }
 
 ⟦ Least common multiple ⟧
-λlcm(a:ℤ,b:ℤ)→ℤ match (a=0) or (b=0){
+λlcm(a:Int,b:Int)→Int match (a=0) or (b=0){
   true→0|
   false→{
-    l gcdValue=(abs(gcd(a,b)):ℤ);
+    l gcdValue=(abs(gcd(a,b)):Int);
     abs((a/gcdValue)*b)
   }
 }
 
 ⟦ Maximum of two numbers ⟧
-λmax(a:ℤ,b:ℤ)→ℤ match a>b{true→a|false→b}
+λmax(a:Int,b:Int)→Int match a>b{true→a|false→b}
 
 ⟦ Minimum of two numbers ⟧
-λmin(a:ℤ,b:ℤ)→ℤ match a<b{true→a|false→b}
+λmin(a:Int,b:Int)→Int match a<b{true→a|false→b}
 
 ⟦ Euclidean modulo with non-negative remainder ⟧
-λmod(a:ℤ,b:ℤ)→ℤ={
-  l raw=((a%b):ℤ);
+λmod(a:Int,b:Int)→Int={
+  l raw=((a%b):Int);
   match raw<0{
     true→raw+abs(b)|
     false→raw
@@ -89,19 +89,19 @@ t DivMod={quotient:ℤ,remainder:ℤ}
 }
 
 ⟦ Integer power (exponentiation) ⟧
-λpow(base:ℤ,exp:ℤ)→ℤ match exp{
+λpow(base:Int,exp:Int)→Int match exp{
   0→1|
   remainingExp→base*pow(base,remainingExp-1)
 }
 
 ⟦ Integer range from start to stop, inclusive ⟧
-λrange(start:ℤ,stop:ℤ)→[ℤ] match start>stop{
+λrange(start:Int,stop:Int)→[Int] match start>stop{
   true→[]|
   false→[start]⧺range(start+1,stop)
 }
 
 ⟦ Sign of an integer: -1, 0, or 1 ⟧
-λsign(x:ℤ)→ℤ match x<0{
+λsign(x:Int)→Int match x<0{
   true→-1|
   false→match x=0{
     true→0|

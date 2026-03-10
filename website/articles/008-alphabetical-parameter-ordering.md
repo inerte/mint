@@ -30,10 +30,10 @@ Sigil enforces **alphabetical parameter ordering**. Every function signature has
 
 ```sigil
 ✅ VALID - alphabetical order:
-λsend_email(body:𝕊, from:𝕊, subject:𝕊, to:𝕊)→𝕌=...
+λsend_email(body:String, from:String, subject:String, to:String)→Unit=...
 
 ❌ REJECTED - non-alphabetical:
-λsend_email(to:𝕊, from:𝕊, subject:𝕊, body:𝕊)→𝕌=...
+λsend_email(to:String, from:String, subject:String, body:String)→Unit=...
 ```
 
 The compiler catches this immediately:
@@ -106,7 +106,7 @@ But "natural" is subjective:
 
 ```sigil
 ✅ The ONE way in Sigil:
-λcreate_user(age:ℤ, email:𝕊, name:𝕊)→User=...
+λcreate_user(age:Int, email:String, name:String)→User=...
 ```
 
 ## Effect Ordering Too
@@ -115,10 +115,10 @@ Sigil also enforces alphabetical ordering for effect annotations:
 
 ```sigil
 ✅ VALID - alphabetical order:
-λfetch_data()→!Error !IO !Network 𝕊=...
+λfetch_data()→!Error !IO !Network String=...
 
 ❌ REJECTED - non-alphabetical:
-λfetch_data()→!Network !IO !Error 𝕊=...
+λfetch_data()→!Network !IO !Error String=...
 ```
 
 Standard effects in alphabetical order:
@@ -138,10 +138,10 @@ Example from `stdlib⋅httpServer`:
 
 ```sigil
 # Before:
-λjson(status:ℤ, body:𝕊)→Response=...
+λjson(status:Int, body:String)→Response=...
 
 # After (alphabetical):
-λjson(body:𝕊, status:ℤ)→Response=...
+λjson(body:String, status:Int)→Response=...
 ```
 
 All calls were updated automatically:

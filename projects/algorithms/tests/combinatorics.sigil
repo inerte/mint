@@ -2,7 +2,7 @@ i src⋅linearSearch
 i src⋅nQueens
 i src⋅permutations
 
-λallUnique(cols:[ℤ])→𝔹 match cols{
+λallUnique(cols:[Int])→Bool match cols{
   []→true|
   [head,.tail]→match src⋅linearSearch.linearSearch(head,tail)=-1{
     true→allUnique(tail)|
@@ -10,7 +10,7 @@ i src⋅permutations
   }
 }
 
-λdiagonalSafe(col:ℤ,distance:ℤ,nextCols:[ℤ])→𝔹 match nextCols{
+λdiagonalSafe(col:Int,distance:Int,nextCols:[Int])→Bool match nextCols{
   []→true|
   [nextCol,.tail]→match col+distance=nextCol or col-distance=nextCol{
     true→false|
@@ -18,9 +18,9 @@ i src⋅permutations
   }
 }
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
-λnoDiagonalConflicts(cols:[ℤ])→𝔹 match cols{
+λnoDiagonalConflicts(cols:[Int])→Bool match cols{
   []→true|
   [_]→true|
   [head,.tail]→match diagonalSafe(head,1,tail){

@@ -44,8 +44,8 @@ Sigil uses file extensions to distinguish libraries from executables at the file
 ✅ VALID - Library file:
 ```sigil
 // math.lib.sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
-λmultiply(x:ℤ,y:ℤ)→ℤ=x*y
+λadd(x:Int,y:Int)→Int=x+y
+λmultiply(x:Int,y:Int)→Int=x*y
 // All functions automatically visible to importers
 ```
 
@@ -54,7 +54,7 @@ Sigil uses file extensions to distinguish libraries from executables at the file
 // calculator.sigil
 i src⋅math
 
-λmain()→ℤ=src⋅math.add(2,3)
+λmain()→Int=src⋅math.add(2,3)
 ```
 
 ✅ VALID - Test file:
@@ -62,7 +62,7 @@ i src⋅math
 // tests/math.sigil
 i src⋅math
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "addition works" {
   src⋅math.add(2,3)=5
@@ -72,14 +72,14 @@ test "addition works" {
 ❌ REJECTED - .lib.sigil with main():
 ```sigil
 // math.lib.sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
-λmain()→ℤ=42  // ERROR: SIGIL-CANON-LIB-NO-MAIN
+λadd(x:Int,y:Int)→Int=x+y
+λmain()→Int=42  // ERROR: SIGIL-CANON-LIB-NO-MAIN
 ```
 
 ❌ REJECTED - .sigil without main (and not in tests/):
 ```sigil
 // math.sigil
-λhelper(x:ℤ)→ℤ=x*2  // ERROR: SIGIL-CANON-EXEC-NEEDS-MAIN
+λhelper(x:Int)→Int=x*2  // ERROR: SIGIL-CANON-EXEC-NEEDS-MAIN
 // Solution: Add λmain() or rename to math.lib.sigil
 ```
 
@@ -151,7 +151,7 @@ Test blocks can ONLY appear in files under `tests/` directories.
 // tests/listPredicates.sigil
 i stdlib⋅list
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "list.in_bounds checks valid indexes" {
   stdlib⋅list.in_bounds(0,[10,20,30])=true
@@ -159,7 +159,7 @@ test "list.in_bounds checks valid indexes" {
 
 ❌ REJECTED - Test blocks outside tests/ directory:
 // examples/fibonacci.sigil
-λfibonacci(n:ℤ)→ℤ=...
+λfibonacci(n:Int)→Int=...
 
 test "fibonacci works" {  // ERROR: SIGIL-CANON-TEST-LOCATION
   fibonacci(5)=5
@@ -175,13 +175,13 @@ test "example" { true }
 // tests/my-test.sigil
 // Test files are .sigil executables, not .lib.sigil libraries
 test "example" { true }
-λmain()→𝕌=()
+λmain()→Unit=()
 ```
 
 **Rationale:**
 - Tests are executables with test blocks, not a separate category
 - Location-based enforcement prevents scattered test code
-- `main()→𝕌` is a marker - actual execution via test runner
+- `main()→Unit` is a marker - actual execution via test runner
 - Tests use `.sigil` extension (executables), not `.lib.sigil` (libraries)
 
 **What's allowed:**
@@ -204,11 +204,11 @@ Every file must end with `\n`.
 
 ```sigil
 ✅ VALID:
-λmain()→ℤ=1
+λmain()→Int=1
 [newline]
 
 ❌ REJECTED - no final newline:
-λmain()→ℤ=1[EOF]
+λmain()→Int=1[EOF]
 ```
 
 **Error message:**
@@ -222,7 +222,7 @@ Lines cannot end with spaces or tabs.
 
 ```sigil
 ❌ REJECTED:
-λmain()→ℤ=1
+λmain()→Int=1
 ⟦ Error: Line 1 has trailing whitespace ⟧
 ```
 
@@ -237,15 +237,15 @@ Only one blank line allowed between declarations.
 
 ```sigil
 ✅ VALID:
-λa()→ℤ=1
+λa()→Int=1
 
-λb()→ℤ=2
+λb()→Int=2
 
 ❌ REJECTED:
-λa()→ℤ=1
+λa()→Int=1
 
 
-λb()→ℤ=2
+λb()→Int=2
 ```
 
 **Error message:**
@@ -260,22 +260,22 @@ The presence/absence of `=` depends on the function body type.
 **Regular expressions require `=`:**
 ```sigil
 ✅ VALID:
-λdouble(x:ℤ)→ℤ=x*2
-λsum(xs:[ℤ])→ℤ=xs⊕(λ(a,x)→a+x)⊕0
+λdouble(x:Int)→Int=x*2
+λsum(xs:[Int])→Int=xs⊕(λ(a,x)→a+x)⊕0
 
 ❌ REJECTED:
-λdouble(x:ℤ)→ℤ x*2
+λdouble(x:Int)→Int x*2
 ⟦ Error: Expected "=" before function body (canonical form: λf()→T=...) ⟧
 ```
 
 **Match expressions forbid `=`:**
 ```sigil
 ✅ VALID:
-λfactorial(n:ℤ)→ℤ match n{0→1|n→n*factorial(n-1)}
-λsign(n:ℤ)→𝕊 match (n>0,n<0){(true,false)→"positive"|...}
+λfactorial(n:Int)→Int match n{0→1|n→n*factorial(n-1)}
+λsign(n:Int)→String match (n>0,n<0){(true,false)→"positive"|...}
 
 ❌ REJECTED:
-λfactorial(n:ℤ)→ℤ=match n{...}
+λfactorial(n:Int)→Int=match n{...}
 ⟦ Error: Unexpected "=" before match expression (canonical form: λf()→T match ...) ⟧
 ```
 
@@ -289,16 +289,16 @@ Module-level declarations must appear in strict categorical order:
 
 ```sigil
 ✅ VALID:
-t User={age:ℤ,name:𝕊}
+t User={age:Int,name:String}
 e console
 i stdlib⋅list
-c MAX_SIZE:ℤ=100
-λmain()→ℤ=0
+c MAX_SIZE:Int=100
+λmain()→Int=0
 test "example" { ... }
 
 ❌ REJECTED - extern before type:
 e console
-t User={age:ℤ,name:𝕊}
+t User={age:Int,name:String}
 ⟦ Error: Type declarations must come before extern declarations ⟧
 ```
 
@@ -331,12 +331,12 @@ Top-level Sigil code may only contain declarations.
 
 ```sigil
 ✅ VALID - immutable module constant:
-c config=("prod":𝕊)
-λmain()→𝕌=()
+c config=("prod":String)
+λmain()→Unit=()
 
 ❌ REJECTED - top-level local binding:
-l config=("prod":𝕊)
-λmain()→𝕌=()
+l config=("prod":String)
+λmain()→Unit=()
 ⟦ Error: Module scope is declaration-only ⟧
 ```
 
@@ -352,12 +352,12 @@ Record fields must be alphabetically ordered in:
 
 ```sigil
 ✅ VALID:
-t Request={body:𝕊,headers:Headers,method:𝕊,path:𝕊}
+t Request={body:String,headers:Headers,method:String,path:String}
 Request{body:body,headers:headers,method:method,path:path}
 match req{{body,headers,method,path}→...}
 
 ❌ REJECTED:
-t Request={path:𝕊,method:𝕊,headers:Headers,body:𝕊}
+t Request={path:String,method:String,headers:Headers,body:String}
 Request{path:path,method:method,headers:headers,body:body}
 match req{{path,method,headers,body}→...}
 ```
@@ -370,7 +370,7 @@ does for parameters, effects, and declarations.
 Records are fixed-shape products and use `:`:
 
 ```sigil
-t Request={body:𝕊,method:𝕊,path:𝕊}
+t Request={body:String,method:String,path:String}
 Request{body:body,method:method,path:path}
 ```
 
@@ -378,7 +378,7 @@ Maps are dynamic keyed collections and use `↦`:
 
 ```sigil
 {"content-type"↦"text/plain","x-id"↦"42"}
-({↦}:{𝕊↦𝕊})
+({↦}:{String↦String})
 ```
 
 Rules:
@@ -392,14 +392,14 @@ Local names must not be rebound in the same or any enclosing lexical scope.
 
 ```sigil
 ✅ VALID:
-λformat_user(name:𝕊)→𝕊={
-  l normalized_name=(stdlib⋅string.trim(name):𝕊);
+λformat_user(name:String)→String={
+  l normalized_name=(stdlib⋅string.trim(name):String);
   normalized_name
 }
 
 ❌ REJECTED:
-λformat_user(name:𝕊)→𝕊={
-  l name=(stdlib⋅string.trim(name):𝕊);
+λformat_user(name:String)→String={
+  l name=(stdlib⋅string.trim(name):String);
   name
 }
 ```
@@ -420,16 +420,16 @@ Function parameters must be in alphabetical order by name.
 
 ```sigil
 ✅ VALID - alphabetical order:
-λfoo(a:ℤ,b:ℤ,c:ℤ)→ℤ=a+b+c
+λfoo(a:Int,b:Int,c:Int)→Int=a+b+c
 
 ❌ REJECTED - non-alphabetical:
-λfoo(c:ℤ,a:ℤ,b:ℤ)→ℤ=a+b+c
+λfoo(c:Int,a:Int,b:Int)→Int=a+b+c
 ⟦ Error: Parameter out of alphabetical order ⟧
 ```
 
 **Applies to:**
-- Function declarations: `λfoo(x:ℤ,y:ℤ)→ℤ=x+y`
-- Lambda expressions: `(λ(a:ℤ,b:ℤ)→ℤ=a+b)(1,2)`
+- Function declarations: `λfoo(x:Int,y:Int)→Int=x+y`
+- Lambda expressions: `(λ(a:Int,b:Int)→Int=a+b)(1,2)`
 - All parameter lists regardless of length
 
 **Rationale:**
@@ -463,10 +463,10 @@ Effect annotations must be in alphabetical order.
 
 ```sigil
 ✅ VALID - alphabetical order:
-λfetch()→!Error !IO !Network 𝕊="data"
+λfetch()→!Error !IO !Network String="data"
 
 ❌ REJECTED - non-alphabetical:
-λfetch()→!Network !IO !Error 𝕊="data"
+λfetch()→!Network !IO !Error String="data"
 ⟦ Error: Effect out of alphabetical order ⟧
 ```
 
@@ -526,19 +526,19 @@ Let binding values and const declarations MUST use type ascription syntax.
 
 ```sigil
 ✅ VALID - type ascription required:
-l x=(42:ℤ);x+1
-l empty=([]:[ℤ]);#empty
-l names=(["Alice","Bob"]:[𝕊]);names
+l x=(42:Int);x+1
+l empty=([]:[Int]);#empty
+l names=(["Alice","Bob"]:[String]);names
 
-c answer=(42:ℤ)
-c pi=(3.14:ℝ)
+c answer=(42:Int)
+c pi=(3.14:Float)
 
 ❌ REJECTED - no type ascription in let:
 l x=42;x+1
 ⟦ Error: Let binding value must use type ascription ⟧
 
 ❌ REJECTED - old const syntax:
-c answer:ℤ=42
+c answer:Int=42
 ⟦ Error: Const value must use type ascription ⟧
 ```
 
@@ -549,15 +549,15 @@ c answer:ℤ=42
 
 Works anywhere expressions are allowed:
 ```sigil
-#([]:[ℤ])=0                    ← Empty list in expression
-λf()→[𝕊]=([]:[𝕊])              ← Empty list in return position
+#([]:[Int])=0                    ← Empty list in expression
+λf()→[String]=([]:[String])              ← Empty list in return position
 l result=(fetch():Result);      ← Explicit result type (when needed)
 ```
 
 **Rationale:**
 - **Explicit types everywhere** - No type inference in let bindings or const declarations
 - **ONE WAY** - Single canonical form for variable bindings
-- **Solves empty list problem** - `([]:[ℤ])` has explicit type, no inference needed
+- **Solves empty list problem** - `([]:[Int])` has explicit type, no inference needed
 - **AI generation** - Clearer, more predictable for language models
 - **Consistency** - Matches mandatory parameter/return type annotations
 
@@ -565,11 +565,11 @@ l result=(fetch():Result);      ← Explicit result type (when needed)
 ```sigil
 // OLD (rejected):
 l text="Hello";              // type inferred
-c max:ℤ=100                  // type before equals
+c max:Int=100                  // type before equals
 
 // NEW (required):
-l text=("Hello":𝕊);          // type ascribed
-c max=(100:ℤ)                // type in ascription
+l text=("Hello":String);          // type ascribed
+c max=(100:Int)                // type in ascription
 ```
 
 **Error message (let binding):**
@@ -579,7 +579,7 @@ Let binding value must use type ascription
 Found: LiteralExpr
 Expected: (value:Type) syntax
 
-Example: l x=(42:ℤ) instead of l x=42
+Example: l x=(42:Int) instead of l x=42
 
 Sigil requires explicit types in let bindings (ONE WAY).
 ```
@@ -601,14 +601,14 @@ The lexer rejects:
 ### Tab Characters
 ```sigil
 ❌ REJECTED:
-λmain()→ℤ=1[TAB]2
+λmain()→Int=1[TAB]2
 ⟦ Error: Tab characters not allowed - use spaces ⟧
 ```
 
 ### Standalone `\r`
 ```sigil
 ❌ REJECTED:
-λmain()→ℤ=1\r\n
+λmain()→Int=1\r\n
 ⟦ Error: Standalone \r not allowed - use \n for line breaks ⟧
 ```
 
@@ -701,7 +701,7 @@ Potential future rules (not yet implemented):
 
 - Operator spacing (dense `a+b` or spaced `a + b`)
 - Comma spacing (`(a,b)` vs `(a, b)`)
-- Colon spacing (`a:ℤ` vs `a: ℤ`)
+- Colon spacing (`a:Int` vs `a: Int`)
 - Indentation consistency (2 spaces per level)
 - Parenthesis placement in nested expressions
 

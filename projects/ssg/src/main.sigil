@@ -3,14 +3,14 @@ e process
 i src⋅build
 i src⋅types
 
-λbasePath()→𝕊=basePathFromProperty(process.env.hasOwnProperty("sigilSiteBasePath"))
+λbasePath()→String=basePathFromProperty(process.env.hasOwnProperty("sigilSiteBasePath"))
 
-λbasePathFromProperty(hasValue:𝔹)→𝕊 match hasValue{
-  true→(process.env.sigilSiteBasePath:𝕊)|
+λbasePathFromProperty(hasValue:Bool)→String match hasValue{
+  true→(process.env.sigilSiteBasePath:String)|
   false→"/"
 }
 
-λmain()→!IO 𝕌=
+λmain()→!IO Unit=
   src⋅build.buildSite({
     basePath:basePath(),
     outputDir:"website/.local/site",
@@ -19,9 +19,9 @@ i src⋅types
     siteTitle:"Sigil"
   })
 
-λrepoUrl()→𝕊=repoUrlFromProperty(process.env.hasOwnProperty("sigilSiteRepoUrl"))
+λrepoUrl()→String=repoUrlFromProperty(process.env.hasOwnProperty("sigilSiteRepoUrl"))
 
-λrepoUrlFromProperty(hasValue:𝔹)→𝕊 match hasValue{
-  true→(process.env.sigilSiteRepoUrl:𝕊)|
+λrepoUrlFromProperty(hasValue:Bool)→String match hasValue{
+  true→(process.env.sigilSiteRepoUrl:String)|
   false→""
 }

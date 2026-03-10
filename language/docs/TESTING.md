@@ -15,7 +15,7 @@ Use canonical Sigil imports and explicit exports in the source module:
 
 ```sigil
 ⟦ src/math.sigil ⟧
-export λdouble(x:ℤ)→ℤ=x*2
+export λdouble(x:Int)→Int=x*2
 ```
 
 ```sigil
@@ -35,7 +35,7 @@ test "adds numbers" {
 }
 ```
 
-- Test body must evaluate to `𝔹`
+- Test body must evaluate to `Bool`
 - `true` passes, `false` fails
 
 ## Effectful tests
@@ -62,14 +62,14 @@ Mocks are explicit, lexical, and automatically restored.
 ### `mockable` adapter function
 
 ```sigil
-mockable λfetchUser(id:ℤ)→!Network 𝕊="real"
+mockable λfetchUser(id:Int)→!Network String="real"
 ```
 
 ### `withMock`
 
 ```sigil
 test "fallback on API failure" →!Network {
-  withMock(fetchUser, λ(id:ℤ)→!Network 𝕊="ERR") {
+  withMock(fetchUser, λ(id:Int)→!Network String="ERR") {
     fetchUser(1)="ERR"
   }
 }

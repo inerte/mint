@@ -5,23 +5,23 @@
 
   Example:
     i stdlib⋅ffiNodeFs
-    λreadConfig()→𝕊=fs⋅promises.readFile("config.json", "utf8")
+    λreadConfig()→String=fs⋅promises.readFile("config.json", "utf8")
 ⟧
 
-t MkdirOptions = { recursive: 𝔹 }
-t RmOptions = { force: 𝔹, recursive: 𝔹 }
+t MkdirOptions = { recursive: Bool }
+t RmOptions = { force: Bool, recursive: Bool }
 
 e fs : {
-  existsSync : λ(𝕊) → 𝔹
+  existsSync : λ(String) → Bool
 }
 
 e fs⋅promises : {
-  access : λ(𝕊) → 𝕌,
-  appendFile : λ(𝕊, 𝕊, 𝕊) → 𝕌,
-  mkdir : λ(𝕊, MkdirOptions) → 𝕌,
-  readFile : λ(𝕊, 𝕊) → 𝕊,
-  readdir : λ(𝕊) → [𝕊],
-  rm : λ(𝕊, RmOptions) → 𝕌,
-  unlink : λ(𝕊) → 𝕌,
-  writeFile : λ(𝕊, 𝕊, 𝕊) → 𝕌
+  access : λ(String) → Unit,
+  appendFile : λ(String, String, String) → Unit,
+  mkdir : λ(String, MkdirOptions) → Unit,
+  readFile : λ(String, String) → String,
+  readdir : λ(String) → [String],
+  rm : λ(String, RmOptions) → Unit,
+  unlink : λ(String) → Unit,
+  writeFile : λ(String, String, String) → Unit
 }

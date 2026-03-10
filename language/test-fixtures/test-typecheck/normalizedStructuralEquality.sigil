@@ -1,9 +1,9 @@
 ⟦ Test: map uses canonical normalized equality for named product types ⟧
 
-t Todo={done:𝔹,id:ℤ,text:𝕊}
+t Todo={done:Bool,id:Int,text:String}
 
 λkeep(todo:Todo)→Todo=todo
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 λtest()→[Todo]=[{done:false,id:1,text:"one"}]↦keep

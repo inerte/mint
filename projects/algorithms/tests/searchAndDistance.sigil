@@ -1,7 +1,7 @@
 i src⋅levenshteinDistance
 i src⋅linearSearch
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "linear search finds first occurrence" {
   src⋅linearSearch.linearSearch(2,[5,2,3,2])=1

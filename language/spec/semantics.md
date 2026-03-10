@@ -14,7 +14,7 @@ This document defines the **operational semantics** of Sigil - how programs exec
 Sigil starts independent work early and joins results only when a strict construct needs a concrete value:
 
 ```sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
+λadd(x:Int,y:Int)→Int=x+y
 
 add(2+3,4+5)
 // The arithmetic subexpressions may be started independently
@@ -306,8 +306,8 @@ Returns bindings `θ` if pattern `p` matches value `v`, otherwise fails.
 
 ```
 match(x, v) = [x ↦ v]                    (* Variable pattern *)
-match(_, v) = ∅                          (* Wildcard *)
-match(n, n) = ∅                          (* Literal match *)
+match(_, v) = Never                          (* Wildcard *)
+match(n, n) = Never                          (* Literal match *)
 match(n, m) = fail  (if n ≠ m)          (* Literal mismatch *)
 match(C(p₁,...,pₙ), C(v₁,...,vₙ)) =     (* Constructor *)
   match(p₁,v₁) ∪ ... ∪ match(pₙ,vₙ)
@@ -340,7 +340,7 @@ match([x,.xs], [1,2,3])
 Pure functions have **no observable effects**:
 
 ```sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
+λadd(x:Int,y:Int)→Int=x+y
 
 // Always returns same output for same input
 // No side effects
@@ -353,7 +353,7 @@ Pure functions have **no observable effects**:
 Functions with effects (`!IO`, `!Network`, etc.) have observable behavior:
 
 ```sigil
-λread_file(path:𝕊)→Result[𝕊,IoError]!IO
+λread_file(path:String)→Result[String,IoError]!IO
 
 // Different results possible for same input (file may change)
 // Side effects observable (reads from disk)
@@ -378,10 +378,10 @@ Sigil preserves source-order effect initiation, but effect resolution may overla
 Effects cannot escape pure contexts:
 
 ```sigil
-λpure_fn(x:ℤ)→ℤ=
+λpure_fn(x:Int)→Int=
   read_file("data.txt")  (* ERROR: !IO effect in pure function *)
 
-λio_fn(x:ℤ)→ℤ!IO=
+λio_fn(x:Int)→Int!IO=
   read_file("data.txt")  (* OK: function is marked !IO *)
 ```
 
@@ -424,7 +424,7 @@ print(x)      (* ERROR: x was moved *)
 Use `&` to **borrow** without taking ownership:
 
 ```sigil
-λlength[T](list:&[T])→ℤ=...
+λlength[T](list:&[T])→Int=...
 
 l x=[1,2,3]
 l len=length(&x)  (* Borrow x *)
@@ -436,7 +436,7 @@ print(x)          (* OK: x still owned here *)
 Use `&mut` for mutable borrows:
 
 ```sigil
-λappend[T](list:&mut [T],item:T)→𝕌=...
+λappend[T](list:&mut [T],item:T)→Unit=...
 
 l mut xs=[1,2,3]
 append(&mut xs,4)  (* Mutable borrow *)
@@ -492,7 +492,7 @@ function identity(x) { return x; }
 ### Example 1: Fibonacci
 
 ```sigil
-λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 
 // Evaluate fibonacci(3):
 fibonacci(3)
@@ -552,10 +552,10 @@ map(λn→n*2,[1,2,3])
 ### Semantic Domains
 
 ```
-⟦ℤ⟧ = ℤ                                 (* Mathematical integers *)
-⟦ℝ⟧ = ℝ                                 (* Mathematical reals *)
-⟦𝔹⟧ = {true, false}                    (* Booleans *)
-⟦𝕊⟧ = String                           (* Strings *)
+⟦Int⟧ = Int                                 (* Mathematical integers *)
+⟦Float⟧ = Float                                 (* Mathematical reals *)
+⟦Bool⟧ = {true, false}                    (* Booleans *)
+⟦String⟧ = String                           (* Strings *)
 ⟦[T]⟧ = ⟦T⟧*                            (* Lists are sequences *)
 ⟦T₁→T₂⟧ = ⟦T₁⟧ → ⟦T₂⟧                  (* Functions *)
 ⟦{f₁:T₁,...,fₙ:Tₙ}⟧ = ⟦T₁⟧ × ... × ⟦Tₙ⟧  (* Records are tuples *)
@@ -579,7 +579,7 @@ Where `ρ` is the environment mapping variables to values.
 ### Type Erasure
 
 ```sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
+λadd(x:Int,y:Int)→Int=x+y
 ```
 
 Compiles to:
@@ -647,7 +647,7 @@ g(f(x))
 
 Counter-example:
 ```sigil
-λloop()→𝕌=loop()
+λloop()→Unit=loop()
 ```
 
 This is intentional - Turing-complete languages cannot guarantee termination.

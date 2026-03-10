@@ -115,12 +115,12 @@ case '#': {
   if (!isSizeable) {
     throw new TypeError(
       `Cannot apply # to type ${formatType(operandType)}\n` +
-      `Expected: 𝕊 or [T]`,
+      `Expected: String or [T]`,
       expr.location
     );
   }
 
-  return { kind: 'primitive', name: 'Int' }; // Always returns ℤ
+  return { kind: 'primitive', name: 'Int' }; // Always returns Int
 }
 ```
 
@@ -233,7 +233,7 @@ The old `stdlib⋅list.len` function has been removed. Use `#` instead.
 ```sigil
 e console
 
-λmain()→!IO 𝕌={
+λmain()→!IO Unit={
   console.log("Length of 'hello': "++(#"hello"));
   console.log("Length of list: "++(#[1,2,3,4]))
 }

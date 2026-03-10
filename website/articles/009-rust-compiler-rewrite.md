@@ -123,9 +123,9 @@ pub enum Token {
     #[token("→")] Arrow,
     #[token("⟦")] CommentStart,
     #[token("⟧")] CommentEnd,
-    #[token("ℤ")] IntType,
-    #[token("𝕊")] StringType,
-    #[token("𝔹")] BoolType,
+    #[token("Int")] IntType,
+    #[token("String")] StringType,
+    #[token("Bool")] BoolType,
 
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
     Identifier,
@@ -820,8 +820,8 @@ cargo build --release
 ### Compile a Program
 ```sigil
 ⟦ hello.sigil ⟧
-λ greet(name: 𝕊) → 𝕊 = "Hello, " + name + "!"
-λ main() → 𝕊 = greet("Rust")
+λ greet(name: String) → String = "Hello, " + name + "!"
+λ main() → String = greet("Rust")
 ```
 
 ```bash

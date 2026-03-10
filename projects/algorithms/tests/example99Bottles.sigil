@@ -1,6 +1,6 @@
 i src⋅bottles99
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "99 bottles verse 0" {
   src⋅bottles99.verse(0)="No more bottles of beer on the wall, no more bottles of beer.\nGo to the store and buy some more, 99 bottles of beer on the wall."

@@ -26,7 +26,7 @@ Sigil is optimized for:
 
 ### What's Written (Dense, Canonical Format)
 ```sigil
-λfibonacci(n:ℤ)→ℤ match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
 ```
 
 ### How Humans Understand It
@@ -58,7 +58,7 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test -
 ```
 
 - Tests must live under `./tests`
-- Test bodies return `𝔹`
+- Test bodies return `Bool`
 - Effectful tests declare effects explicitly
 - Scoped mocking is built-in via `mockable` + `withMock(...) { ... }`
 - Test files run in parallel by default (JSON results are output in stable order)
@@ -135,7 +135,7 @@ Developers interact through **Claude Code**:
 - Algebraic data types (sum + product types)
 - Effect system for tracking side effects (planned)
 - Compile-time guarantees prevent runtime type errors
-- Better error messages than Hindley-Milner: "expected ℤ, got 𝕊"
+- Better error messages than Hindley-Milner: "expected Int, got String"
 
 ### 3. Enforced Canonical Formatting
 **"Unformatted code is a syntax error"**
@@ -151,12 +151,12 @@ Unicode symbols for ultimate density:
 - `λ` for function (1 char vs 2-8)
 - `→` for returns/maps-to (1 char vs 2)
 - `match` for pattern match (common keyword with strong model priors)
-- `ℤ` for integers, `ℝ` for reals, `𝔹` for bool, `𝕊` for string
+- `Int` for integers, `Float` for reals, `Bool` for bool, `String` for string
 - `↦` for map (1 char vs 4)
 - `⊳` for filter (1 char vs 7)
 - `⊕` for fold/reduce (1 char vs 7)
 - `∈` for iteration "in"
-- `∅` for None/empty
+- `Never` for None/empty
 - `true` for true, `false` for false
 
 ### 5. Functional-First Paradigm
@@ -182,12 +182,12 @@ Unicode symbols for ultimate density:
 
 ### Function Definition
 ```sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
+λadd(x:Int,y:Int)→Int=x+y
 ```
 
 ### Pattern Matching
 ```sigil
-λfactorial(n:ℤ)→ℤ match n{0→1|1→1|n→n*factorial(n-1)}
+λfactorial(n:Int)→Int match n{0→1|1→1|n→n*factorial(n-1)}
 ```
 
 ### HTTP Handler Example
@@ -199,7 +199,7 @@ Unicode symbols for ultimate density:
 ```sigil
 t Option[T]=Some(T)|None
 t Result[T,E]=Ok(T)|Err(E)
-t User={id:ℤ,name:𝕊,email:𝕊,active:𝔹}
+t User={id:Int,name:String,email:String,active:Bool}
 ```
 
 Sigil supports explicit parametric polymorphism on top-level declarations.
@@ -222,7 +222,7 @@ It does not use Hindley-Milner let-polymorphism for local bindings.
 
 ### Pipeline Operations
 ```sigil
-λprocess_users(users:[User])→[𝕊]=users|>filter(λu→u.active)|>map(λu→u.name)
+λprocess_users(users:[User])→[String]=users|>filter(λu→u.active)|>map(λu→u.name)
 ```
 
 ## Token Efficiency Comparison
@@ -255,7 +255,7 @@ Developer writes code → Compiler checks → If error, developer fixes
 ```
 Developer: "Create a function that validates email addresses"
 Claude Code: [Generates dense code]
-Claude Code: "I've created validate_email(email:𝕊)→𝔹!Error. It checks:
+Claude Code: "I've created validate_email(email:String)→Bool!Error. It checks:
               - Contains exactly one @
               - Has characters before and after @
               - Domain has at least one dot"

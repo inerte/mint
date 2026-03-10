@@ -5,10 +5,10 @@
 
   Example:
     i stdlib⋅ffiNodeProcess
-    λgetWorkingDir()→𝕊=process.cwd()
+    λgetWorkingDir()→String=process.cwd()
 ⟧
 
 e process : {
-  cwd : λ() → 𝕊,
-  exit : λ(ℤ) → 𝕌
+  cwd : λ() → String,
+  exit : λ(Int) → Unit
 }

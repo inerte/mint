@@ -1,7 +1,7 @@
 i src⋅insertionSort
 i src⋅mergeSort
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "insertion sort empty list" {
   src⋅insertionSort.insertionSort([])=[]

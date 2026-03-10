@@ -4,12 +4,12 @@ e console
 i stdlib⋅list
 i stdlib⋅string
 
-λboolText(value:𝔹)→𝕊 match value{
+λboolText(value:Bool)→String match value{
   true→"true"|
   false→"false"
 }
 
-λmain()→𝕌=console.log(
+λmain()→Unit=console.log(
   "#[1,2,3]: "
   ++stdlib⋅string.intToString(#[1,2,3])
   ++", inBounds(1,[1,2,3]): "

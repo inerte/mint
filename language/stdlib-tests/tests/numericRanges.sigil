@@ -1,6 +1,6 @@
 i stdlib⋅numeric
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "numeric.range builds ascending inclusive ranges" {
   stdlib⋅numeric.range(2,5)=[2,3,4,5] and stdlib⋅numeric.range(3,3)=[3] and stdlib⋅numeric.range(5,2)=[]

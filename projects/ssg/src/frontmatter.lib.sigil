@@ -1,17 +1,17 @@
-t ParseResult={content:𝕊,meta:src⋅types.PageMeta}
-t ParseLinesResult={contentLines:[𝕊],meta:src⋅types.PageMeta}
+t ParseResult={content:String,meta:src⋅types.PageMeta}
+t ParseLinesResult={contentLines:[String],meta:src⋅types.PageMeta}
 
 i src⋅types
 i stdlib⋅string
 
-λapplyFrontmatterLine(line:𝕊,meta:src⋅types.PageMeta)→src⋅types.PageMeta=
-  l separatorIdx=(stdlib⋅string.indexOf(line,":"):ℤ);
+λapplyFrontmatterLine(line:String,meta:src⋅types.PageMeta)→src⋅types.PageMeta=
+  l separatorIdx=(stdlib⋅string.indexOf(line,":"):Int);
   match separatorIdx<0{
     true→meta|
     false→
-      l key=(stdlib⋅string.trim(stdlib⋅string.substring(separatorIdx,line,0)):𝕊);
-      l rawValue=(stdlib⋅string.substring(#line,line,separatorIdx+1):𝕊);
-      l value=(stripQuotes(stdlib⋅string.trim(rawValue)):𝕊);
+      l key=(stdlib⋅string.trim(stdlib⋅string.substring(separatorIdx,line,0)):String);
+      l rawValue=(stdlib⋅string.substring(#line,line,separatorIdx+1):String);
+      l value=(stripQuotes(stdlib⋅string.trim(rawValue)):String);
       match key{
         "author"→{author:value,category:meta.category,date:meta.date,description:meta.description,slug:meta.slug,title:meta.title}|
         "category"→{author:meta.author,category:value,date:meta.date,description:meta.description,slug:meta.slug,title:meta.title}|
@@ -23,12 +23,12 @@ i stdlib⋅string
       }
   }
 
-λcapitalizeWords(lowered:𝕊)→𝕊=capitalizeWordsInner(true,0,lowered)
+λcapitalizeWords(lowered:String)→String=capitalizeWordsInner(true,0,lowered)
 
-λcapitalizeWordsInner(capitalizeNext:𝔹,idx:ℤ,lowered:𝕊)→𝕊 match idx≥#lowered{
+λcapitalizeWordsInner(capitalizeNext:Bool,idx:Int,lowered:String)→String match idx≥#lowered{
   true→""|
   false→
-    l ch=(stdlib⋅string.charAt(idx,lowered):𝕊);
+    l ch=(stdlib⋅string.charAt(idx,lowered):String);
     match ch{
       " "→" "++capitalizeWordsInner(true,idx+1,lowered)|
       "-"→"-"++capitalizeWordsInner(true,idx+1,lowered)|
@@ -40,14 +40,14 @@ i stdlib⋅string
     }
 }
 
-λcollapseHyphens(text:𝕊)→𝕊=
-  l collapsed=(stdlib⋅string.replaceAll("--","-",text):𝕊);
+λcollapseHyphens(text:String)→String=
+  l collapsed=(stdlib⋅string.replaceAll("--","-",text):String);
   match collapsed=text{
     true→collapsed|
     false→collapseHyphens(collapsed)
   }
 
-λconsumeFrontmatter(lines:[𝕊],meta:src⋅types.PageMeta)→ParseLinesResult match lines{
+λconsumeFrontmatter(lines:[String],meta:src⋅types.PageMeta)→ParseLinesResult match lines{
   []→{contentLines:[],meta:meta}|
   [line,.rest]→match line{
     "---"→{contentLines:rest,meta:meta}|
@@ -57,22 +57,22 @@ i stdlib⋅string
 
 λdefaultMeta()→src⋅types.PageMeta={author:"",category:"",date:"",description:"",slug:"",title:""}
 
-λderiveSlug(meta:src⋅types.PageMeta,sourcePath:𝕊)→𝕊 match #meta.slug>0{
+λderiveSlug(meta:src⋅types.PageMeta,sourcePath:String)→String match #meta.slug>0{
   true→normalizeSlug(meta.slug)|
   false→normalizeSlug(filenameStem(sourcePath))
 }
 
-λderiveTitle(content:𝕊,meta:src⋅types.PageMeta,sourcePath:𝕊)→𝕊 match #meta.title>0{
+λderiveTitle(content:String,meta:src⋅types.PageMeta,sourcePath:String)→String match #meta.title>0{
   true→meta.title|
   false→
-    l heading=(firstH1Line(stdlib⋅string.split("\n",content)):[𝕊]);
+    l heading=(firstH1Line(stdlib⋅string.split("\n",content)):[String]);
     match heading{
       []→humanizeStem(filenameStem(sourcePath))|
       [title,.rest]→title
     }
 }
 
-λdropLast(parts:[𝕊])→[𝕊] match parts{
+λdropLast(parts:[String])→[String] match parts{
   []→[]|
   [part,.rest]→match rest{
     []→[]|
@@ -80,19 +80,19 @@ i stdlib⋅string
   }
 }
 
-λfileName(path:𝕊)→𝕊 match stdlib⋅string.split("/",path){
+λfileName(path:String)→String match stdlib⋅string.split("/",path){
   []→path|
   parts→lastPart(parts)
 }
 
-λfilenameStem(path:𝕊)→𝕊=
-  l name=(fileName(path):𝕊);
+λfilenameStem(path:String)→String=
+  l name=(fileName(path):String);
   match stdlib⋅string.endsWith(name,".md"){
     true→stdlib⋅string.substring(#name-3,name,0)|
     false→name
   }
 
-λfirstH1Line(lines:[𝕊])→[𝕊] match lines{
+λfirstH1Line(lines:[String])→[String] match lines{
   []→[]|
   [line,.rest]→match stdlib⋅string.startsWith("# ",line){
     true→[stdlib⋅string.substring(#line,line,2)]|
@@ -100,12 +100,12 @@ i stdlib⋅string
   }
 }
 
-λhumanizeStem(stem:𝕊)→𝕊=
-  l lowered=(stdlib⋅string.toLower(stem):𝕊);
-  l spaced=(stdlib⋅string.replaceAll("_"," ",stdlib⋅string.replaceAll("-"," ",lowered)):𝕊);
+λhumanizeStem(stem:String)→String=
+  l lowered=(stdlib⋅string.toLower(stem):String);
+  l spaced=(stdlib⋅string.replaceAll("_"," ",stdlib⋅string.replaceAll("-"," ",lowered)):String);
   capitalizeWords(spaced)
 
-λlastPart(parts:[𝕊])→𝕊 match parts{
+λlastPart(parts:[String])→String match parts{
   []→""|
   [part,.rest]→match rest{
     []→part|
@@ -113,34 +113,34 @@ i stdlib⋅string
   }
 }
 
-λnormalizeSlug(slug:𝕊)→𝕊=
-  l lowered=(stdlib⋅string.toLower(slug):𝕊);
-  l withHyphens=(stdlib⋅string.replaceAll(" ","-",stdlib⋅string.replaceAll("_","-",lowered)):𝕊);
-  l collapsed=(collapseHyphens(withHyphens):𝕊);
+λnormalizeSlug(slug:String)→String=
+  l lowered=(stdlib⋅string.toLower(slug):String);
+  l withHyphens=(stdlib⋅string.replaceAll(" ","-",stdlib⋅string.replaceAll("_","-",lowered)):String);
+  l collapsed=(collapseHyphens(withHyphens):String);
   trimHyphens(collapsed)
 
-λparseFrontmatter(markdown:𝕊,sourcePath:𝕊)→ParseResult match stdlib⋅string.split("\n",markdown){
+λparseFrontmatter(markdown:String,sourcePath:String)→ParseResult match stdlib⋅string.split("\n",markdown){
   []→
     l meta=(defaultMeta():src⋅types.PageMeta);
-    l title=(deriveTitle(markdown,meta,sourcePath):𝕊);
-    l slug=(deriveSlug(meta,sourcePath):𝕊);
+    l title=(deriveTitle(markdown,meta,sourcePath):String);
+    l slug=(deriveSlug(meta,sourcePath):String);
     {content:markdown,meta:{author:"",category:"",date:"",description:"",slug:slug,title:title}}|
   [line,.rest]→match line{
     "---"→
       l parsed=(consumeFrontmatter(rest,defaultMeta()):ParseLinesResult);
-      l content=(stdlib⋅string.join("\n",parsed.contentLines):𝕊);
-      l title=(deriveTitle(content,parsed.meta,sourcePath):𝕊);
-      l slug=(deriveSlug(parsed.meta,sourcePath):𝕊);
+      l content=(stdlib⋅string.join("\n",parsed.contentLines):String);
+      l title=(deriveTitle(content,parsed.meta,sourcePath):String);
+      l slug=(deriveSlug(parsed.meta,sourcePath):String);
       {content:content,meta:{author:parsed.meta.author,category:parsed.meta.category,date:parsed.meta.date,description:parsed.meta.description,slug:slug,title:title}}|
     _→
       l meta=(defaultMeta():src⋅types.PageMeta);
-      l title=(deriveTitle(markdown,meta,sourcePath):𝕊);
-      l slug=(deriveSlug(meta,sourcePath):𝕊);
+      l title=(deriveTitle(markdown,meta,sourcePath):String);
+      l slug=(deriveSlug(meta,sourcePath):String);
       {content:markdown,meta:{author:"",category:"",date:"",description:"",slug:slug,title:title}}
   }
 }
 
-λstripQuotes(value:𝕊)→𝕊 match (#value≥2) and stdlib⋅string.startsWith("\"",value) and stdlib⋅string.endsWith(value,"\""){
+λstripQuotes(value:String)→String match (#value≥2) and stdlib⋅string.startsWith("\"",value) and stdlib⋅string.endsWith(value,"\""){
   true→stdlib⋅string.substring(#value-1,value,1)|
   false→match (#value≥2) and stdlib⋅string.startsWith("'",value) and stdlib⋅string.endsWith(value,"'"){
     true→stdlib⋅string.substring(#value-1,value,1)|
@@ -148,16 +148,16 @@ i stdlib⋅string
   }
 }
 
-λtrimHyphens(text:𝕊)→𝕊=
-  l left=(trimLeadingHyphens(text):𝕊);
+λtrimHyphens(text:String)→String=
+  l left=(trimLeadingHyphens(text):String);
   trimTrailingHyphens(left)
 
-λtrimLeadingHyphens(text:𝕊)→𝕊 match (#text>0) and stdlib⋅string.startsWith("-",text){
+λtrimLeadingHyphens(text:String)→String match (#text>0) and stdlib⋅string.startsWith("-",text){
   true→trimLeadingHyphens(stdlib⋅string.substring(#text,text,1))|
   false→text
 }
 
-λtrimTrailingHyphens(text:𝕊)→𝕊 match (#text>0) and stdlib⋅string.endsWith(text,"-"){
+λtrimTrailingHyphens(text:String)→String match (#text>0) and stdlib⋅string.endsWith(text,"-"){
   true→trimTrailingHyphens(stdlib⋅string.substring(#text-1,text,0))|
   false→text
 }

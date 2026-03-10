@@ -1,4 +1,4 @@
-t NextTodoId=NextTodoId(ℤ)
+t NextTodoId=NextTodoId(Int)
 t PersistedState={nextId:NextTodoId,todos:[src⋅todoDomain.Todo]}
 
 i src⋅todoDomain
@@ -11,7 +11,7 @@ i stdlib⋅string
   Err(error)→Err(error)
 }
 
-λdecodeState(input:𝕊)→Result[PersistedState,stdlib⋅decode.DecodeError]=stdlib⋅decode.parse(stateDecoder,input)
+λdecodeState(input:String)→Result[PersistedState,stdlib⋅decode.DecodeError]=stdlib⋅decode.parse(stateDecoder,input)
 
 λdecodeTodo(value:stdlib⋅json.JsonValue)→Result[src⋅todoDomain.Todo,stdlib⋅decode.DecodeError] match stdlib⋅decode.field(stdlib⋅decode.bool,"done")(value){
   Ok(done)→
@@ -26,7 +26,7 @@ i stdlib⋅string
   Err(error)→Err(error)
 }
 
-λencodeState(state:PersistedState)→𝕊=stdlib⋅json.stringify(encodeStateToJson(state))
+λencodeState(state:PersistedState)→String=stdlib⋅json.stringify(encodeStateToJson(state))
 
 λencodeStateToJson(state:PersistedState)→stdlib⋅json.JsonValue=
   stdlib⋅json.JsonObject({
@@ -50,7 +50,7 @@ i stdlib⋅string
     }
 }
 
-λnextTodoIdValue(nextId:NextTodoId)→ℤ match nextId{
+λnextTodoIdValue(nextId:NextTodoId)→Int match nextId{
   NextTodoId(value)→value
 }
 

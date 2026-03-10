@@ -17,14 +17,14 @@ t Option[T]=Some(T)|None
 t Result[T,E]=Ok(T)|Err(E)
 
 ⟦ Example 1: Working with simple enums ⟧
-λcolorToNumber(color:Color)→ℤ match color{
+λcolorToNumber(color:Color)→Int match color{
   Red→1|
   Green→2|
   Blue→3
 }
 
 ⟦ Example 2: Safe division using Result ⟧
-λdivide(a:ℤ,b:ℤ)→Result[ℤ,𝕊] match b{
+λdivide(a:Int,b:Int)→Result[Int,String] match b{
   0→Err("division by zero")|
   divisor→Ok(a/divisor)
 }
@@ -35,22 +35,22 @@ t Result[T,E]=Ok(T)|Err(E)
   [x,.rest]→Some(x)
 }
 
-λgetOrDefault(default:ℤ,opt:Option[ℤ])→ℤ match opt{
+λgetOrDefault(default:Int,opt:Option[Int])→Int match opt{
   Some(x)→x|
   None()→default
 }
 
 ⟦ Main - demonstrate all examples ⟧
-λmain()→ℤ={
-  l colorValue=(colorToNumber(Green()):ℤ);
-  l divOk=(processResult(divide(10,2)):ℤ);
-  l divErr=(processResult(divide(10,0)):ℤ);
-  l total=(colorValue+divOk+divErr:ℤ);
+λmain()→Int={
+  l colorValue=(colorToNumber(Green()):Int);
+  l divOk=(processResult(divide(10,2)):Int);
+  l divErr=(processResult(divide(10,0)):Int);
+  l total=(colorValue+divOk+divErr:Int);
   total
 }
 
 ⟦ Example 3: Pattern matching on Result ⟧
-λprocessResult(result:Result[ℤ,𝕊])→ℤ match result{
+λprocessResult(result:Result[Int,String])→Int match result{
   Ok(value)→value|
   Err(_)→0
 }

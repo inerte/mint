@@ -1,4 +1,4 @@
-t Result=Ok(𝕊)
+t Result=Ok(String)
 
 λmain()→Result=test()
 λtest()→Result=Ok("hello")

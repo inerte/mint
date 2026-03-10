@@ -51,7 +51,7 @@ Imported constructors use the same qualified form as everything else when they a
 ```sigil
 i core⋅option
 
-λmain()→Option[ℤ]=Some(42)
+λmain()→Option[Int]=Some(42)
 ```
 
 Pattern matching keeps the same shape:

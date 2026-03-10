@@ -19,7 +19,7 @@ Before typed FFI, all external function calls used TypeScript's `any` type:
 ⟦ Before: Untyped FFI ⟧
 e fs⋅promises
 
-λensureDir(dir:𝕊)→𝕌={
+λensureDir(dir:String)→Unit={
   ⟦ What type is opts? The compiler doesn't know! ⟧
   l opts = {recursive:true};
   fs⋅promises.mkdir(dir, opts)  ⟦ No type checking here ⟧
@@ -40,15 +40,15 @@ We added **optional type annotations** for extern declarations:
 
 ```sigil
 ⟦ After: Typed FFI ⟧
-t MkdirOptions = { recursive: 𝔹 }
+t MkdirOptions = { recursive: Bool }
 
 e fs⋅promises : {
-  mkdir : λ(𝕊, MkdirOptions) → 𝕌
+  mkdir : λ(String, MkdirOptions) → Unit
 }
 
 c opts:MkdirOptions={recursive:true}
 
-λensureDir(dir:𝕊)→𝕌=
+λensureDir(dir:String)→Unit=
   fs⋅promises.mkdir(dir, opts)  ⟦ Now type-checked! ⟧
 ```
 
@@ -68,8 +68,8 @@ e console
 
 ⟦ Typed FFI (type-safe mode) ⟧
 e console : {
-  log : λ(𝕊) → 𝕌,
-  error : λ(𝕊) → 𝕌
+  log : λ(String) → Unit,
+  error : λ(String) → Unit
 }
 ```
 
@@ -80,28 +80,28 @@ Each member gets a function type signature. The compiler type-checks all calls a
 ```sigil
 ⟦ Typed FFI with list return type ⟧
 e fs⋅promises : {
-  readdir : λ(𝕊) → [𝕊]
+  readdir : λ(String) → [String]
 }
 
-λcountFiles(dir:𝕊)→ℤ={
+λcountFiles(dir:String)→Int={
   l files = fs⋅promises.readdir(dir);
-  #files  ⟦ Now works! Type is [𝕊], not any ⟧
+  #files  ⟦ Now works! Type is [String], not any ⟧
 }
 ```
 
 Before typed FFI: `#files` would fail because type was `any`.
 
-After typed FFI: `#files` works because type is `[𝕊]`.
+After typed FFI: `#files` works because type is `[String]`.
 
 ## The Ordering Problem
 
 Here's where it gets interesting. **Typed FFI needs to reference named types:**
 
 ```sigil
-t MkdirOptions = { recursive: 𝔹 }
+t MkdirOptions = { recursive: Bool }
 
 e fs⋅promises : {
-  mkdir : λ(𝕊, MkdirOptions) → 𝕌  ⟦ References the type above ⟧
+  mkdir : λ(String, MkdirOptions) → Unit  ⟦ References the type above ⟧
 }
 ```
 
@@ -152,12 +152,12 @@ This follows Sigil's core design principle: **fix with canonical syntax, not imp
 
 ```sigil
 ⟦ 1. Types - Most fundamental ⟧
-t MkdirOptions = { recursive: 𝔹 }
-t User = { name: 𝕊, age: ℤ }
+t MkdirOptions = { recursive: Bool }
+t User = { name: String, age: Int }
 
 ⟦ 2. Externs - Can reference types ⟧
 e fs⋅promises : {
-  mkdir : λ(𝕊, MkdirOptions) → 𝕌
+  mkdir : λ(String, MkdirOptions) → Unit
 }
 
 ⟦ 3. Imports - Can reference types ⟧
@@ -167,7 +167,7 @@ i stdlib⋅list
 c DEFAULT_USER:User={name:"Guest",age:0}
 
 ⟦ 5. Functions - Can reference everything ⟧
-λensureDir(dir:𝕊)→𝕌=
+λensureDir(dir:String)→Unit=
   fs⋅promises.mkdir(dir, {recursive:true})
 ```
 
@@ -214,19 +214,19 @@ Before (wrong order):
 e console
 e fs⋅promises
 
-t MkdirOptions = { recursive: 𝔹 }
+t MkdirOptions = { recursive: Bool }
 
-λmain()→𝕌=console.log("hi")
+λmain()→Unit=console.log("hi")
 ```
 
 After (correct order):
 ```sigil
-t MkdirOptions = { recursive: 𝔹 }
+t MkdirOptions = { recursive: Bool }
 
 e console
 e fs⋅promises
 
-λmain()→𝕌=console.log("hi")
+λmain()→Unit=console.log("hi")
 ```
 
 **3. Compile to verify**
@@ -265,31 +265,31 @@ Before (would fail compilation):
 ```sigil
 ⟦ ERROR: extern references type that comes after it ⟧
 e fs⋅promises : {
-  mkdir : λ(𝕊, MkdirOptions) → 𝕌  ⟦ MkdirOptions not defined yet! ⟧
+  mkdir : λ(String, MkdirOptions) → Unit  ⟦ MkdirOptions not defined yet! ⟧
 }
 
-t MkdirOptions = { recursive: 𝔹 }
+t MkdirOptions = { recursive: Bool }
 
 c opts:MkdirOptions={recursive:true}
 
-λensureDir(dir:𝕊)→𝕌=
+λensureDir(dir:String)→Unit=
   fs⋅promises.mkdir(dir, opts)
 ```
 
 After (canonical and correct):
 ```sigil
 ⟦ Define the type first ⟧
-t MkdirOptions = { recursive: 𝔹 }
+t MkdirOptions = { recursive: Bool }
 
 ⟦ Extern can reference it ⟧
 e fs⋅promises : {
-  mkdir : λ(𝕊, MkdirOptions) → 𝕌
+  mkdir : λ(String, MkdirOptions) → Unit
 }
 
 ⟦ Use it ⟧
 c opts:MkdirOptions={recursive:true}
 
-λensureDir(dir:𝕊)→𝕌=
+λensureDir(dir:String)→Unit=
   fs⋅promises.mkdir(dir, opts)
 ```
 
@@ -351,14 +351,14 @@ Tests:     Verify behavior (using everything)
 ```sigil
 ⟦ Define the signature ⟧
 e console : {
-  log : λ(𝕊) → 𝕌
+  log : λ(String) → Unit
 }
 
 ⟦ This works - correct type ⟧
-λgood()→𝕌=console.log("type safe")
+λgood()→Unit=console.log("type safe")
 
 ⟦ This fails - type error ⟧
-λbad()→𝕌=console.log(42)  ⟦ ERROR: Expected 𝕊, got ℤ ⟧
+λbad()→Unit=console.log(42)  ⟦ ERROR: Expected String, got Int ⟧
 ```
 
 The compiler catches type errors **before runtime**!
@@ -367,17 +367,17 @@ The compiler catches type errors **before runtime**!
 
 ```sigil
 ⟦ Define option types ⟧
-t ReadFileOptions = { encoding: 𝕊, flag: 𝕊 }
-t WriteFileOptions = { encoding: 𝕊, mode: ℤ }
+t ReadFileOptions = { encoding: String, flag: String }
+t WriteFileOptions = { encoding: String, mode: Int }
 
 ⟦ Typed extern using those types ⟧
 e fs⋅promises : {
-  readFile : λ(𝕊, ReadFileOptions) → 𝕊,
-  writeFile : λ(𝕊, 𝕊, WriteFileOptions) → 𝕌
+  readFile : λ(String, ReadFileOptions) → String,
+  writeFile : λ(String, String, WriteFileOptions) → Unit
 }
 
 ⟦ Type-checked FFI calls ⟧
-λreadConfig(path:𝕊)→𝕊={
+λreadConfig(path:String)→String={
   l opts=ReadFileOptions{encoding:"utf8",flag:"r"};
   fs⋅promises.readFile(path, opts)
 }
@@ -393,15 +393,15 @@ e fs⋅promises : {
 
 ```sigil
 e fs⋅promises : {
-  readdir : λ(𝕊) → [𝕊]
+  readdir : λ(String) → [String]
 }
 
-λcountFiles(dir:𝕊)→ℤ={
+λcountFiles(dir:String)→Int={
   l files=fs⋅promises.readdir(dir);
-  #files  ⟦ Works! Type is [𝕊] ⟧
+  #files  ⟦ Works! Type is [String] ⟧
 }
 
-λlogFiles(dir:𝕊)→𝕌={
+λlogFiles(dir:String)→Unit={
   l files=fs⋅promises.readdir(dir);
   l count=#files;
   console.log("Found " + count + " files")
@@ -410,7 +410,7 @@ e fs⋅promises : {
 
 **Before typed FFI:** `#files` would fail (type `any`).
 
-**After typed FFI:** `#files` works (type `[𝕊]`).
+**After typed FFI:** `#files` works (type `[String]`).
 
 ## Standard Library FFI Modules
 
@@ -421,14 +421,14 @@ We created typed FFI modules for common Node.js APIs:
 ```sigil
 ⟦ Typed console operations ⟧
 e console : {
-  log : λ(𝕊) → 𝕌,
-  error : λ(𝕊) → 𝕌,
-  warn : λ(𝕊) → 𝕌
+  log : λ(String) → Unit,
+  error : λ(String) → Unit,
+  warn : λ(String) → Unit
 }
 
-export λlog(msg:𝕊)→𝕌=console.log(msg)
-export λerror(msg:𝕊)→𝕌=console.error(msg)
-export λwarn(msg:𝕊)→𝕌=console.warn(msg)
+export λlog(msg:String)→Unit=console.log(msg)
+export λerror(msg:String)→Unit=console.error(msg)
+export λwarn(msg:String)→Unit=console.warn(msg)
 ```
 
 ### stdlib/ffi_node_fs.sigil
@@ -436,16 +436,16 @@ export λwarn(msg:𝕊)→𝕌=console.warn(msg)
 ```sigil
 ⟦ Typed file system operations ⟧
 e fs⋅promises : {
-  readFile : λ(𝕊, 𝕊) → 𝕊,
-  writeFile : λ(𝕊, 𝕊) → 𝕌,
-  readdir : λ(𝕊) → [𝕊],
-  mkdir : λ(𝕊, {recursive:𝔹}) → 𝕌
+  readFile : λ(String, String) → String,
+  writeFile : λ(String, String) → Unit,
+  readdir : λ(String) → [String],
+  mkdir : λ(String, {recursive:Bool}) → Unit
 }
 
-export λreadFile(path:𝕊)→𝕊=
+export λreadFile(path:String)→String=
   fs⋅promises.readFile(path, "utf8")
 
-export λwriteFile(path:𝕊, content:𝕊)→𝕌=
+export λwriteFile(path:String, content:String)→Unit=
   fs⋅promises.writeFile(path, content)
 ```
 

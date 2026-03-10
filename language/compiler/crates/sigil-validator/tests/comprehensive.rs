@@ -23,7 +23,7 @@ fn test_duplicate_types() {
 
 #[test]
 fn test_duplicate_consts() {
-    let source = "c pi=(3.14:ℝ)\nc pi=(3.15:ℝ)";
+    let source = "c pi=(3.14:Float)\nc pi=(3.15:Float)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -43,7 +43,7 @@ fn test_duplicate_imports() {
 
 #[test]
 fn test_no_duplicates_different_names() {
-    let source = "c baz=(3:ℤ)\nλbar()→ℤ=2\nλfoo()→ℤ=1";
+    let source = "c baz=(3:Int)\nλbar()→Int=2\nλfoo()→Int=1";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -53,7 +53,7 @@ fn test_no_duplicates_different_names() {
 #[test]
 fn test_different_declaration_types() {
     // Different declaration types don't conflict
-    let source = "t Maybe=Err(ℤ)|Ok(ℤ)\nc bar=(2:ℤ)\nλfoo()→ℤ=1";
+    let source = "t Maybe=Err(Int)|Ok(Int)\nc bar=(2:Int)\nλfoo()→Int=1";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -67,7 +67,7 @@ fn test_different_declaration_types() {
 
 #[test]
 fn test_non_recursive_function() {
-    let source = "λadd(x:ℤ,y:ℤ)→ℤ=x+y";
+    let source = "λadd(x:Int,y:Int)→Int=x+y";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -76,7 +76,7 @@ fn test_non_recursive_function() {
 
 #[test]
 fn test_recursive_single_param() {
-    let source = "λcountdown(n:ℤ)→ℤ=countdown(n-1)";
+    let source = "λcountdown(n:Int)→Int=countdown(n-1)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -87,7 +87,7 @@ fn test_recursive_single_param() {
 #[test]
 fn test_accumulator_blocked() {
     // Current validator heuristic does not yet reject accumulator-style recursion.
-    let source = "λfactorial(acc:ℤ,n:ℤ)→ℤ match n{0→acc|value→factorial(acc*value,value-1)}";
+    let source = "λfactorial(acc:Int,n:Int)→Int match n{0→acc|value→factorial(acc*value,value-1)}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -97,7 +97,7 @@ fn test_accumulator_blocked() {
 #[test]
 fn test_tailrec_factorial_blocked() {
     // Current validator heuristic does not yet reject accumulator-style recursion.
-    let source = "λfactorial(acc:ℤ,n:ℤ)→ℤ match n{0→acc|value→factorial(acc*value,value-1)}\nλmain()→ℤ=factorial(1,5)";
+    let source = "λfactorial(acc:Int,n:Int)→Int match n{0→acc|value→factorial(acc*value,value-1)}\nλmain()→Int=factorial(1,5)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -107,7 +107,7 @@ fn test_tailrec_factorial_blocked() {
 #[test]
 fn test_invalid_helper_pattern_blocked() {
     // Current validator heuristic does not yet reject accumulator-style recursion.
-    let source = "λfactorial(n:ℤ)→ℤ=helper(1,n)\nλhelper(acc:ℤ,n:ℤ)→ℤ match n{0→acc|value→helper(acc*value,value-1)}\nλmain()→ℤ=factorial(5)";
+    let source = "λfactorial(n:Int)→Int=helper(1,n)\nλhelper(acc:Int,n:Int)→Int match n{0→acc|value→helper(acc*value,value-1)}\nλmain()→Int=factorial(5)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -117,7 +117,7 @@ fn test_invalid_helper_pattern_blocked() {
 #[test]
 fn test_cps_rejected() {
     // Continuation-passing style factorial (forbidden)
-    let source = "λfactorial(n:ℤ)→λ(ℤ)→ℤ match n{0→λ(k:ℤ)→k|n→λ(k:ℤ)→factorial(n-1)(n*k)}";
+    let source = "λfactorial(n:Int)→λ(Int)→Int match n{0→λ(k:Int)→k|n→λ(k:Int)→factorial(n-1)(n*k)}";
     let tokens = tokenize(source).unwrap();
     let result = parse(tokens, "test.lib.sigil");
 
@@ -136,7 +136,7 @@ fn test_cps_rejected() {
 #[test]
 fn test_cps_factorial_blocked() {
     // Full CPS factorial program (forbidden)
-    let source = "λfactorial(n:ℤ)→λ(ℤ)→ℤ match n{0→λ(k:ℤ)→k|n→λ(k:ℤ)→factorial(n-1)(n*k)}\nλmain()→ℤ=factorial(5)(1)";
+    let source = "λfactorial(n:Int)→λ(Int)→Int match n{0→λ(k:Int)→k|n→λ(k:Int)→factorial(n-1)(n*k)}\nλmain()→Int=factorial(5)(1)";
     let tokens = tokenize(source).unwrap();
     let result = parse(tokens, "test.sigil");
 
@@ -158,7 +158,7 @@ fn test_cps_factorial_blocked() {
 
 #[test]
 fn test_surface_form_with_type_annotations() {
-    let source = "λfoo(x:ℤ)→ℤ=x";
+    let source = "λfoo(x:Int)→Int=x";
     let tokens = tokenize(source).unwrap();
     let _program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -166,7 +166,7 @@ fn test_surface_form_with_type_annotations() {
 
 #[test]
 fn test_surface_form_const_with_type() {
-    let source = "c answer=(42:ℤ)";
+    let source = "c answer=(42:Int)";
     let tokens = tokenize(source).unwrap();
     let _program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -174,7 +174,7 @@ fn test_surface_form_const_with_type() {
 
 #[test]
 fn test_surface_form_multiple_functions() {
-    let source = "λa()→ℤ=1\nλb()→ℤ=2";
+    let source = "λa()→Int=1\nλb()→Int=2";
     let tokens = tokenize(source).unwrap();
     let _program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -186,7 +186,7 @@ fn test_surface_form_multiple_functions() {
 
 #[test]
 fn test_valid_program_both_validators() {
-    let source = "λfib(n:ℤ)→ℤ=fib(n-1)+fib(n-2)";
+    let source = "λfib(n:Int)→Int=fib(n-1)+fib(n-2)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -195,7 +195,7 @@ fn test_valid_program_both_validators() {
 
 #[test]
 fn test_multiple_errors_collected() {
-    let source = "λfoo()→ℤ=1\nλfoo()→ℤ=2\nλfoo()→ℤ=3";
+    let source = "λfoo()→Int=1\nλfoo()→Int=2\nλfoo()→Int=3";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -208,7 +208,7 @@ fn test_multiple_errors_collected() {
 
 #[test]
 fn test_function_in_lib_valid() {
-    let source = "λmain()→ℤ=42";
+    let source = "λmain()→Int=42";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -217,7 +217,7 @@ fn test_function_in_lib_valid() {
 
 #[test]
 fn test_mockable_function_valid() {
-    let source = "mockable λfetch()→𝕊=\"data\"";
+    let source = "mockable λfetch()→String=\"data\"";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -244,7 +244,7 @@ fn test_import_valid() {
 
 #[test]
 fn test_const_lower_camel_case_name() {
-    let source = "c myConstant=(100:ℤ)";
+    let source = "c myConstant=(100:Int)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -253,7 +253,7 @@ fn test_const_lower_camel_case_name() {
 
 #[test]
 fn test_effect_annotations_valid() {
-    let source = "λread()→!IO𝕊=\"\"";
+    let source = "λread()→!IO String=\"\"";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -264,7 +264,7 @@ fn test_effect_annotations_valid() {
 // This test validates that the parser/validator accept typed FFI declarations.
 #[test]
 fn test_typed_ffi_declaration_valid() {
-    let source = "e console : { log : λ(𝕊) → 𝕌 }\nλmain()→𝕌=console.log(\"hello\")";
+    let source = "e console : { log : λ(String) → Unit }\nλmain()→Unit=console.log(\"hello\")";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -278,7 +278,7 @@ fn test_typed_ffi_declaration_valid() {
 
 #[test]
 fn test_record_type_field_order_valid() {
-    let source = "t User={age:ℤ,email:𝕊,name:𝕊}";
+    let source = "t User={age:Int,email:String,name:String}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -287,7 +287,7 @@ fn test_record_type_field_order_valid() {
 
 #[test]
 fn test_record_type_field_order_invalid() {
-    let source = "t User={name:𝕊,age:ℤ}";
+    let source = "t User={name:String,age:Int}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -299,7 +299,7 @@ fn test_record_type_field_order_invalid() {
 
 #[test]
 fn test_record_literal_field_order_valid() {
-    let source = "t User={age:ℤ,email:𝕊,name:𝕊}\nλmain()→User=User{age:1,email:\"a\",name:\"b\"}";
+    let source = "t User={age:Int,email:String,name:String}\nλmain()→User=User{age:1,email:\"a\",name:\"b\"}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -308,7 +308,7 @@ fn test_record_literal_field_order_valid() {
 
 #[test]
 fn test_record_literal_field_order_invalid() {
-    let source = "t User={age:ℤ,name:𝕊}\nλmain()→User=User{name:\"b\",age:1}";
+    let source = "t User={age:Int,name:String}\nλmain()→User=User{name:\"b\",age:1}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -320,7 +320,7 @@ fn test_record_literal_field_order_invalid() {
 
 #[test]
 fn test_map_literal_is_not_subject_to_record_field_ordering() {
-    let source = "λmain()→{𝕊↦ℤ}={\"b\"↦1,\"a\"↦2}";
+    let source = "λmain()→{String↦Int}={\"b\"↦1,\"a\"↦2}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -329,7 +329,7 @@ fn test_map_literal_is_not_subject_to_record_field_ordering() {
 
 #[test]
 fn test_record_pattern_field_order_invalid() {
-    let source = "t User={age:ℤ,name:𝕊}\nλmain()→ℤ match User{age:1,name:\"b\"}{{name,age}→age}";
+    let source = "t User={age:Int,name:String}\nλmain()→Int match User{age:1,name:\"b\"}{{name,age}→age}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -345,7 +345,7 @@ fn test_record_pattern_field_order_invalid() {
 
 #[test]
 fn test_no_shadowing_valid_distinct_names() {
-    let source = "λmain()→ℤ=l value=(1:ℤ);l doubled=(value*2:ℤ);doubled";
+    let source = "λmain()→Int=l value=(1:Int);l doubled=(value*2:Int);doubled";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -354,7 +354,7 @@ fn test_no_shadowing_valid_distinct_names() {
 
 #[test]
 fn test_no_shadowing_rejects_rebinding_in_same_function() {
-    let source = "λmain()→ℤ=l x=(1:ℤ);l x=(2:ℤ);x";
+    let source = "λmain()→Int=l x=(1:Int);l x=(2:Int);x";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -366,7 +366,7 @@ fn test_no_shadowing_rejects_rebinding_in_same_function() {
 
 #[test]
 fn test_no_shadowing_rejects_let_shadowing_function_param() {
-    let source = "λecho(value:ℤ)→ℤ=l value=(2:ℤ);value";
+    let source = "λecho(value:Int)→Int=l value=(2:Int);value";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -378,7 +378,7 @@ fn test_no_shadowing_rejects_let_shadowing_function_param() {
 
 #[test]
 fn test_no_shadowing_rejects_lambda_param_shadowing_outer_local() {
-    let source = "λmain()→ℤ=l x=(1:ℤ);(λ(x:ℤ)→ℤ=x)(2)";
+    let source = "λmain()→Int=l x=(1:Int);(λ(x:Int)→Int=x)(2)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -390,7 +390,7 @@ fn test_no_shadowing_rejects_lambda_param_shadowing_outer_local() {
 
 #[test]
 fn test_no_shadowing_rejects_pattern_binding_shadowing_outer_local() {
-    let source = "λmain()→ℤ=l item=(1:ℤ);match [2]{[item]→item|_→0}";
+    let source = "λmain()→Int=l item=(1:Int);match [2]{[item]→item|_→0}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -402,7 +402,7 @@ fn test_no_shadowing_rejects_pattern_binding_shadowing_outer_local() {
 
 #[test]
 fn test_no_shadowing_rejects_duplicate_names_inside_pattern() {
-    let source = "λmain()→ℤ match (1,2){(item,item)→item}";
+    let source = "λmain()→Int match (1,2){(item,item)→item}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -418,7 +418,7 @@ fn test_no_shadowing_rejects_duplicate_names_inside_pattern() {
 
 #[test]
 fn test_filename_uppercase_rejected() {
-    let source = "λmain()→𝕌=()";
+    let source = "λmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "UserService.sigil").unwrap();
 
@@ -430,7 +430,7 @@ fn test_filename_uppercase_rejected() {
 
 #[test]
 fn test_filename_underscore_rejected() {
-    let source = "λmain()→𝕌=()";
+    let source = "λmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "user_service.sigil").unwrap();
 
@@ -442,7 +442,7 @@ fn test_filename_underscore_rejected() {
 
 #[test]
 fn test_filename_special_char_rejected() {
-    let source = "λmain()→𝕌=()";
+    let source = "λmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "user@service.sigil").unwrap();
 
@@ -454,7 +454,7 @@ fn test_filename_special_char_rejected() {
 
 #[test]
 fn test_filename_space_rejected() {
-    let source = "λmain()→𝕌=()";
+    let source = "λmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "user service.sigil").unwrap();
 
@@ -466,7 +466,7 @@ fn test_filename_space_rejected() {
 
 #[test]
 fn test_filename_hyphen_rejected() {
-    let source = "λmain()→𝕌=()";
+    let source = "λmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "hello-world.sigil").unwrap();
 
@@ -478,7 +478,7 @@ fn test_filename_hyphen_rejected() {
 
 #[test]
 fn test_filename_leading_digit_rejected() {
-    let source = "λmain()→𝕌=()";
+    let source = "λmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "01introduction.sigil").unwrap();
 
@@ -490,7 +490,7 @@ fn test_filename_leading_digit_rejected() {
 
 #[test]
 fn test_filename_valid_lower_camel_case() {
-    let source = "λmain()→𝕌=()";
+    let source = "λmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "userService.sigil").unwrap();
 
@@ -499,7 +499,7 @@ fn test_filename_valid_lower_camel_case() {
 
 #[test]
 fn test_filename_valid_with_numbers() {
-    let source = "λmain()→𝕌=()";
+    let source = "λmain()→Unit=()";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "example01Introduction.sigil").unwrap();
 

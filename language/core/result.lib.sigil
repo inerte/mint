@@ -8,12 +8,12 @@ Canonical operations over the core Result type.
   Err(error)→Err(error)
 }
 
-λisErr[T,E](res:Result[T,E])→𝔹 match res{
+λisErr[T,E](res:Result[T,E])→Bool match res{
   Ok(value)→false|
   Err(error)→true
 }
 
-λisOk[T,E](res:Result[T,E])→𝔹 match res{
+λisOk[T,E](res:Result[T,E])→Bool match res{
   Ok(value)→true|
   Err(error)→false
 }

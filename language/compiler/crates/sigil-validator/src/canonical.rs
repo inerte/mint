@@ -997,7 +997,7 @@ fn validate_file_purpose(program: &Program, file_path: Option<&str>) -> Result<(
     // Test-specific validation
     if has_tests && !has_main {
         return Err(vec![ValidationError::TestNeedsMain {
-            message: "Test files must have λmain()→𝕌=()\n\nHint: Test files are executables".to_string(),
+            message: "Test files must have λmain()→Unit=()\n\nHint: Test files are executables".to_string(),
         }]);
     }
 
@@ -1823,8 +1823,8 @@ mod tests {
 
     #[test]
     fn test_no_duplicate_functions() {
-        let source = r#"λ bar(y: ℤ) → ℤ = y * 2
-λ foo(x: ℤ) → ℤ = x + 1
+        let source = r#"λ bar(y: Int) → Int = y * 2
+λ foo(x: Int) → Int = x + 1
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
@@ -1834,8 +1834,8 @@ mod tests {
 
     #[test]
     fn test_duplicate_function_error() {
-        let source = r#"λ foo(x: ℤ) → ℤ = x + 1
-λ foo(y: ℤ) → ℤ = y * 2
+        let source = r#"λ foo(x: Int) → Int = x + 1
+λ foo(y: Int) → Int = y * 2
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
@@ -1852,7 +1852,7 @@ mod tests {
     fn test_simple_recursion_allowed() {
         // TODO: Parser bug - match expressions with scrutinee (match n{...}) don't work yet
         // For now, test with a simple recursive function without pattern matching
-        let source = r#"λfactorial(n:ℤ)→ℤ=factorial(n-1)"#;
+        let source = r#"λfactorial(n:Int)→Int=factorial(n-1)"#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 

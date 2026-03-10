@@ -27,7 +27,7 @@ claude "Write a Hello World in Sigil and run it"
 ```sigil
 i stdlib⋅list
 
-λsum(numbers:[ℤ])→ℤ match numbers{
+λsum(numbers:[Int])→Int match numbers{
   []→0|
   [first,.rest]→first+sum(rest)
 }

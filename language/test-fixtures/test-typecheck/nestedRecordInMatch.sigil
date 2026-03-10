@@ -1,12 +1,12 @@
 ⟦ Test: Nested record with empty lists in match expression ⟧
 
-t Inner={items:[ℤ]}
-t Outer={inner:Inner,name:𝕊}
+t Inner={items:[Int]}
+t Outer={inner:Inner,name:String}
 t Result={data:Outer}
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
-λtest(x:𝔹)→Result match x{
+λtest(x:Bool)→Result match x{
   true → {data:{inner:{items:[]},name:"test"}}|
   false → {data:{inner:{items:[1,2,3]},name:"other"}}
 }

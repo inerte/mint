@@ -1,3 +1,3 @@
-λfactA(n:ℤ)→ℤ match n{0→1|1→1|value→value*factB(value-1)}
-λfactB(n:ℤ)→ℤ match n{0→1|1→1|value→value*factA(value-1)}
-λmain()→ℤ=factA(5)
+λfactA(n:Int)→Int match n{0→1|1→1|value→value*factB(value-1)}
+λfactB(n:Int)→Int match n{0→1|1→1|value→value*factA(value-1)}
+λmain()→Int=factA(5)

@@ -10,26 +10,26 @@ i stdlib⋅path
 i stdlib⋅string
 i stdlib⋅time
 
-λassetOutputDir(config:src⋅types.SiteBuildConfig)→𝕊=stdlib⋅path.join(config.outputDir,"assets")
+λassetOutputDir(config:src⋅types.SiteBuildConfig)→String=stdlib⋅path.join(config.outputDir,"assets")
 
-λbuildSite(config:src⋅types.SiteBuildConfig)→!IO 𝕌=
-  l _=(prepareOutputDir(config.outputDir):𝕌);
+λbuildSite(config:src⋅types.SiteBuildConfig)→!IO Unit=
+  l _=(prepareOutputDir(config.outputDir):Unit);
   l rawData=(loadSiteData(config):src⋅types.SiteData);
   l aliasRoutes=(src⋅content.buildAliasRoutes(rawData):[src⋅types.AliasRoute]);
   l data=(renderSiteData(aliasRoutes,config.basePath,rawData):src⋅types.SiteData);
-  l _=(copyStaticAssets(assetOutputDir(config)):𝕌);
-  l _=(writePage(config,src⋅templates.homePage(data.articles,config,data.docs,data.home,data.spec),data.home):𝕌);
-  l _=(writeStandalonePages(aliasRoutes,config):𝕌);
-  l _=(writePage(config,src⋅templates.articlesIndex(config,data.articlesIntro.bodyHtml,data.articles),data.articlesIntro):𝕌);
-  l _=(writePages(config,data.articles):𝕌);
-  l _=(writeIndexHtml(stdlib⋅path.join(config.outputDir,"docs"),src⋅templates.docsIndex(config,data.docs)):𝕌);
-  l _=(writePages(config,data.docs):𝕌);
-  l _=(writeIndexHtml(stdlib⋅path.join(config.outputDir,"spec"),src⋅templates.specIndex(config,data.spec)):𝕌);
-  l _=(writePages(config,data.spec):𝕌);
-  l _=(writeSiteManifest(config,data):𝕌);
+  l _=(copyStaticAssets(assetOutputDir(config)):Unit);
+  l _=(writePage(config,src⋅templates.homePage(data.articles,config,data.docs,data.home,data.spec),data.home):Unit);
+  l _=(writeStandalonePages(aliasRoutes,config):Unit);
+  l _=(writePage(config,src⋅templates.articlesIndex(config,data.articlesIntro.bodyHtml,data.articles),data.articlesIntro):Unit);
+  l _=(writePages(config,data.articles):Unit);
+  l _=(writeIndexHtml(stdlib⋅path.join(config.outputDir,"docs"),src⋅templates.docsIndex(config,data.docs)):Unit);
+  l _=(writePages(config,data.docs):Unit);
+  l _=(writeIndexHtml(stdlib⋅path.join(config.outputDir,"spec"),src⋅templates.specIndex(config,data.spec)):Unit);
+  l _=(writePages(config,data.spec):Unit);
+  l _=(writeSiteManifest(config,data):Unit);
   writeNotFound(config)
 
-λbuildSiteManifestJson(data:src⋅types.SiteData,generatedAt:𝕊,repoUrl:𝕊)→stdlib⋅json.JsonValue=
+λbuildSiteManifestJson(data:src⋅types.SiteData,generatedAt:String,repoUrl:String)→stdlib⋅json.JsonValue=
   stdlib⋅json.JsonObject({
     "articlesCount"↦stdlib⋅json.JsonString(stdlib⋅string.intToString(#data.articles)),
     "docsCount"↦stdlib⋅json.JsonString(stdlib⋅string.intToString(#data.docs)),
@@ -38,24 +38,24 @@ i stdlib⋅time
     "specCount"↦stdlib⋅json.JsonString(stdlib⋅string.intToString(#data.spec))
   })
 
-λcopyAssetFiles(assetNames:[𝕊],assetSourceDir:𝕊,assetTargetDir:𝕊)→!IO 𝕌 match assetNames{
+λcopyAssetFiles(assetNames:[String],assetSourceDir:String,assetTargetDir:String)→!IO Unit match assetNames{
   []→()|
   [asset,.rest]→
-    l source=(stdlib⋅path.join(assetSourceDir,asset):𝕊);
-    l target=(stdlib⋅path.join(assetTargetDir,asset):𝕊);
-    l _=(copyFile(source,target):𝕌);
+    l source=(stdlib⋅path.join(assetSourceDir,asset):String);
+    l target=(stdlib⋅path.join(assetTargetDir,asset):String);
+    l _=(copyFile(source,target):Unit);
     copyAssetFiles(rest,assetSourceDir,assetTargetDir)
 }
 
-λcopyFile(source:𝕊,target:𝕊)→!IO 𝕌=fs⋅promises.copyFile(source,target)
+λcopyFile(source:String,target:String)→!IO Unit=fs⋅promises.copyFile(source,target)
 
-λcopyStaticAssets(assetTargetDir:𝕊)→!IO 𝕌=
-  l assetSourceDir=("website/static":𝕊);
-  l _=(stdlib⋅file.makeDirs(assetTargetDir):𝕌);
-  l assetNames=(stdlib⋅file.listDir(assetSourceDir):[𝕊]);
+λcopyStaticAssets(assetTargetDir:String)→!IO Unit=
+  l assetSourceDir=("website/static":String);
+  l _=(stdlib⋅file.makeDirs(assetTargetDir):Unit);
+  l assetNames=(stdlib⋅file.listDir(assetSourceDir):[String]);
   copyAssetFiles(assetNames,assetSourceDir,assetTargetDir)
 
-λfilterMarkdownFiles(files:[𝕊])→[𝕊] match files{
+λfilterMarkdownFiles(files:[String])→[String] match files{
   []→[]|
   [file,.rest]→match stdlib⋅string.endsWith(file,".md"){
     true→[file]⧺filterMarkdownFiles(rest)|
@@ -63,27 +63,27 @@ i stdlib⋅time
   }
 }
 
-λlistDir(path:𝕊)→!IO [𝕊]=stdlib⋅file.listDir(path)
+λlistDir(path:String)→!IO [String]=stdlib⋅file.listDir(path)
 
 λloadArticles(config:src⋅types.SiteBuildConfig)→!IO [src⋅types.SitePage]=
-  l files=(filterMarkdownFiles(stdlib⋅file.listDir("website/articles")):[𝕊]);
+  l files=(filterMarkdownFiles(stdlib⋅file.listDir("website/articles")):[String]);
   l pages=(loadPagesFromFiles(config,"website/articles",files,src⋅types.Article()):[src⋅types.SitePage]);
   src⋅content.pagesNewestFirst(removeIntroPage(pages))
 
 λloadDocs(config:src⋅types.SiteBuildConfig)→!IO [src⋅types.SitePage]=
-  l files=(filterMarkdownFiles(stdlib⋅file.listDir("language/docs")):[𝕊]);
+  l files=(filterMarkdownFiles(stdlib⋅file.listDir("language/docs")):[String]);
   l pages=(loadPagesFromFiles(config,"language/docs",files,src⋅types.Doc()):[src⋅types.SitePage]);
   src⋅content.pagesSortedByTitle(pages)
 
-λloadPage(config:src⋅types.SiteBuildConfig,section:src⋅types.Section,sourcePath:𝕊)→!IO src⋅types.SitePage=
-  l markdown=(stdlib⋅file.readText(sourcePath):𝕊);
+λloadPage(config:src⋅types.SiteBuildConfig,section:src⋅types.Section,sourcePath:String)→!IO src⋅types.SitePage=
+  l markdown=(stdlib⋅file.readText(sourcePath):String);
   l parsed=(src⋅frontmatter.parseFrontmatter(markdown,sourcePath):src⋅frontmatter.ParseResult);
   src⋅content.blankPage(parsed.content,parsed.meta,pageOutputDir(section,parsed.meta.slug,sourcePath),section,sourcePath)
 
-λloadPagesFromFiles(config:src⋅types.SiteBuildConfig,dir:𝕊,files:[𝕊],section:src⋅types.Section)→!IO [src⋅types.SitePage] match files{
+λloadPagesFromFiles(config:src⋅types.SiteBuildConfig,dir:String,files:[String],section:src⋅types.Section)→!IO [src⋅types.SitePage] match files{
   []→[]|
   [file,.rest]→
-    l sourcePath=(stdlib⋅path.join(dir,file):𝕊);
+    l sourcePath=(stdlib⋅path.join(dir,file):String);
     l page=(loadPage(config,section,sourcePath):src⋅types.SitePage);
     [page]⧺loadPagesFromFiles(config,dir,rest,section)
 }
@@ -117,16 +117,16 @@ i stdlib⋅time
   }
 
 λloadSpec(config:src⋅types.SiteBuildConfig)→!IO [src⋅types.SitePage]=
-  l files=(filterMarkdownFiles(stdlib⋅file.listDir("language/spec")):[𝕊]);
+  l files=(filterMarkdownFiles(stdlib⋅file.listDir("language/spec")):[String]);
   l pages=(loadPagesFromFiles(config,"language/spec",files,src⋅types.Spec()):[src⋅types.SitePage]);
   src⋅content.pagesSortedByTitle(pages)
 
-λoutputDirPath(config:src⋅types.SiteBuildConfig,page:src⋅types.SitePage)→𝕊 match page.outputDir{
+λoutputDirPath(config:src⋅types.SiteBuildConfig,page:src⋅types.SitePage)→String match page.outputDir{
   ""→config.outputDir|
   dir→stdlib⋅path.join(config.outputDir,dir)
 }
 
-λpageOutputDir(section:src⋅types.Section,slug:𝕊,sourcePath:𝕊)→𝕊 match section{
+λpageOutputDir(section:src⋅types.Section,slug:String,sourcePath:String)→String match section{
   src⋅types.Article()→match sourcePath{
     "website/articles/README.md"→"articles"|
     _→"articles/"++slug
@@ -136,8 +136,8 @@ i stdlib⋅time
   src⋅types.Spec()→"spec/"++slug
 }
 
-λprepareOutputDir(outputDir:𝕊)→!IO 𝕌=
-  l _=(stdlib⋅file.removeTree(outputDir):𝕌);
+λprepareOutputDir(outputDir:String)→!IO Unit=
+  l _=(stdlib⋅file.removeTree(outputDir):Unit);
   stdlib⋅file.makeDirs(outputDir)
 
 λremoveIntroPage(pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
@@ -148,12 +148,12 @@ i stdlib⋅time
   }
 }
 
-λrenderPages(aliasRoutes:[src⋅types.AliasRoute],basePath:𝕊,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
+λrenderPages(aliasRoutes:[src⋅types.AliasRoute],basePath:String,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
   []→[]|
   [page,.rest]→[src⋅content.renderPage(aliasRoutes,basePath,page)]⧺renderPages(aliasRoutes,basePath,rest)
 }
 
-λrenderSiteData(aliasRoutes:[src⋅types.AliasRoute],basePath:𝕊,data:src⋅types.SiteData)→src⋅types.SiteData={
+λrenderSiteData(aliasRoutes:[src⋅types.AliasRoute],basePath:String,data:src⋅types.SiteData)→src⋅types.SiteData={
   articles:renderPages(aliasRoutes,basePath,data.articles),
   articlesIntro:src⋅content.renderPage(aliasRoutes,basePath,data.articlesIntro),
   docs:renderPages(aliasRoutes,basePath,data.docs),
@@ -161,32 +161,32 @@ i stdlib⋅time
   spec:renderPages(aliasRoutes,basePath,data.spec)
 }
 
-λwriteIndexHtml(dir:𝕊,html:𝕊)→!IO 𝕌=
-  l _=(stdlib⋅file.makeDirs(dir):𝕌);
+λwriteIndexHtml(dir:String,html:String)→!IO Unit=
+  l _=(stdlib⋅file.makeDirs(dir):Unit);
   stdlib⋅file.writeText(html,stdlib⋅path.join(dir,"index.html"))
 
-λwriteNotFound(config:src⋅types.SiteBuildConfig)→!IO 𝕌=
+λwriteNotFound(config:src⋅types.SiteBuildConfig)→!IO Unit=
   stdlib⋅file.writeText(src⋅templates.notFoundPage(config),stdlib⋅path.join(config.outputDir,"404.html"))
 
-λwritePage(config:src⋅types.SiteBuildConfig,html:𝕊,page:src⋅types.SitePage)→!IO 𝕌=
-  l dir=(outputDirPath(config,page):𝕊);
-  l _=(stdlib⋅file.makeDirs(dir):𝕌);
+λwritePage(config:src⋅types.SiteBuildConfig,html:String,page:src⋅types.SitePage)→!IO Unit=
+  l dir=(outputDirPath(config,page):String);
+  l _=(stdlib⋅file.makeDirs(dir):Unit);
   stdlib⋅file.writeText(html,stdlib⋅path.join(dir,"index.html"))
 
-λwritePages(config:src⋅types.SiteBuildConfig,pages:[src⋅types.SitePage])→!IO 𝕌 match pages{
+λwritePages(config:src⋅types.SiteBuildConfig,pages:[src⋅types.SitePage])→!IO Unit match pages{
   []→()|
   [page,.rest]→
-    l html=(src⋅templates.articlePage(config,page):𝕊);
-    l _=(writePage(config,html,page):𝕌);
+    l html=(src⋅templates.articlePage(config,page):String);
+    l _=(writePage(config,html,page):Unit);
     writePages(config,rest)
 }
 
-λwriteSiteManifest(config:src⋅types.SiteBuildConfig,data:src⋅types.SiteData)→!IO 𝕌=
-  l generatedAt=(stdlib⋅time.formatIso(stdlib⋅time.now()):𝕊);
+λwriteSiteManifest(config:src⋅types.SiteBuildConfig,data:src⋅types.SiteData)→!IO Unit=
+  l generatedAt=(stdlib⋅time.formatIso(stdlib⋅time.now()):String);
   l manifest=(buildSiteManifestJson(data,generatedAt,config.repoUrl):stdlib⋅json.JsonValue);
   stdlib⋅file.writeText(stdlib⋅json.stringify(manifest),stdlib⋅path.join(config.outputDir,"site.json"))
 
-λwriteStandalonePages(aliasRoutes:[src⋅types.AliasRoute],config:src⋅types.SiteBuildConfig)→!IO 𝕌=
+λwriteStandalonePages(aliasRoutes:[src⋅types.AliasRoute],config:src⋅types.SiteBuildConfig)→!IO Unit=
   l aboutPage=(loadPage(config,src⋅types.Home(),"website/about-site.md"):src⋅types.SitePage);
   l renderedPage=(src⋅content.renderPage(aliasRoutes,config.basePath,{
     bodyHtml:aboutPage.bodyHtml,
@@ -196,5 +196,5 @@ i stdlib⋅time
     section:aboutPage.section,
     sourcePath:aboutPage.sourcePath
   }):src⋅types.SitePage);
-  l html=(src⋅templates.articlePage(config,renderedPage):𝕊);
+  l html=(src⋅templates.articlePage(config,renderedPage):String);
   writePage(config,html,renderedPage)

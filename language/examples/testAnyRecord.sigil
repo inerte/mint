@@ -1,5 +1,5 @@
 t Headers={}
-t Response={body:𝕊,headers:Headers,status:ℤ}
+t Response={body:String,headers:Headers,status:Int}
 
 λmain()→Response=test()
 λtest()→Response={

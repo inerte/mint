@@ -49,7 +49,7 @@ Sigil uses one comment syntax only:
 ```sigil
 ⟦ This is a comment ⟧
 
-λfactorial(n:ℤ)→ℤ match n{
+λfactorial(n:Int)→Int match n{
   0→1|  ⟦ inline comment ⟧
   n→n*factorial(n-1)
 }
@@ -85,7 +85,7 @@ Module scope is declaration-only:
 ## Function declarations
 
 ```sigil
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
+λadd(x:Int,y:Int)→Int=x+y
 ```
 
 Generic top-level functions use explicit type parameters on the declaration:
@@ -103,12 +103,12 @@ Rules:
 - `=` is required for regular expression bodies
 - `=` is omitted when body starts with match (`match ...`)
 - generic lambdas are not supported
-- call-site type arguments like `f[ℤ](x)` are not supported
+- call-site type arguments like `f[Int](x)` are not supported
 
 Match-body form:
 
 ```sigil
-λfactorial(n:ℤ)→ℤ match n{
+λfactorial(n:Int)→Int match n{
   0→1|
   1→1|
   n→n*factorial(n-1)
@@ -120,8 +120,8 @@ Match-body form:
 Effects are declared between `→` and the return type:
 
 ```sigil
-λfetchUser(id:ℤ)→!Network 𝕊=axios.get("https://api.example.com/users/"+id)
-λmain()→!IO 𝕌=console.log("hello")
+λfetchUser(id:Int)→!Network String=axios.get("https://api.example.com/users/"+id)
+λmain()→!IO Unit=console.log("hello")
 ```
 
 Valid built-in effects are currently `!Error`, `!IO`, `!Mut`, and `!Network`.
@@ -129,7 +129,7 @@ Valid built-in effects are currently `!Error`, `!IO`, `!Mut`, and `!Network`.
 ## Mockable function declarations (tests)
 
 ```sigil
-mockable λfetchUser(id:ℤ)→!Network 𝕊="real"
+mockable λfetchUser(id:Int)→!Network String="real"
 ```
 
 - `mockable` is only valid on functions
@@ -143,9 +143,9 @@ Only explicitly exported top-level declarations are visible to other Sigil modul
 Canonical export forms:
 
 ```sigil
-export λdouble(x:ℤ)→ℤ=x*2
-export t Todo={done:𝔹,id:ℤ,text:𝕊}
-export c version:𝕊="0.1"
+export λdouble(x:Int)→Int=x*2
+export t Todo={done:Bool,id:Int,text:String}
+export c version:String="0.1"
 ```
 
 Notes:
@@ -157,7 +157,7 @@ Notes:
 ## Product type (record)
 
 ```sigil
-t User={active:𝔹,id:ℤ,name:𝕊}
+t User={active:Bool,id:Int,name:String}
 ```
 
 Record fields are canonically alphabetical in:
@@ -197,10 +197,10 @@ Err("not found")
 Maps are dynamic keyed collections. They use `↦`, not `:`.
 
 ```sigil
-t Headers={𝕊↦𝕊}
+t Headers={String↦String}
 
-λdefault_headers()→{𝕊↦𝕊}={"content-type"↦"text/plain"}
-λempty_headers()→{𝕊↦𝕊}=({↦}:{𝕊↦𝕊})
+λdefault_headers()→{String↦String}={"content-type"↦"text/plain"}
+λempty_headers()→{String↦String}=({↦}:{String↦String})
 ```
 
 Rules:
@@ -213,13 +213,13 @@ Rules:
 ## Constants (`c`)
 
 ```sigil
-c answer:ℤ=42
-c greeting:𝕊="hello"
+c answer:Int=42
+c greeting:String="hello"
 ```
 
 Current parser behavior:
-- constant identifiers use regular lowercase identifier form (e.g. `c answer:ℤ=42`)
-- uppercase constant names like `c ANSWER:ℤ=42` are rejected today
+- constant identifiers use regular lowercase identifier form (e.g. `c answer:Int=42`)
+- uppercase constant names like `c ANSWER:Int=42` are rejected today
 
 ## Imports and externs
 
@@ -249,7 +249,7 @@ src⋅graphTypes.Ordering([1,2,3])
 Imported sum-type constructors use the same fully qualified namespace style in both expressions and match patterns:
 
 ```sigil
-λrender(result:src⋅graphTypes.TopologicalSortResult)→[ℤ] match result{
+λrender(result:src⋅graphTypes.TopologicalSortResult)→[Int] match result{
   src⋅graphTypes.Ordering(order)→order|
   src⋅graphTypes.CycleDetected()→[]
 }
@@ -307,10 +307,10 @@ test "logs" →!IO {
 ## Mocked test
 
 ```sigil
-mockable λfetchUser(id:ℤ)→!Network 𝕊="real"
+mockable λfetchUser(id:Int)→!Network String="real"
 
 test "mocked fetch" →!Network {
-  withMock(fetchUser,λ(id:ℤ)→!Network 𝕊="mocked"){
+  withMock(fetchUser,λ(id:Int)→!Network String="mocked"){
     fetchUser(1)="mocked"
   }
 }
@@ -321,11 +321,11 @@ test "mocked fetch" →!Network {
 ## Literals and primitives
 
 Primitive types:
-- `ℤ` integer
-- `ℝ` float
-- `𝔹` boolean
-- `𝕊` string
-- `𝕌` unit
+- `Int` integer
+- `Float` float
+- `Bool` boolean
+- `String` string
+- `Unit` unit
 
 Boolean values:
 - `true`
@@ -362,12 +362,12 @@ match value{
 Examples:
 
 ```sigil
-λsign(n:ℤ)→𝕊 match n{
+λsign(n:Int)→String match n{
   0→"zero"|
   n→"non-zero"
 }
 
-λdescribeBoth(a:𝔹,b:𝔹)→𝕊 match (a,b){
+λdescribeBoth(a:Bool,b:Bool)→String match (a,b){
   (true,true)→"both"|
   (true,false)→"left"|
   (false,true)→"right"|
@@ -391,14 +391,14 @@ match value{
 The guard expression:
 - Is evaluated **after** pattern bindings are established
 - Has access to all bindings from the pattern
-- Must have type `𝔹` (boolean)
+- Must have type `Bool` (boolean)
 - If `false`, matching falls through to the next arm
 
 Examples:
 
 ```sigil
 ⟦ Range checking ⟧
-λclassify(n:ℤ)→𝕊 match n{
+λclassify(n:Int)→String match n{
   x when x>100 → "large"|
   x when x>10 → "medium"|
   x when x>0 → "small"|
@@ -406,9 +406,9 @@ Examples:
 }
 
 ⟦ Conditional unpacking ⟧
-t Result=Ok(ℤ)|Err(𝕊)
+t Result=Ok(Int)|Err(String)
 
-λprocess(r:Result)→𝕊 match r{
+λprocess(r:Result)→String match r{
   Ok(n) when n>0 → "positive success"|
   Ok(n) → "non-positive success"|
   Err(msg) when #msg>0 → "error: "++msg|
@@ -416,9 +416,9 @@ t Result=Ok(ℤ)|Err(𝕊)
 }
 
 ⟦ Complex conditions ⟧
-t Point={x:ℤ,y:ℤ}
+t Point={x:Int,y:Int}
 
-λquadrant(p:Point)→𝕊 match p{
+λquadrant(p:Point)→String match p{
   {x,y} when x=0 and y=0 → "origin"|
   {x,y} when x>0 and y>0 → "quadrant I"|
   {x,y} when x<0 and y>0 → "quadrant II"|
@@ -442,7 +442,7 @@ List literals:
 ```
 
 List literals preserve nesting exactly as written.
-If `xs:[ℤ]`, then `[xs]` has type `[[ℤ]]`.
+If `xs:[Int]`, then `[xs]` has type `[[Int]]`.
 Use `⧺` when you want concatenation.
 
 List patterns:
@@ -511,13 +511,13 @@ a or b
 Map:
 
 ```sigil
-[1,2,3]↦λ(x:ℤ)→ℤ=x*2
+[1,2,3]↦λ(x:Int)→Int=x*2
 ```
 
 Filter:
 
 ```sigil
-[1,2,3,4]⊳λ(x:ℤ)→𝔹=x%2=0
+[1,2,3,4]⊳λ(x:Int)→Bool=x%2=0
 ```
 
 `↦` and `⊳` require pure callbacks. Use `⊕` for ordered reductions that depend on sequential accumulator flow.
@@ -525,7 +525,7 @@ Filter:
 Fold:
 
 ```sigil
-[1,2,3]⊕λ(acc:ℤ,x:ℤ)→ℤ=acc+x⊕0
+[1,2,3]⊕λ(acc:Int,x:Int)→Int=acc+x⊕0
 ```
 
 ## Lambdas
@@ -533,14 +533,14 @@ Fold:
 Lambda parameters and return type annotations are required.
 
 ```sigil
-λ(x:ℤ)→ℤ=x*2
-λ(todo:Todo)→𝔹=¬todo.done
+λ(x:Int)→Int=x*2
+λ(todo:Todo)→Bool=¬todo.done
 ```
 
 Effectful lambda:
 
 ```sigil
-λ(msg:𝕊)→!IO 𝕌=console.log(msg)
+λ(msg:String)→!IO Unit=console.log(msg)
 ```
 
 ## Canonical Formatting Reminders

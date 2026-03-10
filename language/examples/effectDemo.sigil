@@ -8,31 +8,31 @@
 e console
 
 ⟦ Pure computation - no side effects ⟧
-λadd(a:ℤ,b:ℤ)→ℤ=a+b
+λadd(a:Int,b:Int)→Int=a+b
 
 ⟦ Pure functions can call other pure functions ⟧
-λcomputeSum(a:ℤ,b:ℤ)→ℤ=add(a,b)
+λcomputeSum(a:Int,b:Int)→Int=add(a,b)
 
 ⟦ Pure transformation ⟧
-λdouble(x:ℤ)→ℤ=x*2
+λdouble(x:Int)→Int=x*2
 
 ⟦ Network effect (simulated) ⟧
-λfetchData()→!Network 𝕊="network-data"
+λfetchData()→!Network String="network-data"
 
 ⟦ Single IO effect - console output ⟧
-λlog(msg:𝕊)→!IO 𝕌=console.log(msg)
+λlog(msg:String)→!IO Unit=console.log(msg)
 
 ⟦ Effectful functions can call pure functions ⟧
-λlogDoubled(x:ℤ)→!IO 𝕌=logValue(double(x))
+λlogDoubled(x:Int)→!IO Unit=logValue(double(x))
 
 ⟦ IO effect with computation ⟧
-λlogValue(x:ℤ)→!IO 𝕌=console.log(x)
+λlogValue(x:Int)→!IO Unit=console.log(x)
 
 ⟦ Main function with all effects ⟧
-λmain()→!IO !Network 𝕌=processAndLog()
+λmain()→!IO !Network Unit=processAndLog()
 
 ⟦ Function with two declared effects ⟧
-λprocessAndLog()→!IO !Network 𝕌=log(fetchData())
+λprocessAndLog()→!IO !Network Unit=log(fetchData())
 
 ⟦ ========================================================================
   COMPILE-TIME SAFETY

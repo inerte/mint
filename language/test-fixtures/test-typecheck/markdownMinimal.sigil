@@ -1,8 +1,8 @@
 ⟦ Minimal reproduction of markdown.sigil structure ⟧
 
-t Block=Header(ℤ,𝕊)|Paragraph(𝕊)|HorizontalRule
+t Block=Header(Int,String)|Paragraph(String)|HorizontalRule
 
-t ParseState={inCodeBlock:𝔹}
+t ParseState={inCodeBlock:Bool}
 
 λemptyBlocks()→[Block]=[]
 
@@ -11,4 +11,4 @@ t ParseState={inCodeBlock:𝔹}
   false → emptyBlocks()
 }
 
-λmain()→𝕌=()
+λmain()→Unit=()

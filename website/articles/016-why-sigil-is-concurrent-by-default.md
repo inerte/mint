@@ -52,10 +52,10 @@ That means:
 Source:
 
 ```sigil
-λleft()→ℤ=21
-λright()→ℤ=21
+λleft()→Int=21
+λright()→Int=21
 
-λmain()→ℤ=left()+right()
+λmain()→Int=left()+right()
 ```
 
 Representative generated shape:

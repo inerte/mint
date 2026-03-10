@@ -13,7 +13,7 @@ Sigil's philosophy is **"ONE way to write it"**. Type annotations must be:
 
 This makes Hindley-Milner's primary feature (inferring types with minimal annotations) unnecessary. Bidirectional type checking is:
 - **Simpler** to implement (~40% less code)
-- **Better** error messages ("expected ℤ, got 𝕊" instead of "failed to unify")
+- **Better** error messages ("expected Int, got String" instead of "failed to unify")
 - **More extensible** (natural framework for polymorphism, effects, refinements)
 - **Faster** to compile (no complex constraint solving in common cases)
 
@@ -22,7 +22,7 @@ This makes Hindley-Milner's primary feature (inferring types with minimal annota
 ### Synthesis (⇒): Infer type from structure
 
 Used for expressions where type can be determined from the expression itself:
-- **Literals**: `5` ⇒ `ℤ`, `"hello"` ⇒ `𝕊`, `true` ⇒ `𝔹`
+- **Literals**: `5` ⇒ `Int`, `"hello"` ⇒ `String`, `true` ⇒ `Bool`
 - **Variables**: `x` ⇒ look up in environment
 - **Applications**: `f(x)` ⇒ synthesize `f`, check args, return result type
 - **Pattern matching**: `match n{...}` ⇒ synthesize scrutinee, check arms have same type
@@ -44,13 +44,13 @@ All function signatures must have complete type annotations:
 
 ```sigil
 ⟦ Function declarations ⟧
-λfactorial(n:ℤ)→ℤ=...
+λfactorial(n:Int)→Int=...
 
 ⟦ Lambda expressions ⟧
-[1,2,3]↦λ(x:ℤ)→ℤ=x*2
+[1,2,3]↦λ(x:Int)→Int=x*2
 
 ⟦ Constants (when supported) ⟧
-c pi:ℝ=3.14
+c pi:Float=3.14
 ```
 
 ### Parse Errors for Missing Annotations
@@ -59,12 +59,12 @@ The parser rejects code without type annotations:
 
 ```
 Error: Expected ":" after parameter "n"
-λfactorial(n)→ℤ=...
+λfactorial(n)→Int=...
            ^
 Type annotations are required (canonical form).
 
 Error: Expected "→" after parameters for function "factorial"
-λfactorial(n:ℤ)=...
+λfactorial(n:Int)=...
                ^
 Return type annotations are required (canonical form).
 ```
@@ -75,14 +75,14 @@ Bidirectional type checking provides **excellent error messages**:
 
 ```
 Error: Type mismatch in function 'main'
-  Expected: ℤ
-  Got: 𝕊
+  Expected: Int
+  Got: String
   Location: factorial.sigil:2:16
 
-  2 | λmain()→ℤ="hello"
+  2 | λmain()→Int="hello"
     |                ^
 
-Literal type mismatch: expected ℤ, got 𝕊
+Literal type mismatch: expected Int, got String
 ```
 
 Compare to traditional Hindley-Milner errors:
@@ -103,9 +103,9 @@ check(expr: Expr, expectedType: Type, env: Env): void
 ### Synthesis Rules
 
 ```
-Γ ⊢ 5 ⇒ ℤ                           (Literal-Int)
+Γ ⊢ 5 ⇒ Int                           (Literal-Int)
 
-Γ ⊢ "hello" ⇒ 𝕊                     (Literal-String)
+Γ ⊢ "hello" ⇒ String                     (Literal-String)
 
 x : T ∈ Γ
 ─────────────                        (Var)
@@ -153,7 +153,7 @@ The bidirectional type checker is fully implemented and integrated into the comp
 Sigil now supports **explicit parametric polymorphism** at declaration boundaries.
 
 Implemented today:
-- Primitive types: `ℤ` (Int), `𝕊` (String), `𝔹` (Bool), `𝕌` (Unit)
+- Primitive types: `Int` (Int), `String` (String), `Bool` (Bool), `Unit` (Unit)
 - Function types: `λ(T₁,...,Tₙ)→R`
 - List types: `[T]`
 - Tuple types: `(T₁,T₂,...,Tₙ)`
@@ -167,7 +167,7 @@ Implemented today:
 **Type equality** uses canonical structural comparison:
 ```typescript
 function typesEqual(t1: Type, t2: Type): boolean {
-  // ℤ = ℤ, 𝕊 = 𝕊, etc.
+  // Int = Int, String = String, etc.
   // (A→B) = (C→D) if A=C and B=D
   // [T] = [U] if T = U
   // etc.
@@ -181,14 +181,14 @@ comparison for already-explicit types.
 Examples:
 
 ```sigil
-t MkdirOptions={recursive:𝔹}
-t Todo={done:𝔹,id:ℤ,text:𝕊}
+t MkdirOptions={recursive:Bool}
+t Todo={done:Bool,id:Int,text:String}
 
 ⟦ Named product type and structural record are the same after normalization ⟧
 c opts=({recursive:true}:MkdirOptions)
 
-⟦ [Todo] and [{done:𝔹,id:ℤ,text:𝕊}] compare by canonical form ⟧
-λaddTodo(id:ℤ,text:𝕊,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
+⟦ [Todo] and [{done:Bool,id:Int,text:String}] compare by canonical form ⟧
+λaddTodo(id:Int,text:String,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
 ```
 
 Sigil keeps **sum types nominal**. A sum type does not normalize into a structural
@@ -197,7 +197,7 @@ record payload just because one of its variants carries a record.
 Sigil does **not** use Hindley-Milner let-polymorphism:
 - `l id=...` does not become implicitly polymorphic
 - lambdas are not generic declarations
-- there is no call-site type argument syntax like `f[ℤ](x)`
+- there is no call-site type argument syntax like `f[Int](x)`
 
 Generic instantiation is driven by ordinary bidirectional typing:
 - argument types
@@ -222,7 +222,7 @@ That exactness is not just documentation. Sigil enforces:
 If a field might be absent, the canonical answer is:
 
 ```sigil
-t MaybeMessage={createdAt:Option[stdlib⋅time.Instant],text:𝕊}
+t MaybeMessage={createdAt:Option[stdlib⋅time.Instant],text:String}
 ```
 
 not an open record, optional-field syntax, or a half-populated record value.
@@ -243,7 +243,7 @@ raw JSON / raw text / raw protocol value
 For example, this is the intended shape:
 
 ```sigil
-t Message={createdAt:stdlib⋅time.Instant,text:𝕊}
+t Message={createdAt:stdlib⋅time.Instant,text:String}
 ```
 
 Once business logic has a `Message`, `message.createdAt` is simply there.
@@ -254,8 +254,8 @@ When a validated value should remain distinct from a raw primitive, use a named
 wrapper rather than an alias:
 
 ```sigil
-t Email=Email(𝕊)
-t UserId=UserId(ℤ)
+t Email=Email(String)
+t UserId=UserId(Int)
 ```
 
 This keeps “validated internal value” separate from “raw string/int from a boundary”.
@@ -264,8 +264,8 @@ This keeps “validated internal value” separate from “raw string/int from a
 
 **Phase 3+** (Future): Extend as needed
 - **Higher-rank polymorphism**: Functions taking polymorphic functions
-- **Refinement types**: Types with constraints (e.g., `{n:ℤ | n > 0}`)
-- **Effect tracking**: `λread()→!IO 𝕊`
+- **Refinement types**: Types with constraints (e.g., `{n:Int | n > 0}`)
+- **Effect tracking**: `λread()→!IO String`
 - **Dependent types**: If needed for verification
 
 All these remain easier to add on top of bidirectional typing than on top of Hindley-Milner.
@@ -288,31 +288,31 @@ All these remain easier to add on top of bidirectional typing than on top of Hin
 Pattern matching is type-checked using bidirectional rules:
 
 ```sigil
-λlength(list:[ℤ])→ℤ match list{
+λlength(list:[Int])→Int match list{
   []→0|
   [_,.rest]→1+length(rest)
 }
 ```
 
 Type checking:
-1. **Synthesize** scrutinee type: `list : [ℤ]`
+1. **Synthesize** scrutinee type: `list : [Int]`
 2. **Check** each pattern against scrutinee type:
-   - `[]` : `[ℤ]` ✓ (empty list pattern)
-   - `[_,.rest]` : `[ℤ]` ✓ (binds `rest : [ℤ]`)
+   - `[]` : `[Int]` ✓ (empty list pattern)
+   - `[_,.rest]` : `[Int]` ✓ (binds `rest : [Int]`)
 3. **Synthesize** each arm body:
-   - `0` ⇒ `ℤ` ✓
-   - `1+length(rest)` ⇒ `ℤ` ✓
-4. **Verify** all arms have same type: `ℤ = ℤ` ✓
-5. **Return** result type: `ℤ`
+   - `0` ⇒ `Int` ✓
+   - `1+length(rest)` ⇒ `Int` ✓
+4. **Verify** all arms have same type: `Int = Int` ✓
+5. **Return** result type: `Int`
 
 ## List Operations
 
 Built-in list operations are type-checked specially:
 
 ```sigil
-[1,2,3]↦λ(x:ℤ)→ℤ=x*2        ⟦ [ℤ] ↦ (ℤ→ℤ) ⇒ [ℤ] ⟧
-[1,2,3]⊳λ(x:ℤ)→𝔹=x>1        ⟦ [ℤ] ⊳ (ℤ→𝔹) ⇒ [ℤ] ⟧
-[1,2,3]⊕λ(acc:ℤ,x:ℤ)→ℤ=acc+x⊕0  ⟦ [ℤ] ⊕ (ℤ→ℤ→ℤ) ⊕ ℤ ⇒ ℤ ⟧
+[1,2,3]↦λ(x:Int)→Int=x*2        ⟦ [Int] ↦ (Int→Int) ⇒ [Int] ⟧
+[1,2,3]⊳λ(x:Int)→Bool=x>1        ⟦ [Int] ⊳ (Int→Bool) ⇒ [Int] ⟧
+[1,2,3]⊕λ(acc:Int,x:Int)→Int=acc+x⊕0  ⟦ [Int] ⊕ (Int→Int→Int) ⊕ Int ⇒ Int ⟧
 ```
 
 Type rules:
@@ -323,7 +323,7 @@ Type rules:
 Γ ⊢ list↦fn ⇒ [U]
 
 Γ ⊢ list ⇒ [T]
-Γ ⊢ pred ⇐ λ(T)→𝔹
+Γ ⊢ pred ⇐ λ(T)→Bool
 ────────────────────
 Γ ⊢ list⊳pred ⇒ [T]
 
@@ -387,7 +387,7 @@ Imported constructors use the same fully qualified namespace style as imported f
 ```sigil
 i src⋅graphTypes
 
-λsorted(order:[ℤ])→src⋅graphTypes.TopologicalSortResult=
+λsorted(order:[Int])→src⋅graphTypes.TopologicalSortResult=
   src⋅graphTypes.Ordering(order)
 ```
 
@@ -397,26 +397,26 @@ Sum types are deconstructed using pattern matching:
 
 ```sigil
 ⟦ Match on simple enum ⟧
-λcolorToInt(color:Color)→ℤ match color{
+λcolorToInt(color:Color)→Int match color{
   Red→1|
   Green→2|
   Blue→3
 }
 
 ⟦ Extract values from constructors ⟧
-λprocessOption(opt:Option)→ℤ match opt{
+λprocessOption(opt:Option)→Int match opt{
   Some(x)→x|
   None→0
 }
 
 ⟦ Nested patterns ⟧
-λprocessResult(res:Result)→𝕊 match res{
+λprocessResult(res:Result)→String match res{
   Ok(value)→"Success: "+value|
   Err(msg)→"Error: "+msg
 }
 
 ⟦ Imported constructor patterns use fully qualified names ⟧
-λproject(result:src⋅graphTypes.TopologicalSortResult)→[ℤ] match result{
+λproject(result:src⋅graphTypes.TopologicalSortResult)→[Int] match result{
   src⋅graphTypes.Ordering(order)→order|
   src⋅graphTypes.CycleDetected()→[]
 }
@@ -474,7 +474,7 @@ The standard library provides two essential sum types:
 t Option[T]=Some(T)|None
 
 ⟦ Usage ⟧
-λdivide(a:ℤ,b:ℤ)→Option match b{
+λdivide(a:Int,b:Int)→Option match b{
   0→None()|
   b→Some(a/b)
 }
@@ -485,7 +485,7 @@ t Option[T]=Some(T)|None
 t Result[T,E]=Ok(T)|Err(E)
 
 ⟦ Usage ⟧
-λparseInt(s:𝕊)→Result match validInput(s){
+λparseInt(s:String)→Result match validInput(s){
   true→Ok(parseInt(s))|
   false→Err("invalid input")
 }
@@ -522,12 +522,12 @@ See `examples/sumTypesDemo.sigil` for comprehensive examples including:
 
 Sigil uses distinct operators for distinct concatenation semantics:
 
-- `++` for string concatenation (`𝕊 × 𝕊 → 𝕊`)
+- `++` for string concatenation (`String × String → String`)
 - `⧺` for list concatenation (`[T] × [T] → [T]`)
 
 ```sigil
-λgreet(name:𝕊)→𝕊="Hello, "++name
-λmerge(xs:[ℤ],ys:[ℤ])→[ℤ]=xs⧺ys
+λgreet(name:String)→String="Hello, "++name
+λmerge(xs:[Int],ys:[Int])→[Int]=xs⧺ys
 ```
 
 This preserves canonical surface forms by avoiding one overloaded concat operator for different data kinds.
@@ -538,7 +538,7 @@ The empty list literal `[]` requires type context to determine its element type.
 Non-empty list literals preserve nesting exactly as written; they do not implicitly concatenate inner lists.
 
 **Works in these contexts:**
-- **Function return type**: `λf()→[ℤ]=[]` provides `[ℤ]` context
+- **Function return type**: `λf()→[Int]=[]` provides `[Int]` context
 - **Pattern matching arms**: First arm establishes type for subsequent arms
 - **Record literals**: Expected record type provides context for field values
 - **Explicit checking contexts**: Where expected type flows downward
@@ -546,46 +546,46 @@ Non-empty list literals preserve nesting exactly as written; they do not implici
 **Example - Pattern Matching:**
 ```sigil
 ⟦ Basic: empty list infers from function return type ⟧
-λemptyInts()→[ℤ]=[]
+λemptyInts()→[Int]=[]
 
 ⟦ Pattern matching: first arm pattern infers from scrutinee, body from return type ⟧
-λreverse(xs:[ℤ])→[ℤ] match xs{
-  []→[]|                 ⟦ OK: expected type is [ℤ] from function signature ⟧
+λreverse(xs:[Int])→[Int] match xs{
+  []→[]|                 ⟦ OK: expected type is [Int] from function signature ⟧
   [x,.rest]→reverse(rest)⧺[x]
 }
 
 ⟦ Pattern matching: subsequent arms checked against first arm's type ⟧
-λfirstNonEmpty(a:[ℤ],b:[ℤ])→[ℤ] match a{
-  [x,.xs] → a|      ⟦ First arm synthesizes to [ℤ] ⟧
-  [] → b            ⟦ Second arm checked against [ℤ] from first arm ⟧
+λfirstNonEmpty(a:[Int],b:[Int])→[Int] match a{
+  [x,.xs] → a|      ⟦ First arm synthesizes to [Int] ⟧
+  [] → b            ⟦ Second arm checked against [Int] from first arm ⟧
 }
 
 ⟦ Multiple empty arms work when return type provides context ⟧
 t Foo=A|B|C
 
-λtest(x:Foo)→[ℤ] match x{
-  A → [1,2,3]|      ⟦ First arm synthesizes to [ℤ] ⟧
-  B → []|           ⟦ Checked against [ℤ] ⟧
-  C → []            ⟦ Checked against [ℤ] ⟧
+λtest(x:Foo)→[Int] match x{
+  A → [1,2,3]|      ⟦ First arm synthesizes to [Int] ⟧
+  B → []|           ⟦ Checked against [Int] ⟧
+  C → []            ⟦ Checked against [Int] ⟧
 }
 
 ⟦ Nested list construction preserves shape ⟧
-λwrap(xs:[ℤ])→[[ℤ]]=[xs]
+λwrap(xs:[Int])→[[Int]]=[xs]
 ```
 
 **Example - Record Literals:**
 ```sigil
 ⟦ Record type provides context for empty list fields ⟧
 t ParseState={
-  code_lines:[𝕊],
-  list_items:[𝕊],
-  para_lines:[𝕊]
+  code_lines:[String],
+  list_items:[String],
+  para_lines:[String]
 }
 
 λempty_state()→ParseState={
-  code_lines:[],    ⟦ OK: infers [𝕊] from ParseState.code_lines ⟧
-  list_items:[],    ⟦ OK: infers [𝕊] from ParseState.list_items ⟧
-  para_lines:[]     ⟦ OK: infers [𝕊] from ParseState.para_lines ⟧
+  code_lines:[],    ⟦ OK: infers [String] from ParseState.code_lines ⟧
+  list_items:[],    ⟦ OK: infers [String] from ParseState.list_items ⟧
+  para_lines:[]     ⟦ OK: infers [String] from ParseState.para_lines ⟧
 }
 
 ⟦ Mixed empty and non-empty fields ⟧
@@ -607,38 +607,38 @@ t ParseState={
 
 ```sigil
 ⟦ Factorial with pattern matching ⟧
-λfactorial(n:ℤ)→ℤ match n{
+λfactorial(n:Int)→Int match n{
   0→1|
   1→1|
   n→n*factorial(n-1)
 }
 
 ⟦ GCD (multi-parameter recursion allowed) ⟧
-λgcd(a:ℤ,b:ℤ)→ℤ match b{
+λgcd(a:Int,b:Int)→Int match b{
   0→a|
   b→gcd(b,a%b)
 }
 
 ⟦ List operations ⟧
-λdoubleEvens(list:[ℤ])→[ℤ]=
-  list↦λ(x:ℤ)→ℤ=x*2⊳λ(x:ℤ)→𝔹=x%2=0
+λdoubleEvens(list:[Int])→[Int]=
+  list↦λ(x:Int)→Int=x*2⊳λ(x:Int)→Bool=x%2=0
 ```
 
 ### Type Errors
 
 ```sigil
 ⟦ Error: Type mismatch ⟧
-λbad()→ℤ="hello"
-⟦ Error: Literal type mismatch: expected ℤ, got 𝕊 ⟧
+λbad()→Int="hello"
+⟦ Error: Literal type mismatch: expected Int, got String ⟧
 
 ⟦ Error: Argument type mismatch ⟧
-λid(x:ℤ)→ℤ=x
-λmain()→𝕊=id("hello")
-⟦ Error: Argument 0 type mismatch: expected ℤ, got 𝕊 ⟧
+λid(x:Int)→Int=x
+λmain()→String=id("hello")
+⟦ Error: Argument 0 type mismatch: expected Int, got String ⟧
 
 ⟦ Error: Pattern match type mismatch ⟧
-λneg(b:𝔹)→𝔹 match b{5→false|_→true}
-⟦ Error: Pattern type mismatch: expected 𝔹, got ℤ ⟧
+λneg(b:Bool)→Bool match b{5→false|_→true}
+⟦ Error: Pattern type mismatch: expected Bool, got Int ⟧
 ```
 
 ## Summary

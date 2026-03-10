@@ -1,8 +1,8 @@
 ⟦ TEST: Typed FFI type checking ⟧
 
-e console : { log : λ(𝕊) → 𝕌 }
+e console : { log : λ(String) → Unit }
 
 ⟦ This should compile - correct type ⟧
-λgood()→𝕌=console.log("type safe")
+λgood()→Unit=console.log("type safe")
 
-λmain()→𝕌=()
+λmain()→Unit=()

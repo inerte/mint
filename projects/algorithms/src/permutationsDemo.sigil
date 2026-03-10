@@ -1,3 +1,3 @@
 i src⋅permutations
 
-λmain()→[[ℤ]]=src⋅permutations.permutations([1,2,3])
+λmain()→[[Int]]=src⋅permutations.permutations([1,2,3])

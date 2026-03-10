@@ -101,7 +101,7 @@ Current constructor and list invariants:
 - Sigil supports explicit parametric polymorphism on top-level declarations
 - do not describe Sigil as using Hindley-Milner let-polymorphism
 - prefer canonical `Option[T]` / `Result[T,E]` over monomorphic wrappers like `IntOption`
-- generic lambdas and call-site type arguments like `f[ℤ](x)` are not part of Sigil's surface
+- generic lambdas and call-site type arguments like `f[Int](x)` are not part of Sigil's surface
 - `Option`, `Result`, `Some`, `None`, `Ok`, and `Err` are implicit core vocabulary from `core⋅prelude`
 - `Map` is a core collection concept with type syntax `{K↦V}` and literal syntax `{key↦value,...}` / `{↦}`
 - helper operations for foundational core types stay namespaced under `core⋅...`
@@ -246,7 +246,7 @@ Sigil enforces canonical filename format:
 - Used for programs, scripts, examples
 
 **`tests/*.sigil` files** (tests):
-- Must have main()→𝕌=() function
+- Must have main()→Unit=() function
 - Can have test blocks
 - Must be in tests/ directory
 - Special privilege: can import from ANY file and see ALL functions
@@ -260,7 +260,7 @@ When creating new files:
 
 Test files must:
 1. Live in `tests/` directories
-2. Have a `main()→𝕌=()` function (executable marker)
+2. Have a `main()→Unit=()` function (executable marker)
 3. Use `.sigil` extension (executables, not libraries)
 
 Run tests:
@@ -274,7 +274,7 @@ Create new test file:
 // tests/my-feature.sigil
 i stdlib⋅list
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "my feature works" {
   #[1,2,3]=3
@@ -294,7 +294,7 @@ use sigil_validator::{validate_canonical_form, ValidationError};
 
 #[test]
 fn test_accumulator_blocked() {
-    let source = "λfactorial(n:ℤ,acc:ℤ)→ℤ match n{0→acc|n→factorial(n-1,n*acc)}";
+    let source = "λfactorial(n:Int,acc:Int)→Int match n{0→acc|n→factorial(n-1,n*acc)}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 

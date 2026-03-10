@@ -2,7 +2,7 @@
 
 i stdlib⋅url
 
-λmain()→𝕌=()
+λmain()→Unit=()
 
 test "url parse absolute exposes protocol host and path" {
   match stdlib⋅url.parse("https://sigil.dev/docs?lang=sigil#intro"){

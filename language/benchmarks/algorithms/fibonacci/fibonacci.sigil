@@ -1,2 +1,2 @@
-λfib(n:ℤ)→ℤ match n{0→0|1→1|value→fib(value-1)+fib(value-2)}
-λmain()→ℤ=fib(10)
+λfib(n:Int)→Int match n{0→0|1→1|value→fib(value-1)+fib(value-2)}
+λmain()→Int=fib(10)

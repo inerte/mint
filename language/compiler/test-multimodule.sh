@@ -26,13 +26,13 @@ cat > test-project/sigil.json << 'EOF'
 EOF
 
 cat > test-project/src/utils.lib.sigil << 'EOF'
-λdouble(x:ℤ)→ℤ=x*2
-λtriple(x:ℤ)→ℤ=x*3
+λdouble(x:Int)→Int=x*2
+λtriple(x:Int)→Int=x*3
 EOF
 
 cat > test-project/src/main.sigil << 'EOF'
 i src⋅utils
-λmain()→ℤ=src⋅utils.double(21)
+λmain()→Int=src⋅utils.double(21)
 EOF
 
 echo "Running: cd test-project && ../target/debug/sigil run src/main.sigil --human"
@@ -45,14 +45,14 @@ echo ""
 echo "Test 2: Multiple imports in one file"
 echo "--------------------------------------"
 cat > test-project/src/math.lib.sigil << 'EOF'
-λadd(x:ℤ,y:ℤ)→ℤ=x+y
-λsubtract(x:ℤ,y:ℤ)→ℤ=x-y
+λadd(x:Int,y:Int)→Int=x+y
+λsubtract(x:Int,y:Int)→Int=x-y
 EOF
 
 cat > test-project/src/calc.sigil << 'EOF'
 i src⋅math
 i src⋅utils
-λmain()→ℤ=src⋅math.add(src⋅utils.double(10),src⋅utils.triple(5))
+λmain()→Int=src⋅math.add(src⋅utils.double(10),src⋅utils.triple(5))
 EOF
 
 echo "Running: cd test-project && ../target/debug/sigil run src/calc.sigil --human"
@@ -65,17 +65,17 @@ echo ""
 echo "Test 3: Transitive dependencies (A imports B imports C)"
 echo "---------------------------------------------------------"
 cat > test-project/src/base.lib.sigil << 'EOF'
-λincrement(x:ℤ)→ℤ=x+1
+λincrement(x:Int)→Int=x+1
 EOF
 
 cat > test-project/src/derived.lib.sigil << 'EOF'
 i src⋅base
-λaddTwo(x:ℤ)→ℤ=src⋅base.increment(src⋅base.increment(x))
+λaddTwo(x:Int)→Int=src⋅base.increment(src⋅base.increment(x))
 EOF
 
 cat > test-project/src/app.sigil << 'EOF'
 i src⋅derived
-λmain()→ℤ=src⋅derived.addTwo(5)
+λmain()→Int=src⋅derived.addTwo(5)
 EOF
 
 echo "Running: cd test-project && ../target/debug/sigil run src/app.sigil --human"

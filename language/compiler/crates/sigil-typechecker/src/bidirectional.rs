@@ -26,6 +26,7 @@ use crate::types::{
     TConstructor, TFunction, TMap, TPrimitive, TRecord, types_equal,
 };
 use crate::{TypeCheckOptions};
+use sigil_diagnostics::codes;
 use sigil_ast::{
     BinaryOperator, Declaration, Expr, FunctionDecl, LiteralType, PrimitiveName, Program, Type,
     TypeDef,
@@ -45,6 +46,7 @@ pub fn type_check(
     validate_surface_types(program)?;
 
     let mut env = TypeEnvironment::create_initial();
+    env.set_source_file(options.source_file.clone());
     let mut types = HashMap::new();
     let mut schemes = HashMap::new();
 
@@ -1721,6 +1723,8 @@ fn synthesize_application(
     env: &TypeEnvironment,
     app: &sigil_ast::ApplicationExpr,
 ) -> Result<InferenceType, TypeError> {
+    validate_topology_application(env, app)?;
+
     let raw_fn_type = synthesize(env, &app.func)?;
     let fn_type = env.normalize_type(&raw_fn_type);
 
@@ -1769,6 +1773,145 @@ fn synthesize_application(
             Some(app.location),
         )),
     }
+}
+
+fn is_canonical_topology_source(env: &TypeEnvironment) -> bool {
+    env.source_file()
+        .map(|path| path.replace('\\', "/").ends_with("/src/topology.lib.sigil"))
+        .unwrap_or(false)
+}
+
+fn topology_call_member(expr: &Expr) -> Option<(&[String], &str)> {
+    if let Expr::MemberAccess(member_access) = expr {
+        return Some((&member_access.namespace, member_access.member.as_str()));
+    }
+
+    None
+}
+
+fn is_http_dependency_type(typ: &InferenceType) -> bool {
+    matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".HttpServiceDependency") || tcons.name == "HttpServiceDependency")
+}
+
+fn is_tcp_dependency_type(typ: &InferenceType) -> bool {
+    matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".TcpServiceDependency") || tcons.name == "TcpServiceDependency")
+}
+
+fn validate_topology_application(
+    env: &TypeEnvironment,
+    app: &sigil_ast::ApplicationExpr,
+) -> Result<(), TypeError> {
+    let Some((namespace, member)) = topology_call_member(&app.func) else {
+        return Ok(());
+    };
+
+    let module_id = namespace.join("⋅");
+
+    if module_id == "stdlib⋅topology" {
+        let restricted = matches!(
+            member,
+            "httpService"
+                | "tcpService"
+                | "environment"
+                | "bindHttp"
+                | "bindHttpEnv"
+                | "bindTcp"
+                | "bindTcpEnv"
+        );
+
+        if restricted && !is_canonical_topology_source(env) {
+            return Err(TypeError::new(
+                format!(
+                    "{}: topology declarations must live in src⋅topology via src/topology.lib.sigil",
+                    codes::topology::CONSTRUCTOR_LOCATION
+                ),
+                Some(app.location),
+            ));
+        }
+
+        return Ok(());
+    }
+
+    let http_handle_arg_index = if module_id == "stdlib⋅httpClient" {
+        match member {
+            "get" | "getJson" | "delete" | "deleteJson" => Some(0),
+            "post" | "postJson" | "put" | "putJson" | "patch" | "patchJson" => Some(1),
+            _ => None,
+        }
+    } else {
+        None
+    };
+    let tcp_handle_arg_index = if module_id == "stdlib⋅tcpClient" && matches!(member, "request" | "send") {
+        Some(0)
+    } else {
+        None
+    };
+
+    if http_handle_arg_index.is_none() && tcp_handle_arg_index.is_none() {
+        return Ok(());
+    }
+
+    let handle_index = http_handle_arg_index.or(tcp_handle_arg_index).unwrap();
+    let Some(handle_arg) = app.args.get(handle_index) else {
+        return Ok(());
+    };
+    let handle_type = env.normalize_type(&synthesize(env, handle_arg)?);
+
+    if http_handle_arg_index.is_some() {
+        if matches!(handle_arg, Expr::Literal(_)) {
+            return Err(TypeError::new(
+                format!(
+                    "{}: stdlib⋅httpClient calls must use src⋅topology dependency handles, not raw URLs",
+                    codes::topology::RAW_ENDPOINT_FORBIDDEN
+                ),
+                Some(app.location),
+            ));
+        }
+
+        if !is_http_dependency_type(&handle_type) {
+            let code = if is_tcp_dependency_type(&handle_type) {
+                codes::topology::DEPENDENCY_KIND_MISMATCH
+            } else {
+                codes::topology::INVALID_HANDLE
+            };
+            return Err(TypeError::new(
+                format!(
+                    "{}: stdlib⋅httpClient requires a HttpServiceDependency from src⋅topology as its first argument",
+                    code
+                ),
+                Some(app.location),
+            ));
+        }
+    }
+
+    if tcp_handle_arg_index.is_some() {
+        if matches!(handle_arg, Expr::Literal(_)) {
+            return Err(TypeError::new(
+                format!(
+                    "{}: stdlib⋅tcpClient calls must use src⋅topology dependency handles, not raw hosts or ports",
+                    codes::topology::RAW_ENDPOINT_FORBIDDEN
+                ),
+                Some(app.location),
+            ));
+        }
+
+        if !is_tcp_dependency_type(&handle_type) {
+            let code = if is_http_dependency_type(&handle_type) {
+                codes::topology::DEPENDENCY_KIND_MISMATCH
+            } else {
+                codes::topology::INVALID_HANDLE
+            };
+            return Err(TypeError::new(
+                format!(
+                    "{}: stdlib⋅tcpClient requires a TcpServiceDependency from src⋅topology as its first argument",
+                    code
+                ),
+                Some(app.location),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 fn synthesize_list(

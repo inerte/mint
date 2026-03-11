@@ -1,0 +1,15 @@
+i stdlib⋅topology
+
+c local=(stdlib⋅topology.environment([
+  stdlib⋅topology.bindHttp("http://127.0.0.1:45110",stdlib⋅topology.httpService("mailerApi"))
+],"local",[]):stdlib⋅topology.Environment)
+
+c mailerApi=(stdlib⋅topology.httpService("mailerApi"):stdlib⋅topology.HttpServiceDependency)
+
+c prod=(stdlib⋅topology.environment([
+  stdlib⋅topology.bindHttpEnv(stdlib⋅topology.httpService("mailerApi"),"MAILER_API_URL")
+],"prod",[]):stdlib⋅topology.Environment)
+
+c test=(stdlib⋅topology.environment([
+  stdlib⋅topology.bindHttp("http://127.0.0.1:45110",stdlib⋅topology.httpService("mailerApi"))
+],"test",[]):stdlib⋅topology.Environment)

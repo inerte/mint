@@ -6,7 +6,7 @@ echo "TCP Client/Server Integration Tests"
 echo "========================================"
 echo ""
 
-PROJECT_DIR="tcp-roundtrip-project"
+PROJECT_DIR="../../projects/topology-tcp"
 PORT="45120"
 SERVER_LOG="server.log"
 
@@ -15,74 +15,15 @@ cleanup() {
     kill "${SERVER_PID}" >/dev/null 2>&1 || true
     wait "${SERVER_PID}" >/dev/null 2>&1 || true
   fi
-  rm -rf "${PROJECT_DIR}"
+  rm -f "${PROJECT_DIR}/${SERVER_LOG}"
+  rm -f "${PROJECT_DIR}/src/rawTcpClient.sigil"
 }
 
 trap cleanup EXIT
 
-rm -rf "${PROJECT_DIR}"
-mkdir -p "${PROJECT_DIR}/src"
-
-cat > "${PROJECT_DIR}/sigil.json" << 'EOF'
-{
-  "layout": {
-    "src": "src",
-    "tests": "tests",
-    "out": ".local"
-  }
-}
-EOF
-
-cat > "${PROJECT_DIR}/src/tcpRoundtripServer.sigil" << EOF
-i stdlib⋅tcpServer
-
-λhandleRequest(request:stdlib⋅tcpServer.Request)→!IO stdlib⋅tcpServer.Response match request.message{
-  "ping"→stdlib⋅tcpServer.response("pong")|
-  "upper:hello"→stdlib⋅tcpServer.response("HELLO")|
-  _→stdlib⋅tcpServer.response(request.message)
-}
-
-λmain()→!IO Unit=stdlib⋅tcpServer.serve(handleRequest,${PORT})
-EOF
-
-cat > "${PROJECT_DIR}/src/pingClient.sigil" << EOF
-i stdlib⋅tcpClient
-
-λmain()→!IO String match stdlib⋅tcpClient.send("127.0.0.1","ping",${PORT}){
-  Ok(response)→response.message|
-  Err(error)→"ERR:"++error.message
-}
-EOF
-
-cat > "${PROJECT_DIR}/src/echoClient.sigil" << EOF
-i stdlib⋅tcpClient
-
-λmain()→!IO String match stdlib⋅tcpClient.send("127.0.0.1","echoed",${PORT}){
-  Ok(response)→response.message|
-  Err(error)→"ERR:"++error.message
-}
-EOF
-
-cat > "${PROJECT_DIR}/src/upperClient.sigil" << EOF
-i stdlib⋅tcpClient
-
-λmain()→!IO String match stdlib⋅tcpClient.send("127.0.0.1","upper:hello",${PORT}){
-  Ok(response)→response.message|
-  Err(error)→"ERR:"++error.message
-}
-EOF
-
-cat > "${PROJECT_DIR}/src/invalidClient.sigil" << EOF
-i stdlib⋅tcpClient
-
-λmain()→!IO String match stdlib⋅tcpClient.send("", "ping", ${PORT}){
-  Ok(response)→response.message|
-  Err(error)→error.message
-}
-EOF
-
 cd "${PROJECT_DIR}"
-../target/debug/sigil run src/tcpRoundtripServer.sigil > "${SERVER_LOG}" 2>&1 &
+../../language/compiler/target/debug/sigil validate . --env test --human
+../../language/compiler/target/debug/sigil run src/tcpRoundtripServer.sigil --env test > "${SERVER_LOG}" 2>&1 &
 SERVER_PID=$!
 
 node - <<EOF
@@ -114,7 +55,7 @@ run_and_assert() {
   local file=$1
   local expected=$2
   local output
-  output=$(../target/debug/sigil run "${file}" --human)
+  output=$(../../language/compiler/target/debug/sigil run "${file}" --env test --human)
   echo "${output}"
   if ! grep -q "${expected}" <<<"${output}"; then
     echo "Expected '${expected}' from ${file}"
@@ -125,7 +66,26 @@ run_and_assert() {
 run_and_assert src/pingClient.sigil "pong"
 run_and_assert src/echoClient.sigil "echoed"
 run_and_assert src/upperClient.sigil "HELLO"
-run_and_assert src/invalidClient.sigil "valid host and port"
+
+cat > src/rawTcpClient.sigil << EOF
+i stdlib⋅tcpClient
+
+λmain()→!IO String match stdlib⋅tcpClient.send("ping","127.0.0.1"){
+  Ok(response)→response.message|
+  Err(error)→error.message
+}
+EOF
+
+if ../../language/compiler/target/debug/sigil compile src/rawTcpClient.sigil >/tmp/sigil-topology-tcp-raw.out 2>&1; then
+  echo "Expected raw TCP endpoint compile failure"
+  exit 1
+fi
+
+if ! grep -q "SIGIL-TOPO-RAW-ENDPOINT-FORBIDDEN" /tmp/sigil-topology-tcp-raw.out; then
+  echo "Expected SIGIL-TOPO-RAW-ENDPOINT-FORBIDDEN"
+  cat /tmp/sigil-topology-tcp-raw.out
+  exit 1
+fi
 
 cd ..
 

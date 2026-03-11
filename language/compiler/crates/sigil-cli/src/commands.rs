@@ -1,8 +1,10 @@
 //! Command implementations for CLI
 
 use crate::module_graph::{ModuleGraph, ModuleGraphError, LoadedModule};
+use crate::project::{find_project_root, get_project_config};
 use rayon::prelude::*;
 use sigil_ast::{Declaration, Program, Type, TypeDef};
+use sigil_diagnostics::codes;
 use sigil_codegen::{CodegenOptions, TypeScriptGenerator};
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
@@ -338,71 +340,11 @@ pub fn compile_command(
 }
 
 /// Run command: compile and execute a Sigil file
-pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
-    // Build module graph
+pub fn run_command(file: &Path, selected_env: Option<&str>, human: bool) -> Result<(), CliError> {
     let graph = ModuleGraph::build(file)?;
-
-    let mut compiled_modules = HashMap::new();
-    let mut compiled_schemes = HashMap::new();
-    let mut type_registries = HashMap::new();
-    let mut entry_output_path = PathBuf::new();
-
-    // Compile modules in topological order
-    for module_id in &graph.topo_order {
-        let module = &graph.modules[module_id];
-
-        // Build imported namespaces from already-compiled dependencies
-        let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
-        let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
-        let imported_value_schemes = build_imported_value_schemes(&module.ast, &compiled_schemes);
-
-        // Type check with cross-module context
-        let typecheck_result = type_check(
-            &module.ast,
-            &module.source,
-            Some(TypeCheckOptions {
-                imported_namespaces: Some(imported_namespaces),
-                imported_type_registries: Some(imported_type_regs),
-                imported_value_schemes: Some(imported_value_schemes),
-                source_file: Some(module.file_path.to_string_lossy().to_string()),
-            }),
-        )
-        .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
-
-        // Determine output path
-        let output_path = get_module_output_path(module);
-
-        // Generate TypeScript
-        let codegen_options = CodegenOptions {
-            source_file: Some(module.file_path.to_string_lossy().to_string()),
-            output_file: Some(output_path.to_string_lossy().to_string()),
-        };
-        let mut codegen = TypeScriptGenerator::new(codegen_options);
-        let ts_code = codegen
-            .generate(&typecheck_result.typed_program)
-            .map_err(|e| CliError::Codegen(format!("{}", e)))?;
-
-        // Create output directory
-        if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        // Write output file
-        fs::write(&output_path, ts_code)?;
-
-        // Track entry module output (last in topo order)
-        if module_id == graph.topo_order.last().unwrap() {
-            entry_output_path = output_path;
-        }
-
-        // Track for dependents
-        compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes.clone());
-        compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
-        type_registries.insert(
-            module_id.clone(),
-            extract_type_registry(&module.ast, &module.file_path, module_id),
-        );
-    }
+    let compiled = compile_module_graph(graph, None)?;
+    let entry_output_path = compiled.entry_output_path;
+    let topology_prelude = runner_prelude(file, selected_env, "local")?.unwrap_or_default();
 
     // Create runner file
     let runner_path = entry_output_path.with_extension("run.ts");
@@ -413,7 +355,8 @@ pub fn run_command(file: &Path, human: bool) -> Result<(), CliError> {
         .to_string();
 
     let runner_code = format!(
-        r#"import {{ main }} from './{module_name}';
+        r#"{topology_prelude}
+import {{ main }} from './{module_name}';
 
 if (typeof main !== 'function') {{
   console.error('Error: No main() function found in {filename}');
@@ -429,6 +372,7 @@ if (result !== undefined) {{
   console.log(result);
 }}
 "#,
+        topology_prelude = topology_prelude,
         filename = file.to_string_lossy()
     );
 
@@ -514,7 +458,12 @@ if (result !== undefined) {{
 }
 
 /// Test command: run Sigil tests from a directory
-pub fn test_command(path: &Path, match_filter: Option<&str>, human: bool) -> Result<(), CliError> {
+pub fn test_command(
+    path: &Path,
+    selected_env: Option<&str>,
+    match_filter: Option<&str>,
+    human: bool,
+) -> Result<(), CliError> {
     // Check if tests directory exists
     if !path.exists() {
         if human {
@@ -550,7 +499,7 @@ pub fn test_command(path: &Path, match_filter: Option<&str>, human: bool) -> Res
     let results: Vec<_> = test_files
         .par_iter()
         .map(|test_file| {
-            compile_and_run_tests(test_file, match_filter)
+            compile_and_run_tests(test_file, selected_env, match_filter)
                 .map_err(|e| {
                     eprintln!("Error running tests in {}: {}", test_file.display(), e);
                     e
@@ -631,6 +580,88 @@ pub fn test_command(path: &Path, match_filter: Option<&str>, human: bool) -> Res
     Ok(())
 }
 
+pub fn validate_command(path: &Path, env: &str, human: bool) -> Result<(), CliError> {
+    let project_root = find_project_root(path).ok_or_else(|| {
+        CliError::Validation(format!(
+            "{}: no Sigil project found while validating topology",
+            codes::topology::MISSING_MODULE
+        ))
+    })?;
+
+    if !topology_source_path(&project_root).exists() {
+        return Err(CliError::Validation(format!(
+            "{}: topology-aware projects require src/topology.lib.sigil",
+            codes::topology::MISSING_MODULE
+        )));
+    }
+
+    let _compiled = compile_topology_module(&project_root)?;
+    let prelude = build_topology_runtime_prelude(&project_root, env)?;
+    let runner_path = project_root.join(".local/topology.validate.run.ts");
+    if let Some(parent) = runner_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    fs::write(
+        &runner_path,
+        format!(
+            r#"{prelude}
+console.log(JSON.stringify({{
+  ok: true,
+  environment: {env_json}
+}}));
+"#,
+            prelude = prelude,
+            env_json = serde_json::to_string(env).unwrap()
+        ),
+    )?;
+
+    let abs_runner = fs::canonicalize(&runner_path)?;
+    let output = Command::new("pnpm")
+        .args(&["exec", "node", "--import", "tsx"])
+        .arg(&abs_runner)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                CliError::Runtime(
+                    "pnpm not found. Please install pnpm to validate Sigil topology.".to_string(),
+                )
+            } else {
+                CliError::Runtime(format!("Failed to execute topology validation: {}", e))
+            }
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let message = stderr.trim();
+        return Err(CliError::Validation(if message.is_empty() {
+            "topology validation failed".to_string()
+        } else {
+            message.to_string()
+        }));
+    }
+
+    if human {
+        println!("sigilc validate OK phase=topology env={}", env);
+    } else {
+        let output_json = serde_json::json!({
+            "formatVersion": 1,
+            "command": "sigilc validate",
+            "ok": true,
+            "phase": "topology",
+            "data": {
+                "environment": env,
+                "projectRoot": project_root.to_string_lossy()
+            }
+        });
+        println!("{}", serde_json::to_string(&output_json).unwrap());
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 struct TestResult {
     id: String,
@@ -654,6 +685,279 @@ struct TestRunResult {
     discovered: usize,
     selected: usize,
     results: Vec<TestResult>,
+}
+
+struct CompiledGraphOutputs {
+    entry_output_path: PathBuf,
+}
+
+fn compile_module_graph(
+    graph: ModuleGraph,
+    output_override: Option<&Path>,
+) -> Result<CompiledGraphOutputs, CliError> {
+    let mut compiled_modules = HashMap::new();
+    let mut compiled_schemes = HashMap::new();
+    let mut type_registries = HashMap::new();
+    let mut module_outputs = HashMap::new();
+    let mut entry_output_path = PathBuf::new();
+
+    for module_id in &graph.topo_order {
+        let module = &graph.modules[module_id];
+
+        let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
+        let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
+        let imported_value_schemes = build_imported_value_schemes(&module.ast, &compiled_schemes);
+
+        let typecheck_result = type_check(
+            &module.ast,
+            &module.source,
+            Some(TypeCheckOptions {
+                imported_namespaces: Some(imported_namespaces),
+                imported_type_registries: Some(imported_type_regs),
+                imported_value_schemes: Some(imported_value_schemes),
+                source_file: Some(module.file_path.to_string_lossy().to_string()),
+            }),
+        )
+        .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
+
+        let output_path = if module_id == graph.topo_order.last().unwrap() && output_override.is_some() {
+            output_override.unwrap().to_path_buf()
+        } else {
+            get_module_output_path(module)
+        };
+
+        let codegen_options = CodegenOptions {
+            source_file: Some(module.file_path.to_string_lossy().to_string()),
+            output_file: Some(output_path.to_string_lossy().to_string()),
+        };
+        let mut codegen = TypeScriptGenerator::new(codegen_options);
+        let ts_code = codegen
+            .generate(&typecheck_result.typed_program)
+            .map_err(|e| CliError::Codegen(format!("{}", e)))?;
+
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(&output_path, ts_code)?;
+        module_outputs.insert(module_id.clone(), output_path.clone());
+
+        if module_id == graph.topo_order.last().unwrap() {
+            entry_output_path = output_path;
+        }
+
+        compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes.clone());
+        compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
+        type_registries.insert(
+            module_id.clone(),
+            extract_type_registry(&module.ast, &module.file_path, module_id),
+        );
+    }
+
+    Ok(CompiledGraphOutputs { entry_output_path })
+}
+
+fn topology_source_path(project_root: &Path) -> PathBuf {
+    project_root.join("src/topology.lib.sigil")
+}
+
+fn compile_topology_module(project_root: &Path) -> Result<CompiledGraphOutputs, CliError> {
+    let topology_source = topology_source_path(project_root);
+    if !topology_source.exists() {
+        return Err(CliError::Validation(format!(
+            "{}: topology-aware projects require src/topology.lib.sigil",
+            codes::topology::MISSING_MODULE
+        )));
+    }
+
+    let graph = ModuleGraph::build(&topology_source)?;
+    compile_module_graph(graph, None)
+}
+
+fn build_topology_runtime_prelude(project_root: &Path, env_name: &str) -> Result<String, CliError> {
+    let topology_outputs = compile_topology_module(project_root)?;
+    let topology_output = topology_outputs.entry_output_path;
+    let topology_url = format!("file://{}", fs::canonicalize(topology_output)?.display());
+    let env_name_json = serde_json::to_string(env_name).unwrap();
+
+    Ok(format!(
+        r#"const __sigil_topology_module = await import("{topology_url}");
+const __sigil_topology_exports = Object.fromEntries(
+  await Promise.all(
+    Object.entries(__sigil_topology_module).map(async ([key, value]) => [key, await Promise.resolve(value)])
+  )
+);
+const __sigil_topology_env_name = {env_name_json};
+
+function __sigil_topology_fail(code, message) {{
+  const error = new Error(`${{code}}: ${{message}}`);
+  error.sigilCode = code;
+  throw error;
+}}
+
+function __sigil_topology_dependency_name(dep, expectedTag) {{
+  if (!dep || typeof dep !== 'object' || dep.__tag !== expectedTag) {{
+    __sigil_topology_fail("{invalid_handle}", `expected ${{expectedTag}} handle`);
+  }}
+  const name = Array.isArray(dep.__fields) ? dep.__fields[0] : null;
+  if (typeof name !== 'string' || name.length === 0) {{
+    __sigil_topology_fail("{invalid_handle}", `invalid ${{expectedTag}} name`);
+  }}
+  return name;
+}}
+
+function __sigil_topology_resolve_binding_value(bindingValue) {{
+  if (!bindingValue || typeof bindingValue !== 'object') {{
+    __sigil_topology_fail("{binding_kind}", 'invalid binding value');
+  }}
+  if (bindingValue.__tag === 'Literal') {{
+    return String(bindingValue.__fields?.[0] ?? '');
+  }}
+  if (bindingValue.__tag === 'EnvVar') {{
+    const envName = String(bindingValue.__fields?.[0] ?? '');
+    const value = process.env[envName];
+    if (typeof value !== 'string' || value.length === 0) {{
+      __sigil_topology_fail("{missing_binding}", `environment variable ${{envName}} is required`);
+    }}
+    return value;
+  }}
+  __sigil_topology_fail("{binding_kind}", 'invalid string binding value');
+}}
+
+function __sigil_topology_resolve_port(bindingValue) {{
+  if (!bindingValue || typeof bindingValue !== 'object') {{
+    __sigil_topology_fail("{binding_kind}", 'invalid port binding value');
+  }}
+  if (bindingValue.__tag === 'LiteralPort') {{
+    return Number(bindingValue.__fields?.[0] ?? 0);
+  }}
+  if (bindingValue.__tag === 'EnvVarPort') {{
+    const envName = String(bindingValue.__fields?.[0] ?? '');
+    const raw = process.env[envName];
+    const port = Number(raw);
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) {{
+      __sigil_topology_fail("{missing_binding}", `environment variable ${{envName}} must resolve to a valid TCP port`);
+    }}
+    return port;
+  }}
+  __sigil_topology_fail("{binding_kind}", 'invalid TCP port binding value');
+}}
+
+function __sigil_topology_collect_dependencies(moduleExports) {{
+  const http = new Map();
+  const tcp = new Map();
+  for (const value of Object.values(moduleExports)) {{
+    if (value?.__tag === 'HttpServiceDependency') {{
+      const name = __sigil_topology_dependency_name(value, 'HttpServiceDependency');
+      if (http.has(name) || tcp.has(name)) {{
+        __sigil_topology_fail("{duplicate_dependency}", `duplicate dependency name '${{name}}'`);
+      }}
+      http.set(name, value);
+    }}
+    if (value?.__tag === 'TcpServiceDependency') {{
+      const name = __sigil_topology_dependency_name(value, 'TcpServiceDependency');
+      if (tcp.has(name) || http.has(name)) {{
+        __sigil_topology_fail("{duplicate_dependency}", `duplicate dependency name '${{name}}'`);
+      }}
+      tcp.set(name, value);
+    }}
+  }}
+  return {{ http, tcp }};
+}}
+
+function __sigil_topology_build_bindings(moduleExports, envName) {{
+  const env = moduleExports[envName];
+  if (!env || typeof env !== 'object') {{
+    __sigil_topology_fail("{env_not_found}", `environment '${{envName}}' not found`);
+  }}
+
+  const dependencies = __sigil_topology_collect_dependencies(moduleExports);
+  const resolved = {{ http: Object.create(null), tcp: Object.create(null) }};
+  const seen = new Set();
+  for (const binding of env.httpBindings ?? []) {{
+    const dep = binding?.dependency;
+    if (dep?.__tag !== 'HttpServiceDependency') {{
+      __sigil_topology_fail("{binding_kind}", 'HTTP bindings must target HttpServiceDependency');
+    }}
+    const name = __sigil_topology_dependency_name(dep, 'HttpServiceDependency');
+    if (!dependencies.http.has(name)) {{
+      __sigil_topology_fail("{invalid_handle}", `HTTP binding references undeclared dependency '${{name}}'`);
+    }}
+    if (seen.has(`http:${{name}}`) || seen.has(`tcp:${{name}}`)) {{
+      __sigil_topology_fail("{duplicate_binding}", `duplicate binding for '${{name}}' in environment '${{envName}}'`);
+    }}
+    seen.add(`http:${{name}}`);
+    resolved.http[name] = __sigil_topology_resolve_binding_value(binding.baseUrl);
+  }}
+
+  for (const binding of env.tcpBindings ?? []) {{
+    const dep = binding?.dependency;
+    if (dep?.__tag !== 'TcpServiceDependency') {{
+      __sigil_topology_fail("{binding_kind}", 'TCP bindings must target TcpServiceDependency');
+    }}
+    const name = __sigil_topology_dependency_name(dep, 'TcpServiceDependency');
+    if (!dependencies.tcp.has(name)) {{
+      __sigil_topology_fail("{invalid_handle}", `TCP binding references undeclared dependency '${{name}}'`);
+    }}
+    if (seen.has(`tcp:${{name}}`) || seen.has(`http:${{name}}`)) {{
+      __sigil_topology_fail("{duplicate_binding}", `duplicate binding for '${{name}}' in environment '${{envName}}'`);
+    }}
+    seen.add(`tcp:${{name}}`);
+    resolved.tcp[name] = {{
+      host: __sigil_topology_resolve_binding_value(binding.host),
+      port: __sigil_topology_resolve_port(binding.port)
+    }};
+  }}
+
+  for (const name of dependencies.http.keys()) {{
+    if (!(name in resolved.http)) {{
+      __sigil_topology_fail("{missing_binding}", `missing HTTP binding for '${{name}}' in environment '${{envName}}'`);
+    }}
+  }}
+
+  for (const name of dependencies.tcp.keys()) {{
+    if (!(name in resolved.tcp)) {{
+      __sigil_topology_fail("{missing_binding}", `missing TCP binding for '${{name}}' in environment '${{envName}}'`);
+    }}
+  }}
+
+  return resolved;
+}}
+
+globalThis.__sigil_topology_env_name = __sigil_topology_env_name;
+globalThis.__sigil_topology_bindings = __sigil_topology_build_bindings(__sigil_topology_exports, __sigil_topology_env_name);
+"#,
+        topology_url = topology_url,
+        env_name_json = env_name_json,
+        invalid_handle = codes::topology::INVALID_HANDLE,
+        binding_kind = codes::topology::BINDING_KIND_MISMATCH,
+        missing_binding = codes::topology::MISSING_BINDING,
+        duplicate_dependency = codes::topology::DUPLICATE_DEPENDENCY,
+        duplicate_binding = codes::topology::DUPLICATE_BINDING,
+        env_not_found = codes::topology::ENV_NOT_FOUND,
+    ))
+}
+
+fn project_root_and_topology(path: &Path) -> Option<(PathBuf, bool)> {
+    let project = get_project_config(path)?;
+    let topology_present = topology_source_path(&project.root).exists();
+    Some((project.root, topology_present))
+}
+
+fn runner_prelude(
+    path: &Path,
+    selected_env: Option<&str>,
+    default_env: &str,
+) -> Result<Option<String>, CliError> {
+    let Some((project_root, topology_present)) = project_root_and_topology(path) else {
+        return Ok(None);
+    };
+
+    if !topology_present {
+        return Ok(None);
+    }
+
+    build_topology_runtime_prelude(&project_root, selected_env.unwrap_or(default_env)).map(Some)
 }
 
 fn collect_sigil_files(dir: &Path) -> Result<Vec<PathBuf>, CliError> {
@@ -681,81 +985,25 @@ fn collect_sigil_files(dir: &Path) -> Result<Vec<PathBuf>, CliError> {
 
 fn compile_and_run_tests(
     file: &Path,
+    selected_env: Option<&str>,
     match_filter: Option<&str>,
 ) -> Result<TestRunResult, CliError> {
-    // Build module graph from test file
     let graph = ModuleGraph::build(file)?;
-
-    let mut compiled_modules = HashMap::new();
-    let mut compiled_schemes = HashMap::new();
-    let mut type_registries = HashMap::new();
-    let mut test_output_path = PathBuf::new();
-
-    // Compile modules in topological order
-    for module_id in &graph.topo_order {
-        let module = &graph.modules[module_id];
-
-        // Build imported namespaces from already-compiled dependencies
-        let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
-        let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
-        let imported_value_schemes = build_imported_value_schemes(&module.ast, &compiled_schemes);
-
-        // Type check with cross-module context
-        let typecheck_result = type_check(
-            &module.ast,
-            &module.source,
-            Some(TypeCheckOptions {
-                imported_namespaces: Some(imported_namespaces),
-                imported_type_registries: Some(imported_type_regs),
-                imported_value_schemes: Some(imported_value_schemes),
-                source_file: Some(module.file_path.to_string_lossy().to_string()),
-            }),
-        )
-        .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
-
-        // Determine output path
-        let output_path = get_module_output_path(module);
-
-        // Generate TypeScript
-        let codegen_options = CodegenOptions {
-            source_file: Some(module.file_path.to_string_lossy().to_string()),
-            output_file: Some(output_path.to_string_lossy().to_string()),
-        };
-        let mut codegen = TypeScriptGenerator::new(codegen_options);
-        let ts_code = codegen
-            .generate(&typecheck_result.typed_program)
-            .map_err(|e| CliError::Codegen(format!("{}", e)))?;
-
-        // Create output directory
-        if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        // Write TypeScript file
-        fs::write(&output_path, ts_code)?;
-
-        // Track test module output (last in topo order)
-        if module_id == graph.topo_order.last().unwrap() {
-            test_output_path = output_path;
-        }
-
-        // Track for dependents
-        compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes.clone());
-        compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
-        type_registries.insert(
-            module_id.clone(),
-            extract_type_registry(&module.ast, &module.file_path, module_id),
-        );
-    }
-
-    // Run test runner on the test module
-    run_test_module(&test_output_path, match_filter, &file.to_string_lossy())
+    let compiled = compile_module_graph(graph, None)?;
+    let topology_prelude = runner_prelude(file, selected_env, "test")?;
+    run_test_module(
+        &compiled.entry_output_path,
+        match_filter,
+        &file.to_string_lossy(),
+        topology_prelude.as_deref(),
+    )
 }
 
 fn run_test_module(
     ts_file: &Path,
     match_filter: Option<&str>,
     source_file: &str,
+    topology_prelude: Option<&str>,
 ) -> Result<TestRunResult, CliError> {
     // Create test runner directory
     let test_dir = ts_file.parent().unwrap().join("__sigil_test");
@@ -787,10 +1035,11 @@ fn run_test_module(
     };
 
     let runner_code = format!(
-        r#"const moduleUrl = "{}";
+        r#"{topology_prelude}
+const moduleUrl = "{module_url}";
 const discoverMod = await import(moduleUrl);
 const tests = Array.isArray(discoverMod.__sigil_tests) ? discoverMod.__sigil_tests : [];
-const matchText = {};
+const matchText = {match_text_json};
 const selected = matchText ? tests.filter((t) => String(t.name).includes(matchText)) : tests;
 const results = [];
 const startSuite = Date.now();
@@ -819,7 +1068,9 @@ for (const t of selected) {{
 }}
 console.log(JSON.stringify({{ results, discovered: tests.length, selected: selected.length, durationMs: Date.now()-startSuite }}));
 "#,
-        module_url, match_text_json
+        topology_prelude = topology_prelude.unwrap_or(""),
+        module_url = module_url,
+        match_text_json = match_text_json
     );
 
     fs::write(&runner_file, runner_code)?;

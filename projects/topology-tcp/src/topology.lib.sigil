@@ -1,0 +1,15 @@
+i stdlib⋅topology
+
+c eventStream=(stdlib⋅topology.tcpService("eventStream"):stdlib⋅topology.TcpServiceDependency)
+
+c local=(stdlib⋅topology.environment([],"local",[
+  stdlib⋅topology.bindTcp(eventStream,"127.0.0.1",45120)
+]):stdlib⋅topology.Environment)
+
+c prod=(stdlib⋅topology.environment([],"prod",[
+  stdlib⋅topology.bindTcpEnv(eventStream,"EVENT_STREAM_HOST","EVENT_STREAM_PORT")
+]):stdlib⋅topology.Environment)
+
+c test=(stdlib⋅topology.environment([],"test",[
+  stdlib⋅topology.bindTcp(eventStream,"127.0.0.1",45120)
+]):stdlib⋅topology.Environment)

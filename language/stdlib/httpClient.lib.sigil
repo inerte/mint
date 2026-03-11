@@ -11,15 +11,16 @@ t HttpError={
   message:String
 }
 
-t HttpErrorKind=InvalidJson()|InvalidUrl()|Network()|Timeout()
+t HttpErrorKind=InvalidJson()|InvalidUrl()|Network()|Timeout()|Topology()
 
 t HttpMethod=Delete()|Get()|Patch()|Post()|Put()
 
 t HttpRequest={
   body:Option[String],
+  dependency:stdlib⋅topology.HttpServiceDependency,
   headers:Headers,
   method:HttpMethod,
-  url:String
+  path:String
 }
 
 t HttpResponse={
@@ -31,29 +32,32 @@ t HttpResponse={
 
 i core⋅map
 i stdlib⋅json
+i stdlib⋅topology
 
-λdelete(headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]=request({
+λdelete(dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]=request({
   body:None(),
+  dependency:dependency,
   headers:headers,
   method:Delete(),
-  url:url
+  path:path
 })
 
-λdeleteJson(headers:Headers,url:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match delete(headers,url){
+λdeleteJson(dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match delete(dependency,headers,path){
   Ok(response)→responseJson(response)|
   Err(error)→Err(error)
 }
 
 λemptyHeaders()→Headers=({↦}:{String↦String})
 
-λget(headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]=request({
+λget(dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]=request({
   body:None(),
+  dependency:dependency,
   headers:headers,
   method:Get(),
-  url:url
+  path:path
 })
 
-λgetJson(headers:Headers,url:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match get(headers,url){
+λgetJson(dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match get(dependency,headers,path){
   Ok(response)→responseJson(response)|
   Err(error)→Err(error)
 }
@@ -64,38 +68,41 @@ i stdlib⋅json
 
 λmergeHeaders(left:Headers,right:Headers)→Headers=core⋅map.merge(left,right)
 
-λpatch(body:String,headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]=request({
+λpatch(body:String,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]=request({
   body:Some(body),
+  dependency:dependency,
   headers:headers,
   method:Patch(),
-  url:url
+  path:path
 })
 
-λpatchJson(body:stdlib⋅json.JsonValue,headers:Headers,url:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match patch(stdlib⋅json.stringify(body),mergeHeaders(jsonHeaders(),headers),url){
+λpatchJson(body:stdlib⋅json.JsonValue,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match patch(stdlib⋅json.stringify(body),dependency,mergeHeaders(jsonHeaders(),headers),path){
   Ok(response)→responseJson(response)|
   Err(error)→Err(error)
 }
 
-λpost(body:String,headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]=request({
+λpost(body:String,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]=request({
   body:Some(body),
+  dependency:dependency,
   headers:headers,
   method:Post(),
-  url:url
+  path:path
 })
 
-λpostJson(body:stdlib⋅json.JsonValue,headers:Headers,url:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match post(stdlib⋅json.stringify(body),mergeHeaders(jsonHeaders(),headers),url){
+λpostJson(body:stdlib⋅json.JsonValue,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match post(stdlib⋅json.stringify(body),dependency,mergeHeaders(jsonHeaders(),headers),path){
   Ok(response)→responseJson(response)|
   Err(error)→Err(error)
 }
 
-λput(body:String,headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]=request({
+λput(body:String,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]=request({
   body:Some(body),
+  dependency:dependency,
   headers:headers,
   method:Put(),
-  url:url
+  path:path
 })
 
-λputJson(body:stdlib⋅json.JsonValue,headers:Headers,url:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match put(stdlib⋅json.stringify(body),mergeHeaders(jsonHeaders(),headers),url){
+λputJson(body:stdlib⋅json.JsonValue,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[stdlib⋅json.JsonValue,HttpError] match put(stdlib⋅json.stringify(body),dependency,mergeHeaders(jsonHeaders(),headers),path){
   Ok(response)→responseJson(response)|
   Err(error)→Err(error)
 }

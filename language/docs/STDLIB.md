@@ -15,6 +15,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ String predicates (prefix/suffix checking) - `stdlib/string`
 - ✅ File system operations - `stdlib/file`
 - ✅ HTTP and TCP clients and servers - `stdlib/httpClient`, `stdlib/httpServer`, `stdlib/tcpClient`, `stdlib/tcpServer`
+- ✅ Runtime dependency topology - `stdlib/topology`
 - ✅ JSON parsing/serialization - `stdlib/json`
 - ✅ Path manipulation - `stdlib/path`
 - ✅ Time parsing/comparison/clock - `stdlib/time`
@@ -209,19 +210,23 @@ i stdlib⋅url
 
 ## HTTP Client and Server
 
-`stdlib⋅httpClient` is the canonical text-based HTTP client layer:
+`stdlib⋅httpClient` is the canonical text-based HTTP client layer.
+
+For topology-aware projects, the canonical surface is handle-based rather than
+raw-URL based:
 
 ```sigil
 i stdlib⋅httpClient
-i stdlib⋅json
+i src⋅topology
 
 λmain()→!IO Unit=
-  match stdlib⋅httpClient.getJson(
-    stdlib⋅httpClient.jsonHeaders(),
-    "http://127.0.0.1:8080/health"
+  match stdlib⋅httpClient.get(
+    src⋅topology.mailerApi,
+    stdlib⋅httpClient.emptyHeaders(),
+    "/health"
   ){
-    Ok(value)→
-      l _=(stdlib⋅json.stringify(value):String);
+    Ok(response)→
+      l _=(response.body:String);
       ()|
     Err(error)→
       l _=(error.message:String);
@@ -233,6 +238,10 @@ The split is:
 - transport/URL failures return `Err(HttpError)`
 - any received HTTP response, including `404` and `500`, returns `Ok(HttpResponse)`
 - JSON helpers compose over `stdlib⋅json`
+- topology-aware application code must not pass raw base URLs directly
+
+`stdlib⋅topology` owns the dependency handles and per-environment bindings that
+`stdlib⋅httpClient` resolves at runtime.
 
 `stdlib⋅httpServer` is the canonical request/response server layer:
 
@@ -252,13 +261,16 @@ process stays open until it is terminated externally.
 
 ## TCP Client and Server
 
-`stdlib⋅tcpClient` is the canonical one-request, one-response TCP client layer:
+`stdlib⋅tcpClient` is the canonical one-request, one-response TCP client layer.
+
+For topology-aware projects, the canonical surface is handle-based:
 
 ```sigil
+i src⋅topology
 i stdlib⋅tcpClient
 
 λmain()→!IO Unit=
-  match stdlib⋅tcpClient.send("127.0.0.1","ping",45120){
+  match stdlib⋅tcpClient.send(src⋅topology.eventStream,"ping"){
     Ok(response)→
       l _=(response.message:String);
       ()|
@@ -273,6 +285,9 @@ The canonical framing model is:
 - one newline-delimited request per connection
 - one newline-delimited response per connection
 
+`stdlib⋅topology` owns the dependency handles and per-environment bindings that
+`stdlib⋅tcpClient` resolves at runtime.
+
 `stdlib⋅tcpServer` is the matching minimal TCP server layer:
 
 ```sigil
@@ -286,6 +301,27 @@ i stdlib⋅tcpServer
 
 `serve` is long-lived: once the TCP server is listening, the process stays open
 until it is terminated externally.
+
+## Topology
+
+`stdlib⋅topology` is the canonical declaration layer for external HTTP and TCP
+runtime dependencies.
+
+Topology-aware projects define `src/topology.lib.sigil` and use typed handles
+instead of raw endpoints in application code:
+
+```sigil
+i src⋅topology
+i stdlib⋅httpClient
+
+λmain()→!IO Unit=
+  match stdlib⋅httpClient.get(src⋅topology.mailerApi,stdlib⋅httpClient.emptyHeaders(),"/health"){
+    Ok(_)→()|
+    Err(_)→()
+  }
+```
+
+See [topology.md](/Users/jnobreganetto/Documents/GitHub/ai-pl/language/docs/topology.md) for the full model.
 
 ## List Predicates
 

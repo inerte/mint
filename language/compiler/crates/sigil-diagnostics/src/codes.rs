@@ -113,6 +113,20 @@ pub mod cli {
     pub const PROJECT_ROOT_REQUIRED: &str = "SIGIL-CLI-PROJECT-ROOT-REQUIRED";
 }
 
+/// Topology error codes (SIGIL-TOPO-*)
+pub mod topology {
+    pub const BINDING_KIND_MISMATCH: &str = "SIGIL-TOPO-BINDING-KIND-MISMATCH";
+    pub const CONSTRUCTOR_LOCATION: &str = "SIGIL-TOPO-CONSTRUCTOR-LOCATION";
+    pub const DEPENDENCY_KIND_MISMATCH: &str = "SIGIL-TOPO-DEPENDENCY-KIND-MISMATCH";
+    pub const DUPLICATE_BINDING: &str = "SIGIL-TOPO-DUPLICATE-BINDING";
+    pub const DUPLICATE_DEPENDENCY: &str = "SIGIL-TOPO-DUPLICATE-DEPENDENCY";
+    pub const ENV_NOT_FOUND: &str = "SIGIL-TOPO-ENV-NOT-FOUND";
+    pub const INVALID_HANDLE: &str = "SIGIL-TOPO-INVALID-HANDLE";
+    pub const MISSING_BINDING: &str = "SIGIL-TOPO-MISSING-BINDING";
+    pub const MISSING_MODULE: &str = "SIGIL-TOPO-MISSING-MODULE";
+    pub const RAW_ENDPOINT_FORBIDDEN: &str = "SIGIL-TOPO-RAW-ENDPOINT-FORBIDDEN";
+}
+
 /// Runtime error codes (SIGIL-RUNTIME-*, SIGIL-RUN-*)
 pub mod runtime {
     pub const CHILD_EXIT: &str = "SIGIL-RUNTIME-CHILD-EXIT";
@@ -192,6 +206,17 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     cli::IMPORT_CYCLE,
     cli::INVALID_IMPORT,
     cli::PROJECT_ROOT_REQUIRED,
+    // Topology (10 codes)
+    topology::BINDING_KIND_MISMATCH,
+    topology::CONSTRUCTOR_LOCATION,
+    topology::DEPENDENCY_KIND_MISMATCH,
+    topology::DUPLICATE_BINDING,
+    topology::DUPLICATE_DEPENDENCY,
+    topology::ENV_NOT_FOUND,
+    topology::INVALID_HANDLE,
+    topology::MISSING_BINDING,
+    topology::MISSING_MODULE,
+    topology::RAW_ENDPOINT_FORBIDDEN,
     // Runtime (2 codes)
     runtime::CHILD_EXIT,
     runtime::ENGINE_NOT_FOUND,
@@ -225,12 +250,11 @@ mod tests {
 
     #[test]
     fn count_error_codes() {
-        // As of implementation: 67 error codes total
-        // 10 lexer + 5 parser + 39 canonical + 2 typecheck + 1 mutability + 8 CLI + 2 runtime = 67
+        // As of implementation: 77 error codes total
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            67,
-            "Expected 67 error codes, found {}",
+            77,
+            "Expected 77 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

@@ -1,0 +1,63 @@
+⟦ stdlib⋅topology - Canonical external service topology for Sigil
+
+Declares logical external dependency handles and binds them per environment.
+Application code should consume dependency handles from src⋅topology, not raw
+URLs, hosts, ports, or environment variables.
+⟧
+
+t BindingValue=EnvVar(String)|Literal(String)
+
+t Environment={
+  httpBindings:[HttpBinding],
+  name:String,
+  tcpBindings:[TcpBinding]
+}
+
+t HttpBinding={
+  baseUrl:BindingValue,
+  dependency:HttpServiceDependency
+}
+
+t HttpServiceDependency=HttpServiceDependency(String)
+
+t PortBindingValue=EnvVarPort(String)|LiteralPort(Int)
+
+t TcpBinding={
+  dependency:TcpServiceDependency,
+  host:BindingValue,
+  port:PortBindingValue
+}
+
+t TcpServiceDependency=TcpServiceDependency(String)
+
+λbindHttp(baseUrl:String,dependency:HttpServiceDependency)→HttpBinding={
+  baseUrl:Literal(baseUrl),
+  dependency:dependency
+}
+
+λbindHttpEnv(dependency:HttpServiceDependency,envVar:String)→HttpBinding={
+  baseUrl:EnvVar(envVar),
+  dependency:dependency
+}
+
+λbindTcp(dependency:TcpServiceDependency,host:String,port:Int)→TcpBinding={
+  dependency:dependency,
+  host:Literal(host),
+  port:LiteralPort(port)
+}
+
+λbindTcpEnv(dependency:TcpServiceDependency,hostEnvVar:String,portEnvVar:String)→TcpBinding={
+  dependency:dependency,
+  host:EnvVar(hostEnvVar),
+  port:EnvVarPort(portEnvVar)
+}
+
+λenvironment(httpBindings:[HttpBinding],name:String,tcpBindings:[TcpBinding])→Environment={
+  httpBindings:httpBindings,
+  name:name,
+  tcpBindings:tcpBindings
+}
+
+λhttpService(name:String)→HttpServiceDependency=HttpServiceDependency(name)
+
+λtcpService(name:String)→TcpServiceDependency=TcpServiceDependency(name)

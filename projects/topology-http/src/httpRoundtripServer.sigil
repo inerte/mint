@@ -1,0 +1,22 @@
+i stdlib⋅httpServer
+
+λhandleRequest(req:stdlib⋅httpServer.Request)→!IO stdlib⋅httpServer.Response match req.path{
+  "/echo"→{
+    body:req.body,
+    headers:{"content-type"↦"text/plain; charset=utf-8"},
+    status:201
+  }|
+  "/headers"→{
+    body:"ok",
+    headers:{
+      "content-type"↦"text/plain; charset=utf-8",
+      "x-request-id"↦"abc-123"
+    },
+    status:202
+  }|
+  "/json"→stdlib⋅httpServer.json("{\"ok\":true}",200)|
+  "/health"→stdlib⋅httpServer.ok("healthy")|
+  _→stdlib⋅httpServer.notFound()
+}
+
+λmain()→!IO Unit=stdlib⋅httpServer.serve(handleRequest,45110)

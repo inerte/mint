@@ -3,6 +3,7 @@
 i core⋅map
 i stdlib⋅httpClient
 i stdlib⋅json
+i stdlib⋅topology
 
 λmain()→Unit=()
 
@@ -17,11 +18,15 @@ test "http client header creates singleton header map" {
   }
 }
 
-test "http client invalid url returns err" →!IO {
-  match stdlib⋅httpClient.get(stdlib⋅httpClient.emptyHeaders(),"not a url"){
-    Ok(_)→false|
-    Err(error)→#error.message>0
-  }
+test "http client request record preserves dependency headers and path" {
+  l request=({
+    body:None(),
+    dependency:stdlib⋅topology.HttpServiceDependency("mailerApi"),
+    headers:stdlib⋅httpClient.emptyHeaders(),
+    method:stdlib⋅httpClient.Get(),
+    path:"/health"
+  }:stdlib⋅httpClient.HttpRequest);
+  request.dependency=stdlib⋅topology.HttpServiceDependency("mailerApi") and request.path="/health"
 }
 
 test "http client mergeHeaders prefers right map values" {

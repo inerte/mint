@@ -646,6 +646,28 @@ Time and instant handling (`Instant`, strict ISO parsing, clock access)
 λnow()→!IO Instant
 ```
 
+### std/topology
+
+Canonical declaration layer for external HTTP and TCP runtime dependencies.
+
+```sigil
+t BindingValue=EnvVar(String)|Literal(String)
+t Environment={httpBindings:[HttpBinding],name:String,tcpBindings:[TcpBinding]}
+t HttpBinding={baseUrl:BindingValue,dependency:HttpServiceDependency}
+t HttpServiceDependency=HttpServiceDependency(String)
+t PortBindingValue=EnvVarPort(String)|LiteralPort(Int)
+t TcpBinding={dependency:TcpServiceDependency,host:BindingValue,port:PortBindingValue}
+t TcpServiceDependency=TcpServiceDependency(String)
+
+λbindHttp(baseUrl:String,dependency:HttpServiceDependency)→HttpBinding
+λbindHttpEnv(dependency:HttpServiceDependency,envVar:String)→HttpBinding
+λbindTcp(dependency:TcpServiceDependency,host:String,port:Int)→TcpBinding
+λbindTcpEnv(dependency:TcpServiceDependency,hostEnvVar:String,portEnvVar:String)→TcpBinding
+λenvironment(httpBindings:[HttpBinding],name:String,tcpBindings:[TcpBinding])→Environment
+λhttpService(name:String)→HttpServiceDependency
+λtcpService(name:String)→TcpServiceDependency
+```
+
 ### std/httpClient
 
 Canonical text-based HTTP client.
@@ -653,23 +675,23 @@ Canonical text-based HTTP client.
 ```sigil
 t Headers={String↦String}
 t HttpError={kind:HttpErrorKind,message:String}
-t HttpErrorKind=InvalidJson()|InvalidUrl()|Network()|Timeout()
+t HttpErrorKind=InvalidJson()|InvalidUrl()|Network()|Timeout()|Topology()
 t HttpMethod=Delete()|Get()|Patch()|Post()|Put()
-t HttpRequest={body:Option[String],headers:Headers,method:HttpMethod,url:String}
+t HttpRequest={body:Option[String],dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,method:HttpMethod,path:String}
 t HttpResponse={body:String,headers:Headers,status:Int,url:String}
 
 λrequest(request:HttpRequest)→!IO Result[HttpResponse,HttpError]
-λget(headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]
-λdelete(headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]
-λpost(body:String,headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]
-λput(body:String,headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]
-λpatch(body:String,headers:Headers,url:String)→!IO Result[HttpResponse,HttpError]
+λget(dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]
+λdelete(dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]
+λpost(body:String,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]
+λput(body:String,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]
+λpatch(body:String,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[HttpResponse,HttpError]
 
-λgetJson(headers:Headers,url:String)→!IO Result[JsonValue,HttpError]
-λdeleteJson(headers:Headers,url:String)→!IO Result[JsonValue,HttpError]
-λpostJson(body:JsonValue,headers:Headers,url:String)→!IO Result[JsonValue,HttpError]
-λputJson(body:JsonValue,headers:Headers,url:String)→!IO Result[JsonValue,HttpError]
-λpatchJson(body:JsonValue,headers:Headers,url:String)→!IO Result[JsonValue,HttpError]
+λgetJson(dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[JsonValue,HttpError]
+λdeleteJson(dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[JsonValue,HttpError]
+λpostJson(body:JsonValue,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[JsonValue,HttpError]
+λputJson(body:JsonValue,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[JsonValue,HttpError]
+λpatchJson(body:JsonValue,dependency:stdlib⋅topology.HttpServiceDependency,headers:Headers,path:String)→!IO Result[JsonValue,HttpError]
 λresponseJson(response:HttpResponse)→Result[JsonValue,HttpError]
 
 λemptyHeaders()→Headers
@@ -680,7 +702,7 @@ t HttpResponse={body:String,headers:Headers,status:Int,url:String}
 
 Semantics:
 - any successfully received HTTP response returns `Ok(HttpResponse)`, including `404` and `500`
-- invalid URL, transport failure, and JSON parse failure return `Err(HttpError)`
+- invalid URL, transport failure, topology resolution failure, and JSON parse failure return `Err(HttpError)`
 - request and response bodies are UTF-8 text in v1
 
 ### std/httpServer
@@ -711,18 +733,18 @@ Canonical one-request, one-response TCP client.
 
 ```sigil
 t TcpError={kind:TcpErrorKind,message:String}
-t TcpErrorKind=Connection()|InvalidAddress()|Protocol()|Timeout()
-t TcpRequest={host:String,message:String,port:Int}
+t TcpErrorKind=Connection()|InvalidAddress()|Protocol()|Timeout()|Topology()
+t TcpRequest={dependency:stdlib⋅topology.TcpServiceDependency,message:String}
 t TcpResponse={message:String}
 
 λrequest(request:TcpRequest)→!IO Result[TcpResponse,TcpError]
-λsend(host:String,message:String,port:Int)→!IO Result[TcpResponse,TcpError]
+λsend(dependency:stdlib⋅topology.TcpServiceDependency,message:String)→!IO Result[TcpResponse,TcpError]
 ```
 
 Semantics:
 - requests are UTF-8 text
 - the client writes one newline-delimited message and expects one newline-delimited response
-- address validation, socket failure, timeout, and framing failure return `Err(TcpError)`
+- address validation, socket failure, timeout, topology resolution failure, and framing failure return `Err(TcpError)`
 
 ### std/tcpServer
 

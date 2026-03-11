@@ -200,7 +200,7 @@ fn file_path_to_module_id(abs_path: &Path, project: &Option<ProjectConfig>) -> O
     // Check if it's a core module
     if path_str.contains("/core/") {
         if let Some(relative) = path_str.split("/core/").nth(1) {
-            if let Some(without_ext) = relative.strip_suffix(".sigil") {
+            if let Some(without_ext) = strip_sigil_ext(relative) {
                 return Some(format!("core⋅{}", without_ext.replace('/', "⋅")));
             }
         }
@@ -209,7 +209,7 @@ fn file_path_to_module_id(abs_path: &Path, project: &Option<ProjectConfig>) -> O
     // Check if it's a stdlib module
     if path_str.contains("/stdlib/") {
         if let Some(relative) = path_str.split("/stdlib/").nth(1) {
-            if let Some(without_ext) = relative.strip_suffix(".sigil") {
+            if let Some(without_ext) = strip_sigil_ext(relative) {
                 return Some(format!("stdlib⋅{}", without_ext.replace('/', "⋅")));
             }
         }
@@ -221,7 +221,7 @@ fn file_path_to_module_id(abs_path: &Path, project: &Option<ProjectConfig>) -> O
         if path_str.starts_with(proj_root.as_ref()) {
             if let Some(relative) = path_str.strip_prefix(proj_root.as_ref()) {
                 let relative = relative.trim_start_matches('/');
-                if let Some(without_ext) = relative.strip_suffix(".sigil") {
+                if let Some(without_ext) = strip_sigil_ext(relative) {
                     return Some(without_ext.replace('/', "⋅"));
                 }
             }
@@ -229,6 +229,14 @@ fn file_path_to_module_id(abs_path: &Path, project: &Option<ProjectConfig>) -> O
     }
 
     None
+}
+
+fn strip_sigil_ext(relative: &str) -> Option<&str> {
+    if let Some(without_ext) = relative.strip_suffix(".lib.sigil") {
+        Some(without_ext)
+    } else {
+        relative.strip_suffix(".sigil")
+    }
 }
 
 struct ResolvedImport {

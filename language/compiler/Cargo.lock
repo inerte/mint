@@ -332,6 +332,7 @@ dependencies = [
  "serde_json",
  "sigil-ast",
  "sigil-codegen",
+ "sigil-diagnostics",
  "sigil-lexer",
  "sigil-parser",
  "sigil-typechecker",

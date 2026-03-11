@@ -1,9 +1,8 @@
-⟦ stdlib⋅httpClient GET example ⟧
-
+i src⋅topology
 i stdlib⋅httpClient
 i stdlib⋅string
 
-λmain()→!IO String match stdlib⋅httpClient.get(stdlib⋅httpClient.emptyHeaders(),"http://127.0.0.1:8080/health"){
+λmain()→!IO String match stdlib⋅httpClient.post("echoed",src⋅topology.mailerApi,stdlib⋅httpClient.emptyHeaders(),"/echo"){
   Ok(response)→stdlib⋅string.intToString(response.status)++":"++response.body|
   Err(error)→"ERR:"++error.message
 }

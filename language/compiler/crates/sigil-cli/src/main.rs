@@ -11,7 +11,7 @@ mod commands;
 mod module_graph;
 mod project;
 
-use commands::{compile_command, lex_command, parse_command, run_command, test_command};
+use commands::{compile_command, lex_command, parse_command, run_command, test_command, validate_command};
 
 const SIGIL_VERSION: &str = match option_env!("SIGIL_VERSION") {
     Some(version) => version,
@@ -70,6 +70,10 @@ enum Command {
         /// Input .sigil file
         file: PathBuf,
 
+        /// Runtime topology environment name
+        #[arg(long)]
+        env: Option<String>,
+
         /// Human-readable output (default: JSON)
         #[arg(long)]
         human: bool,
@@ -81,9 +85,28 @@ enum Command {
         #[arg(default_value = "tests")]
         path: PathBuf,
 
+        /// Runtime topology environment name (default: test when topology is present)
+        #[arg(long)]
+        env: Option<String>,
+
         /// Filter tests by substring match
         #[arg(long)]
         r#match: Option<String>,
+
+        /// Human-readable output (default: JSON)
+        #[arg(long)]
+        human: bool,
+    },
+
+    /// Validate project topology for one environment
+    Validate {
+        /// Project path or file within the project (default: current directory)
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Runtime topology environment name
+        #[arg(long)]
+        env: String,
 
         /// Human-readable output (default: JSON)
         #[arg(long)]
@@ -103,8 +126,9 @@ fn main() {
             show_types,
             human,
         } => compile_command(&file, output.as_deref(), show_types, human),
-        Command::Run { file, human } => run_command(&file, human),
-        Command::Test { path, r#match, human } => test_command(&path, r#match.as_deref(), human),
+        Command::Run { file, env, human } => run_command(&file, env.as_deref(), human),
+        Command::Test { path, env, r#match, human } => test_command(&path, env.as_deref(), r#match.as_deref(), human),
+        Command::Validate { path, env, human } => validate_command(&path, &env, human),
     };
 
     if let Err(e) = result {

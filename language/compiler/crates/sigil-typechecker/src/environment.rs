@@ -32,6 +32,7 @@ pub struct TypeEnvironment {
     type_registry: HashMap<String, TypeInfo>,               // User-defined types
     imported_type_registries: HashMap<String, HashMap<String, TypeInfo>>, // Types from imported modules
     imported_value_schemes: HashMap<String, HashMap<String, TypeScheme>>,
+    source_file: Option<String>,
     parent: Option<Box<TypeEnvironment>>,
 }
 
@@ -45,6 +46,7 @@ impl TypeEnvironment {
             type_registry: HashMap::new(),
             imported_type_registries: HashMap::new(),
             imported_value_schemes: HashMap::new(),
+            source_file: None,
             parent: None,
         }
     }
@@ -58,8 +60,17 @@ impl TypeEnvironment {
             type_registry: HashMap::new(),
             imported_type_registries: HashMap::new(),
             imported_value_schemes: HashMap::new(),
+            source_file: parent.source_file.clone(),
             parent: Some(Box::new(parent)),
         }
+    }
+
+    pub fn set_source_file(&mut self, source_file: Option<String>) {
+        self.source_file = source_file;
+    }
+
+    pub fn source_file(&self) -> Option<&str> {
+        self.source_file.as_deref()
     }
 
     /// Look up a variable's type

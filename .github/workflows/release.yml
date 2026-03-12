@@ -19,7 +19,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -75,7 +75,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -136,7 +136,7 @@ jobs:
           Set-Content -Path "$stageDir/README.txt" -Value "Sigil $env:SIGIL_VERSION`n`nRun .\\sigil.exe --help"
           Compress-Archive -Path $stageDir -DestinationPath "dist/$base.zip" -Force
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: release-${{ matrix.platform }}
           path: dist/*.${{ matrix.archive_ext }}
@@ -148,9 +148,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           merge-multiple: true
@@ -196,15 +196,27 @@ jobs:
             echo "Homebrew tap deploy key not configured; skipping tap publish."
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: ${{ steps.tap-config.outputs.configured == 'true' }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: ${{ steps.tap-config.outputs.configured == 'true' }}
         with:
           pattern: release-*
           merge-multiple: true
           path: dist
+
+      - uses: actions/setup-node@v6
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
+        with:
+          node-version: 24
+
+      - name: Enable corepack pnpm
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.0.0 --activate
 
       - name: Generate checksums
         if: ${{ steps.tap-config.outputs.configured == 'true' }}

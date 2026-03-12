@@ -180,25 +180,41 @@ jobs:
       - prepare-release
       - build-binaries
       - publish-release
-    if: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY != '' }}
     runs-on: ubuntu-latest
+    env:
+      HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
 
     steps:
+      - name: Check tap publish configuration
+        id: tap-config
+        shell: bash
+        run: |
+          if [[ -n "${HOMEBREW_TAP_DEPLOY_KEY}" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Homebrew tap deploy key not configured; skipping tap publish."
+          fi
+
       - uses: actions/checkout@v4
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
 
       - uses: actions/download-artifact@v4
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
         with:
           pattern: release-*
           merge-multiple: true
           path: dist
 
       - name: Generate checksums
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
         shell: bash
         run: |
           cd dist
           sha256sum sigil-* > SHA256SUMS
 
       - name: Extract Sigil release binary
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
         env:
           VERSION: ${{ needs.prepare-release.outputs.version }}
         shell: bash
@@ -208,6 +224,7 @@ jobs:
           echo "SIGIL_BIN=$(find "$RUNNER_TEMP/sigil-release" -name sigil -type f | head -1)" >> "$GITHUB_ENV"
 
       - name: Generate Homebrew formula
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
         env:
           VERSION: ${{ needs.prepare-release.outputs.version }}
           REPO: ${{ github.repository }}
@@ -222,8 +239,7 @@ jobs:
           ruby -c "$RUNNER_TEMP/homebrew/Formula/sigil.rb"
 
       - name: Configure tap deploy key
-        env:
-          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
         shell: bash
         run: |
           install -m 700 -d ~/.ssh
@@ -232,6 +248,7 @@ jobs:
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
       - name: Update tap repo
+        if: ${{ steps.tap-config.outputs.configured == 'true' }}
         env:
           TAP_REPO: inerte/homebrew-tap
           VERSION: ${{ needs.prepare-release.outputs.version }}

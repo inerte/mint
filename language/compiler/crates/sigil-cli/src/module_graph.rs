@@ -192,6 +192,7 @@ fn is_sigil_import_path(module_path: &str) -> bool {
     module_path.starts_with("core⋅")
         || module_path.starts_with("stdlib⋅")
         || module_path.starts_with("src⋅")
+        || module_path.starts_with("config⋅")
 }
 
 fn file_path_to_module_id(abs_path: &Path, project: &Option<ProjectConfig>) -> Option<String> {
@@ -266,7 +267,7 @@ fn resolve_sigil_import(
     // Convert module ID (with ⋅ separators) to file path
     let file_path_str = module_id.replace('⋅', "/");
 
-    if module_id.starts_with("src⋅") {
+    if module_id.starts_with("src⋅") || module_id.starts_with("config⋅") {
         // Project import
         let project = importer_project.ok_or_else(|| ModuleGraphError::ImportNotFound {
             module_id: module_id.to_string(),

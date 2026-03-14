@@ -1,6 +1,7 @@
 e console
 e process
 
+i config⋅release
 i src⋅formula
 i stdlib⋅file
 i stdlib⋅path
@@ -16,8 +17,8 @@ i stdlib⋅path
       l text=(stdlib⋅file.readText(path):String);
       match src⋅formula.parseChecksums(text,version){
         Some(checksums)→{
-          l _=(stdlib⋅file.makeDirs(stdlib⋅path.dirname(outputPath())):Unit);
-          (stdlib⋅file.writeText(src⋅formula.formula({checksums:checksums,repo:releaseRepo(),version:version}),outputPath()):Unit)
+          l _=(stdlib⋅file.makeDirs(stdlib⋅path.dirname(config⋅release.outputPath())):Unit);
+          (stdlib⋅file.writeText(src⋅formula.formula({checksums:checksums,repo:config⋅release.releaseRepo(),version:version}),config⋅release.outputPath()):Unit)
         }|
         None()→fail("could not parse required Homebrew release checksums")
       }
@@ -27,30 +28,6 @@ i stdlib⋅path
   Err(message)→fail(message)
 }
 
-λoutputPath()→String=outputPathFromProperty(process.env.hasOwnProperty("sigilHomebrewOutputPath"))
+λreleaseVersion()→Result[String,String]=config⋅release.releaseVersion()
 
-λoutputPathFromProperty(hasValue:Bool)→String match hasValue{
-  true→(process.env.sigilHomebrewOutputPath:String)|
-  false→"packaging/homebrew/Formula/sigil.rb"
-}
-
-λreleaseRepo()→String=releaseRepoFromProperty(process.env.hasOwnProperty("sigilHomebrewRepo"))
-
-λreleaseRepoFromProperty(hasValue:Bool)→String match hasValue{
-  true→(process.env.sigilHomebrewRepo:String)|
-  false→"inerte/sigil"
-}
-
-λreleaseVersion()→Result[String,String]=releaseVersionFromProperty(process.env.hasOwnProperty("sigilHomebrewVersion"))
-
-λreleaseVersionFromProperty(hasValue:Bool)→Result[String,String] match hasValue{
-  true→Ok((process.env.sigilHomebrewVersion:String))|
-  false→Err("sigilHomebrewVersion is required")
-}
-
-λsha256SumsPath()→Result[String,String]=sha256SumsPathFromProperty(process.env.hasOwnProperty("sigilHomebrewSha256SumsPath"))
-
-λsha256SumsPathFromProperty(hasValue:Bool)→Result[String,String] match hasValue{
-  true→Ok((process.env.sigilHomebrewSha256SumsPath:String))|
-  false→Err("sigilHomebrewSha256SumsPath is required")
-}
+λsha256SumsPath()→Result[String,String]=config⋅release.sha256SumsPath()

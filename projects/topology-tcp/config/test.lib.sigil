@@ -1,0 +1,6 @@
+i src⋅topology
+i stdlib⋅config
+
+c bindings=(stdlib⋅config.bindings([],[
+  stdlib⋅config.bindTcp(src⋅topology.eventStream,"127.0.0.1",45120)
+]):stdlib⋅config.Bindings)

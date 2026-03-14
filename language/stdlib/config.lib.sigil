@@ -1,0 +1,71 @@
+⟦ stdlib⋅config - Canonical environment bindings for topology-backed projects
+
+Config modules in config/*.lib.sigil bind declared topology dependencies to
+concrete runtime values. Ambient env access belongs in config modules, not in
+topology declarations or ordinary application code.
+⟧
+
+t BindingValue=EnvVar(String)|Literal(String)
+
+t Bindings={
+  httpBindings:[HttpBinding],
+  tcpBindings:[TcpBinding]
+}
+
+t HttpBinding={
+  baseUrl:BindingValue,
+  dependencyName:String
+}
+
+t PortBindingValue=EnvVarPort(String)|LiteralPort(Int)
+
+t TcpBinding={
+  dependencyName:String,
+  host:BindingValue,
+  port:PortBindingValue
+}
+
+i stdlib⋅topology
+
+λbindHttp(baseUrl:String,dependency:stdlib⋅topology.HttpServiceDependency)→HttpBinding={
+  match dependency{
+    stdlib⋅topology.HttpServiceDependency(dependencyName)→{
+      baseUrl:Literal(baseUrl),
+      dependencyName:dependencyName
+    }
+  }
+}
+
+λbindHttpEnv(dependency:stdlib⋅topology.HttpServiceDependency,envVar:String)→HttpBinding={
+  match dependency{
+    stdlib⋅topology.HttpServiceDependency(dependencyName)→{
+      baseUrl:EnvVar(envVar),
+      dependencyName:dependencyName
+    }
+  }
+}
+
+λbindTcp(dependency:stdlib⋅topology.TcpServiceDependency,host:String,port:Int)→TcpBinding={
+  match dependency{
+    stdlib⋅topology.TcpServiceDependency(dependencyName)→{
+      dependencyName:dependencyName,
+      host:Literal(host),
+      port:LiteralPort(port)
+    }
+  }
+}
+
+λbindTcpEnv(dependency:stdlib⋅topology.TcpServiceDependency,hostEnvVar:String,portEnvVar:String)→TcpBinding={
+  match dependency{
+    stdlib⋅topology.TcpServiceDependency(dependencyName)→{
+      dependencyName:dependencyName,
+      host:EnvVar(hostEnvVar),
+      port:EnvVarPort(portEnvVar)
+    }
+  }
+}
+
+λbindings(httpBindings:[HttpBinding],tcpBindings:[TcpBinding])→Bindings={
+  httpBindings:httpBindings,
+  tcpBindings:tcpBindings
+}

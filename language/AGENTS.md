@@ -121,9 +121,11 @@ Current constructor and list invariants:
   - if a field may be absent, keep the record exact and use `Option[T]` for that field
   - prefer early boundary conversion with `stdlib⋅decode` instead of carrying raw `JsonValue` deep into business logic
   - when a validated boundary value should remain distinct from a raw primitive, prefer a named wrapper type like `Email` or `UserId`
-  - topology-aware projects must declare external HTTP/TCP dependencies in `src/topology.lib.sigil`
+  - topology-aware projects must declare external HTTP/TCP dependencies and environment names in `src/topology.lib.sigil`
+  - topology-aware projects must bind each declared environment in `config/<env>.lib.sigil`
   - topology-aware application code must use `src⋅topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
-  - tests are environments; prefer `test` bindings in topology over ad hoc runtime rewiring
+  - `process.env` belongs only in `config/*.lib.sigil`, never in ordinary application code
+  - tests are environments; prefer `config/test.lib.sigil` over ad hoc runtime rewiring
   - inline single-use pure locals; keep bindings only for reuse, effects, destructuring, or syntax-required staging
 
 ### 3) Keep user-facing errors actionable

@@ -99,7 +99,7 @@ Empty lists `[]` infer their type from context:
 
 Sigil uses file-based visibility:
 - `.lib.sigil` exports all top-level declarations automatically
-- `.sigil` files are executables and are not importable (outside tests)
+- `.sigil` files are executable-oriented
 
 There is no `export` keyword.
 
@@ -308,8 +308,8 @@ until it is terminated externally.
 `stdlib⋅topology` is the canonical declaration layer for external HTTP and TCP
 runtime dependencies. `stdlib⋅config` is the canonical binding layer.
 
-Topology-aware projects define `src/topology.lib.sigil`, one
-`config/<env>.lib.sigil` per declared environment, and use typed handles instead
+Topology-aware projects define `src/topology.lib.sigil`, the selected
+`config/<env>.lib.sigil`, and use typed handles instead
 of raw endpoints in application code:
 
 ```sigil

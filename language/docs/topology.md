@@ -22,7 +22,7 @@ Without this split, runtime truth gets blurred together:
 
 Sigil prefers one explicit model:
 - `src/topology.lib.sigil` declares dependency handles and environment names
-- `config/<env>.lib.sigil` binds every declared dependency for one environment
+- `config/<env>.lib.sigil` binds every declared dependency for the selected environment
 - application code uses typed handles from `src⋅topology`
 - only config modules may read `process.env`
 
@@ -38,8 +38,8 @@ config/production.lib.sigil
 ```
 
 Environment names are flexible, but the file path is canonical:
-- if topology declares `test`, the project needs `config/test.lib.sigil`
-- if topology declares `production`, the project needs `config/production.lib.sigil`
+- if Sigil is run with `--env test`, the project needs `config/test.lib.sigil`
+- if Sigil is run with `--env production`, the project needs `config/production.lib.sigil`
 
 ## Canonical Topology Module
 

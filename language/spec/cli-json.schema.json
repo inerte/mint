@@ -228,7 +228,7 @@
     },
     "compileData": {
       "type": "object",
-      "required": ["input", "outputs", "typecheck", "semanticMap"],
+      "required": ["input", "outputs", "typecheck"],
       "properties": {
         "input": { "type": "string" },
         "outputs": {
@@ -253,22 +253,27 @@
           "additionalProperties": false
         },
         "project": {
-          "type": "object",
-          "required": ["root", "layout"],
-          "properties": {
-            "root": { "type": "string" },
-            "layout": {
+          "oneOf": [
+            { "type": "null" },
+            {
               "type": "object",
-              "required": ["src", "tests", "out"],
+              "required": ["root", "layout"],
               "properties": {
-                "src": { "type": "string" },
-                "tests": { "type": "string" },
-                "out": { "type": "string" }
+                "root": { "type": "string" },
+                "layout": {
+                  "type": "object",
+                  "required": ["src", "tests", "out"],
+                  "properties": {
+                    "src": { "type": "string" },
+                    "tests": { "type": "string" },
+                    "out": { "type": "string" }
+                  },
+                  "additionalProperties": false
+                }
               },
               "additionalProperties": false
             }
-          },
-          "additionalProperties": false
+          ]
         },
         "typecheck": {
           "type": "object",
@@ -287,16 +292,6 @@
                 "additionalProperties": false
               }
             }
-          },
-          "additionalProperties": false
-        },
-        "semanticMap": {
-          "type": "object",
-          "required": ["path", "generated", "aiEnhanced"],
-          "properties": {
-            "path": { "type": "string" },
-            "generated": { "type": "boolean" },
-            "aiEnhanced": { "type": "boolean" }
           },
           "additionalProperties": false
         }
@@ -390,14 +385,13 @@
         "durationMs": { "type": "integer", "minimum": 0 },
         "location": {
           "type": "object",
+          "required": ["line", "column"],
           "properties": {
-            "start": { "$ref": "#/$defs/sourcePoint" },
-            "end": { "$ref": "#/$defs/sourcePoint" }
+            "line": { "type": "integer", "minimum": 1 },
+            "column": { "type": "integer", "minimum": 0 }
           },
-          "additionalProperties": true
+          "additionalProperties": false
         },
-        "declaredEffects": { "type": "array", "items": { "type": "string" } },
-        "assertion": true,
         "failure": true
       },
       "additionalProperties": true

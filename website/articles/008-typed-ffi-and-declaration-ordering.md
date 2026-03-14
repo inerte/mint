@@ -7,6 +7,14 @@ slug: typed-ffi-and-declaration-ordering
 
 # Typed FFI and the t→e→i Declaration Order Change
 
+> Historical note: this article reflects an earlier Sigil surface. Later
+> versions removed the `export` keyword and the old TypeScript validator paths
+> referenced below. The declaration-ordering discussion is still useful, but
+> the current surface is documented in
+> [language/docs/syntax-reference.md](/Users/jnobreganetto/Documents/GitHub/ai-pl/language/docs/syntax-reference.md)
+> and
+> [language/docs/CANONICAL_FORMS.md](/Users/jnobreganetto/Documents/GitHub/ai-pl/language/docs/CANONICAL_FORMS.md).
+
 > **🚨 BREAKING CHANGE:** Sigil's canonical declaration ordering changed from `e → i → t → c → λ → test` to **`t → e → i → c → λ → test`** (types now come first). This enables typed FFI declarations to reference named types. Migration is straightforward: move type declarations before extern/import declarations.
 
 **TL;DR:** We added typed FFI declarations (compile-time type checking at FFI boundaries) and changed canonical declaration ordering to support them. Types must now come before externs because typed extern declarations can reference named types. This is a breaking change but affects very few files and the compiler gives clear fix-it instructions.

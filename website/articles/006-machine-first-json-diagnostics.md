@@ -7,6 +7,14 @@ slug: 006-machine-first-json-diagnostics
 
 # Machine-First JSON Diagnostics: Making Errors Actionable for AI
 
+> Historical note: this article reflects an earlier CLI/schema surface. Later
+> versions removed semantic-map fields from `compile` output and simplified the
+> current `test` JSON result shape. For the current contract, see
+> [language/spec/cli-json.md](/Users/jnobreganetto/Documents/GitHub/ai-pl/language/spec/cli-json.md),
+> [language/spec/cli-json.schema.json](/Users/jnobreganetto/Documents/GitHub/ai-pl/language/spec/cli-json.schema.json),
+> and
+> [language/docs/TESTING_JSON_SCHEMA.md](/Users/jnobreganetto/Documents/GitHub/ai-pl/language/docs/TESTING_JSON_SCHEMA.md).
+
 **TL;DR:** Sigil CLI commands (`lex`, `parse`, `compile`, `run`, `test`) now output structured JSON by default. The `--human` flag renders human-readable output from those JSON payloads. We also built a typed diagnostics system with specific error codes, location data, and fixits. This shift makes the compiler a reliable machine API for AI coding agents.
 
 ## The Problem: Prose Errors Hurt Automation

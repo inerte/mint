@@ -1,28 +1,6 @@
-(*(* Sigil Programming Language - Formal Grammar (EBNF) *)
-(* Version: 1.0.0 *)
-(* Last Updated: 2026-02-21 *)
-
-(* ============================================================================ *)
-(* DESIGN PRINCIPLE: Exactly ONE way to write each construct                   *)
-(* - No optional syntax                                                         *)
-(* - No syntactic sugar                                                         *)
-(* - Canonical formatting enforced at parse time                                *)
-(* ============================================================================ *)
-
-(* ============================================================================ *)
-(* PROGRAM STRUCTURE                                                            *)
-(* ============================================================================ *)
-
-(* CANONICAL DECLARATION ORDERING (strictly enforced):
-   t → e → i → c → λ → test
-   - Types must come first (enables typed FFI to reference named types)
-   - Externs second (can reference types defined above)
-   - Imports third
-   - Consts fourth
-   - Functions fifth
-   - Tests last
-
-   Within each category: alphabetical, non-exported before exported *)
+(* Sigil Programming Language - Surface Grammar Sketch *)
+(* This grammar documents the current parser surface at a high level. *)
+(* Some canonical constraints are enforced after parsing by validation/typecheck. *)
 
 Program = { TopLevelDecl } ;
 
@@ -30,73 +8,32 @@ TopLevelDecl = TypeDecl
              | ExternDecl
              | ImportDecl
              | ConstDecl
-             | FunctionDecl ;
+             | FunctionDecl
+             | MockableFunctionDecl
+             | TestDecl ;
 
-(* Module scope is declaration-only.
-   Local bindings use LetExpr and are only valid inside expressions, never as TopLevelDecl. *)
-(* Canonical validation also requires local bindings to avoid shadowing names from
-   the same or any enclosing lexical scope. This is not encoded in the grammar. *)
-
-(* ============================================================================ *)
-(* IMPORTS                                                                      *)
-(* ============================================================================ *)
+(* Canonical declaration order is enforced separately:
+   t → e → i → c → λ → test *)
 
 ImportDecl = "i" , ModulePath ;
 ModulePath = Identifier , { "⋅" , Identifier } ;
 
-(* Example: i stdlib⋅list *)
-(* Note: Namespace imports only - no selective imports, no aliasing *)
-
-(* ============================================================================ *)
-(* EXTERN DECLARATIONS (FFI)                                                   *)
-(* ============================================================================ *)
-
 ExternDecl = "e" , ModulePath , [ ":" , TypedMembers ] ;
-TypedMembers = "{" , TypedMember , { ( "," | Newline ) , TypedMember } , "}" ;
+TypedMembers = "{" , TypedMember , { "," , TypedMember } , "}" ;
 TypedMember = Identifier , ":" , Type ;
 
-(* Examples:
-   e console
-   e console : { log : λ(String) → Unit, error : λ(String) → Unit }
-   e fs⋅promises : { readFile : λ(String, String) → String, writeFile : λ(String, String, String) → Unit }
-*)
-
-(* Note: Untyped externs (e console) use "trust mode" - all members return Any.
-   Typed externs provide compile-time type checking for FFI calls. *)
-
-(* ============================================================================ *)
-(* TYPE DECLARATIONS                                                            *)
-(* ============================================================================ *)
-
 TypeDecl = "t" , TypeName , [ TypeParams ] , "=" , TypeDef ;
-
 TypeName = UpperIdentifier ;
 TypeParams = "[" , TypeParam , { "," , TypeParam } , "]" ;
 TypeParam = UpperIdentifier ;
 
 TypeDef = SumType | ProductType | TypeAlias ;
-
-(* Sum Types (tagged unions) *)
 SumType = Variant , { "|" , Variant } ;
 Variant = UpperIdentifier , [ "(" , TypeList , ")" ] ;
-
-(* Product Types (records/structs) *)
 ProductType = "{" , FieldList , "}" ;
 FieldList = Field , { "," , Field } ;
 Field = Identifier , ":" , Type ;
-
-(* Type Aliases *)
 TypeAlias = Type ;
-
-(* Examples:
-   t Option[T]=Some(T)|None
-   t Result[T,E]=Ok(T)|Err(E)
-   t User={email:String,id:Int,name:String}
-*)
-
-(* ============================================================================ *)
-(* TYPE EXPRESSIONS                                                             *)
-(* ============================================================================ *)
 
 Type = PrimitiveType
      | ListType
@@ -105,72 +42,40 @@ Type = PrimitiveType
      | TypeConstructor
      | TypeVariable ;
 
-PrimitiveType = "Int"     (* Int *)
-              | "Float"     (* Float *)
-              | "Bool"     (* Bool *)
-              | "String"     (* String *)
-              | "Char"     (* Char *)
-              | "Unit"     (* Unit *)
-              ;
-
-(* Shorthand aliases (deprecated in favor of Unicode) *)
-(* I = Int, F = Float, B = Bool, S = String, C = Char, U = Unit *)
-
+PrimitiveType = "Int" | "Float" | "Bool" | "String" | "Char" | "Unit" | "Never" ;
 ListType = "[" , Type , "]" ;
-MapType = "{" , Type , ":" , Type , "}" ;
-FunctionType = "λ(" , [ TypeList ] , ")" , "→" , Type ;
+MapType = "{" , Type , "↦" , Type , "}" ;
+FunctionType = "λ(" , [ TypeList ] , ")" , "→" , [ Effects ] , Type ;
 TypeConstructor = TypeName , [ "[" , TypeList , "]" ] ;
 TypeVariable = UpperIdentifier ;
 TypeList = Type , { "," , Type } ;
 
-(* Examples:
-   [Int]               List of integers
-   {String:Int}             Map from string to int
-   λ(Int,Int)→Int          Function taking two ints, returning int
-   Option[String]         Type constructor application
-*)
+ConstDecl = "c" , Identifier , "=" , "(" , Expr , ":" , Type , ")" ;
 
-(* ============================================================================ *)
-(* FUNCTION DECLARATIONS                                                        *)
-(* ============================================================================ *)
-
-FunctionDecl = "λ" , Identifier , "(" , [ ParamList ] , ")" , [ "→" , Type ] , ( "=" , Expr | MatchExpr ) ;
+FunctionDecl = "λ" , Identifier , "(" , [ ParamList ] , ")" , "→" , [ Effects ] , Type , FunctionBody ;
+MockableFunctionDecl = "mockable" , FunctionDecl ;
+FunctionBody = "=" , Expr | MatchExpr ;
 
 ParamList = Param , { "," , Param } ;
-Param = Identifier , [ ":" , Type ] ;
+Param = Identifier , ":" , Type ;
 
-(* Examples:
-   λadd(x:Int,y:Int)→Int=x+y
-   λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
-*)
+TestDecl = "test" , StringLiteral , [ "→" , Effects ] , BlockExpr ;
 
-(* Note: Match bodies omit "=" as the canonical function-body form. *)
-(* Canonical validation also forbids parameter, let, and pattern shadowing. *)
+Effects = Effect , { Effect } ;
+Effect = "!" , UpperIdentifier ;
 
-(* ============================================================================ *)
-(* CONSTANT DECLARATIONS                                                        *)
-(* ============================================================================ *)
-
-ConstDecl = "c" , Identifier , [ ":" , Type ] , "=" , Expr ;
-
-(* Example: c PI:Float=3.14159 *)
-
-(* ============================================================================ *)
-(* EXPRESSIONS                                                                  *)
-(* ============================================================================ *)
-
-Expr = MatchExpr
-     | LetExpr
+Expr = LetExpr
+     | MatchExpr
      | LambdaExpr
-     | IfExpr
-     | BinaryExpr
-     | UnaryExpr
-     | ApplicationExpr
-     | PrimaryExpr ;
+     | WithMockExpr
+     | BinaryExpr ;
 
-(* ============================================================================ *)
-(* PATTERN MATCHING (Primary Control Flow)                                     *)
-(* ============================================================================ *)
+LetExpr = "l" , Pattern , "=" , Expr , ";" , Expr ;
+
+LambdaExpr = "λ" , "(" , [ ParamList ] , ")" , "→" , [ Effects ] , Type , LambdaBody ;
+LambdaBody = "=" , Expr | MatchExpr ;
+
+WithMockExpr = "withMock" , "(" , Expr , "," , Expr , ")" , BlockExpr ;
 
 MatchExpr = "match" , Expr , "{" , MatchArm , { "|" , MatchArm } , "}" ;
 MatchArm = Pattern , "→" , Expr ;
@@ -188,269 +93,27 @@ WildcardPattern = "_" ;
 ConstructorPattern = ConstructorRef , [ "(" , PatternList , ")" ] ;
 ConstructorRef = UpperIdentifier | QualifiedConstructorRef ;
 QualifiedConstructorRef = ModulePath , "." , UpperIdentifier ;
-ListPattern = "[" , [ PatternList ] , "]" | "[" , Pattern , "," , ".." , Identifier , "]" ;
+ListPattern = "[" , [ PatternList ] , "]"
+            | "[" , Pattern , "," , ".." , Identifier , "]" ;
 RecordPattern = "{" , FieldPatternList , "}" ;
-
 PatternList = Pattern , { "," , Pattern } ;
 FieldPatternList = FieldPattern , { "," , FieldPattern } ;
 FieldPattern = Identifier , [ ":" , Pattern ] ;
 
-(* Examples:
-   match x{0→"zero"|1→"one"|_→"many"}
-   match option{Some(v)→v|None→0}
-   match list{[]→0|[x,..]→x}
-*)
+BlockExpr = "{" , Expr , "}" ;
 
-(* ============================================================================ *)
-(* LET BINDINGS                                                                 *)
-(* ============================================================================ *)
-
-LetExpr = "l" , Pattern , "=" , Expr , ";" , Expr ;
-
-(* Example: l x=5;x+10 *)
-
-(* ============================================================================ *)
-(* LAMBDA EXPRESSIONS                                                           *)
-(* ============================================================================ *)
-
-LambdaExpr = "λ" , [ ParamList ] , "→" , Expr ;
-
-(* Example: λx→x*2 *)
-
-(* ============================================================================ *)
-(* IF EXPRESSIONS (Syntactic Sugar for Match on Bool)                          *)
-(* ============================================================================ *)
-
-IfExpr = "match" , Expr , "{" , "true" , "→" , Expr , "|" , "false" , "→" , Expr , "}" ;
-
-(* Note: Could be removed in favor of pure match, keeping for convenience *)
-(* Example: match x>0{true→"positive"|false→"not positive"} *)
-
-(* ============================================================================ *)
-(* BINARY EXPRESSIONS                                                           *)
-(* ============================================================================ *)
-
+(* Binary operator precedence and exact expression factoring live in the parser.
+   This file records the available operator surface, not the full precedence table. *)
 BinaryExpr = Expr , BinaryOp , Expr ;
+BinaryOp = "+" | "-" | "*" | "/" | "%" | "^"
+         | "=" | "≠" | "<" | ">" | "≤" | "≥"
+         | "and" | "or"
+         | "↦" | "⊳" | "⊕" | "⧺" ;
 
-BinaryOp = ArithOp | CompOp | LogicOp | PipeOp ;
-
-ArithOp = "+" | "-" | "*" | "/" | "%" | "^" ;
-CompOp = "=" | "≠" | "<" | ">" | "≤" | "≥" ;
-LogicOp = "and" | "or" ;
-PipeOp = "|>" | ">>" | "<<" ;
-
-(* Operator Precedence (highest to lowest):
-   1. ^ (power)
-   2. * / % (multiplication, division, modulo)
-   3. + - (addition, subtraction)
-   4. = ≠ < > ≤ ≥ (comparison)
-   5. and (logical and)
-   6. or (logical or)
-   7. |> >> << (pipelines and composition)
-*)
-
-(* ============================================================================ *)
-(* UNARY EXPRESSIONS                                                            *)
-(* ============================================================================ *)
-
-UnaryExpr = UnaryOp , Expr ;
-UnaryOp = "-" | "¬" ;
-
-(* Examples: -5, ¬true *)
-
-(* ============================================================================ *)
-(* FUNCTION APPLICATION                                                         *)
-(* ============================================================================ *)
-
-ApplicationExpr = Expr , "(" , [ ExprList ] , ")" ;
-ExprList = Expr , { "," , Expr } ;
-
-(* Example: fibonacci(5) *)
-
-(* ============================================================================ *)
-(* PRIMARY EXPRESSIONS                                                          *)
-(* ============================================================================ *)
-
-PrimaryExpr = Literal
-            | Identifier
-            | QualifiedMemberRef
-            | ListLiteral
-            | RecordLiteral
-            | TupleLiteral
-            | "(" , Expr , ")" ;
-QualifiedMemberRef = ModulePath , "." , ( Identifier | UpperIdentifier ) ;
-
-(* ============================================================================ *)
-(* LITERALS                                                                     *)
-(* ============================================================================ *)
-
-Literal = IntLiteral
+Literal = IntegerLiteral
         | FloatLiteral
-        | BoolLiteral
         | StringLiteral
         | CharLiteral
-        | UnitLiteral ;
-
-IntLiteral = [ "-" ] , Digit , { Digit } ;
-FloatLiteral = [ "-" ] , Digit , { Digit } , "." , Digit , { Digit } ;
-BoolLiteral = "true" | "false" ;
-StringLiteral = '"' , { StringChar } , '"' ;
-CharLiteral = "'" , Char , "'" ;
-UnitLiteral = "()" ;
-
-(* ============================================================================ *)
-(* COLLECTION LITERALS                                                          *)
-(* ============================================================================ *)
-
-ListLiteral = "[" , [ ExprList ] , "]" ;
-RecordLiteral = "{" , FieldValueList , "}" ;
-TupleLiteral = "(" , Expr , "," , ExprList , ")" ;
-
-FieldValueList = FieldValue , { "," , FieldValue } ;
-FieldValue = Identifier , ":" , Expr ;
-
-(* Examples:
-   [1,2,3]
-   [xs]                 Nested list when xs:[T]
-   {active:true,id:42,name:"Alice"}
-   (1,"hello",true)
-*)
-
-(* ============================================================================ *)
-(* IDENTIFIERS AND TOKENS                                                       *)
-(* ============================================================================ *)
-
-Identifier = LowerLetter , { Letter | Digit | "_" } ;
-UpperIdentifier = UpperLetter , { Letter | Digit | "_" } ;
-
-LowerLetter = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m"
-            | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;
-
-UpperLetter = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M"
-            | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" ;
-
-Letter = LowerLetter | UpperLetter ;
-Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
-StringChar = ? any Unicode character except '"' and '\' ? | EscapeSeq ;
-Char = ? any Unicode character except "'" and '\' ? | EscapeSeq ;
-EscapeSeq = "\" , ( "n" | "t" | "r" | "\" | '"' | "'" ) ;
-
-(* ============================================================================ *)
-(* WHITESPACE AND COMMENTS                                                      *)
-(* ============================================================================ *)
-
-(* Whitespace: Space characters are significant only for token separation      *)
-(* Newlines: No significance (unlike Python)                                    *)
-(* Indentation: No significance (unlike Haskell)                                *)
-
-Comment = "⟦" , { ? any Unicode character except ⟧ ? } , "⟧" ;
-
-(* Note: Sigil uses ONLY ⟦ ... ⟧ for comments (multi-line, block comments)     *)
-(* No // or /* */ syntax - exactly ONE canonical comment form                   *)
-
-(* ============================================================================ *)
-(* FORMATTING RULES (ENFORCED AT PARSE TIME)                                   *)
-(* ============================================================================ *)
-
-(* CANONICAL FORMATTING RULES:
-   1. NO spaces around operators: x+y not x + y
-   2. NO spaces in function calls: f(x,y) not f(x, y)
-   3. SINGLE space after commas in parameter lists: f(x,y) → f(x, y)
-   4. SINGLE space after ":" in type annotations: x:Int not x : Int
-   5. NO trailing whitespace on any line
-   6. EXACTLY one newline at EOF
-   7. Maximum one blank line between declarations
-   8. NO line length limit (machines don't care)
-
-   Violations of these rules result in PARSE ERROR, not warnings.
-*)
-
-(* ============================================================================ *)
-(* CORE PRELUDE (Auto-imported)                                                *)
-(* ============================================================================ *)
-
-(* The following foundational names are automatically available:
-
-   Types:
-   - Option[T] = Some(T) | None
-   - Result[T,E] = Ok(T) | Err(E)
-   - Some
-   - None
-   - Ok
-   - Err
-
-   See core/prelude.lib.sigil for the actual implicit prelude.
-*)
-
-(* ============================================================================ *)
-(* UNICODE SYMBOLS REFERENCE                                                    *)
-(* ============================================================================ *)
-
-(* Keywords:
-   λ  - lambda (function)
-   →  - arrow (returns, maps-to)
-   match - pattern match
-
-   Types:
-   Int  - integers (Z from number theory)
-   Float  - reals (R from number theory)
-   Bool  - booleans (B double-struck)
-   String  - strings (S double-struck)
-   Char  - characters (C from complex numbers, repurposed)
-   Unit  - unit (U double-struck)
-
-   Operators:
-   ≠  - not equal
-   ≤  - less than or equal
-   ≥  - greater than or equal
-   and - logical and
-   or  - logical or
-   ¬  - logical not
-   ∈  - element of (for iteration)
-   true  - true (top)
-   false  - false (bottom)
-   Never  - empty/never (empty set)
-
-   Composition:
-   |> - pipe forward
-   >> - compose forward
-   << - compose backward
-*)
-
-(* ============================================================================ *)
-(* EFFECT SYSTEM (Future Extension)                                            *)
-(* ============================================================================ *)
-
-(* Functions can be annotated with effects:
-   λread_file(path:String)→Result[String,IoError]!IO
-
-   Effect syntax: !EffectName
-   Multiple effects: !Error !IO !Network
-
-   Pure functions have no effect annotation (default)
-*)
-
-(* ============================================================================ *)
-(* EXAMPLES                                                                     *)
-(* ============================================================================ *)
-
-(* Example 1: Fibonacci *)
-(* λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)} *)
-
-(* Example 2: Map function *)
-(* λmap[T,U](fn:λ(T)→U,list:[T])→[U] match list{[]→[]|[x,.xs]→[fn(x),.map(fn,xs)]} *)
-
-(* Example 3: HTTP handler *)
-(* λhandle(req:Request)→Response!Error match req.path{"/users"→get_users(req)|"/health"→Ok(Response{body:"OK",status:200})|_→Err(Error{code:404,msg:"Not found"})} *)
-
-(* Example 4: Type definitions *)
-(* t Option[T]=Some(T)|None *)
-(* t Result[T,E]=Ok(T)|Err(E) *)
-(* t User={active:Bool,email:String,id:Int,name:String} *)
-
-(* Example 5: Pipeline *)
-(* λprocess_users(users:[User])→[String]=users|>filter(λu→u.active)|>map(λu→u.name) *)
-
-(* ============================================================================ *)
-(* END OF GRAMMAR                                                               *)
-(* ============================================================================ *)
+        | "true"
+        | "false"
+        | "(" , ")" ;

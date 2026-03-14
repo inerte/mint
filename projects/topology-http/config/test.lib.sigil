@@ -1,0 +1,6 @@
+i src⋅topology
+i stdlib⋅config
+
+c bindings=(stdlib⋅config.bindings([
+  stdlib⋅config.bindHttp("http://127.0.0.1:45110",src⋅topology.mailerApi)
+],[]):stdlib⋅config.Bindings)

@@ -1781,12 +1781,31 @@ fn is_canonical_topology_source(env: &TypeEnvironment) -> bool {
         .unwrap_or(false)
 }
 
+fn is_canonical_config_source(env: &TypeEnvironment) -> bool {
+    env.source_file()
+        .map(|path| {
+            let normalized = path.replace('\\', "/");
+            normalized.contains("/config/") && normalized.ends_with(".lib.sigil")
+        })
+        .unwrap_or(false)
+}
+
 fn topology_call_member(expr: &Expr) -> Option<(&[String], &str)> {
     if let Expr::MemberAccess(member_access) = expr {
         return Some((&member_access.namespace, member_access.member.as_str()));
     }
 
     None
+}
+
+fn field_access_starts_with_process_env(field_access: &sigil_ast::FieldAccessExpr) -> bool {
+    match &field_access.object {
+        Expr::Identifier(identifier) => {
+            identifier.name == "process" && field_access.field == "env"
+        }
+        Expr::FieldAccess(parent) => field_access_starts_with_process_env(parent),
+        _ => false,
+    }
 }
 
 fn is_http_dependency_type(typ: &InferenceType) -> bool {
@@ -1813,16 +1832,31 @@ fn validate_topology_application(
             "httpService"
                 | "tcpService"
                 | "environment"
-                | "bindHttp"
-                | "bindHttpEnv"
-                | "bindTcp"
-                | "bindTcpEnv"
         );
 
         if restricted && !is_canonical_topology_source(env) {
             return Err(TypeError::new(
                 format!(
                     "{}: topology declarations must live in src⋅topology via src/topology.lib.sigil",
+                    codes::topology::CONSTRUCTOR_LOCATION
+                ),
+                Some(app.location),
+            ));
+        }
+
+        return Ok(());
+    }
+
+    if module_id == "stdlib⋅config" {
+        let restricted = matches!(
+            member,
+            "bindings" | "bindHttp" | "bindHttpEnv" | "bindTcp" | "bindTcpEnv"
+        );
+
+        if restricted && !is_canonical_config_source(env) {
+            return Err(TypeError::new(
+                format!(
+                    "{}: config bindings must live in config/*.lib.sigil",
                     codes::topology::CONSTRUCTOR_LOCATION
                 ),
                 Some(app.location),
@@ -2154,6 +2188,16 @@ fn synthesize_field_access(
     env: &TypeEnvironment,
     field_access: &sigil_ast::FieldAccessExpr,
 ) -> Result<InferenceType, TypeError> {
+    if field_access_starts_with_process_env(field_access) && !is_canonical_config_source(env) {
+        return Err(TypeError::new(
+            format!(
+                "{}: process.env access is only allowed in config/*.lib.sigil",
+                codes::topology::ENV_ACCESS_LOCATION
+            ),
+            Some(field_access.location),
+        ));
+    }
+
     let obj_type = synthesize(env, &field_access.object)?;
 
     // Special case: field access on 'any' type (FFI namespace)
@@ -3354,6 +3398,48 @@ mod tests {
 
         let result = type_check(&program, source, TypeCheckOptions::default());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_env_access_is_rejected_outside_config_modules() {
+        let source = "e process\nλmain()→String=(process.env.sigilSiteBasePath:String)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/main.sigil").unwrap();
+
+        let result = type_check(
+            &program,
+            source,
+            TypeCheckOptions {
+                imported_namespaces: None,
+                imported_type_registries: None,
+                imported_value_schemes: None,
+                source_file: Some("/tmp/project/src/main.sigil".to_string()),
+            },
+        );
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("process.env access is only allowed in config/*.lib.sigil"));
+    }
+
+    #[test]
+    fn test_process_env_access_is_allowed_in_config_modules() {
+        let source = "e process\nλmain()→String=(process.env.sigilSiteBasePath:String)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "config/local.lib.sigil").unwrap();
+
+        let result = type_check(
+            &program,
+            source,
+            TypeCheckOptions {
+                imported_namespaces: None,
+                imported_type_registries: None,
+                imported_value_schemes: None,
+                source_file: Some("/tmp/project/config/local.lib.sigil".to_string()),
+            },
+        );
+        assert!(result.is_ok());
     }
 
     #[test]

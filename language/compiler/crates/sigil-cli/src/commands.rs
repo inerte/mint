@@ -358,7 +358,7 @@ pub fn run_command(file: &Path, selected_env: Option<&str>, human: bool) -> Resu
     let graph = ModuleGraph::build(file)?;
     let compiled = compile_module_graph(graph, None)?;
     let entry_output_path = compiled.entry_output_path;
-    let topology_prelude = runner_prelude(file, selected_env, "local")?.unwrap_or_default();
+    let topology_prelude = runner_prelude(file, selected_env)?.unwrap_or_default();
 
     // Create runner file
     let runner_path = entry_output_path.with_extension("run.ts");
@@ -778,6 +778,10 @@ fn topology_source_path(project_root: &Path) -> PathBuf {
     project_root.join("src/topology.lib.sigil")
 }
 
+fn config_source_path(project_root: &Path, env_name: &str) -> PathBuf {
+    project_root.join("config").join(format!("{}.lib.sigil", env_name))
+}
+
 fn compile_topology_module(project_root: &Path) -> Result<CompiledGraphOutputs, CliError> {
     let topology_source = topology_source_path(project_root);
     if !topology_source.exists() {
@@ -791,10 +795,28 @@ fn compile_topology_module(project_root: &Path) -> Result<CompiledGraphOutputs, 
     compile_module_graph(graph, None)
 }
 
+fn compile_config_module(project_root: &Path, env_name: &str) -> Result<CompiledGraphOutputs, CliError> {
+    let config_source = config_source_path(project_root, env_name);
+    if !config_source.exists() {
+        return Err(CliError::Validation(format!(
+            "{}: topology environment '{}' requires config/{}.lib.sigil",
+            codes::topology::MISSING_CONFIG_MODULE,
+            env_name,
+            env_name
+        )));
+    }
+
+    let graph = ModuleGraph::build(&config_source)?;
+    compile_module_graph(graph, None)
+}
+
 fn build_topology_runtime_prelude(project_root: &Path, env_name: &str) -> Result<String, CliError> {
     let topology_outputs = compile_topology_module(project_root)?;
     let topology_output = topology_outputs.entry_output_path;
+    let config_outputs = compile_config_module(project_root, env_name)?;
+    let config_output = config_outputs.entry_output_path;
     let topology_url = format!("file://{}", fs::canonicalize(topology_output)?.display());
+    let config_url = format!("file://{}", fs::canonicalize(config_output)?.display());
     let env_name_json = serde_json::to_string(env_name).unwrap();
 
     Ok(format!(
@@ -802,6 +824,12 @@ fn build_topology_runtime_prelude(project_root: &Path, env_name: &str) -> Result
 const __sigil_topology_exports = Object.fromEntries(
   await Promise.all(
     Object.entries(__sigil_topology_module).map(async ([key, value]) => [key, await Promise.resolve(value)])
+  )
+);
+const __sigil_config_module = await import("{config_url}");
+const __sigil_config_exports = Object.fromEntries(
+  await Promise.all(
+    Object.entries(__sigil_config_module).map(async ([key, value]) => [key, await Promise.resolve(value)])
   )
 );
 const __sigil_topology_env_name = {env_name_json};
@@ -819,6 +847,17 @@ function __sigil_topology_dependency_name(dep, expectedTag) {{
   const name = Array.isArray(dep.__fields) ? dep.__fields[0] : null;
   if (typeof name !== 'string' || name.length === 0) {{
     __sigil_topology_fail("{invalid_handle}", `invalid ${{expectedTag}} name`);
+  }}
+  return name;
+}}
+
+function __sigil_topology_environment_name(env) {{
+  if (!env || typeof env !== 'object' || env.__tag !== 'Environment') {{
+    __sigil_topology_fail("{invalid_handle}", 'expected Environment declaration');
+  }}
+  const name = Array.isArray(env.__fields) ? env.__fields[0] : null;
+  if (typeof name !== 'string' || name.length === 0) {{
+    __sigil_topology_fail("{invalid_handle}", 'invalid environment name');
   }}
   return name;
 }}
@@ -882,21 +921,43 @@ function __sigil_topology_collect_dependencies(moduleExports) {{
   return {{ http, tcp }};
 }}
 
-function __sigil_topology_build_bindings(moduleExports, envName) {{
-  const env = moduleExports[envName];
-  if (!env || typeof env !== 'object') {{
-    __sigil_topology_fail("{env_not_found}", `environment '${{envName}}' not found`);
+function __sigil_topology_collect_environments(moduleExports) {{
+  const envs = new Set();
+  for (const value of Object.values(moduleExports)) {{
+    if (value?.__tag === 'Environment') {{
+      const name = __sigil_topology_environment_name(value);
+      if (envs.has(name)) {{
+        __sigil_topology_fail("{duplicate_dependency}", `duplicate environment name '${{name}}'`);
+      }}
+      envs.add(name);
+    }}
+  }}
+  return envs;
+}}
+
+function __sigil_topology_read_config_bindings(configExports) {{
+  const bindings = configExports.bindings;
+  if (!bindings || typeof bindings !== 'object') {{
+    __sigil_topology_fail("{invalid_config}", "config module must export a 'bindings' value");
+  }}
+  return bindings;
+}}
+
+function __sigil_topology_build_bindings(topologyExports, configExports, envName) {{
+  const environments = __sigil_topology_collect_environments(topologyExports);
+  if (!environments.has(envName)) {{
+    __sigil_topology_fail("{env_not_found}", `environment '${{envName}}' not declared in src/topology.lib.sigil`);
   }}
 
-  const dependencies = __sigil_topology_collect_dependencies(moduleExports);
+  const dependencies = __sigil_topology_collect_dependencies(topologyExports);
+  const configBindings = __sigil_topology_read_config_bindings(configExports);
   const resolved = {{ http: Object.create(null), tcp: Object.create(null) }};
   const seen = new Set();
-  for (const binding of env.httpBindings ?? []) {{
-    const dep = binding?.dependency;
-    if (dep?.__tag !== 'HttpServiceDependency') {{
-      __sigil_topology_fail("{binding_kind}", 'HTTP bindings must target HttpServiceDependency');
+  for (const binding of configBindings.httpBindings ?? []) {{
+    const name = typeof binding?.dependencyName === 'string' ? binding.dependencyName : null;
+    if (!name) {{
+      __sigil_topology_fail("{binding_kind}", 'HTTP bindings must name a declared dependency');
     }}
-    const name = __sigil_topology_dependency_name(dep, 'HttpServiceDependency');
     if (!dependencies.http.has(name)) {{
       __sigil_topology_fail("{invalid_handle}", `HTTP binding references undeclared dependency '${{name}}'`);
     }}
@@ -907,12 +968,11 @@ function __sigil_topology_build_bindings(moduleExports, envName) {{
     resolved.http[name] = __sigil_topology_resolve_binding_value(binding.baseUrl);
   }}
 
-  for (const binding of env.tcpBindings ?? []) {{
-    const dep = binding?.dependency;
-    if (dep?.__tag !== 'TcpServiceDependency') {{
-      __sigil_topology_fail("{binding_kind}", 'TCP bindings must target TcpServiceDependency');
+  for (const binding of configBindings.tcpBindings ?? []) {{
+    const name = typeof binding?.dependencyName === 'string' ? binding.dependencyName : null;
+    if (!name) {{
+      __sigil_topology_fail("{binding_kind}", 'TCP bindings must name a declared dependency');
     }}
-    const name = __sigil_topology_dependency_name(dep, 'TcpServiceDependency');
     if (!dependencies.tcp.has(name)) {{
       __sigil_topology_fail("{invalid_handle}", `TCP binding references undeclared dependency '${{name}}'`);
     }}
@@ -942,9 +1002,10 @@ function __sigil_topology_build_bindings(moduleExports, envName) {{
 }}
 
 globalThis.__sigil_topology_env_name = __sigil_topology_env_name;
-globalThis.__sigil_topology_bindings = __sigil_topology_build_bindings(__sigil_topology_exports, __sigil_topology_env_name);
+globalThis.__sigil_topology_bindings = __sigil_topology_build_bindings(__sigil_topology_exports, __sigil_config_exports, __sigil_topology_env_name);
 "#,
         topology_url = topology_url,
+        config_url = config_url,
         env_name_json = env_name_json,
         invalid_handle = codes::topology::INVALID_HANDLE,
         binding_kind = codes::topology::BINDING_KIND_MISMATCH,
@@ -952,6 +1013,7 @@ globalThis.__sigil_topology_bindings = __sigil_topology_build_bindings(__sigil_t
         duplicate_dependency = codes::topology::DUPLICATE_DEPENDENCY,
         duplicate_binding = codes::topology::DUPLICATE_BINDING,
         env_not_found = codes::topology::ENV_NOT_FOUND,
+        invalid_config = codes::topology::INVALID_CONFIG_MODULE,
     ))
 }
 
@@ -964,7 +1026,6 @@ fn project_root_and_topology(path: &Path) -> Option<(PathBuf, bool)> {
 fn runner_prelude(
     path: &Path,
     selected_env: Option<&str>,
-    default_env: &str,
 ) -> Result<Option<String>, CliError> {
     let Some((project_root, topology_present)) = project_root_and_topology(path) else {
         return Ok(None);
@@ -974,7 +1035,14 @@ fn runner_prelude(
         return Ok(None);
     }
 
-    build_topology_runtime_prelude(&project_root, selected_env.unwrap_or(default_env)).map(Some)
+    let env_name = selected_env.ok_or_else(|| {
+        CliError::Validation(format!(
+            "{}: topology-aware run/test/validate commands require --env <name>",
+            codes::topology::ENV_REQUIRED
+        ))
+    })?;
+
+    build_topology_runtime_prelude(&project_root, env_name).map(Some)
 }
 
 fn collect_sigil_files(dir: &Path) -> Result<Vec<PathBuf>, CliError> {
@@ -1007,7 +1075,7 @@ fn compile_and_run_tests(
 ) -> Result<TestRunResult, CliError> {
     let graph = ModuleGraph::build(file)?;
     let compiled = compile_module_graph(graph, None)?;
-    let topology_prelude = runner_prelude(file, selected_env, "test")?;
+    let topology_prelude = runner_prelude(file, selected_env)?;
     run_test_module(
         &compiled.entry_output_path,
         match_filter,

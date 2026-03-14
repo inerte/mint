@@ -16,6 +16,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ File system operations - `stdlib/file`
 - ✅ HTTP and TCP clients and servers - `stdlib/httpClient`, `stdlib/httpServer`, `stdlib/tcpClient`, `stdlib/tcpServer`
 - ✅ Runtime dependency topology - `stdlib/topology`
+- ✅ Runtime dependency config bindings - `stdlib/config`
 - ✅ JSON parsing/serialization - `stdlib/json`
 - ✅ Path manipulation - `stdlib/path`
 - ✅ Time parsing/comparison/clock - `stdlib/time`
@@ -240,8 +241,8 @@ The split is:
 - JSON helpers compose over `stdlib⋅json`
 - topology-aware application code must not pass raw base URLs directly
 
-`stdlib⋅topology` owns the dependency handles and per-environment bindings that
-`stdlib⋅httpClient` resolves at runtime.
+`stdlib⋅topology` owns the dependency handles.
+`stdlib⋅config` owns per-environment bindings in `config/*.lib.sigil`.
 
 `stdlib⋅httpServer` is the canonical request/response server layer:
 
@@ -285,8 +286,8 @@ The canonical framing model is:
 - one newline-delimited request per connection
 - one newline-delimited response per connection
 
-`stdlib⋅topology` owns the dependency handles and per-environment bindings that
-`stdlib⋅tcpClient` resolves at runtime.
+`stdlib⋅topology` owns the dependency handles.
+`stdlib⋅config` owns per-environment bindings in `config/*.lib.sigil`.
 
 `stdlib⋅tcpServer` is the matching minimal TCP server layer:
 
@@ -305,10 +306,11 @@ until it is terminated externally.
 ## Topology
 
 `stdlib⋅topology` is the canonical declaration layer for external HTTP and TCP
-runtime dependencies.
+runtime dependencies. `stdlib⋅config` is the canonical binding layer.
 
-Topology-aware projects define `src/topology.lib.sigil` and use typed handles
-instead of raw endpoints in application code:
+Topology-aware projects define `src/topology.lib.sigil`, one
+`config/<env>.lib.sigil` per declared environment, and use typed handles instead
+of raw endpoints in application code:
 
 ```sigil
 i src⋅topology

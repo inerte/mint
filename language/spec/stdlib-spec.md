@@ -651,21 +651,31 @@ Time and instant handling (`Instant`, strict ISO parsing, clock access)
 Canonical declaration layer for external HTTP and TCP runtime dependencies.
 
 ```sigil
-t BindingValue=EnvVar(String)|Literal(String)
-t Environment={httpBindings:[HttpBinding],name:String,tcpBindings:[TcpBinding]}
-t HttpBinding={baseUrl:BindingValue,dependency:HttpServiceDependency}
+t Environment=Environment(String)
 t HttpServiceDependency=HttpServiceDependency(String)
-t PortBindingValue=EnvVarPort(String)|LiteralPort(Int)
-t TcpBinding={dependency:TcpServiceDependency,host:BindingValue,port:PortBindingValue}
 t TcpServiceDependency=TcpServiceDependency(String)
 
-λbindHttp(baseUrl:String,dependency:HttpServiceDependency)→HttpBinding
-λbindHttpEnv(dependency:HttpServiceDependency,envVar:String)→HttpBinding
-λbindTcp(dependency:TcpServiceDependency,host:String,port:Int)→TcpBinding
-λbindTcpEnv(dependency:TcpServiceDependency,hostEnvVar:String,portEnvVar:String)→TcpBinding
-λenvironment(httpBindings:[HttpBinding],name:String,tcpBindings:[TcpBinding])→Environment
+λenvironment(name:String)→Environment
 λhttpService(name:String)→HttpServiceDependency
 λtcpService(name:String)→TcpServiceDependency
+```
+
+### std/config
+
+Canonical binding layer for topology-backed environment config.
+
+```sigil
+t BindingValue=EnvVar(String)|Literal(String)
+t Bindings={httpBindings:[HttpBinding],tcpBindings:[TcpBinding]}
+t HttpBinding={baseUrl:BindingValue,dependencyName:String}
+t PortBindingValue=EnvVarPort(String)|LiteralPort(Int)
+t TcpBinding={dependencyName:String,host:BindingValue,port:PortBindingValue}
+
+λbindHttp(baseUrl:String,dependency:stdlib⋅topology.HttpServiceDependency)→HttpBinding
+λbindHttpEnv(dependency:stdlib⋅topology.HttpServiceDependency,envVar:String)→HttpBinding
+λbindTcp(dependency:stdlib⋅topology.TcpServiceDependency,host:String,port:Int)→TcpBinding
+λbindTcpEnv(dependency:stdlib⋅topology.TcpServiceDependency,hostEnvVar:String,portEnvVar:String)→TcpBinding
+λbindings(httpBindings:[HttpBinding],tcpBindings:[TcpBinding])→Bindings
 ```
 
 ### std/httpClient

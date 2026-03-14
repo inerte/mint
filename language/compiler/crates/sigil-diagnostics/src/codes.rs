@@ -121,9 +121,13 @@ pub mod topology {
     pub const DEPENDENCY_KIND_MISMATCH: &str = "SIGIL-TOPO-DEPENDENCY-KIND-MISMATCH";
     pub const DUPLICATE_BINDING: &str = "SIGIL-TOPO-DUPLICATE-BINDING";
     pub const DUPLICATE_DEPENDENCY: &str = "SIGIL-TOPO-DUPLICATE-DEPENDENCY";
+    pub const ENV_ACCESS_LOCATION: &str = "SIGIL-TOPO-ENV-ACCESS-LOCATION";
     pub const ENV_NOT_FOUND: &str = "SIGIL-TOPO-ENV-NOT-FOUND";
+    pub const ENV_REQUIRED: &str = "SIGIL-TOPO-ENV-REQUIRED";
+    pub const INVALID_CONFIG_MODULE: &str = "SIGIL-TOPO-INVALID-CONFIG-MODULE";
     pub const INVALID_HANDLE: &str = "SIGIL-TOPO-INVALID-HANDLE";
     pub const MISSING_BINDING: &str = "SIGIL-TOPO-MISSING-BINDING";
+    pub const MISSING_CONFIG_MODULE: &str = "SIGIL-TOPO-MISSING-CONFIG-MODULE";
     pub const MISSING_MODULE: &str = "SIGIL-TOPO-MISSING-MODULE";
     pub const RAW_ENDPOINT_FORBIDDEN: &str = "SIGIL-TOPO-RAW-ENDPOINT-FORBIDDEN";
 }
@@ -214,9 +218,13 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     topology::DEPENDENCY_KIND_MISMATCH,
     topology::DUPLICATE_BINDING,
     topology::DUPLICATE_DEPENDENCY,
+    topology::ENV_ACCESS_LOCATION,
     topology::ENV_NOT_FOUND,
+    topology::ENV_REQUIRED,
+    topology::INVALID_CONFIG_MODULE,
     topology::INVALID_HANDLE,
     topology::MISSING_BINDING,
+    topology::MISSING_CONFIG_MODULE,
     topology::MISSING_MODULE,
     topology::RAW_ENDPOINT_FORBIDDEN,
     // Runtime (2 codes)
@@ -252,11 +260,11 @@ mod tests {
 
     #[test]
     fn count_error_codes() {
-        // As of implementation: 78 error codes total
+        // As of implementation: 82 error codes total
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            78,
-            "Expected 78 error codes, found {}",
+            82,
+            "Expected 82 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

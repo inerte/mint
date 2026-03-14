@@ -70,7 +70,7 @@ enum Command {
         /// Input .sigil file
         file: PathBuf,
 
-        /// Runtime topology environment name
+        /// Runtime topology environment name (required for topology-aware projects)
         #[arg(long)]
         env: Option<String>,
 
@@ -85,7 +85,7 @@ enum Command {
         #[arg(default_value = "tests")]
         path: PathBuf,
 
-        /// Runtime topology environment name (default: test when topology is present)
+        /// Runtime topology environment name (required for topology-aware projects)
         #[arg(long)]
         env: Option<String>,
 

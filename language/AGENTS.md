@@ -122,7 +122,7 @@ Current constructor and list invariants:
   - prefer early boundary conversion with `stdlib⋅decode` instead of carrying raw `JsonValue` deep into business logic
   - when a validated boundary value should remain distinct from a raw primitive, prefer a named wrapper type like `Email` or `UserId`
   - topology-aware projects must declare external HTTP/TCP dependencies and environment names in `src/topology.lib.sigil`
-  - topology-aware projects must bind each declared environment in `config/<env>.lib.sigil`
+  - topology-aware projects are validated against the selected `--env`, which must resolve to `config/<env>.lib.sigil`
   - topology-aware application code must use `src⋅topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
   - `process.env` belongs only in `config/*.lib.sigil`, never in ordinary application code
   - tests are environments; prefer `config/test.lib.sigil` over ad hoc runtime rewiring
@@ -146,7 +146,7 @@ Over:
 `stdlib/` modules are consumed through typed imports.
 
 When adding or relying on stdlib functions:
-- ensure required functions are exported (`export λ...`)
+- ensure required functions are declared in the correct file kind (`.lib.sigil` for importable modules)
 - keep module boundaries intentional (avoid duplicate public APIs across modules unless deliberate)
 - update docs/spec references if canonical module names or public functions change
 

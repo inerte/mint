@@ -1,180 +1,158 @@
 # Sigil Syntax Reference
 
-This is a **canonical syntax reference** for Sigil.
+This document describes the current Sigil surface accepted by the compiler in
+this repository.
 
-It exists for:
-- reviewing generated Sigil code
-- building tools (compiler, LSP, editors)
-- grounding AI prompts against the current language surface
-
-It is not a style guide for multiple alternatives, because Sigil intentionally has one canonical form.
-
-## Scope
-
-This document covers the current syntax surface in this repo:
-- declarations (`export`, `λ`, `t`, `c`, `i`, `e`, `test`)
-- expressions and pattern matching
-- built-in list operators (`↦`, `⊳`, `⊕`, `⧺`)
-- effects, mocks, and test syntax
-- comments
-
-For formatting/canonical whitespace rules, see:
-- `docs/CANONICAL_FORMS.md`
-- `docs/CANONICAL_ENFORCEMENT.md`
+Sigil is canonical by design. This is not a style guide with alternatives. It
+documents the one surface form the parser, validator, and typechecker expect.
 
 ## Source Files
 
-Sigil source files use canonical naming:
-- Extension: `.sigil` (executables) or `.lib.sigil` (libraries)
-- Format: lowercase letters, numbers, hyphens only
-- Example: `user-service.lib.sigil`, `01-hello.sigil`
-- Files should end with a final newline
-- Tests live in project `./tests`
-- App/library code lives in project `./src`
+Sigil distinguishes file purpose with file extensions:
 
-**Filename rules:**
-- Lowercase only (a-z)
-- Numbers allowed (0-9)
-- Hyphens for word separation (-)
-- No underscores, spaces, or special characters
-- Must end with `.sigil` or `.lib.sigil`
+- `.lib.sigil` for libraries
+- `.sigil` for executables and tests
 
-**Valid:** `user-service.lib.sigil`, `01-intro.sigil`
-**Invalid:** `UserService.sigil` (uppercase), `user_service.lib.sigil` (underscore)
+Canonical filename rules:
+
+- basename must be `lowerCamelCase`
+- no underscores
+- no hyphens
+- no spaces
+- filename must end with `.sigil` or `.lib.sigil`
+
+Valid examples:
+
+- `userService.lib.sigil`
+- `fibonacci.sigil`
+- `ffiNodeConsole.lib.sigil`
+
+Invalid examples:
+
+- `UserService.lib.sigil`
+- `user_service.lib.sigil`
+- `user-service.lib.sigil`
 
 ## Comments
 
-Sigil uses one comment syntax only:
+Sigil uses one comment syntax:
 
 ```sigil
 ⟦ This is a comment ⟧
-
-λfactorial(n:Int)→Int match n{
-  0→1|  ⟦ inline comment ⟧
-  n→n*factorial(n-1)
-}
 ```
 
-- `#`, `//`, and `/* ... */` are not Sigil comments
+`#`, `//`, and `/* ... */` are not Sigil comments.
 
-## Declarations
+## Top-Level Declarations
 
-Sigil has six declaration categories in **strict canonical order**:
+Module scope is declaration-only.
 
-**`t → e → i → c → λ → test`**
+Valid top-level forms:
 
-- `t` = types (must come first so externs can reference them)
-- `e` = externs (FFI imports)
-- `i` = imports (Sigil modules)
-- `c` = consts
-- `λ` = functions
-- `test` = tests
+- `t`
+- `e`
+- `i`
+- `c`
+- `λ`
+- `mockable λ`
+- `test`
 
-Within each category:
-- Non-exported declarations first (alphabetically by name)
-- Exported declarations second (alphabetically by name)
+Invalid at top level:
 
-See [CANONICAL_FORMS.md](./CANONICAL_FORMS.md) for enforcement rules.
+- `l`
 
-Module scope is declaration-only:
-- valid: `t`, `e`, `i`, `c`, `λ`, `mockable λ`, `test`
-- invalid: `l`
+Canonical declaration ordering is:
 
-`l` is a local expression form, not a top-level declaration. Use `c` for immutable module-level values, or move setup bindings inside `main()` or another function body.
+```text
+t → e → i → c → λ → test
+```
 
-## Function declarations
+There is no `export` keyword in current Sigil. Visibility is file-based:
+
+- top-level declarations in `.lib.sigil` files are importable
+- `.sigil` files are executable-oriented
+
+## Function Declarations
+
+Function declarations require:
+
+- a name
+- typed parameters
+- a return type
+
+Regular expression body:
 
 ```sigil
 λadd(x:Int,y:Int)→Int=x+y
 ```
 
-Generic top-level functions use explicit type parameters on the declaration:
-
-```sigil
-λidentity[T](x:T)→T=x
-λmap_option[T,U](fn:λ(T)→U,opt:Option[T])→Option[U]=...
-```
-
-Rules:
-- function name is required
-- parameter types are required
-- return type is required
-- generic type parameters are allowed on top-level `λ` declarations
-- `=` is required for regular expression bodies
-- `=` is omitted when body starts with match (`match ...`)
-- generic lambdas are not supported
-- call-site type arguments like `f[Int](x)` are not supported
-
-Match-body form:
+Match body:
 
 ```sigil
 λfactorial(n:Int)→Int match n{
   0→1|
   1→1|
-  n→n*factorial(n-1)
+  value→value*factorial(value-1)
 }
 ```
 
-## Effectful function declarations
+For function declarations:
 
-Effects are declared between `→` and the return type:
+- `=` is required before a non-`match` body
+- `=` is forbidden before a `match` body
+
+Effects, when present, appear between `→` and the return type:
 
 ```sigil
-λfetchUser(id:Int)→!Network String=axios.get("https://api.example.com/users/"+id)
 λmain()→!IO Unit=console.log("hello")
+λfetchUser(id:Int)→!Network String=axios.get("https://example.com/"+stdlib⋅string.intToString(id))
 ```
 
-Valid built-in effects are currently `!Error`, `!IO`, `!Mut`, and `!Network`.
+## Mockable Function Declarations
 
-## Mockable function declarations (tests)
+Mockable functions are top-level functions prefixed with `mockable`:
 
 ```sigil
 mockable λfetchUser(id:Int)→!Network String="real"
 ```
 
-- `mockable` is only valid on functions
+Rules:
+
+- only functions may be `mockable`
 - mockable functions must be effectful
-- mock targets are used by `withMock(...) { ... }` in tests
 
-## Exported declarations (explicit)
+## Lambda Expressions
 
-Only explicitly exported top-level declarations are visible to other Sigil modules.
-
-Canonical export forms:
+Lambda expressions are fully typed and use the same body rule as top-level
+functions:
 
 ```sigil
-export λdouble(x:Int)→Int=x*2
-export t Todo={done:Bool,id:Int,text:String}
-export c version:String="0.1"
+λ(x:Int)→Int=x*2
+λ(value:Int)→Int match value{
+  0→1|
+  n→n+1
+}
 ```
 
-Notes:
-- `export` applies to top-level `λ`, `t`, and `c`
-- `export test`, `export i ...`, and `export e ...` are invalid
+Lambda expressions require:
 
-## Type declarations (`t`)
+- parentheses around parameters
+- typed parameters
+- a return type
 
-## Product type (record)
+Generic lambdas are not part of Sigil's surface.
+
+## Type Declarations
+
+### Product Types
 
 ```sigil
 t User={active:Bool,id:Int,name:String}
 ```
 
-Record fields are canonically alphabetical in:
-- product type declarations
-- record literals
-- typed record construction
-- record patterns
+Record fields are canonical alphabetical order everywhere records appear.
 
-Local bindings are canonically non-shadowing:
-- function parameters
-- lambda parameters
-- `l` bindings
-- pattern bindings
-
-Once a local name is introduced, nested scopes must use a fresh name instead of rebinding it.
-
-## Sum type (ADT)
+### Sum Types
 
 ```sigil
 t Color=Red|Green|Blue
@@ -182,111 +160,173 @@ t Option[T]=Some(T)|None
 t Result[T,E]=Ok(T)|Err(E)
 ```
 
-`Option[T]`, `Result[T,E]`, `Some`, `None`, `Ok`, and `Err` come from the implicit `core⋅prelude`. No import is required to use them.
-
-Constructor usage:
+Imported constructors use qualified module syntax in expressions and patterns:
 
 ```sigil
-Red()
-Some(42)
-Err("not found")
-```
+i src⋅graphTypes
 
-## Map types and literals
-
-Maps are dynamic keyed collections. They use `↦`, not `:`.
-
-```sigil
-t Headers={String↦String}
-
-λdefault_headers()→{String↦String}={"content-type"↦"text/plain"}
-λempty_headers()→{String↦String}=({↦}:{String↦String})
-```
-
-Rules:
-- record literals use `:`
-- map literals use `↦`
-- `{}` is an empty record literal
-- `{↦}` is an empty map literal
-- `{"foo":1}` is invalid
-
-## Constants (`c`)
-
-```sigil
-c answer:Int=42
-c greeting:String="hello"
-```
-
-Current parser behavior:
-- constant identifiers use regular lowercase identifier form (e.g. `c answer:Int=42`)
-- uppercase constant names like `c ANSWER:Int=42` are rejected today
-
-## Imports and externs
-
-## Sigil imports (`i`)
-
-Sigil-to-Sigil imports are namespace imports only.
-
-```sigil
-i core⋅map
-i src⋅todoDomain
-i stdlib⋅json
-i stdlib⋅list
-i stdlib⋅file
-i stdlib⋅path
-i stdlib⋅time
-i stdlib⋅url
-```
-
-Use imported members with fully qualified namespace access:
-
-```sigil
-src⋅todoDomain.completedCount(todos)
-#[1,2,3]
 src⋅graphTypes.Ordering([1,2,3])
-```
 
-Imported sum-type constructors use the same fully qualified namespace style in both expressions and match patterns:
-
-```sigil
-λrender(result:src⋅graphTypes.TopologicalSortResult)→[Int] match result{
+match result{
   src⋅graphTypes.Ordering(order)→order|
   src⋅graphTypes.CycleDetected()→[]
 }
 ```
 
-Canonical Sigil import roots:
+## Constants
+
+Constants require a value ascription:
+
+```sigil
+c answer=(42:Int)
+c greeting=("hello":String)
+```
+
+Current parser behavior requires the typed form above. Untyped constants and the
+older `c name:Type=value` surface are not current Sigil.
+
+## Imports
+
+Sigil imports are namespace imports only:
+
+```sigil
+i core⋅map
+i src⋅todoDomain
+i stdlib⋅list
+i stdlib⋅json
+```
+
+Use imported members through the namespace:
+
+```sigil
+src⋅todoDomain.completedCount(todos)
+stdlib⋅list.last(items)
+```
+
+Canonical import roots include:
+
 - `core⋅...`
 - `src⋅...`
 - `stdlib⋅...`
 
-Not supported:
-- `i ./...`
-- `i ../...`
-- selective imports
-- aliasing
+There are no selective imports and no import aliases.
 
-## External module interop (`e`)
+## Externs
+
+Extern declarations use `e`:
 
 ```sigil
 e console
-e fs⋅promises
-e react-dom⋅client
+e axios:{get:λ(String)→!Network String}
 ```
 
-Use with namespace member access:
+## Local Bindings
+
+Local bindings use `l` inside expressions:
 
 ```sigil
-console.log("hello")
-fs⋅promises.writeFile("x.txt","data")
-react-dom⋅client.createRoot(root)
+λdoubleAndAdd(x:Int,y:Int)→Int={
+  l doubled=(x*2:Int);
+  doubled+y
+}
 ```
+
+Local names must not shadow names from the same or any enclosing lexical scope.
+
+Pure local bindings used exactly once are non-canonical and must be inlined.
+
+## Pattern Matching
+
+Sigil uses `match` for value-based branching:
+
+```sigil
+match value{
+  0→"zero"|
+  1→"one"|
+  _→"many"
+}
+```
+
+Patterns include:
+
+- literals
+- identifiers
+- `_`
+- constructors
+- list patterns
+- record patterns
+
+Examples:
+
+```sigil
+match option{
+  Some(value)→value|
+  None()→0
+}
+
+match list{
+  []→0|
+  [head,..rest]→head
+}
+```
+
+## Lists, Maps, and Records
+
+List type:
+
+```sigil
+[Int]
+```
+
+List literal:
+
+```sigil
+[1,2,3]
+```
+
+Map type:
+
+```sigil
+{String↦Int}
+```
+
+Map literals use `↦`:
+
+```sigil
+{"a"↦1,"b"↦2}
+({↦}:{String↦Int})
+```
+
+Record types and literals use `:`:
+
+```sigil
+t User={id:Int,name:String}
+{id:1,name:"Ana"}
+```
+
+## Built-In List Operators
+
+Sigil includes canonical list operators:
+
+- `↦` map
+- `⊳` filter
+- `⊕` ordered reduction
+- `⧺` concatenation
+
+Examples:
+
+```sigil
+[1,2,3]↦λ(x:Int)→Int=x*2
+[1,2,3]⊳λ(x:Int)→Bool=x>1
+[1,2,3]⊕λ(acc:Int,x:Int)→Int=acc+x⊕0
+[1,2]⧺[3,4]
+```
+
+`↦` and `⊳` require pure callbacks.
 
 ## Tests
 
-Tests are first-class declarations and must live under `./tests`.
-
-## Basic test
+Tests are top-level declarations and must live under `tests/`:
 
 ```sigil
 test "adds numbers" {
@@ -294,262 +334,29 @@ test "adds numbers" {
 }
 ```
 
-## Effectful test
+Effectful tests use explicit effect annotations:
 
 ```sigil
-e console
-
-test "logs" →!IO {
+test "writes log" →!IO {
   console.log("x")=()
 }
 ```
 
-## Mocked test
+## withMock
+
+Sigil includes a built-in `withMock(...) { ... }` expression for tests:
 
 ```sigil
-mockable λfetchUser(id:Int)→!Network String="real"
-
-test "mocked fetch" →!Network {
-  withMock(fetchUser,λ(id:Int)→!Network String="mocked"){
-    fetchUser(1)="mocked"
+test "fallback on API failure" →!Network {
+  withMock(fetchUser, λ(id:Int)→!Network String="ERR") {
+    fetchUser(1)="ERR"
   }
 }
 ```
 
-## Expressions
+## Canonical References
 
-## Literals and primitives
+For canonical formatting and validator-enforced rules, see:
 
-Primitive types:
-- `Int` integer
-- `Float` float
-- `Bool` boolean
-- `String` string
-- `Unit` unit
-
-Boolean values:
-- `true`
-- `false`
-
-Examples:
-
-```sigil
-42
-3.14
-"hello"
-true
-false
-()
-```
-
-## Variables and calls
-
-```sigil
-add(1,2)
-factorial(n-1)
-```
-
-## Pattern matching (`match`)
-
-```sigil
-match value{
-  pattern1→result1|
-  pattern2→result2|
-  _→defaultResult
-}
-```
-
-Examples:
-
-```sigil
-λsign(n:Int)→String match n{
-  0→"zero"|
-  n→"non-zero"
-}
-
-λdescribeBoth(a:Bool,b:Bool)→String match (a,b){
-  (true,true)→"both"|
-  (true,false)→"left"|
-  (false,true)→"right"|
-  (false,false)→"none"
-}
-```
-
-## Pattern guards (`when`)
-
-Pattern guards add conditional checks to pattern matching.
-After a pattern binds variables, the guard expression is evaluated.
-If the guard returns `false`, matching continues to the next arm.
-
-Syntax:
-```sigil
-match value{
-  pattern when guard_expr → result
-}
-```
-
-The guard expression:
-- Is evaluated **after** pattern bindings are established
-- Has access to all bindings from the pattern
-- Must have type `Bool` (boolean)
-- If `false`, matching falls through to the next arm
-
-Examples:
-
-```sigil
-⟦ Range checking ⟧
-λclassify(n:Int)→String match n{
-  x when x>100 → "large"|
-  x when x>10 → "medium"|
-  x when x>0 → "small"|
-  _ → "non-positive"
-}
-
-⟦ Conditional unpacking ⟧
-t Result=Ok(Int)|Err(String)
-
-λprocess(r:Result)→String match r{
-  Ok(n) when n>0 → "positive success"|
-  Ok(n) → "non-positive success"|
-  Err(msg) when #msg>0 → "error: "++msg|
-  Err(_) → "unknown error"
-}
-
-⟦ Complex conditions ⟧
-t Point={x:Int,y:Int}
-
-λquadrant(p:Point)→String match p{
-  {x,y} when x=0 and y=0 → "origin"|
-  {x,y} when x>0 and y>0 → "quadrant I"|
-  {x,y} when x<0 and y>0 → "quadrant II"|
-  _ → "other"
-}
-```
-
-Pattern guards are **backward compatible**: patterns without guards work exactly as before.
-
-See `language/examples/patternGuards.sigil` for more examples.
-
-## Lists
-
-List literals:
-
-```sigil
-[]
-[1,2,3]
-["a","b","c"]
-[ [1,2],[3] ]
-```
-
-List literals preserve nesting exactly as written.
-If `xs:[Int]`, then `[xs]` has type `[[Int]]`.
-Use `⧺` when you want concatenation.
-
-List patterns:
-
-```sigil
-match xs{
-  []→0|
-  [x,.rest]→1
-}
-```
-
-Concatenation:
-
-```sigil
-"ab"++"cd"      ⟦ string concat only ⟧
-[1,2]⧺[3,4]     ⟦ list concat only ⟧
-```
-
-## Records and field access
-
-```sigil
-User{active:true,id:1,name:"A"}
-todo.done
-todo.text
-```
-
-## Indexing
-
-```sigil
-xs[0]
-```
-
-## Operators
-
-## Arithmetic
-
-```sigil
-a+b
-a-b
-a*b
-a/b
-a%b
-```
-
-## Comparison
-
-```sigil
-a=b
-a≠b
-a<b
-a>b
-a≤b
-a≥b
-```
-
-## Logical
-
-```sigil
-a and b
-a or b
-¬a
-```
-
-## Built-in list operators (language constructs)
-
-Map:
-
-```sigil
-[1,2,3]↦λ(x:Int)→Int=x*2
-```
-
-Filter:
-
-```sigil
-[1,2,3,4]⊳λ(x:Int)→Bool=x%2=0
-```
-
-`↦` and `⊳` require pure callbacks. Use `⊕` for ordered reductions that depend on sequential accumulator flow.
-
-Fold:
-
-```sigil
-[1,2,3]⊕λ(acc:Int,x:Int)→Int=acc+x⊕0
-```
-
-## Lambdas
-
-Lambda parameters and return type annotations are required.
-
-```sigil
-λ(x:Int)→Int=x*2
-λ(todo:Todo)→Bool=¬todo.done
-```
-
-Effectful lambda:
-
-```sigil
-λ(msg:String)→!IO Unit=console.log(msg)
-```
-
-## Canonical Formatting Reminders
-
-- No trailing whitespace
-- Max one blank line
-- Final newline required
-- No tabs
-- `λf()→T=...` for regular bodies
-- `λf()→T match ...` for match bodies (no `=`)
-
-See `docs/CANONICAL_FORMS.md` for the full enforced rules.
+- `language/docs/CANONICAL_FORMS.md`
+- `language/docs/CANONICAL_ENFORCEMENT.md`

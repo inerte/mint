@@ -1,782 +1,222 @@
 # Canonical Forms in Sigil
 
-## Philosophy: Zero Ambiguity
+Sigil enforces canonical forms so one valid program has one accepted surface.
 
-Sigil enforces **canonical forms** at every level - from algorithms to formatting. Every valid Sigil program has exactly ONE syntactic representation.
+This document records the current canonical rules enforced by the lexer,
+parser, validator, and typechecker in this repository.
 
-This ensures:
-- **Training data quality**: No syntactic variations polluting LLM datasets
-- **Deterministic generation**: AI models generate exactly one correct form
-- **Byte-for-byte reproducibility**: Same semantics = same bytes
-- **Zero ambiguity**: No judgment calls, no style debates
+## Why Canonical Forms Exist
 
-## Two Levels of Enforcement
+Canonical forms are not style guidance. They are part of the language contract.
 
-### 1. Semantic Canonical Forms (Algorithm Level)
+Goals:
 
-Enforced by: **Canonical form validator** (`validator/canonical.ts`)
+- remove alternative spellings for the same construct
+- improve deterministic code generation
+- make diagnostics corrective instead of advisory
+- keep examples, tests, and generated code aligned
 
-**What's blocked:**
-- Tail-call optimization (TCO)
-- Accumulator-passing style
-- Continuation-passing style (CPS)
-- Helper functions that encode iterative patterns
-- Closure-based state accumulation
-- Boolean pattern matching when value matching works
-- **Files with ambiguous purpose** (neither executable nor library)
-- **Files with dual purpose** (both executable and library)
+## File Purpose
 
-**File Purpose Rule (Legacy - see File Extension Convention below):**
+Sigil uses file extensions to distinguish file purpose:
 
-NOTE: This section describes the old validation approach. Modern Sigil uses file extensions (`.lib.sigil` vs `.sigil`) to distinguish file purpose. See "File Extension Convention" section below for current canonical approach.
+- `.lib.sigil` for libraries
+- `.sigil` for executables and tests
 
-### File Extension Convention
+Current canonical rules include:
 
-Sigil uses file extensions to distinguish libraries from executables at the filesystem level.
+- `.lib.sigil` files must not define `main`
+- non-test `.sigil` files must define `main`
+- `test` declarations are only allowed under `tests/`
 
-**Extension rules:**
-- `.lib.sigil` → Libraries (all functions visible, no main)
-- `.sigil` → Executables (have main, not imported except by tests)
-- `tests/*.sigil` → Tests (have main and test blocks, can import from anywhere)
+## Filename Rules
 
-**Examples:**
+Basenames must be `lowerCamelCase`.
 
-✅ VALID - Library file:
+Valid:
+
+- `hello.sigil`
+- `userService.lib.sigil`
+- `example01Introduction.sigil`
+
+Invalid:
+
+- `UserService.sigil`
+- `user_service.lib.sigil`
+- `user-service.sigil`
+- `1intro.sigil`
+
+Current filename diagnostics:
+
+- `SIGIL-CANON-FILENAME-CASE`
+- `SIGIL-CANON-FILENAME-INVALID-CHAR`
+- `SIGIL-CANON-FILENAME-FORMAT`
+
+## Declaration Ordering
+
+Top-level declarations must appear in this category order:
+
+```text
+t → e → i → c → λ → test
+```
+
+Module scope is declaration-only.
+Top-level `l` is invalid.
+
+## No `export` Keyword
+
+Current Sigil does not have an `export` token.
+
+Visibility is file-based:
+
+- declarations in `.lib.sigil` files are importable
+- `.sigil` files are executable-oriented
+
+## Function and Lambda Surface
+
+Canonical function/lambda rules:
+
+- parameter types are required
+- return types are required
+- effects, when present, appear between `→` and the return type
+- `=` is required before non-`match` bodies
+- `=` is forbidden before `match` bodies
+
+Examples:
+
 ```sigil
-// math.lib.sigil
 λadd(x:Int,y:Int)→Int=x+y
-λmultiply(x:Int,y:Int)→Int=x*y
-// All functions automatically visible to importers
-```
 
-✅ VALID - Executable file:
-```sigil
-// calculator.sigil
-i src⋅math
-
-λmain()→Int=src⋅math.add(2,3)
-```
-
-✅ VALID - Test file:
-```sigil
-// tests/math.sigil
-i src⋅math
-
-λmain()→Unit=()
-
-test "addition works" {
-  src⋅math.add(2,3)=5
-}
-```
-
-❌ REJECTED - .lib.sigil with main():
-```sigil
-// math.lib.sigil
-λadd(x:Int,y:Int)→Int=x+y
-λmain()→Int=42  // ERROR: SIGIL-CANON-LIB-NO-MAIN
-```
-
-❌ REJECTED - .sigil without main (and not in tests/):
-```sigil
-// math.sigil
-λhelper(x:Int)→Int=x*2  // ERROR: SIGIL-CANON-EXEC-NEEDS-MAIN
-// Solution: Add λmain() or rename to math.lib.sigil
-```
-
-**Import statements:**
-
-Import statements use logical module names, not file extensions:
-
-```sigil
-i stdlib⋅list      // Resolves to stdlib/list.lib.sigil
-i stdlib⋅numeric   // Resolves to stdlib/numeric.lib.sigil
-i src⋅math         // Resolves to src/math.lib.sigil
-```
-
-**Test file special visibility:**
-
-Test files in `tests/` directories can import from ANY file (including `.sigil` executables) and access ALL functions, even those not in `.lib.sigil` files. This enables testing internal implementation details.
-
-**Rationale:**
-- Tools can determine file purpose from filename alone (no need to read contents)
-- Clear at a glance in file trees and directory listings
-- Import resolution is deterministic
-- No `export` keyword needed - everything is visible
-- Reinforces "ONE WAY" canonical philosophy
-
-### Naming Rules
-
-**Rule**: Sigil uses exactly two identifier forms.
-
-- `UpperCamelCase` for types, constructors, and type variables
-- `lowerCamelCase` for everything else
-
-**Filename rule**: basenames must be `lowerCamelCase`.
-
-**Valid:**
-```
-hello.sigil
-userService.lib.sigil
-example01Introduction.sigil
-ffiNodeConsole.lib.sigil
-```
-
-**Invalid:**
-```
-UserService.sigil           # uppercase start → SIGIL-CANON-FILENAME-CASE
-user_service.lib.sigil      # underscore → SIGIL-CANON-FILENAME-INVALID-CHAR
-user-service.sigil          # hyphen → SIGIL-CANON-FILENAME-INVALID-CHAR
-1intro.sigil                # leading digit → SIGIL-CANON-FILENAME-FORMAT
-```
-
-**Error Codes**:
-- `SIGIL-CANON-FILENAME-CASE` - Does not start with lowercase
-- `SIGIL-CANON-FILENAME-INVALID-CHAR` - Contains `_`, `-`, or other invalid characters
-- `SIGIL-CANON-FILENAME-FORMAT` - Not lowerCamelCase or starts with a digit
-
-**Rationale:**
-- **Case-insensitive filesystem safety**: Prevents `User.sigil` vs `user.sigil` confusion on macOS/Windows
-- **Consistent import paths**: Module names map predictably to filenames
-- **One canonical way**: No choice between `snake_case`, `kebab-case`, and `camelCase`
-- **Cheap category distinction**: Type-level names stay visibly different from value-level names
-
-#### Test Location Rule
-
-Test blocks can ONLY appear in files under `tests/` directories.
-
-**Canonical enforcement:**
-
-```sigil
-✅ VALID - Test file in tests/ directory:
-// tests/listPredicates.sigil
-i stdlib⋅list
-
-λmain()→Unit=()
-
-test "list.in_bounds checks valid indexes" {
-  stdlib⋅list.in_bounds(0,[10,20,30])=true
+λfactorial(n:Int)→Int match n{
+  0→1|
+  1→1|
+  value→value*factorial(value-1)
 }
 
-❌ REJECTED - Test blocks outside tests/ directory:
-// examples/fibonacci.sigil
-λfibonacci(n:Int)→Int=...
-
-test "fibonacci works" {  // ERROR: SIGIL-CANON-TEST-LOCATION
-  fibonacci(5)=5
-}
-
-❌ REJECTED - Test file without main():
-// tests/my-test.sigil
-test "example" { true }
-// ERROR: SIGIL-CANON-FILE-PURPOSE-NONE
-// Hint: Test files are executables and must have a main() function.
-
-❌ REJECTED - Test file with exports (not applicable with .lib.sigil convention):
-// tests/my-test.sigil
-// Test files are .sigil executables, not .lib.sigil libraries
-test "example" { true }
-λmain()→Unit=()
+λ(x:Int)→Int=x*2
 ```
 
-**Rationale:**
-- Tests are executables with test blocks, not a separate category
-- Location-based enforcement prevents scattered test code
-- `main()→Unit` is a marker - actual execution via test runner
-- Tests use `.sigil` extension (executables), not `.lib.sigil` (libraries)
+## Constants
 
-**What's allowed:**
-- Primitive recursion (direct recursive calls)
-- Direct style (no continuations)
-- Value-based pattern matching
-- Utility/predicate functions
-
-See `docs/ACCUMULATOR_DETECTION.md` for details.
-
-### 2. Formatting Rules
-
-Enforced by: **Canonical validator** (`validator/canonical.ts`)
-
-Sigil enforces canonical forms at all levels, including formatting.
-
-#### Rule 1: Final Newline Required
-
-Every file must end with `\n`.
+Current constant syntax is typed value ascription:
 
 ```sigil
-✅ VALID:
-λmain()→Int=1
-[newline]
-
-❌ REJECTED - no final newline:
-λmain()→Int=1[EOF]
+c answer=(42:Int)
 ```
 
-**Error message:**
-```
-Error: File must end with a newline
-```
+The older `c answer:Int=42` form is not current Sigil.
 
-#### Rule 2: No Trailing Whitespace
+## Records and Maps
 
-Lines cannot end with spaces or tabs.
+Records and maps are distinct.
+
+- records use `:`
+- maps use `↦`
+
+Examples:
 
 ```sigil
-❌ REJECTED:
-λmain()→Int=1
-⟦ Error: Line 1 has trailing whitespace ⟧
+t User={id:Int,name:String}
+t Scores={String↦Int}
 ```
 
-**Error message:**
-```
-Error: Line N has trailing whitespace
-```
+Record fields are canonical alphabetical order in:
 
-#### Rule 3: Maximum One Consecutive Blank Line
-
-Only one blank line allowed between declarations.
-
-```sigil
-✅ VALID:
-λa()→Int=1
-
-λb()→Int=2
-
-❌ REJECTED:
-λa()→Int=1
-
-
-λb()→Int=2
-```
-
-**Error message:**
-```
-Error: Multiple blank lines at line N (only one consecutive blank line allowed)
-```
-
-#### Rule 4: Equals Sign Placement (Context-Dependent)
-
-The presence/absence of `=` depends on the function body type.
-
-**Regular expressions require `=`:**
-```sigil
-✅ VALID:
-λdouble(x:Int)→Int=x*2
-λsum(xs:[Int])→Int=xs⊕(λ(a,x)→a+x)⊕0
-
-❌ REJECTED:
-λdouble(x:Int)→Int x*2
-⟦ Error: Expected "=" before function body (canonical form: λf()→T=...) ⟧
-```
-
-**Match expressions forbid `=`:**
-```sigil
-✅ VALID:
-λfactorial(n:Int)→Int match n{0→1|n→n*factorial(n-1)}
-λsign(n:Int)→String match (n>0,n<0){(true,false)→"positive"|...}
-
-❌ REJECTED:
-λfactorial(n:Int)→Int=match n{...}
-⟦ Error: Unexpected "=" before match expression (canonical form: λf()→T match ...) ⟧
-```
-
-**Rationale:** The `match` operator already signals "this is the body", making `=` redundant and non-canonical.
-
-#### Rule 5: Declaration Category Ordering
-
-Module-level declarations must appear in strict categorical order:
-
-**`t → e → i → c → λ → test`**
-
-```sigil
-✅ VALID:
-t User={age:Int,name:String}
-e console
-i stdlib⋅list
-c MAX_SIZE:Int=100
-λmain()→Int=0
-test "example" { ... }
-
-❌ REJECTED - extern before type:
-e console
-t User={age:Int,name:String}
-⟦ Error: Type declarations must come before extern declarations ⟧
-```
-
-**Category meanings:**
-- `t` = types (must come first so externs can reference them)
-- `e` = externs (FFI imports)
-- `i` = imports (Sigil modules)
-- `c` = consts
-- `λ` = functions
-- `test` = tests
-
-**Within-category ordering:**
-- Alphabetically by name within each category
-
-#### Rule 6: Module Scope Is Declaration-Only
-
-Top-level Sigil code may only contain declarations.
-
-**Valid at module scope:**
-- `t`
-- `e`
-- `i`
-- `c`
-- `λ`
-- `mockable λ`
-- `test`
-
-**Invalid at module scope:**
-- `l`
-
-```sigil
-✅ VALID - immutable module constant:
-c config=("prod":String)
-λmain()→Unit=()
-
-❌ REJECTED - top-level local binding:
-l config=("prod":String)
-λmain()→Unit=()
-⟦ Error: Module scope is declaration-only ⟧
-```
-
-Use `c` for immutable module-level values. Use `l` only inside function bodies, test bodies, or nested expressions.
-
-#### Rule 7: Record Fields Are Alphabetical Everywhere
-
-Record fields must be alphabetically ordered in:
 - product type declarations
 - record literals
-- typed record construction
+- typed record constructors
 - record patterns
 
-```sigil
-✅ VALID:
-t Request={body:String,headers:Headers,method:String,path:String}
-Request{body:body,headers:headers,method:method,path:path}
-match req{{body,headers,method,path}→...}
+## Local Binding Rules
 
-❌ REJECTED:
-t Request={path:String,method:String,headers:Headers,body:String}
-Request{path:path,method:method,headers:headers,body:body}
-match req{{path,method,headers,body}→...}
-```
-
-Use objective alphabetical ordering for record shapes the same way Sigil already
-does for parameters, effects, and declarations.
-
-#### Rule 7a: Records And Maps Are Different Shapes
-
-Records are fixed-shape products and use `:`:
-
-```sigil
-t Request={body:String,method:String,path:String}
-Request{body:body,method:method,path:path}
-```
-
-Maps are dynamic keyed collections and use `↦`:
-
-```sigil
-{"content-type"↦"text/plain","x-id"↦"42"}
-({↦}:{String↦String})
-```
-
-Rules:
-- records use alphabetical field ordering
-- maps do not use record-style alphabetical ordering
-- records and maps are intentionally different concepts
-
-#### Rule 8: No Shadowing
-
-Local names must not be rebound in the same or any enclosing lexical scope.
-
-```sigil
-✅ VALID:
-λformat_user(name:String)→String={
-  l normalized_name=(stdlib⋅string.trim(name):String);
-  normalized_name
-}
-
-❌ REJECTED:
-λformat_user(name:String)→String={
-  l name=(stdlib⋅string.trim(name):String);
-  name
-}
-```
+Local names must not shadow names from the same or any enclosing lexical scope.
 
 This applies to:
+
 - function parameters
 - lambda parameters
 - `l` bindings
-- pattern bindings introduced by `match`
+- pattern bindings
 
-Use a fresh descriptive name instead of rebinding an existing one.
+## Single-Use Pure Bindings
 
-#### Rule 9: Parameter Alphabetical Ordering
+Sigil currently rejects pure local bindings used exactly once.
 
-Function parameters must be in alphabetical order by name.
-
-**Error code:** `SIGIL-CANON-PARAM-ORDER`
+Example:
 
 ```sigil
-✅ VALID - alphabetical order:
-λfoo(a:Int,b:Int,c:Int)→Int=a+b+c
-
-❌ REJECTED - non-alphabetical:
-λfoo(c:Int,a:Int,b:Int)→Int=a+b+c
-⟦ Error: Parameter out of alphabetical order ⟧
-```
-
-**Applies to:**
-- Function declarations: `λfoo(x:Int,y:Int)→Int=x+y`
-- Lambda expressions: `(λ(a:Int,b:Int)→Int=a+b)(1,2)`
-- All parameter lists regardless of length
-
-**Rationale:**
-- Alphabetical ordering is deterministic and language-agnostic
-- Eliminates debate about "natural" parameter ordering
-- Consistent with declaration alphabetical ordering
-- One canonical way to write every function signature
-- Improves training data quality for AI code generation
-
-**Error message:**
-```
-Parameter out of alphabetical order in function "foo"
-
-Found: c at position 3
-After: b at position 2
-
-Parameters must be alphabetically ordered.
-Expected 'c' to come before 'b'.
-
-Alphabetical order uses Unicode code point comparison (case-sensitive).
-Reorder parameters: a, b, c
-
-Sigil enforces ONE WAY: canonical parameter ordering.
-```
-
-#### Rule 10: Effect Alphabetical Ordering
-
-Effect annotations must be in alphabetical order.
-
-**Error code:** `SIGIL-CANON-EFFECT-ORDER`
-
-```sigil
-✅ VALID - alphabetical order:
-λfetch()→!Error !IO !Network String="data"
-
-❌ REJECTED - non-alphabetical:
-λfetch()→!Network !IO !Error String="data"
-⟦ Error: Effect out of alphabetical order ⟧
-```
-
-**Standard effect order (alphabetical):**
-- `!Error` before `!IO`
-- `!IO` before `!Mut`
-- `!Mut` before `!Network`
-
-**Rationale:**
-- Deterministic effect declaration
-- No arbitrary ordering choices
-- Consistent with all other alphabetical ordering rules
-- One canonical way to declare effects
-
-**Error message:**
-```
-Effect out of alphabetical order in function "fetch"
-
-Found: !IO at position 2
-After: !Network at position 1
-
-Effects must be alphabetically ordered.
-Expected 'IO' to come before 'Network'.
-
-Correct order: !Error !IO !Network
-
-Sigil enforces ONE WAY: canonical effect ordering.
-```
-
-**Declaration ordering error message:**
-```
-Canonical Ordering Error: Wrong category position
-
-Found: e (extern) at line 5
-Expected: extern declarations must come before import declarations
-
-Category order: t → e → i → c → λ → test
-  t    = types
-  e    = externs (FFI imports)
-  i    = imports (Sigil modules)
-  c    = consts
-  λ    = functions
-  test = tests
-
-Move all extern declarations to appear before import declarations.
-
-Sigil enforces ONE way: canonical declaration ordering.
-```
-
-**Rationale:** Types-first ordering enables typed FFI declarations to reference named types. This is a language design choice that prioritizes correctness over convenience.
-
-#### Rule 9: Mandatory Type Ascription
-
-Let binding values and const declarations MUST use type ascription syntax.
-
-**Error codes:** `SIGIL-CANON-LET-UNTYPED`, `SIGIL-PARSE-CONST-UNTYPED`
-
-```sigil
-✅ VALID - type ascription required:
-l x=(42:Int);x+1
-l empty=([]:[Int]);#empty
-l names=(["Alice","Bob"]:[String]);names
-
-c answer=(42:Int)
-c pi=(3.14:Float)
-
-❌ REJECTED - no type ascription in let:
-l x=42;x+1
-⟦ Error: Let binding value must use type ascription ⟧
-
-❌ REJECTED - old const syntax:
-c answer:Int=42
-⟦ Error: Const value must use type ascription ⟧
-```
-
-**Type ascription syntax:**
-```sigil
-(expr:Type)  ← Parentheses mandatory (canonical form)
-```
-
-Works anywhere expressions are allowed:
-```sigil
-#([]:[Int])=0                    ← Empty list in expression
-λf()→[String]=([]:[String])              ← Empty list in return position
-l result=(fetch():Result);      ← Explicit result type (when needed)
-```
-
-**Rationale:**
-- **Explicit types everywhere** - No type inference in let bindings or const declarations
-- **ONE WAY** - Single canonical form for variable bindings
-- **Solves empty list problem** - `([]:[Int])` has explicit type, no inference needed
-- **AI generation** - Clearer, more predictable for language models
-- **Consistency** - Matches mandatory parameter/return type annotations
-
-**Before/after examples:**
-```sigil
-// OLD (rejected):
-l text="Hello";              // type inferred
-c max:Int=100                  // type before equals
-
-// NEW (required):
-l text=("Hello":String);          // type ascribed
-c max=(100:Int)                // type in ascription
-```
-
-**Error message (let binding):**
-```
-Let binding value must use type ascription
-
-Found: LiteralExpr
-Expected: (value:Type) syntax
-
-Example: l x=(42:Int) instead of l x=42
-
-Sigil requires explicit types in let bindings (ONE WAY).
-```
-
-**Error message (const):**
-```
-Const value must use type ascription: c name=(value:Type)
-
-Found: LiteralExpr
-Expected: TypeAscriptionExpr
-
-Wrap value in type ascription: (value:Type)
-```
-
-#### Rule 10: Single-Use Pure Bindings Must Inline
-
-Pure local bindings that are used exactly once are non-canonical.
-
-Locals exist for:
-- reuse
-- effect sequencing
-- destructuring
-- syntax-required staging
-
-They do **not** exist to give one-use pure subexpressions an alternate surface form.
-
-**Error code:** `SIGIL-CANON-SINGLE-USE-PURE-BINDING`
-
-```sigil
-✅ VALID - reused pure binding:
-λrenderTwice(page:Page)→String={
-  l rendered=(render(page):String);
-  rendered++rendered
-}
-
-✅ VALID - effect sequencing:
-λload(path:String)→!IO String={
-  l text=(stdlib⋅file.readText(path):String);
-  stdlib⋅string.trim(text)
-}
-
-❌ REJECTED - one-use pure alias:
 λformulaText(checksums:Checksums,version:String)→String={
   l repo=(releaseRepo():String);
   src⋅formula.formula({checksums:checksums,repo:repo,version:version})
 }
+```
 
-✅ REQUIRED:
+Required canonical form:
+
+```sigil
 λformulaText(checksums:Checksums,version:String)→String=
   src⋅formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
 ```
 
-**Rationale:**
-- **One surface form** - `l x=pure();use(x)` and `use(pure())` are not both allowed
-- **Tooling-first** - the compiler decides from purity and usage count, not from “readability”
-- **LLM consistency** - generated code stops drifting between named and inline one-shot intermediates
-- **Locals stay structural** - they mark reuse or sequencing boundaries instead of rhetorical stages
+Current mechanical rule:
 
-**What is enforced mechanically:**
 - if a local binding is pure
-- and used exactly once
-- and direct substitution is legal
-- Sigil requires the inline form
+- and the bound name is used exactly once
+- the binding is rejected and must be inlined
 
-**Error message:**
-```
-Single-use pure binding 'repo' must be inlined
+The current validator does not perform a separate “substitution legality”
+analysis. This document describes the implementation as it exists today.
 
-Sigil enforces ONE WAY: pure intermediates used once stay inline.
-Bindings exist for reuse, effects, destructuring, or syntax-required staging.
-```
+## Topology / Config Boundaries
 
-## Already Enforced (Lexer Level)
+For topology-aware projects:
 
-The lexer rejects:
+- topology declarations live in `src/topology.lib.sigil`
+- selected environment bindings live in `config/<env>.lib.sigil`
+- `process.env` is only allowed in `config/*.lib.sigil`
+- application code must use topology dependency handles, not raw endpoints
 
-### Tab Characters
-```sigil
-❌ REJECTED:
-λmain()→Int=1[TAB]2
-⟦ Error: Tab characters not allowed - use spaces ⟧
-```
+Validation is currently per selected `--env`, not a whole-project scan across
+all declared environments.
 
-### Standalone `\r`
-```sigil
-❌ REJECTED:
-λmain()→Int=1\r\n
-⟦ Error: Standalone \r not allowed - use \n for line breaks ⟧
-```
+## Formatting Rules
 
-Only `\n` is accepted for line breaks (or `\r\n` as a unit on Windows).
+Current canonical formatting rules include:
 
-## Compilation Pipeline
+- file must end with a final newline
+- no trailing whitespace
+- at most one consecutive blank line
 
-Canonical validation runs after parsing:
+The lexer also rejects:
 
-```
-1. Read source file
-2. Tokenize            ← enforces tabs, \r
-3. Parse
-4. Validate canonical form ← enforces formatting, algorithms, structure
-5. Type check
-6. Compile to TypeScript
-```
+- tab characters
+- standalone `\r`
 
-This ensures all canonical rules are checked early with clear error messages.
+## Validation Pipeline
 
-## Error Messages
+Canonical validation happens in two stages:
 
-All canonical form errors include:
-- Error code (SIGIL-CANON-*)
-- Filename
-- Line number (where applicable)
-- Column number (where applicable)
-- Clear description of the violation
-- Hint about the canonical form
+1. after parsing, for syntax- and structure-level canonical rules
+2. after typechecking, for typed canonical rules such as single-use pure
+   bindings
 
-Examples:
+The overall pipeline is:
 
-```
-Error: SIGIL-CANON-EOF-NEWLINE
-File must end with a newline
-File: myfile.sigil
-
-Error: SIGIL-CANON-TRAILING-WHITESPACE
-Trailing whitespace
-File: myfile.sigil
-Line: 5
-
-Error: SIGIL-CANON-BLANK-LINES
-Multiple consecutive blank lines
-File: myfile.sigil
-Line: 10
-
-Error: Parse error at line 3, column 15: Expected "=" before function body (canonical form: λf()→T=...)
-Got: IDENTIFIER (x)
-
-Error: Parse error at line 7, column 20: Unexpected "=" before match expression (canonical form: λf()→T match ...)
-Got: MATCH (match)
+```text
+read source
+→ tokenize
+→ parse
+→ canonical validation
+→ typecheck
+→ typed canonical validation
+→ codegen / run / test
 ```
 
-## Testing Your Code
+## Source of Truth
 
-All files must pass canonical validation:
+When prose disagrees with implementation, current truth comes from:
 
-```bash
-# This will fail if formatting is wrong
-cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile myfile.sigil
-
-# Common failures:
-# - Missing final newline → add newline at end
-# - Trailing spaces → remove spaces from line ends
-# - Multiple blank lines → remove extra blank lines
-# - Wrong = placement → check if using match or regular expression
-```
-
-## For AI Agents and LLMs
-
-**When generating Sigil code:**
-
-1. Always end files with `\n`
-2. Never add trailing spaces
-3. Use exactly one blank line between top-level declarations
-4. Use `=` for regular expressions: `λf()→T=expr`
-5. Omit `=` for match expressions: `λf()→T match value{...}`
-6. Use spaces (never tabs)
-7. Use `\n` for line breaks (never `\r`)
-8. **Order declarations alphabetically within categories** (types, externs, imports, consts, functions, tests)
-9. **Order function parameters alphabetically by name** (`λfoo(a,b,z)` not `λfoo(z,b,a)`)
-10. **Order effect annotations alphabetically** (`!Error !IO !Network` not `!Network !IO !Error`)
-
-**Remember:** There is exactly ONE valid way to write each program. If you generate non-canonical code, compilation will fail.
-
-## Future Enhancements
-
-Potential future rules (not yet implemented):
-
-- Operator spacing (dense `a+b` or spaced `a + b`)
-- Comma spacing (`(a,b)` vs `(a, b)`)
-- Colon spacing (`a:Int` vs `a: Int`)
-- Indentation consistency (2 spaces per level)
-- Parenthesis placement in nested expressions
-
-These will be added only if they improve deterministic generation for AI models.
-
-## Why This Matters
-
-**Traditional languages:**
-- Multiple ways to format (tabs vs spaces, brace styles, etc.)
-- Style guides attempt to standardize
-- Linters enforce conventions
-- Still allows variations
-
-**Sigil:**
-- Compiler enforces ONE way
-- No style debates
-- No linter needed
-- Perfect training data for AI
-
-This is fundamental to Sigil's mission: be the first language designed for AI code generation from the ground up.
+- parser
+- validator
+- typechecker
+- runnable examples and tests

@@ -7,6 +7,13 @@ slug: 007-unifying-canonical-validation
 
 # Simplifying Sigil: Merging SURFACE and CANON Validation
 
+> Historical note: this article reflects an earlier compiler structure and old
+> implementation paths. Sigil still enforces canonicality, but the current
+> validator/typechecker pipeline is documented in
+> [language/docs/CANONICAL_ENFORCEMENT.md](REPO_ROOT/language/docs/CANONICAL_ENFORCEMENT.md)
+> and
+> [language/docs/CANONICAL_FORMS.md](REPO_ROOT/language/docs/CANONICAL_FORMS.md).
+
 ## The Problem: Two Validators, One Philosophy
 
 Until recently, Sigil had two separate validation phases:

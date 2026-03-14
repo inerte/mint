@@ -7,6 +7,15 @@ slug: 010-canonical-test-location-enforcement
 
 # Canonical Test Location: Enforcing ONE Way for Test Files
 
+> Historical note: this article reflects an earlier Sigil surface. Later
+> versions removed the `export` keyword and use file-based visibility instead.
+> The test-location rule still matters, but the current language surface is
+> documented in
+> [language/docs/TESTING.md](REPO_ROOT/language/docs/TESTING.md),
+> [language/docs/syntax-reference.md](REPO_ROOT/language/docs/syntax-reference.md),
+> and
+> [language/docs/CANONICAL_FORMS.md](REPO_ROOT/language/docs/CANONICAL_FORMS.md).
+
 **TL;DR:** Sigil now enforces that test blocks can ONLY appear in files under `tests/` directories, and test files MUST have a `main()` function. This completes Sigil's canonical file purpose enforcement: every `.sigil` file is either an executable OR a library (and tests are executables with test blocks).
 
 ## The Problem: Organizational Ambiguity

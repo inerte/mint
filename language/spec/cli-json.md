@@ -7,7 +7,7 @@ Sigil CLI commands are machine-first. JSON is the default output mode for:
 - `sigilc compile`
 - `sigilc run`
 - `sigilc test`
-- `sigilc` (usage/unknown-command failures)
+- `sigilc` usage/unknown-command failures
 
 ## Canonical Schema
 
@@ -15,14 +15,13 @@ The normative machine contract is:
 
 - `language/spec/cli-json.schema.json`
 
-Consumers should validate against that schema (or compatible generated types), not this Markdown file.
+Consumers should validate against that schema, not this Markdown file.
 
 ## Versioning
 
-- `formatVersion` is the payload format version.
-- Current version: `1`
-- Consumers must branch on `formatVersion`.
-- Backward-incompatible output changes require incrementing `formatVersion`.
+- `formatVersion` is the payload format version
+- current version: `1`
+- backward-incompatible output changes require incrementing `formatVersion`
 
 ## Common Envelope Pattern
 
@@ -38,7 +37,7 @@ Most commands emit:
 }
 ```
 
-Failures use:
+Failures emit:
 
 ```json
 {
@@ -54,7 +53,7 @@ Failures use:
 }
 ```
 
-`sigilc test` currently keeps its historical top-level `summary`/`results` shape (still covered by the shared schema).
+`sigilc test` keeps a specialized top-level `summary` / `results` envelope.
 
 ## Diagnostics
 
@@ -63,60 +62,19 @@ Diagnostics are structured and machine-oriented:
 - `code`
 - `phase`
 - `message`
-- `location` (when available)
-- `found` / `expected` (when useful)
-- `details` (structured metadata)
-- `fixits` (deterministic text edits)
-- `suggestions` (machine-readable recovery guidance)
+- `location` when available
+- `found` / `expected` when useful
+- `details`
+- `fixits`
+- `suggestions`
 
-### `fixits` vs `suggestions`
+## Current Notes
 
-- `fixits`: exact text edits the tool/editor can apply directly
-- `suggestions`: non-trivial recovery actions or semantic guidance
+The current implementation uses:
 
-Example:
-- `SIGIL-PARSE-NS-SEP` may include:
-  - a `replace` fixit (`/` -> `⋅`)
-  - a `replace_symbol` suggestion explaining the canonical separator
+- `"sigilc ..."` strings in JSON `command` fields
+- no `semanticMap` field in successful `compile` output
+- a specialized `test` result shape with `location: {line,column}`
 
-## Error Codes
-
-### Canonical Form Errors (phase: `canonical`)
-
-#### Filename Validation
-
-```json
-{
-  "code": "SIGIL-CANON-FILENAME-CASE",
-  "message": "filenames must start with a lowercase letter",
-  "phase": "canonical"
-}
-```
-Filename contains uppercase letters. Solution: rename to lowercase.
-
-```json
-{
-  "code": "SIGIL-CANON-FILENAME-INVALID-CHAR",
-  "message": "Filenames cannot contain underscores or special characters",
-  "phase": "canonical"
-}
-```
-Filename contains invalid characters (underscores, spaces, special chars). Solution: use hyphens for word separation.
-
-```json
-{
-  "code": "SIGIL-CANON-FILENAME-FORMAT",
-  "message": "Filename format violation",
-  "phase": "canonical"
-}
-```
-Filename format issues: starts/ends with hyphen, consecutive hyphens, or empty basename.
-
-## Validation Guidance
-
-Recommended for tool authors / CI:
-
-1. Parse stdout as a single JSON object.
-2. Validate against `language/spec/cli-json.schema.json`.
-3. Branch on `formatVersion`.
-4. Use `error.code` + `fixits`/`suggestions` for automated recovery loops.
+If prose and runtime output disagree, the implementation and
+`cli-json.schema.json` are the current source of truth.

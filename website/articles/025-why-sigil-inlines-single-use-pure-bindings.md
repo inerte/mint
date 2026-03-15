@@ -13,9 +13,9 @@ it creates pointless variation.
 Take code like this:
 
 ```sigil
-λformulaText(checksums:Checksums,version:String)→String={
+λformulaText(checksums:Checksums,version:String)=>String={
   l repo=(releaseRepo():String);
-  src⋅formula.formula({checksums:checksums,repo:repo,version:version})
+  src::formula.formula({checksums:checksums,repo:repo,version:version})
 }
 ```
 
@@ -23,8 +23,8 @@ There is nothing wrong with it semantically.
 But there is also another perfectly valid version:
 
 ```sigil
-λformulaText(checksums:Checksums,version:String)→String=
-  src⋅formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
+λformulaText(checksums:Checksums,version:String)=>String=
+  src::formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
 ```
 
 That means the same program has two acceptable surfaces:
@@ -45,7 +45,7 @@ then Sigil requires the inline form.
 So this is rejected:
 
 ```sigil
-λparagraph(text:String)→String={
+λparagraph(text:String)=>String={
   l processed=(processInline(text):String);
   "<p>"++processed++"</p>"
 }
@@ -54,7 +54,7 @@ So this is rejected:
 And this is the required form:
 
 ```sigil
-λparagraph(text:String)→String=
+λparagraph(text:String)=>String=
   "<p>"++processInline(text)++"</p>"
 ```
 
@@ -75,9 +75,9 @@ Locals are still the right tool when they mark something real:
 For example, this stays valid:
 
 ```sigil
-λload(path:String)→!IO String={
-  l text=(stdlib⋅file.readText(path):String);
-  stdlib⋅string.trim(text)
+λload(path:String)=>!IO String={
+  l text=(stdlib::file.readText(path):String);
+  stdlib::string.trim(text)
 }
 ```
 
@@ -86,7 +86,7 @@ For example, this stays valid:
 And this stays valid too:
 
 ```sigil
-λrenderTwice(page:Page)→String={
+λrenderTwice(page:Page)=>String={
   l rendered=(render(page):String);
   rendered++rendered
 }

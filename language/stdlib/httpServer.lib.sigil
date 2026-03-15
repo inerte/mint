@@ -1,7 +1,7 @@
-⟦ stdlib⋅httpServer - Canonical HTTP Server for Sigil
+⟦ stdlib::httpServer - Canonical HTTP Server for Sigil
 
 Provides the typed Sigil surface for serving HTTP.
-Runtime behavior is implemented by the compiler runtime for stdlib⋅httpServer.
+Runtime behavior is implemented by the compiler runtime for stdlib::httpServer.
 ⟧
 
 t Headers={String↦String}
@@ -20,38 +20,38 @@ t Response={
 }
 
 e console : {
-  log : λ(String) → Unit
+  log : λ(String) => Unit
 }
 
-λjson(body:String,status:Int)→Response={
+λjson(body:String,status:Int)=>Response={
   body:body,
   headers:{"content-type"↦"application/json; charset=utf-8"},
   status:status
 }
 
-λlogRequest(req:Request)→!IO Unit={
+λlogRequest(req:Request)=>!IO Unit={
   console.log((req.method++" "++req.path:String))
 }
 
-λnotFound()→Response={
+λnotFound()=>Response={
   body:"<h1>404 Not Found</h1>",
   headers:{"content-type"↦"text/html; charset=utf-8"},
   status:404
 }
 
-λnotFoundMsg(path:String)→Response={
+λnotFoundMsg(path:String)=>Response={
   body:"<h1>404 Not Found</h1><p>Path: "++path++"</p>",
   headers:{"content-type"↦"text/html; charset=utf-8"},
   status:404
 }
 
-λok(body:String)→Response={
+λok(body:String)=>Response={
   body:body,
   headers:{"content-type"↦"text/html; charset=utf-8"},
   status:200
 }
 
-λresponse(body:String,contentType:String,status:Int)→Response={
+λresponse(body:String,contentType:String,status:Int)=>Response={
   body:body,
   headers:{"content-type"↦contentType},
   status:status
@@ -60,11 +60,11 @@ e console : {
 ⟦
   Start an HTTP server on the specified port.
 
-  Runtime behavior is provided by the compiler for stdlib⋅httpServer.serve.
+  Runtime behavior is provided by the compiler for stdlib::httpServer.serve.
 ⟧
-λserve(handler:λ(Request)→!IO Response,port:Int)→!IO Unit=()
+λserve(handler:λ(Request)=>!IO Response,port:Int)=>!IO Unit=()
 
-λserverError(message:String)→Response={
+λserverError(message:String)=>Response={
   body:"<h1>500 Internal Server Error</h1><p>"++message++"</p>",
   headers:{"content-type"↦"text/html; charset=utf-8"},
   status:500

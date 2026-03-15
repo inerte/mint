@@ -1,15 +1,15 @@
-λbinarySearch(high:Int,low:Int,target:Int,xs:[Int])→Int match high<low{
-  true→-1|
-  false→{
+λbinarySearch(high:Int,low:Int,target:Int,xs:[Int])=>Int match high<low{
+  true=>-1|
+  false=>{
     l mid=(((low+high)-((low+high)%2))/2:Int);
     match xs[mid]=target{
-      true→mid|
-      false→match xs[mid]<target{
-        true→binarySearch(high,mid+1,target,xs)|
-        false→binarySearch(mid-1,low,target,xs)
+      true=>mid|
+      false=>match xs[mid]<target{
+        true=>binarySearch(high,mid+1,target,xs)|
+        false=>binarySearch(mid-1,low,target,xs)
       }
     }
   }
 }
 
-λmain()→Int=binarySearch(9,0,13,[1,3,5,7,9,11,13,15,17,19])
+λmain()=>Int=binarySearch(9,0,13,[1,3,5,7,9,11,13,15,17,19])

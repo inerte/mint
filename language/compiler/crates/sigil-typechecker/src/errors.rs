@@ -107,16 +107,16 @@ pub fn format_type(typ: &InferenceType) -> String {
                 .join(", ");
             let ret = format_type(&tfunc.return_type);
 
-            // Use Sigil syntax: (T1, T2) → R
+            // Use Sigil syntax: (T1, T2) => R
             if let Some(ref effects) = tfunc.effects {
                 let effect_str = effects
                     .iter()
                     .map(|e| format!("!{}", e))
                     .collect::<Vec<_>>()
                     .join("");
-                format!("({}) →{} {}", params, effect_str, ret)
+                format!("({}) =>{} {}", params, effect_str, ret)
             } else {
-                format!("({}) → {}", params, ret)
+                format!("({}) => {}", params, ret)
             }
         }
 

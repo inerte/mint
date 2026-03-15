@@ -65,12 +65,12 @@ impl Parser {
             return self.const_declaration();
         }
 
-        // Import declaration: i module⋅path
+        // Import declaration: i module::path
         if self.match_token(TokenType::IMPORT) {
             return self.import_declaration();
         }
 
-        // Extern declaration: e module⋅path
+        // Extern declaration: e module::path
         if self.match_token(TokenType::EXTERN) {
             return self.extern_declaration();
         }
@@ -112,12 +112,12 @@ impl Parser {
         self.consume(
             TokenType::ARROW,
             &format!(
-                "Expected \"→\" after parameters for function \"{}\". Return type annotations are required (canonical form).",
+                "Expected \"=>\" after parameters for function \"{}\". Return type annotations are required (canonical form).",
                 name
             ),
         )?;
 
-        // Parse optional effect annotations: →!IO !Network Type
+        // Parse optional effect annotations: =>!IO !Network Type
         let effects = self.parse_effects()?;
 
         let return_type = Some(self.parse_type()?);
@@ -127,9 +127,9 @@ impl Parser {
         let is_match_expr = self.check(TokenType::MATCH);
 
         if is_match_expr && has_equal {
-            return Err(self.error("Unexpected \"=\" before match expression (canonical form: λf()→T match ...)"));
+            return Err(self.error("Unexpected \"=\" before match expression (canonical form: λf()=>T match ...)"));
         } else if !is_match_expr && !has_equal {
-            return Err(self.error("Expected \"=\" before function body (canonical form: λf()→T=...)"));
+            return Err(self.error("Expected \"=\" before function body (canonical form: λf()=>T=...)"));
         }
 
         let body = self.expression()?;
@@ -255,7 +255,7 @@ impl Parser {
             }));
         }
 
-        // Non-constructor type aliases, like λ(T)→U or [T], should go straight
+        // Non-constructor type aliases, like λ(T)=>U or [T], should go straight
         // through the general type parser instead of the sum/constructor path.
         if !self.check(TokenType::UpperIdentifier) {
             let start = self.peek();
@@ -436,7 +436,7 @@ impl Parser {
         let start = self.previous();
         let mut module_path = Vec::new();
 
-        // Parse module path: i stdlib⋅list
+        // Parse module path: i stdlib::list
         loop {
             module_path.push(self.module_path_segment()?);
             if !self.match_token(TokenType::NamespaceSep) {
@@ -466,10 +466,10 @@ impl Parser {
         let start = self.previous();
         let mut module_path = Vec::new();
 
-        // Parse module path (e.g., fs⋅promises, axios, lodash)
+        // Parse module path (e.g., fs::promises, axios, lodash)
         module_path.push(self.module_path_segment()?);
 
-        // Handle namespace separators: fs⋅promises
+        // Handle namespace separators: fs::promises
         while self.match_token(TokenType::NamespaceSep) {
             module_path.push(self.module_path_segment()?);
         }
@@ -485,7 +485,7 @@ impl Parser {
             });
         }
 
-        // Optional type annotation: e console : { log : (String) → Unit, ... }
+        // Optional type annotation: e console : { log : (String) => Unit, ... }
         let members = if self.match_token(TokenType::COLON) {
             self.consume(TokenType::LBRACE, "Expected \"{\" after \":\" in typed extern declaration")?;
             let mut members_list = Vec::new();
@@ -680,7 +680,7 @@ impl Parser {
             })));
         }
 
-        // Map type: {K↦V} or Function type: λ(T1,T2)→R
+        // Map type: {K↦V} or Function type: λ(T1,T2)=>R
         if self.match_token(TokenType::LBRACE) {
             let start = self.previous();
             if self.match_token(TokenType::MAP) {
@@ -699,7 +699,7 @@ impl Parser {
             })));
         }
 
-        // Function type: λ(T1, T2)→!IO !Network R
+        // Function type: λ(T1, T2)=>!IO !Network R
         if self.match_token(TokenType::LAMBDA) {
             let start = self.previous();
             self.consume(TokenType::LPAREN, "Expected \"(\"")?;
@@ -713,7 +713,7 @@ impl Parser {
                 }
             }
             self.consume(TokenType::RPAREN, "Expected \")\"")?;
-            self.consume(TokenType::ARROW, "Expected \"→\"")?;
+            self.consume(TokenType::ARROW, "Expected \"=>\"")?;
 
             // Parse optional effect annotations in function types
             let effects = self.parse_effects()?;
@@ -747,8 +747,8 @@ impl Parser {
                 self.consume(
                     TokenType::DOT,
                     &format!(
-                        "Expected \".\" after module path \"{}\". Qualified types use syntax: module⋅path.TypeName",
-                        module_path.join("⋅")
+                        "Expected \".\" after module path \"{}\". Qualified types use syntax: module::path.TypeName",
+                        module_path.join("::")
                     ),
                 )?;
 
@@ -846,7 +846,7 @@ impl Parser {
             let start = expr.location().start;
 
             if self.match_token(TokenType::MAP) {
-                // [1,2,3] ↦ λx→x*2
+                // [1,2,3] ↦ λx=>x*2
                 let func = self.logical()?;
                 let end = self.previous().location.end;
                 expr = Expr::Map(Box::new(MapExpr {
@@ -855,7 +855,7 @@ impl Parser {
                     location: SourceLocation::new(start, end),
                 }));
             } else if self.match_token(TokenType::FILTER) {
-                // [1,2,3] ⊳ λx→x>1
+                // [1,2,3] ⊳ λx=>x>1
                 let predicate = self.logical()?;
                 let end = self.previous().location.end;
                 expr = Expr::Filter(Box::new(FilterExpr {
@@ -864,7 +864,7 @@ impl Parser {
                     location: SourceLocation::new(start, end),
                 }));
             } else if self.match_token(TokenType::FOLD) {
-                // [1,2,3] ⊕ λ(acc,x)→acc+x ⊕ 0
+                // [1,2,3] ⊕ λ(acc,x)=>acc+x ⊕ 0
                 let func = self.logical()?;
                 self.consume(TokenType::FOLD, "Expected \"⊕\" before initial value")?;
                 let init = self.logical()?;
@@ -1205,7 +1205,7 @@ impl Parser {
         if self.match_token(TokenType::IDENTIFIER) || self.match_token(TokenType::UpperIdentifier) {
             let tok = self.previous();
 
-            // Check for member access (FFI): module⋅path.member
+            // Check for member access (FFI): module::path.member
             if self.check(TokenType::NamespaceSep) {
                 let mut namespace = vec![tok.value.clone()];
                 let start = tok.location.start;
@@ -1237,12 +1237,12 @@ impl Parser {
             }));
         }
 
-        // Lambda expression: λ(x:Int)→Int{ x+1 }
+        // Lambda expression: λ(x:Int)=>Int{ x+1 }
         if self.match_token(TokenType::LAMBDA) {
             return self.lambda_expression();
         }
 
-        // Match expression: match value{pattern→body|...}
+        // Match expression: match value{pattern=>body|...}
         if self.match_token(TokenType::MATCH) {
             return self.match_expression();
         }
@@ -1326,7 +1326,7 @@ impl Parser {
         self.consume(TokenType::LPAREN, "Expected \"(\"")?;
         let params = self.parameter_list()?;
         self.consume(TokenType::RPAREN, "Expected \")\"")?;
-        self.consume(TokenType::ARROW, "Expected \"→\"")?;
+        self.consume(TokenType::ARROW, "Expected \"=>\"")?;
 
         let effects = self.parse_effects()?;
         let return_type = self.parse_type()?;
@@ -1336,9 +1336,9 @@ impl Parser {
         let is_match_expr = self.check(TokenType::MATCH);
 
         if is_match_expr && has_equal {
-            return Err(self.error("Unexpected \"=\" before match expression (canonical form: λ()→T match ...)"));
+            return Err(self.error("Unexpected \"=\" before match expression (canonical form: λ()=>T match ...)"));
         } else if !is_match_expr && !has_equal {
-            return Err(self.error("Expected \"=\" before lambda body (canonical form: λ()→T=...)"));
+            return Err(self.error("Expected \"=\" before lambda body (canonical form: λ()=>T=...)"));
         }
 
         let body = self.expression()?;
@@ -1354,7 +1354,7 @@ impl Parser {
     }
 
     fn match_expression(&mut self) -> Result<Expr, ParseError> {
-        // Match syntax: match scrutinee{pattern→body|pattern→body}
+        // Match syntax: match scrutinee{pattern=>body|pattern=>body}
         let start = self.previous();
         let scrutinee = self.expression()?;
         self.consume(TokenType::LBRACE, "Expected \"{\"")?;
@@ -1371,7 +1371,7 @@ impl Parser {
                 None
             };
 
-            self.consume(TokenType::ARROW, "Expected \"→\"")?;
+            self.consume(TokenType::ARROW, "Expected \"=>\"")?;
             let body = self.expression()?;
 
             let arm_end = self.previous();
@@ -1616,7 +1616,7 @@ impl Parser {
             }));
         }
 
-        // Constructor pattern or identifier: Some, src⋅mod.Some, x
+        // Constructor pattern or identifier: Some, src::mod.Some, x
         if self.match_token(TokenType::UpperIdentifier) {
             let start = self.previous();
             let name = start.value.clone();
@@ -1632,8 +1632,8 @@ impl Parser {
                 self.consume(
                     TokenType::DOT,
                     &format!(
-                        "Expected \".\" after module path \"{}\". Qualified constructors use syntax: module⋅path.Constructor(...)",
-                        module_path.join("⋅")
+                        "Expected \".\" after module path \"{}\". Qualified constructors use syntax: module::path.Constructor(...)",
+                        module_path.join("::")
                     ),
                 )?;
 
@@ -1714,8 +1714,8 @@ impl Parser {
                 self.consume(
                     TokenType::DOT,
                     &format!(
-                        "Expected \".\" after module path \"{}\". Qualified constructors use syntax: module⋅path.Constructor(...)",
-                        module_path.join("⋅")
+                        "Expected \".\" after module path \"{}\". Qualified constructors use syntax: module::path.Constructor(...)",
+                        module_path.join("::")
                     ),
                 )?;
 
@@ -2019,7 +2019,7 @@ mod tests {
 
     #[test]
     fn test_simple_function() {
-        let source = "λ add(x: Int, y: Int) → Int = x + y";
+        let source = "λ add(x: Int, y: Int) => Int = x + y";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
         assert_eq!(program.declarations.len(), 1);

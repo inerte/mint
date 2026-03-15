@@ -9,12 +9,12 @@ Canonical enforcement happens in multiple phases:
 
 ```text
 Source
-→ Tokenize
-→ Parse
-→ Canonical validation
-→ Type check
-→ Typed canonical validation
-→ Codegen / Run / Test
+=> Tokenize
+=> Parse
+=> Canonical validation
+=> Type check
+=> Typed canonical validation
+=> Codegen / Run / Test
 ```
 
 ### Lexer-Level Rejections

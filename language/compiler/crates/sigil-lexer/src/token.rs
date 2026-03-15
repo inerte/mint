@@ -45,7 +45,7 @@ pub enum TokenType {
     #[token("λ")]
     LAMBDA,
 
-    #[token("→")]
+    #[token("=>")]
     ARROW,
 
     #[token("match", priority = 3)]
@@ -210,7 +210,7 @@ pub enum TokenType {
     #[token(",")]
     COMMA,
 
-    #[token("⋅")]
+    #[token("::")]
     NamespaceSep,
 
     #[token(".")]

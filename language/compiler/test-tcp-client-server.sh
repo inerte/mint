@@ -70,11 +70,11 @@ run_and_assert src/echoClient.sigil "echoed"
 run_and_assert src/upperClient.sigil "HELLO"
 
 cat > src/rawTcpClient.sigil << EOF
-i stdlib⋅tcpClient
+i stdlib::tcpClient
 
-λmain()→!IO String match stdlib⋅tcpClient.send("ping","127.0.0.1"){
-  Ok(response)→response.message|
-  Err(error)→error.message
+λmain()=>!IO String match stdlib::tcpClient.send("ping","127.0.0.1"){
+  Ok(response)=>response.message|
+  Err(error)=>error.message
 }
 EOF
 

@@ -1,1 +1,1 @@
-λmain()→Int=0
+λmain()=>Int=0

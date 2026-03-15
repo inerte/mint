@@ -47,8 +47,8 @@ Polymorphism comes from explicitly generic top-level declarations.
 Generic declarations are allowed at top level:
 
 ```sigil
-λidentity[T](x:T)→T=x
-λmapOption[T,U](fn:λ(T)→U,opt:Option[T])→Option[U]=...
+λidentity[T](x:T)=>T=x
+λmapOption[T,U](fn:λ(T)=>U,opt:Option[T])=>Option[U]=...
 ```
 
 Generic instantiation is driven by ordinary bidirectional typing.
@@ -74,7 +74,7 @@ Constructed types:
 
 - `[T]`
 - `{K↦V}`
-- `λ(T1,T2,...)→R`
+- `λ(T1,T2,...)=>R`
 - named ADTs and aliases
 
 ## Algebraic Data Types
@@ -125,8 +125,8 @@ Sigil supports explicit effect annotations in function and test signatures.
 Examples:
 
 ```sigil
-λmain()→!IO Unit=console.log("hello")
-λfetch()→!Network String=axios.get("https://example.com")
+λmain()=>!IO Unit=console.log("hello")
+λfetch()=>!Network String=axios.get("https://example.com")
 ```
 
 Effects are explicit surface syntax. The checker tracks them as part of the

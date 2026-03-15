@@ -36,8 +36,8 @@ The safety cost is obvious:
 
 ```sigil
 ⟦ BAD ⟧
-λprocess_user(name:String)→String={
-  l name=(stdlib⋅string.trim(name):String);
+λprocess_user(name:String)=>String={
+  l name=(stdlib::string.trim(name):String);
   name
 }
 ```
@@ -62,8 +62,8 @@ That means:
 This is valid:
 
 ```sigil
-λprocess_user(name:String)→String={
-  l normalized_name=(stdlib⋅string.trim(name):String);
+λprocess_user(name:String)=>String={
+  l normalized_name=(stdlib::string.trim(name):String);
   normalized_name
 }
 ```
@@ -71,8 +71,8 @@ This is valid:
 This is not:
 
 ```sigil
-λprocess_user(name:String)→String={
-  l name=(stdlib⋅string.trim(name):String);
+λprocess_user(name:String)=>String={
+  l name=(stdlib::string.trim(name):String);
   name
 }
 ```

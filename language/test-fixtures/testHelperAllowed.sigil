@@ -1,16 +1,16 @@
 ⟦ Test that helper functions are now allowed ⟧
 
 ⟦ Utility function used by multiple functions ⟧
-λisPositive(x:Int)→Bool=x>0
+λisPositive(x:Int)=>Bool=x>0
 
-λmain()→String=processA(50)++" and "++processB(-5)
+λmain()=>String=processA(50)++" and "++processB(-5)
 
-λprocessA(x:Int)→String match isPositive(x){
-  true→"positive"|
-  false→"negative"
+λprocessA(x:Int)=>String match isPositive(x){
+  true=>"positive"|
+  false=>"negative"
 }
 
-λprocessB(y:Int)→String match isPositive(y){
-  true→"yes"|
-  false→"no"
+λprocessB(y:Int)=>String match isPositive(y){
+  true=>"yes"|
+  false=>"no"
 }

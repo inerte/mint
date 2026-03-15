@@ -12,14 +12,14 @@ In 2026, **93% of code is AI-generated**. Yet our programming languages are stil
 
 Traditional language design:
 ```
-Human writes code → Machine executes
+Human writes code => Machine executes
 ↓
 Optimize for human writing (verbose keywords, flexible syntax, readability)
 ```
 
 Sigil's design:
 ```
-AI writes code → Machine executes
+AI writes code => Machine executes
        ↓             ↑
 Human understands via AI explanations
 ↓
@@ -51,7 +51,7 @@ const add = new Function('a', 'b', 'return a + b');
 
 **Sigil - ONE way:**
 ```sigil
-λadd(a:Int,b:Int)→Int=a+b
+λadd(a:Int,b:Int)=>Int=a+b
 ```
 
 That applies to ordering as well:
@@ -77,13 +77,13 @@ That is why Sigil now distinguishes:
 
 Examples:
 - `Option[T]`, `Result[T,E]`, `Some`, `None`, `Ok`, and `Err` are implicit core vocabulary
-- `core⋅map` owns map operations
-- `stdlib⋅string` owns string helpers like `join`
-- `stdlib⋅file` owns UTF-8 filesystem helpers
-- `stdlib⋅path` owns filesystem path helpers
-- `stdlib⋅json` owns JSON parsing/value helpers
-- `stdlib⋅time` owns clock and ISO timestamp handling
-- `stdlib⋅url` owns URL parsing/query helpers
+- `core::map` owns map operations
+- `stdlib::string` owns string helpers like `join`
+- `stdlib::file` owns UTF-8 filesystem helpers
+- `stdlib::path` owns filesystem path helpers
+- `stdlib::json` owns JSON parsing/value helpers
+- `stdlib::time` owns clock and ISO timestamp handling
+- `stdlib::url` owns URL parsing/query helpers
 
 The design rule is pragmatic:
 - a large stdlib is fine
@@ -107,14 +107,14 @@ That leads to four canonical rules:
 Practical example:
 
 ```sigil
-t Message={createdAt:stdlib⋅time.Instant,text:String}
+t Message={createdAt:stdlib::time.Instant,text:String}
 ```
 
 If code has a `Message`, then `createdAt` is there.
 If `createdAt` might be absent, the canonical encoding is:
 
 ```sigil
-t MaybeMessage={createdAt:Option[stdlib⋅time.Instant],text:String}
+t MaybeMessage={createdAt:Option[stdlib::time.Instant],text:String}
 ```
 
 not an open record, a partial record, or ambient nullability.
@@ -123,9 +123,9 @@ For JSON-backed boundaries, the intended pipeline is:
 
 ```text
 raw JSON text
-→ stdlib⋅json.parse
-→ stdlib⋅decode.parse / stdlib⋅decode.run
-→ exact internal records and validated wrappers
+=> stdlib::json.parse
+=> stdlib::decode.parse / stdlib::decode.run
+=> exact internal records and validated wrappers
 ```
 
 This is both a PL-design choice and an AI-generation choice.
@@ -178,11 +178,11 @@ The problem with a naive async-first language is not the Promise boundary. It is
 
 ```sigil
 ⟦ Pure function - still promise-shaped ⟧
-λadd(a:Int,b:Int)→Int=a+b
+λadd(a:Int,b:Int)=>Int=a+b
 
 ⟦ I/O function - same surface form ⟧
-e fs⋅promises
-λread(path:String)→!IO String=fs⋅promises.readFile(path,"utf8")
+e fs::promises
+λread(path:String)=>!IO String=fs::promises.readFile(path,"utf8")
 ```
 
 Both use the same source form. The compiler starts work early and only joins it at strict demand points like arithmetic, branching, matching, indexing, and final observable results.
@@ -217,14 +217,14 @@ If a name is already bound in a function, lambda, or match scope, nested scopes 
 
 ```sigil
 ⟦ GOOD ⟧
-λprocess_user(name:String)→String={
-  l normalized_name=(stdlib⋅string.trim(name):String);
+λprocess_user(name:String)=>String={
+  l normalized_name=(stdlib::string.trim(name):String);
   normalized_name
 }
 
 ⟦ BAD ⟧
-λprocess_user(name:String)→String={
-  l name=(stdlib⋅string.trim(name):String);
+λprocess_user(name:String)=>String={
+  l name=(stdlib::string.trim(name):String);
   name
 }
 ```
@@ -242,14 +242,14 @@ Sigil also rejects the opposite source of variation: naming a pure intermediate 
 
 ```sigil
 ⟦ BAD ⟧
-λformulaText(checksums:Checksums,version:String)→String={
+λformulaText(checksums:Checksums,version:String)=>String={
   l repo=(releaseRepo():String);
-  src⋅formula.formula({checksums:checksums,repo:repo,version:version})
+  src::formula.formula({checksums:checksums,repo:repo,version:version})
 }
 
 ⟦ GOOD ⟧
-λformulaText(checksums:Checksums,version:String)→String=
-  src⋅formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
+λformulaText(checksums:Checksums,version:String)=>String=
+  src::formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
 ```
 
 This is not a style suggestion. It is canonical validation.
@@ -286,7 +286,7 @@ More code fits in LLM context windows = better understanding = better code gener
 
 **Token Savings:**
 - `λ` instead of `function` (1 char vs 8)
-- `→` instead of `:` or `=>` (1 char vs 1-2, but semantically richer)
+- `=>` instead of `:` or `=>` (1 char vs 1-2, but semantically richer)
 - `match` instead of bespoke symbolic control-flow markers
 - Unicode type symbols: `IntFloatBoolString` instead of `Int,Float,Bool,String`
 
@@ -346,32 +346,32 @@ This is the **killer feature** - Claude Code as the primary interface.
 
 **Traditional approach:**
 ```
-Code is human-readable → Humans read/edit → Compiler checks
+Code is human-readable => Humans read/edit => Compiler checks
 ```
 
 **Sigil approach:**
 ```
-Code is machine-optimal → Claude Code explains → Humans understand via AI
+Code is machine-optimal => Claude Code explains => Humans understand via AI
 ```
 
 **Development Flow:**
 ```
-fibonacci.sigil       # Dense canonical code: λfibonacci(n:Int)→Int match n{...}
+fibonacci.sigil       # Dense canonical code: λfibonacci(n:Int)=>Int match n{...}
   ↓ (Claude Code reads via compiler CLI)
 Natural language explanation on demand
 ```
 
 **Claude Code Interface:**
-- Developer asks "What does this do?" → Claude Code explains
-- Developer asks "Add memoization" → Claude Code edits canonical syntax
-- Compiler CLI provides diagnostics → Claude Code interprets
-- No IDE tooling needed → Claude Code is the interface
+- Developer asks "What does this do?" => Claude Code explains
+- Developer asks "Add memoization" => Claude Code edits canonical syntax
+- Compiler CLI provides diagnostics => Claude Code interprets
+- No IDE tooling needed => Claude Code is the interface
 
 **Workflow:**
 ```
 Developer: "Create email validation function"
 Claude Code: [Generates dense canonical code]
-Claude Code: "I've created validate_email(email:String)→Bool!Error that checks..."
+Claude Code: "I've created validate_email(email:String)=>Bool!Error that checks..."
 Developer: Asks questions via Claude Code (never touches dense syntax)
 Git: Commits .sigil file
 ```
@@ -402,7 +402,7 @@ Git: Commits .sigil file
 ### Why Unicode Symbols?
 
 **Objection:** "Unicode is hard to type!"
-**Response:** You don't type it - AI does. IDE provides helpers: type `lambda` → inserts `λ`
+**Response:** You don't type it - AI does. IDE provides helpers: type `lambda` => inserts `λ`
 
 **Objection:** "Unicode is hard to read!"
 **Response:** You don't read it - you ask Claude Code to explain it. Dense code is for execution.
@@ -457,12 +457,12 @@ Production tooling:
 
 **The future of programming:**
 
-1. **Natural language specs** → Claude Code generates Sigil code
-2. **AI pair programming** → Modify code via conversation with Claude Code
-3. **Perfect understanding** → Claude Code explanations better than comments
-4. **Massive context** → More code fits in LLM windows
-5. **Zero ambiguity** → Type checker catches everything
-6. **AI evolution** → Better models → better explanations (code unchanged)
+1. **Natural language specs** => Claude Code generates Sigil code
+2. **AI pair programming** => Modify code via conversation with Claude Code
+3. **Perfect understanding** => Claude Code explanations better than comments
+4. **Massive context** => More code fits in LLM windows
+5. **Zero ambiguity** => Type checker catches everything
+6. **AI evolution** => Better models => better explanations (code unchanged)
 
 ## Controversial Takes
 

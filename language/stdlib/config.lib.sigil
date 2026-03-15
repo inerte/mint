@@ -1,4 +1,4 @@
-⟦ stdlib⋅config - Canonical environment bindings for topology-backed projects
+⟦ stdlib::config - Canonical environment bindings for topology-backed projects
 
 Config modules in config/*.lib.sigil bind declared topology dependencies to
 concrete runtime values. Ambient env access belongs in config modules, not in
@@ -25,29 +25,29 @@ t TcpBinding={
   port:PortBindingValue
 }
 
-i stdlib⋅topology
+i stdlib::topology
 
-λbindHttp(baseUrl:String,dependency:stdlib⋅topology.HttpServiceDependency)→HttpBinding={
+λbindHttp(baseUrl:String,dependency:stdlib::topology.HttpServiceDependency)=>HttpBinding={
   match dependency{
-    stdlib⋅topology.HttpServiceDependency(dependencyName)→{
+    stdlib::topology.HttpServiceDependency(dependencyName)=>{
       baseUrl:Literal(baseUrl),
       dependencyName:dependencyName
     }
   }
 }
 
-λbindHttpEnv(dependency:stdlib⋅topology.HttpServiceDependency,envVar:String)→HttpBinding={
+λbindHttpEnv(dependency:stdlib::topology.HttpServiceDependency,envVar:String)=>HttpBinding={
   match dependency{
-    stdlib⋅topology.HttpServiceDependency(dependencyName)→{
+    stdlib::topology.HttpServiceDependency(dependencyName)=>{
       baseUrl:EnvVar(envVar),
       dependencyName:dependencyName
     }
   }
 }
 
-λbindTcp(dependency:stdlib⋅topology.TcpServiceDependency,host:String,port:Int)→TcpBinding={
+λbindTcp(dependency:stdlib::topology.TcpServiceDependency,host:String,port:Int)=>TcpBinding={
   match dependency{
-    stdlib⋅topology.TcpServiceDependency(dependencyName)→{
+    stdlib::topology.TcpServiceDependency(dependencyName)=>{
       dependencyName:dependencyName,
       host:Literal(host),
       port:LiteralPort(port)
@@ -55,9 +55,9 @@ i stdlib⋅topology
   }
 }
 
-λbindTcpEnv(dependency:stdlib⋅topology.TcpServiceDependency,hostEnvVar:String,portEnvVar:String)→TcpBinding={
+λbindTcpEnv(dependency:stdlib::topology.TcpServiceDependency,hostEnvVar:String,portEnvVar:String)=>TcpBinding={
   match dependency{
-    stdlib⋅topology.TcpServiceDependency(dependencyName)→{
+    stdlib::topology.TcpServiceDependency(dependencyName)=>{
       dependencyName:dependencyName,
       host:EnvVar(hostEnvVar),
       port:EnvVarPort(portEnvVar)
@@ -65,7 +65,7 @@ i stdlib⋅topology
   }
 }
 
-λbindings(httpBindings:[HttpBinding],tcpBindings:[TcpBinding])→Bindings={
+λbindings(httpBindings:[HttpBinding],tcpBindings:[TcpBinding])=>Bindings={
   httpBindings:httpBindings,
   tcpBindings:tcpBindings
 }

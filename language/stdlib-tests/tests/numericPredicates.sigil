@@ -1,15 +1,15 @@
-i stdlib⋅numeric
+i stdlib::numeric
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "numeric.inRange is inclusive" {
-  stdlib⋅numeric.inRange(3,1,3)=true and stdlib⋅numeric.inRange(3,1,4)=false
+  stdlib::numeric.inRange(3,1,3)=true and stdlib::numeric.inRange(3,1,4)=false
 }
 
 test "numeric.isEven and isOdd basics" {
-  stdlib⋅numeric.isEven(4)=true and stdlib⋅numeric.isOdd(5)=true
+  stdlib::numeric.isEven(4)=true and stdlib::numeric.isOdd(5)=true
 }
 
 test "numeric.isPositive and isNegative basics" {
-  stdlib⋅numeric.isPositive(5)=true and stdlib⋅numeric.isNegative(-1)=true
+  stdlib::numeric.isPositive(5)=true and stdlib::numeric.isNegative(-1)=true
 }

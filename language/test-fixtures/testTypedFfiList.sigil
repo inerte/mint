@@ -1,9 +1,9 @@
 ⟦ TEST: Typed FFI with list return type ⟧
 
-e fs⋅promises : { readdir : λ(String) → [String] }
+e fs::promises : { readdir : λ(String) => [String] }
 
-λcountFiles(dir:String)→Int={
-  #(fs⋅promises.readdir(dir):[String])  ⟦ Works because result is [String], not Any ⟧
+λcountFiles(dir:String)=>Int={
+  #(fs::promises.readdir(dir):[String])  ⟦ Works because result is [String], not Any ⟧
 }
 
-λmain()→Unit=()
+λmain()=>Unit=()

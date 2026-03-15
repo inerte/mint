@@ -1,29 +1,29 @@
 e process
 
-λoutputPath()→String=outputPathFromProperty(process.env.hasOwnProperty("sigilHomebrewOutputPath"))
+λoutputPath()=>String=outputPathFromProperty(process.env.hasOwnProperty("sigilHomebrewOutputPath"))
 
-λoutputPathFromProperty(hasValue:Bool)→String match hasValue{
-  true→(process.env.sigilHomebrewOutputPath:String)|
-  false→"packaging/homebrew/Formula/sigil.rb"
+λoutputPathFromProperty(hasValue:Bool)=>String match hasValue{
+  true=>(process.env.sigilHomebrewOutputPath:String)|
+  false=>"packaging/homebrew/Formula/sigil.rb"
 }
 
-λreleaseRepo()→String=releaseRepoFromProperty(process.env.hasOwnProperty("sigilHomebrewRepo"))
+λreleaseRepo()=>String=releaseRepoFromProperty(process.env.hasOwnProperty("sigilHomebrewRepo"))
 
-λreleaseRepoFromProperty(hasValue:Bool)→String match hasValue{
-  true→(process.env.sigilHomebrewRepo:String)|
-  false→"inerte/sigil"
+λreleaseRepoFromProperty(hasValue:Bool)=>String match hasValue{
+  true=>(process.env.sigilHomebrewRepo:String)|
+  false=>"inerte/sigil"
 }
 
-λreleaseVersion()→Result[String,String]=releaseVersionFromProperty(process.env.hasOwnProperty("sigilHomebrewVersion"))
+λreleaseVersion()=>Result[String,String]=releaseVersionFromProperty(process.env.hasOwnProperty("sigilHomebrewVersion"))
 
-λreleaseVersionFromProperty(hasValue:Bool)→Result[String,String] match hasValue{
-  true→Ok((process.env.sigilHomebrewVersion:String))|
-  false→Err("sigilHomebrewVersion is required")
+λreleaseVersionFromProperty(hasValue:Bool)=>Result[String,String] match hasValue{
+  true=>Ok((process.env.sigilHomebrewVersion:String))|
+  false=>Err("sigilHomebrewVersion is required")
 }
 
-λsha256SumsPath()→Result[String,String]=sha256SumsPathFromProperty(process.env.hasOwnProperty("sigilHomebrewSha256SumsPath"))
+λsha256SumsPath()=>Result[String,String]=sha256SumsPathFromProperty(process.env.hasOwnProperty("sigilHomebrewSha256SumsPath"))
 
-λsha256SumsPathFromProperty(hasValue:Bool)→Result[String,String] match hasValue{
-  true→Ok((process.env.sigilHomebrewSha256SumsPath:String))|
-  false→Err("sigilHomebrewSha256SumsPath is required")
+λsha256SumsPathFromProperty(hasValue:Bool)=>Result[String,String] match hasValue{
+  true=>Ok((process.env.sigilHomebrewSha256SumsPath:String))|
+  false=>Err("sigilHomebrewSha256SumsPath is required")
 }

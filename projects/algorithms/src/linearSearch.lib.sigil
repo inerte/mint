@@ -1,9 +1,9 @@
-λlinearSearch(target:Int,xs:[Int])→Int=linearSearchFrom(0,target,xs)
+λlinearSearch(target:Int,xs:[Int])=>Int=linearSearchFrom(0,target,xs)
 
-λlinearSearchFrom(idx:Int,target:Int,xs:[Int])→Int match xs{
-  []→-1|
-  [head,.tail]→match head=target{
-    true→idx|
-    false→linearSearchFrom(idx+1,target,tail)
+λlinearSearchFrom(idx:Int,target:Int,xs:[Int])=>Int match xs{
+  []=>-1|
+  [head,.tail]=>match head=target{
+    true=>idx|
+    false=>linearSearchFrom(idx+1,target,tail)
   }
 }

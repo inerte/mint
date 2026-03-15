@@ -1,8 +1,8 @@
-⟦ stdlib⋅topology - Canonical external service topology for Sigil
+⟦ stdlib::topology - Canonical external service topology for Sigil
 
 Declares logical external dependency handles and environment names.
-Concrete per-environment bindings live in config/*.lib.sigil via stdlib⋅config.
-Application code should consume dependency handles from src⋅topology, not raw
+Concrete per-environment bindings live in config/*.lib.sigil via stdlib::config.
+Application code should consume dependency handles from src::topology, not raw
 URLs, hosts, ports, or environment variables.
 ⟧
 
@@ -12,8 +12,8 @@ t HttpServiceDependency=HttpServiceDependency(String)
 
 t TcpServiceDependency=TcpServiceDependency(String)
 
-λenvironment(name:String)→Environment=Environment(name)
+λenvironment(name:String)=>Environment=Environment(name)
 
-λhttpService(name:String)→HttpServiceDependency=HttpServiceDependency(name)
+λhttpService(name:String)=>HttpServiceDependency=HttpServiceDependency(name)
 
-λtcpService(name:String)→TcpServiceDependency=TcpServiceDependency(name)
+λtcpService(name:String)=>TcpServiceDependency=TcpServiceDependency(name)

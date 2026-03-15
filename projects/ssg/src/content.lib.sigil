@@ -1,52 +1,52 @@
-i src⋅types
-i stdlib⋅markdown
-i stdlib⋅string
-i stdlib⋅time
-i stdlib⋅url
+i src::types
+i stdlib::markdown
+i stdlib::string
+i stdlib::time
+i stdlib::url
 
-λaddArticleAliases(page:src⋅types.SitePage,routes:[src⋅types.AliasRoute])→[src⋅types.AliasRoute]=
+λaddArticleAliases(page:src::types.SitePage,routes:[src::types.AliasRoute])=>[src::types.AliasRoute]=
   l bareSlug=(stripNumericPrefix(page.meta.slug):String);
   match bareSlug=page.meta.slug{
-    true→routes|
-    false→routes
+    true=>routes|
+    false=>routes
       ⧺[{alias:"/articles/"++bareSlug,route:canonicalRoute(page)}]
       ⧺[{alias:"/articles/"++bareSlug++"/",route:canonicalRoute(page)}]
   }
 
-λaddKnownAliases(page:src⋅types.SitePage,routes:[src⋅types.AliasRoute])→[src⋅types.AliasRoute] match page.section{
-  src⋅types.Article()→addArticleAliases(page,routes)|
-  src⋅types.Doc()→match page.meta.slug{
-    "philosophy"→routes⧺[{alias:"/about/philosophy",route:canonicalRoute(page)}]|
-    _→routes
+λaddKnownAliases(page:src::types.SitePage,routes:[src::types.AliasRoute])=>[src::types.AliasRoute] match page.section{
+  src::types.Article()=>addArticleAliases(page,routes)|
+  src::types.Doc()=>match page.meta.slug{
+    "philosophy"=>routes⧺[{alias:"/about/philosophy",route:canonicalRoute(page)}]|
+    _=>routes
   }|
-  _→routes
+  _=>routes
 }
 
-λaliasRoutesForPage(page:src⋅types.SitePage)→[src⋅types.AliasRoute]=
+λaliasRoutesForPage(page:src::types.SitePage)=>[src::types.AliasRoute]=
   l route=(canonicalRoute(page):String);
   l baseRoutes=([
     {alias:page.sourcePath,route:route},
     {alias:"/"++page.sourcePath,route:route},
     {alias:route,route:route}
-  ]:[src⋅types.AliasRoute]);
+  ]:[src::types.AliasRoute]);
   l withSourceDir=(match page.sourcePath{
-    "website/articles/README.md"→baseRoutes
+    "website/articles/README.md"=>baseRoutes
       ⧺[{alias:"website/articles",route:route}]
       ⧺[{alias:"website/articles/",route:route}]|
-    _→baseRoutes
-  }:[src⋅types.AliasRoute]);
+    _=>baseRoutes
+  }:[src::types.AliasRoute]);
   addKnownAliases(page,match route{
-    "/"→withSourceDir|
-    _→withSourceDir⧺[{alias:trimTrailingSlash(route),route:route}]
+    "/"=>withSourceDir|
+    _=>withSourceDir⧺[{alias:trimTrailingSlash(route),route:route}]
   })
 
-λbasePathPrefix(basePath:String,route:String)→String match basePath{
-  "/"→route|
-  ""→route|
-  _→trimTrailingSlash(basePath)++route
+λbasePathPrefix(basePath:String,route:String)=>String match basePath{
+  "/"=>route|
+  ""=>route|
+  _=>trimTrailingSlash(basePath)++route
 }
 
-λblankPage(markdown:String,meta:src⋅types.PageMeta,outputDir:String,section:src⋅types.Section,sourcePath:String)→src⋅types.SitePage={
+λblankPage(markdown:String,meta:src::types.PageMeta,outputDir:String,section:src::types.Section,sourcePath:String)=>src::types.SitePage={
   bodyHtml:"",
   bodyMarkdown:markdown,
   meta:meta,
@@ -55,112 +55,112 @@ i stdlib⋅url
   sourcePath:sourcePath
 }
 
-λbuildAliasRoutes(data:src⋅types.SiteData)→[src⋅types.AliasRoute]=
+λbuildAliasRoutes(data:src::types.SiteData)=>[src::types.AliasRoute]=
   aliasRoutesForPage(data.home)
   ⧺aliasRoutesForPage(data.articlesIntro)
   ⧺pagesAliasRoutes(data.articles)
   ⧺pagesAliasRoutes(data.docs)
   ⧺pagesAliasRoutes(data.spec)
 
-λcanonicalRoute(page:src⋅types.SitePage)→String match page.outputDir{
-  ""→"/"|
-  dir→"/"++dir++"/"
+λcanonicalRoute(page:src::types.SitePage)=>String match page.outputDir{
+  ""=>"/"|
+  dir=>"/"++dir++"/"
 }
 
-λcompareArticlePages(left:src⋅types.SitePage,right:src⋅types.SitePage)→Bool=
+λcompareArticlePages(left:src::types.SitePage,right:src::types.SitePage)=>Bool=
   l leftKey=(dateSortKey(left.meta.date):Int);
   l rightKey=(dateSortKey(right.meta.date):Int);
   match leftKey=rightKey{
-    true→compareText(right.sourcePath,left.sourcePath)|
-    false→leftKey>rightKey
+    true=>compareText(right.sourcePath,left.sourcePath)|
+    false=>leftKey>rightKey
   }
 
-λcompareText(left:String,right:String)→Bool=
+λcompareText(left:String,right:String)=>Bool=
   compareTextInner(
     0,
-    stdlib⋅string.toLower(left),
-    stdlib⋅string.toLower(right)
+    stdlib::string.toLower(left),
+    stdlib::string.toLower(right)
   )
 
-λcompareTextInner(idx:Int,left:String,right:String)→Bool match idx≥#left{
-  true→idx<#right|
-  false→match idx≥#right{
-    true→false|
-    false→
-      l leftRank=(sortCharRank(stdlib⋅string.charAt(idx,left)):Int);
-      l rightRank=(sortCharRank(stdlib⋅string.charAt(idx,right)):Int);
+λcompareTextInner(idx:Int,left:String,right:String)=>Bool match idx≥#left{
+  true=>idx<#right|
+  false=>match idx≥#right{
+    true=>false|
+    false=>
+      l leftRank=(sortCharRank(stdlib::string.charAt(idx,left)):Int);
+      l rightRank=(sortCharRank(stdlib::string.charAt(idx,right)):Int);
       match leftRank=rightRank{
-        true→compareTextInner(idx+1,left,right)|
-        false→leftRank<rightRank
+        true=>compareTextInner(idx+1,left,right)|
+        false=>leftRank<rightRank
       }
   }
 }
 
-λcompareTitlePages(left:src⋅types.SitePage,right:src⋅types.SitePage)→Bool=
+λcompareTitlePages(left:src::types.SitePage,right:src::types.SitePage)=>Bool=
   compareText(left.meta.slug,right.meta.slug)
 
-λdateSortKey(date:String)→Int match stdlib⋅time.parseIso(date){
-  Ok(instant)→stdlib⋅time.toEpochMillis(instant)|
-  Err(_)→0
+λdateSortKey(date:String)=>Int match stdlib::time.parseIso(date){
+  Ok(instant)=>stdlib::time.toEpochMillis(instant)|
+  Err(_)=>0
 }
 
-λdropLast(parts:[String])→[String] match parts{
-  []→[]|
-  [part,.rest]→match rest{
-    []→[]|
-    _→[part]⧺dropLast(rest)
+λdropLast(parts:[String])=>[String] match parts{
+  []=>[]|
+  [part,.rest]=>match rest{
+    []=>[]|
+    _=>[part]⧺dropLast(rest)
   }
 }
 
-λdropNumericPrefix(slug:String)→String match #slug>4 and stdlib⋅string.isDigit(stdlib⋅string.charAt(0,slug)) and stdlib⋅string.isDigit(stdlib⋅string.charAt(1,slug)) and stdlib⋅string.isDigit(stdlib⋅string.charAt(2,slug)) and stdlib⋅string.charAt(3,slug)="-"{
-  true→stdlib⋅string.substring(#slug,slug,4)|
-  false→slug
+λdropNumericPrefix(slug:String)=>String match #slug>4 and stdlib::string.isDigit(stdlib::string.charAt(0,slug)) and stdlib::string.isDigit(stdlib::string.charAt(1,slug)) and stdlib::string.isDigit(stdlib::string.charAt(2,slug)) and stdlib::string.charAt(3,slug)="-"{
+  true=>stdlib::string.substring(#slug,slug,4)|
+  false=>slug
 }
 
-λfileDir(path:String)→String=stdlib⋅string.join("/",dropLast(stdlib⋅string.split("/",path)))
+λfileDir(path:String)=>String=stdlib::string.join("/",dropLast(stdlib::string.split("/",path)))
 
-λfindLinkClose(afterOpen:String)→Int=stdlib⋅string.indexOf(afterOpen,")")
+λfindLinkClose(afterOpen:String)=>Int=stdlib::string.indexOf(afterOpen,")")
 
-λisExternalLink(target:stdlib⋅url.Url)→Bool=
-  stdlib⋅url.isAnchor(target) or
+λisExternalLink(target:stdlib::url.Url)=>Bool=
+  stdlib::url.isAnchor(target) or
   target.protocol="http" or
   target.protocol="https" or
   target.protocol="mailto"
 
-λlookupAlias(alias:String,aliasRoutes:[src⋅types.AliasRoute])→String match aliasRoutes{
-  []→""|
-  [route,.rest]→match route.alias=alias{
-    true→route.route|
-    false→lookupAlias(alias,rest)
+λlookupAlias(alias:String,aliasRoutes:[src::types.AliasRoute])=>String match aliasRoutes{
+  []=>""|
+  [route,.rest]=>match route.alias=alias{
+    true=>route.route|
+    false=>lookupAlias(alias,rest)
   }
 }
 
-λnormalizeRepoPath(path:String)→String=
-  stdlib⋅string.join("/",normalizeSegments(stdlib⋅string.split("/",path),[]))
+λnormalizeRepoPath(path:String)=>String=
+  stdlib::string.join("/",normalizeSegments(stdlib::string.split("/",path),[]))
 
-λnormalizeSegments(parts:[String],stack:[String])→[String] match parts{
-  []→stack|
-  [part,.rest]→match part{
-    ""→normalizeSegments(rest,stack)|
-    "."→normalizeSegments(rest,stack)|
-    ".."→normalizeSegments(rest,dropLast(stack))|
-    _→normalizeSegments(rest,stack⧺[part])
+λnormalizeSegments(parts:[String],stack:[String])=>[String] match parts{
+  []=>stack|
+  [part,.rest]=>match part{
+    ""=>normalizeSegments(rest,stack)|
+    "."=>normalizeSegments(rest,stack)|
+    ".."=>normalizeSegments(rest,dropLast(stack))|
+    _=>normalizeSegments(rest,stack⧺[part])
   }
 }
 
-λpagesAliasRoutes(pages:[src⋅types.SitePage])→[src⋅types.AliasRoute] match pages{
-  []→[]|
-  [page,.rest]→
+λpagesAliasRoutes(pages:[src::types.SitePage])=>[src::types.AliasRoute] match pages{
+  []=>[]|
+  [page,.rest]=>
     aliasRoutesForPage(page)⧺pagesAliasRoutes(rest)
 }
 
-λpagesNewestFirst(pages:[src⋅types.SitePage])→[src⋅types.SitePage]=sortPagesInner(compareArticlePages,pages)
+λpagesNewestFirst(pages:[src::types.SitePage])=>[src::types.SitePage]=sortPagesInner(compareArticlePages,pages)
 
-λpagesSortedByTitle(pages:[src⋅types.SitePage])→[src⋅types.SitePage]=sortPagesInner(compareTitlePages,pages)
+λpagesSortedByTitle(pages:[src::types.SitePage])=>[src::types.SitePage]=sortPagesInner(compareTitlePages,pages)
 
-λrenderPage(aliasRoutes:[src⋅types.AliasRoute],basePath:String,page:src⋅types.SitePage)→src⋅types.SitePage=
+λrenderPage(aliasRoutes:[src::types.AliasRoute],basePath:String,page:src::types.SitePage)=>src::types.SitePage=
   {
-    bodyHtml:stdlib⋅markdown.parse(rewriteInternalLinks(aliasRoutes,basePath,page.bodyMarkdown,page.sourcePath)),
+    bodyHtml:stdlib::markdown.parse(rewriteInternalLinks(aliasRoutes,basePath,page.bodyMarkdown,page.sourcePath)),
     bodyMarkdown:page.bodyMarkdown,
     meta:page.meta,
     outputDir:page.outputDir,
@@ -168,137 +168,137 @@ i stdlib⋅url
     sourcePath:page.sourcePath
   }
 
-λresolveRepoPath(sourcePath:String,targetPath:String)→String match stdlib⋅string.startsWith("/",targetPath){
-  true→normalizeRepoPath(stdlib⋅string.substring(#targetPath,targetPath,1))|
-  false→match stdlib⋅string.startsWith("../docs/",targetPath){
-    true→normalizeRepoPath("language/docs/"++stdlib⋅string.substring(#targetPath,targetPath,8))|
-    false→match stdlib⋅string.startsWith("../language/",targetPath){
-      true→normalizeRepoPath(stdlib⋅string.substring(#targetPath,targetPath,3))|
-      false→match #fileDir(sourcePath)>0{
-        true→normalizeRepoPath(fileDir(sourcePath)++"/"++targetPath)|
-        false→normalizeRepoPath(targetPath)
+λresolveRepoPath(sourcePath:String,targetPath:String)=>String match stdlib::string.startsWith("/",targetPath){
+  true=>normalizeRepoPath(stdlib::string.substring(#targetPath,targetPath,1))|
+  false=>match stdlib::string.startsWith("../docs/",targetPath){
+    true=>normalizeRepoPath("language/docs/"++stdlib::string.substring(#targetPath,targetPath,8))|
+    false=>match stdlib::string.startsWith("../language/",targetPath){
+      true=>normalizeRepoPath(stdlib::string.substring(#targetPath,targetPath,3))|
+      false=>match #fileDir(sourcePath)>0{
+        true=>normalizeRepoPath(fileDir(sourcePath)++"/"++targetPath)|
+        false=>normalizeRepoPath(targetPath)
       }
     }
   }
 }
 
-λrewriteInternalLinks(aliasRoutes:[src⋅types.AliasRoute],basePath:String,markdown:String,sourcePath:String)→String=
-  l openIdx=(stdlib⋅string.indexOf(markdown,"]("):Int);
+λrewriteInternalLinks(aliasRoutes:[src::types.AliasRoute],basePath:String,markdown:String,sourcePath:String)=>String=
+  l openIdx=(stdlib::string.indexOf(markdown,"]("):Int);
   match openIdx<0{
-    true→markdown|
-    false→
-      l afterOpen=(stdlib⋅string.substring(#markdown,markdown,openIdx+2):String);
+    true=>markdown|
+    false=>
+      l afterOpen=(stdlib::string.substring(#markdown,markdown,openIdx+2):String);
       l closeIdx=(findLinkClose(afterOpen):Int);
       match closeIdx<0{
-        true→markdown|
-        false→
-          stdlib⋅string.substring(openIdx+2,markdown,0)
-          ++rewriteLinkTarget(aliasRoutes,basePath,sourcePath,stdlib⋅string.substring(closeIdx,afterOpen,0))
+        true=>markdown|
+        false=>
+          stdlib::string.substring(openIdx+2,markdown,0)
+          ++rewriteLinkTarget(aliasRoutes,basePath,sourcePath,stdlib::string.substring(closeIdx,afterOpen,0))
           ++")"
-          ++rewriteInternalLinks(aliasRoutes,basePath,stdlib⋅string.substring(#afterOpen,afterOpen,closeIdx+1),sourcePath)
+          ++rewriteInternalLinks(aliasRoutes,basePath,stdlib::string.substring(#afterOpen,afterOpen,closeIdx+1),sourcePath)
       }
   }
 
-λrewriteLinkTarget(aliasRoutes:[src⋅types.AliasRoute],basePath:String,sourcePath:String,target:String)→String match stdlib⋅url.parse(target){
-  Err(_)→target|
-  Ok(parsedTarget)→match isExternalLink(parsedTarget){
-    true→target|
-    false→
-      l suffix=(stdlib⋅url.suffix(parsedTarget):String);
+λrewriteLinkTarget(aliasRoutes:[src::types.AliasRoute],basePath:String,sourcePath:String,target:String)=>String match stdlib::url.parse(target){
+  Err(_)=>target|
+  Ok(parsedTarget)=>match isExternalLink(parsedTarget){
+    true=>target|
+    false=>
+      l suffix=(stdlib::url.suffix(parsedTarget):String);
       l direct=(lookupAlias(parsedTarget.path,aliasRoutes):String);
       match #direct>0{
-        true→basePathPrefix(basePath,direct)++suffix|
-        false→
+        true=>basePathPrefix(basePath,direct)++suffix|
+        false=>
           l resolved=(lookupAlias(resolveRepoPath(sourcePath,parsedTarget.path),aliasRoutes):String);
           match #resolved>0{
-            true→basePathPrefix(basePath,resolved)++suffix|
-            false→target
+            true=>basePathPrefix(basePath,resolved)++suffix|
+            false=>target
           }
       }
   }
 }
 
-λsectionName(section:src⋅types.Section)→String match section{
-  src⋅types.Article()→"Articles"|
-  src⋅types.Doc()→"Docs"|
-  src⋅types.Home()→"Home"|
-  src⋅types.Spec()→"Spec"
+λsectionName(section:src::types.Section)=>String match section{
+  src::types.Article()=>"Articles"|
+  src::types.Doc()=>"Docs"|
+  src::types.Home()=>"Home"|
+  src::types.Spec()=>"Spec"
 }
 
-λsectionNameLowercase(section:src⋅types.Section)→String match section{
-  src⋅types.Article()→"article"|
-  src⋅types.Doc()→"doc"|
-  src⋅types.Home()→"home"|
-  src⋅types.Spec()→"spec"
+λsectionNameLowercase(section:src::types.Section)=>String match section{
+  src::types.Article()=>"article"|
+  src::types.Doc()=>"doc"|
+  src::types.Home()=>"home"|
+  src::types.Spec()=>"spec"
 }
 
-λsortCharRank(ch:String)→Int match ch{
-  "-"→0|
-  "."→1|
-  "/"→2|
-  "0"→10|
-  "1"→11|
-  "2"→12|
-  "3"→13|
-  "4"→14|
-  "5"→15|
-  "6"→16|
-  "7"→17|
-  "8"→18|
-  "9"→19|
-  "a"→30|
-  "b"→31|
-  "c"→32|
-  "d"→33|
-  "e"→34|
-  "f"→35|
-  "g"→36|
-  "h"→37|
-  "i"→38|
-  "j"→39|
-  "k"→40|
-  "l"→41|
-  "m"→42|
-  "n"→43|
-  "o"→44|
-  "p"→45|
-  "q"→46|
-  "r"→47|
-  "s"→48|
-  "t"→49|
-  "u"→50|
-  "v"→51|
-  "w"→52|
-  "x"→53|
-  "y"→54|
-  "z"→55|
-  _→90
+λsortCharRank(ch:String)=>Int match ch{
+  "-"=>0|
+  "."=>1|
+  "/"=>2|
+  "0"=>10|
+  "1"=>11|
+  "2"=>12|
+  "3"=>13|
+  "4"=>14|
+  "5"=>15|
+  "6"=>16|
+  "7"=>17|
+  "8"=>18|
+  "9"=>19|
+  "a"=>30|
+  "b"=>31|
+  "c"=>32|
+  "d"=>33|
+  "e"=>34|
+  "f"=>35|
+  "g"=>36|
+  "h"=>37|
+  "i"=>38|
+  "j"=>39|
+  "k"=>40|
+  "l"=>41|
+  "m"=>42|
+  "n"=>43|
+  "o"=>44|
+  "p"=>45|
+  "q"=>46|
+  "r"=>47|
+  "s"=>48|
+  "t"=>49|
+  "u"=>50|
+  "v"=>51|
+  "w"=>52|
+  "x"=>53|
+  "y"=>54|
+  "z"=>55|
+  _=>90
 }
 
-λsortInsert(compare:λ(src⋅types.SitePage,src⋅types.SitePage)→Bool,page:src⋅types.SitePage,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
-  []→[page]|
-  [head,.rest]→match compare(page,head){
-    true→[page,head]⧺rest|
-    false→[head]⧺sortInsert(compare,page,rest)
+λsortInsert(compare:λ(src::types.SitePage,src::types.SitePage)=>Bool,page:src::types.SitePage,pages:[src::types.SitePage])=>[src::types.SitePage] match pages{
+  []=>[page]|
+  [head,.rest]=>match compare(page,head){
+    true=>[page,head]⧺rest|
+    false=>[head]⧺sortInsert(compare,page,rest)
   }
 }
 
-λsortPagesInner(compare:λ(src⋅types.SitePage,src⋅types.SitePage)→Bool,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match pages{
-  []→[]|
-  [page,.rest]→sortInsert(compare,page,sortPagesInner(compare,rest))
+λsortPagesInner(compare:λ(src::types.SitePage,src::types.SitePage)=>Bool,pages:[src::types.SitePage])=>[src::types.SitePage] match pages{
+  []=>[]|
+  [page,.rest]=>sortInsert(compare,page,sortPagesInner(compare,rest))
 }
 
-λstripNumericPrefix(slug:String)→String=dropNumericPrefix(slug)
+λstripNumericPrefix(slug:String)=>String=dropNumericPrefix(slug)
 
-λtakeFirst(count:Int,pages:[src⋅types.SitePage])→[src⋅types.SitePage] match count≤0{
-  true→[]|
-  false→match pages{
-    []→[]|
-    [page,.rest]→[page]⧺takeFirst(count-1,rest)
+λtakeFirst(count:Int,pages:[src::types.SitePage])=>[src::types.SitePage] match count≤0{
+  true=>[]|
+  false=>match pages{
+    []=>[]|
+    [page,.rest]=>[page]⧺takeFirst(count-1,rest)
   }
 }
 
-λtrimTrailingSlash(path:String)→String match (#path>1) and stdlib⋅string.endsWith(path,"/"){
-  true→trimTrailingSlash(stdlib⋅string.substring(#path-1,path,0))|
-  false→path
+λtrimTrailingSlash(path:String)=>String match (#path>1) and stdlib::string.endsWith(path,"/"){
+  true=>trimTrailingSlash(stdlib::string.substring(#path-1,path,0))|
+  false=>path
 }

@@ -1,3 +1,3 @@
-i src⋅levenshteinDistance
+i src::levenshteinDistance
 
-λmain()→Int=src⋅levenshteinDistance.levenshtein("kitten","sitting")
+λmain()=>Int=src::levenshteinDistance.levenshtein("kitten","sitting")

@@ -17,36 +17,36 @@ t Option[T]=Some(T)|None
 t Result[T,E]=Ok(T)|Err(E)
 
 ⟦ Example 1: Working with simple enums ⟧
-λcolorToNumber(color:Color)→Int match color{
-  Red→1|
-  Green→2|
-  Blue→3
+λcolorToNumber(color:Color)=>Int match color{
+  Red=>1|
+  Green=>2|
+  Blue=>3
 }
 
 ⟦ Example 2: Safe division using Result ⟧
-λdivide(a:Int,b:Int)→Result[Int,String] match b{
-  0→Err("division by zero")|
-  divisor→Ok(a/divisor)
+λdivide(a:Int,b:Int)=>Result[Int,String] match b{
+  0=>Err("division by zero")|
+  divisor=>Ok(a/divisor)
 }
 
 ⟦ Example 4: Working with Option ⟧
-λfirst[T](list:[T])→Option[T] match list{
-  []→None()|
-  [x,.rest]→Some(x)
+λfirst[T](list:[T])=>Option[T] match list{
+  []=>None()|
+  [x,.rest]=>Some(x)
 }
 
-λgetOrDefault(default:Int,opt:Option[Int])→Int match opt{
-  Some(x)→x|
-  None()→default
+λgetOrDefault(default:Int,opt:Option[Int])=>Int match opt{
+  Some(x)=>x|
+  None()=>default
 }
 
 ⟦ Main - demonstrate all examples ⟧
-λmain()→Int={
+λmain()=>Int={
   (colorToNumber(Green())+processResult(divide(10,2))+processResult(divide(10,0)):Int)
 }
 
 ⟦ Example 3: Pattern matching on Result ⟧
-λprocessResult(result:Result[Int,String])→Int match result{
-  Ok(value)→value|
-  Err(_)→0
+λprocessResult(result:Result[Int,String])=>Int match result{
+  Ok(value)=>value|
+  Err(_)=>0
 }

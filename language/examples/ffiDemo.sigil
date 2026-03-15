@@ -5,6 +5,6 @@
 
 e console
 
-λgreet(name:String)→Unit=console.log("Hello, " ++ name ++ "!")
+λgreet(name:String)=>Unit=console.log("Hello, " ++ name ++ "!")
 
-λmain()→Unit=greet("Sigil")
+λmain()=>Unit=greet("Sigil")

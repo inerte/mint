@@ -72,25 +72,25 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-PARSE-CONST-NAME
 **Description:** Constant name must be lowercase.
 **Message:** "invalid constant name"
-**Example:** `c Pi=(3.14:Float)` → should be `c pi=(3.14:Float)`
+**Example:** `c Pi=(3.14:Float)` => should be `c pi=(3.14:Float)`
 **How to fix:** Use lowercase for constant names
 
 ### SIGIL-PARSE-CONST-UNTYPED
 **Description:** Constant value must have type ascription.
 **Message:** "const value must use type ascription: c name=(value:Type)"
-**Example:** `c x=5` → should be `c x=(5:Int)`
+**Example:** `c x=5` => should be `c x=(5:Int)`
 **How to fix:** Wrap value with type ascription (value:Type)
 
 ### SIGIL-PARSE-NS-SEP
 **Description:** Invalid namespace separator.
 **Message:** "invalid namespace separator"
-**Example:** `i stdlib.list` or `i stdlib/list` → should be `i stdlib⋅list`
-**How to fix:** Use ⋅ (U+22C5) for namespace separation
+**Example:** `i stdlib.list` or `i stdlib/list` => should be `i stdlib::list`
+**How to fix:** Use :: (U+22C5) for namespace separation
 
 ### SIGIL-PARSE-LOCAL-BINDING
 **Description:** Invalid local binding keyword.
 **Message:** "invalid local binding keyword"
-**Example:** `let x=5` → should be `l x=(5:Int)`
+**Example:** `let x=5` => should be `l x=(5:Int)`
 **How to fix:** Use `l` not `let` for local bindings
 
 ### SIGIL-PARSE-UNEXPECTED-TOKEN
@@ -153,12 +153,12 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-EXEC-NEEDS-MAIN
 **Description:** Executable files (.sigil) must have main() function.
 **Message:** "Executable files must have main() function"
-**How to fix:** Add main()→Unit=() or rename to .lib.sigil
+**How to fix:** Add main()=>Unit=() or rename to .lib.sigil
 
 ### SIGIL-CANON-TEST-NEEDS-MAIN
 **Description:** Test files must have main() function.
 **Message:** "Test files must have main() function"
-**How to fix:** Add main()→Unit=() to test file
+**How to fix:** Add main()=>Unit=() to test file
 
 ### SIGIL-CANON-TEST-LOCATION
 **Description:** Test blocks must be in files under tests/ directory.
@@ -173,13 +173,13 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-FILENAME-CASE
 **Description:** Filename does not start with a lowercase letter.
 **Message:** "filenames must start with a lowercase letter"
-**Example:** UserService.lib.sigil → userService.lib.sigil
+**Example:** UserService.lib.sigil => userService.lib.sigil
 **How to fix:** Rename file to lowerCamelCase
 
 ### SIGIL-CANON-FILENAME-INVALID-CHAR
 **Description:** Filename contains invalid characters (underscore, hyphen, space, etc).
 **Message:** "filenames cannot contain X"
-**Example:** user_service.lib.sigil → userService.lib.sigil
+**Example:** user_service.lib.sigil => userService.lib.sigil
 **How to fix:** Use lowerCamelCase only
 
 ### SIGIL-CANON-FILENAME-FORMAT
@@ -220,13 +220,13 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-RECURSION-ACCUMULATOR
 **Description:** Accumulator-passing style detected.
 **Message:** "Accumulator-passing style detected in function 'name'"
-**Example:** `λfact(n:Int,acc:Int)→Int match n{0→acc|n→fact(n-1,n*acc)}`
+**Example:** `λfact(n:Int,acc:Int)=>Int match n{0=>acc|n=>fact(n-1,n*acc)}`
 **How to fix:** Use simple recursion without accumulator parameters
 
 ### SIGIL-CANON-RECURSION-COLLECTION-NONSTRUCTURAL
 **Description:** Recursive function on collection doesn't use structural recursion.
 **Message:** "Recursive function 'name' has collection parameter but doesn't use structural recursion"
-**How to fix:** Match on list structure: `match list{[]→...,[x⧺xs]→...}`
+**How to fix:** Match on list structure: `match list{[]=>...,[x⧺xs]=>...}`
 
 ### SIGIL-CANON-RECURSION-CPS
 **Description:** Continuation-Passing Style (CPS) detected.
@@ -236,8 +236,8 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-MATCH-BOOLEAN
 **Description:** Cannot pattern match on boolean expression.
 **Message:** "Cannot pattern match on boolean expression"
-**Example:** `match (x<5){true→...|false→...}` → use `(x<5)→...|...`
-**How to fix:** Use if-expression syntax: `(condition)→thenBranch|elseBranch`
+**Example:** `match (x<5){true=>...|false=>...}` => use `(x<5)=>...|...`
+**How to fix:** Use if-expression syntax: `(condition)=>thenBranch|elseBranch`
 
 ### SIGIL-CANON-MATCH-TUPLE-BOOLEAN
 **Description:** Cannot pattern match on tuple containing booleans.
@@ -247,49 +247,49 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-PARAM-ORDER
 **Description:** Function parameters out of alphabetical order.
 **Message:** "Parameter 'X' out of alphabetical order in function 'name'"
-**Example:** `λf(z:Int,a:Int)→Int=a+z` → should be `λf(a:Int,z:Int)→Int=a+z`
+**Example:** `λf(z:Int,a:Int)=>Int=a+z` => should be `λf(a:Int,z:Int)=>Int=a+z`
 **How to fix:** Sort parameters alphabetically by name
 
 ### SIGIL-CANON-EFFECT-ORDER
 **Description:** Function effects out of alphabetical order.
 **Message:** "Effect 'X' out of alphabetical order in function 'name'"
-**Example:** `λf()→!IO !Error Unit=()` → should be `λf()→!Error !IO Unit=()`
+**Example:** `λf()=>!IO !Error Unit=()` => should be `λf()=>!Error !IO Unit=()`
 **How to fix:** Sort effects alphabetically
 
 ### SIGIL-CANON-RECORD-TYPE-FIELD-ORDER
 **Description:** Product type fields out of alphabetical order.
 **Message:** "Record type field 'X' out of alphabetical order in 'TypeName'"
-**Example:** `t User={name:String,age:Int}` → should be `t User={age:Int,name:String}`
+**Example:** `t User={name:String,age:Int}` => should be `t User={age:Int,name:String}`
 **How to fix:** Sort record type fields alphabetically by field name
 
 ### SIGIL-CANON-RECORD-LITERAL-FIELD-ORDER
 **Description:** Record literal fields out of alphabetical order.
 **Message:** "Record literal field 'X' out of alphabetical order"
-**Example:** `User{name:\"A\",age:1}` → should be `User{age:1,name:\"A\"}`
+**Example:** `User{name:\"A\",age:1}` => should be `User{age:1,name:\"A\"}`
 **How to fix:** Sort record literal fields alphabetically by field name
 
 ### SIGIL-CANON-RECORD-PATTERN-FIELD-ORDER
 **Description:** Record pattern fields out of alphabetical order.
 **Message:** "Record pattern field 'X' out of alphabetical order"
-**Example:** `match p{{name,age}→...}` → should be `match p{{age,name}→...}`
+**Example:** `match p{{name,age}=>...}` => should be `match p{{age,name}=>...}`
 **How to fix:** Sort record pattern fields alphabetically by field name
 
 ### SIGIL-CANON-NO-SHADOWING
 **Description:** Local binding shadows an existing local binding from the same or an enclosing lexical scope.
 **Message:** "Binding 'name' shadows an existing X binding"
-**Example:** `λf(value:Int)→Int=l value=(2:Int);value`
+**Example:** `λf(value:Int)=>Int=l value=(2:Int);value`
 **How to fix:** Use a new name instead of rebinding an existing local, parameter, lambda parameter, or pattern binding
 
 ### SIGIL-CANON-LET-UNTYPED
 **Description:** Let binding must have type ascription.
 **Message:** "Let binding 'name' must have type ascription"
-**Example:** `l x=5` → should be `l x=(5:Int)`
+**Example:** `l x=5` => should be `l x=(5:Int)`
 **How to fix:** Use type ascription: l name=(value:Type)
 
 ### SIGIL-CANON-DECL-CATEGORY-ORDER
 **Description:** Declarations out of category order.
 **Message:** "Declarations out of category order"
-**Expected order:** types → externs → imports → consts → functions → tests
+**Expected order:** types => externs => imports => consts => functions => tests
 **How to fix:** Reorder declarations by category
 
 ### SIGIL-CANON-DECL-EXPORT-ORDER
@@ -300,7 +300,7 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-DECL-ALPHABETICAL
 **Description:** Declarations within category not alphabetical.
 **Message:** "Declarations within category must be alphabetical"
-**Example:** Functions `bar`, `foo`, `add` → should be `add`, `bar`, `foo`
+**Example:** Functions `bar`, `foo`, `add` => should be `add`, `bar`, `foo`
 **How to fix:** Sort declarations alphabetically within each category
 
 ### SIGIL-CANON-EXTERN-MEMBER-ORDER

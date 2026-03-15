@@ -1,15 +1,15 @@
-i stdlib⋅list
+i stdlib::list
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "list.inBounds checks valid and invalid indexes" {
-  stdlib⋅list.inBounds(0,[10,20,30])=true and stdlib⋅list.inBounds(3,[10,20,30])=false
+  stdlib::list.inBounds(0,[10,20,30])=true and stdlib::list.inBounds(3,[10,20,30])=false
 }
 
 test "list.sortedAsc accepts ascending list" {
-  stdlib⋅list.sortedAsc([1,2,3,4])=true
+  stdlib::list.sortedAsc([1,2,3,4])=true
 }
 
 test "list.sortedDesc accepts descending list" {
-  stdlib⋅list.sortedDesc([4,3,2,1])=true
+  stdlib::list.sortedDesc([4,3,2,1])=true
 }

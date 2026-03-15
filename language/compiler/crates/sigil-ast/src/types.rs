@@ -79,7 +79,7 @@ pub struct MapType {
     pub location: SourceLocation,
 }
 
-/// Function type: (T1, T2) → R ! [Effect1, Effect2]
+/// Function type: (T1, T2) => R ! [Effect1, Effect2]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FunctionType {
@@ -117,14 +117,14 @@ pub struct TupleType {
     pub location: SourceLocation,
 }
 
-/// Qualified type: src⋅types.ArticleMeta[T, E]
+/// Qualified type: src::types.ArticleMeta[T, E]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct QualifiedType {
     #[cfg_attr(feature = "serde", serde(rename = "modulePath"))]
-    pub module_path: Vec<String>,  // ['src', 'types'] from "src⋅types"
+    pub module_path: Vec<String>,  // ['src', 'types'] from "src::types"
     #[cfg_attr(feature = "serde", serde(rename = "typeName"))]
-    pub type_name: String,          // 'ArticleMeta' from "src⋅types.ArticleMeta"
+    pub type_name: String,          // 'ArticleMeta' from "src::types.ArticleMeta"
     #[cfg_attr(feature = "serde", serde(rename = "typeArgs"))]
     pub type_args: Vec<Type>,       // [T, E] for generic types like "Result[T, E]"
     pub location: SourceLocation,

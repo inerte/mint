@@ -15,7 +15,7 @@ Sigil uses **immutable by default** with explicit `mut` annotations for mutabili
 All values are immutable unless marked `mut`:
 
 ```sigil
-λsum(list:[Int])→Int=list⊕(λ(a:Int,x:Int)→Int=a+x)⊕0
+λsum(list:[Int])=>Int=list⊕(λ(a:Int,x:Int)=>Int=a+x)⊕0
 ⟦ list cannot be modified ⟧
 ```
 
@@ -24,7 +24,7 @@ All values are immutable unless marked `mut`:
 Use `mut` keyword for mutable parameters:
 
 ```sigil
-λsort(list:mut [Int])→Unit=quicksort_impl(list)
+λsort(list:mut [Int])=>Unit=quicksort_impl(list)
 ⟦ list will be modified in place ⟧
 ```
 
@@ -34,12 +34,12 @@ Cannot create multiple references to mutable values:
 
 ```sigil
 ⟦ ERROR: Cannot alias mutable ⟧
-λbad(x:mut [Int])→Unit match {
+λbad(x:mut [Int])=>Unit match {
   let y=x    ⟦ ERROR: Can't create alias ⟧
 }
 
 ⟦ OK: Direct use ⟧
-λgood(x:mut [Int])→Unit=modify(x)
+λgood(x:mut [Int])=>Unit=modify(x)
 ```
 
 ### Rule 4: FFI Mutation Tracking
@@ -48,10 +48,10 @@ The `mut` keyword is used when calling JavaScript functions that mutate:
 
 ```sigil
 e Array
-λsortJS(arr:mut [Int])→Unit=Array.sort(arr)  ⟦ JS Array.sort mutates ⟧
+λsortJS(arr:mut [Int])=>Unit=Array.sort(arr)  ⟦ JS Array.sort mutates ⟧
 
 ⟦ Pure Sigil code uses immutable operations ⟧
-λsorted(list:[Int])→[Int]=list↦λ(x)→x  ⟦ Returns new sorted list ⟧
+λsorted(list:[Int])=>[Int]=list↦λ(x)=>x  ⟦ Returns new sorted list ⟧
 ```
 
 ## Examples
@@ -60,16 +60,16 @@ e Array
 
 ```sigil
 ⟦ Immutable list operations (canonical form) ⟧
-λdouble(list:[Int])→[Int]=list↦λ(x:Int)→Int=x*2
+λdouble(list:[Int])=>[Int]=list↦λ(x:Int)=>Int=x*2
 
 ⟦ FFI with mutation ⟧
 e Array
-λsortArray(arr:mut [Int])→Unit=Array.sort(arr)
+λsortArray(arr:mut [Int])=>Unit=Array.sort(arr)
 
 ⟦ Multiple immutable uses (OK) ⟧
-λprocess(data:[Int])→Int match {
-  let sum=data⊕λ(a,x)→a+x⊕0
-  let len=data⊕λ(a,_)→a+1⊕0
+λprocess(data:[Int])=>Int match {
+  let sum=data⊕λ(a,x)=>a+x⊕0
+  let len=data⊕λ(a,_)=>a+1⊕0
   sum/len
 }
 ```
@@ -78,13 +78,13 @@ e Array
 
 ```sigil
 ⟦ Error: Aliasing mutable ⟧
-λbad1(x:mut [Int])→Unit match {
+λbad1(x:mut [Int])=>Unit match {
   let y=x    ⟦ Error: Cannot create alias of mutable value 'x' ⟧
 }
 
 ⟦ Error: Passing immutable to mutable parameter (FFI) ⟧
 e Array
-λbad2()→Unit match {
+λbad2()=>Unit match {
   let data=[1,2,3]
   Array.sort(data)    ⟦ Error: Cannot pass immutable 'data' to mut parameter ⟧
 }
@@ -99,7 +99,7 @@ e Array
 e Array
 
 ⟦ Without mutability checking: ⟧
-λprocess(data:[Int])→[Int] match {
+λprocess(data:[Int])=>[Int] match {
   Array.sort(data);    ⟦ Oops! Modified input ⟧
   data
 }
@@ -111,7 +111,7 @@ e Array
 **2. Aliasing Bugs:**
 ```sigil
 ⟦ Without mutability checking: ⟧
-λbug(x:mut [Int])→Unit match {
+λbug(x:mut [Int])=>Unit match {
   let y=x
   modify!(x)    ⟦ Modifies through x ⟧
   process(y)    ⟦ y changed too! ⟧
@@ -124,11 +124,11 @@ e Array
 **3. Unclear Intent:**
 ```sigil
 ⟦ Pure Sigil code - always immutable ⟧
-λsorted(data:[Int])→[Int]=...        ⟦ Returns new list (canonical) ⟧
+λsorted(data:[Int])=>[Int]=...        ⟦ Returns new list (canonical) ⟧
 
 ⟦ FFI - mut signals mutation ⟧
 e Array
-λsortArray(arr:mut [Int])→Unit=Array.sort(arr)  ⟦ Mutates via FFI ⟧
+λsortArray(arr:mut [Int])=>Unit=Array.sort(arr)  ⟦ Mutates via FFI ⟧
 ```
 
 ## Comparison to Other Languages
@@ -171,8 +171,8 @@ let y = &mut data;                                 // Mutable borrow
 
 **Sigil's simpler approach:**
 ```sigil
-λprocess(data:[Int])→Int=...           ⟦ Immutable by default ⟧
-λmodify(data:mut [Int])→Unit=...        ⟦ Explicit mut ⟧
+λprocess(data:[Int])=>Int=...           ⟦ Immutable by default ⟧
+λmodify(data:mut [Int])=>Unit=...        ⟦ Explicit mut ⟧
 ```
 
 **Just ONE new keyword:** `mut`
@@ -184,16 +184,16 @@ Sigil enforces canonical forms—one way to do each thing.
 **No tail-call optimization:**
 ```sigil
 ⟦ This style is BLOCKED: ⟧
-λfactorial(n:Int,acc:Int)→Int match n{
-  0→acc|
-  n→factorial(n-1,n*acc)
+λfactorial(n:Int,acc:Int)=>Int match n{
+  0=>acc|
+  n=>factorial(n-1,n*acc)
 }
 
 ⟦ Only primitive recursion allowed: ⟧
-λfactorial(n:Int)→Int match n{
-  0→1|
-  1→1|
-  n→n*factorial(n-1)
+λfactorial(n:Int)=>Int match n{
+  0=>1|
+  1=>1|
+  n=>n*factorial(n-1)
 }
 ```
 
@@ -206,7 +206,7 @@ Sigil provides clear, actionable error messages:
 ```
 Mutability Error: Cannot create alias of mutable value 'x'
 
-  12 | λbad(x:mut [Int])→Unit match {
+  12 | λbad(x:mut [Int])=>Unit match {
   13 |   let y=x
        ^^^^^^^
 ```
@@ -214,7 +214,7 @@ Mutability Error: Cannot create alias of mutable value 'x'
 ```
 Mutability Error: Cannot mutate immutable parameter 'list'
 
-  5 | λprocess(list:[Int])→Unit=list↦!λ(x)→x*2
+  5 | λprocess(list:[Int])=>Unit=list↦!λ(x)=>x*2
                          ^^^^^^^^^^^^^^^^
 ```
 
@@ -225,8 +225,8 @@ Mutability Error: Cannot mutate immutable parameter 'list'
 Effect tracking will be added to track side effects:
 
 ```sigil
-λread()→!IO String=...                    ⟦ IO effect ⟧
-λfetch(url:String)→!Network Response=... ⟦ Network effect ⟧
+λread()=>!IO String=...                    ⟦ IO effect ⟧
+λfetch(url:String)=>!Network Response=... ⟦ Network effect ⟧
 ```
 
 This helps prevent accidental side effects and documents function behavior clearly.
@@ -261,13 +261,13 @@ e Array
 e console
 
 ⟦ JavaScript's Array.sort mutates in place ⟧
-λsortAndLog(arr:mut [Int])→Unit match {
+λsortAndLog(arr:mut [Int])=>Unit match {
   Array.sort(arr);
   console.log(arr)
 }
 
 ⟦ Pure Sigil sorting returns new list ⟧
-λsorted(list:[Int])→[Int]=list↦λ(x)→x
+λsorted(list:[Int])=>[Int]=list↦λ(x)=>x
 ```
 
 ## Summary

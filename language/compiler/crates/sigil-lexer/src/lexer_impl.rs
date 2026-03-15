@@ -401,10 +401,15 @@ impl Lexer {
             ']' => self.add_token(tokens, TokenType::RBRACKET, "]", start),
             '{' => self.add_token(tokens, TokenType::LBRACE, "{", start),
             '}' => self.add_token(tokens, TokenType::RBRACE, "}", start),
-            ':' => self.add_token(tokens, TokenType::COLON, ":", start),
+            ':' => {
+                if self.match_char(':') {
+                    self.add_token(tokens, TokenType::NamespaceSep, "::", start);
+                } else {
+                    self.add_token(tokens, TokenType::COLON, ":", start);
+                }
+            }
             ';' => self.add_token(tokens, TokenType::SEMICOLON, ";", start),
             ',' => self.add_token(tokens, TokenType::COMMA, ",", start),
-            '⋅' => self.add_token(tokens, TokenType::NamespaceSep, "⋅", start),
             '_' => self.add_token(tokens, TokenType::UNDERSCORE, "_", start),
             '!' => self.add_token(tokens, TokenType::BANG, "!", start),
             '&' => self.add_token(tokens, TokenType::AMPERSAND, "&", start),
@@ -413,7 +418,13 @@ impl Lexer {
             '%' => self.add_token(tokens, TokenType::PERCENT, "%", start),
             '^' => self.add_token(tokens, TokenType::CARET, "^", start),
             '*' => self.add_token(tokens, TokenType::STAR, "*", start),
-            '=' => self.add_token(tokens, TokenType::EQUAL, "=", start),
+            '=' => {
+                if self.match_char('>') {
+                    self.add_token(tokens, TokenType::ARROW, "=>", start);
+                } else {
+                    self.add_token(tokens, TokenType::EQUAL, "=", start);
+                }
+            }
 
             // Multi-character operators
             '+' => {
@@ -465,7 +476,6 @@ impl Lexer {
 
             // Unicode keywords
             'λ' => self.add_token(tokens, TokenType::LAMBDA, "λ", start),
-            '→' => self.add_token(tokens, TokenType::ARROW, "→", start),
 
             // Legacy boolean literals
             '⊤' => {
@@ -805,7 +815,7 @@ mod tests {
 
     #[test]
     fn test_simple_tokens() {
-        let source = "λ → match";
+        let source = "λ => match";
         let tokens = tokenize(source).unwrap();
         assert_eq!(tokens.len(), 4); // 3 tokens + EOF
         assert_eq!(tokens[0].token_type, TokenType::LAMBDA);

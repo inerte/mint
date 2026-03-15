@@ -10,8 +10,8 @@
 
 **Sigil** is a revolutionary programming language that inverts traditional programming language design priorities:
 
-- **Traditional Languages**: Optimize for humans writing → machines execute
-- **Sigil**: Optimize for machines (LLMs) writing → humans understand via AI interpretation
+- **Traditional Languages**: Optimize for humans writing => machines execute
+- **Sigil**: Optimize for machines (LLMs) writing => humans understand via AI interpretation
 
 ### The Core Innovation
 
@@ -26,7 +26,7 @@ Sigil is optimized for:
 
 ### What's Written (Dense, Canonical Format)
 ```sigil
-λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)=>Int match n{0=>0|1=>1|n=>fibonacci(n-1)+fibonacci(n-2)}
 ```
 
 ### How Humans Understand It
@@ -72,8 +72,8 @@ Sigil-to-Sigil imports are typechecked across modules (not trust-mode `any`).
 Canonical Sigil imports:
 
 ```sigil
-i src⋅todoDomain
-i stdlib⋅list
+i src::todoDomain
+i stdlib::list
 ```
 
 Exports are determined by file extension:
@@ -85,13 +85,13 @@ No `export` keyword exists - the file extension declares the intent.
 
 - Only `src/...`, `core/...`, and `stdlib/...` are valid Sigil import roots
 - Import cycles are compile errors
-- FFI (`e module⋅path`) remains trust-mode and link-time validated
+- FFI (`e module::path`) remains trust-mode and link-time validated
 
 Sigil also has a very small implicit core prelude:
 - `Option[T]`, `Result[T,E]`
 - `Some`, `None`, `Ok`, `Err`
 
-These are available without import because they define everyday control and data vocabulary. Most operational helpers still live in namespaced modules like `core⋅map`, `stdlib⋅string`, `stdlib⋅file`, and `stdlib⋅path`.
+These are available without import because they define everyday control and data vocabulary. Most operational helpers still live in namespaced modules like `core::map`, `stdlib::string`, `stdlib::file`, and `stdlib::path`.
 
 ## Why Machine-First Design?
 
@@ -144,12 +144,13 @@ Developers interact through **Claude Code**:
 - Code that violates formatting rules doesn't parse
 - LLMs learn ONE valid token sequence per semantic meaning
 
-### 4. Minimal Token Syntax with Unicode
+### 4. Minimal Token Syntax for Models
 **"Every character carries maximum information density"**
 
-Unicode symbols for ultimate density:
+Compact canonical syntax for model-facing efficiency:
 - `λ` for function (1 char vs 2-8)
-- `→` for returns/maps-to (1 char vs 2)
+- `=>` for returns/maps-to
+- `::` for namespace paths without colliding with field access
 - `match` for pattern match (common keyword with strong model priors)
 - `Int` for integers, `Float` for reals, `Bool` for bool, `String` for string
 - `↦` for map (1 char vs 4)
@@ -182,17 +183,17 @@ Unicode symbols for ultimate density:
 
 ### Function Definition
 ```sigil
-λadd(x:Int,y:Int)→Int=x+y
+λadd(x:Int,y:Int)=>Int=x+y
 ```
 
 ### Pattern Matching
 ```sigil
-λfactorial(n:Int)→Int match n{0→1|1→1|n→n*factorial(n-1)}
+λfactorial(n:Int)=>Int match n{0=>1|1=>1|n=>n*factorial(n-1)}
 ```
 
 ### HTTP Handler Example
 ```sigil
-λhandle_request(req:Request)→Response!Error match req.path{"/users"→get_users(req)|"/health"→Ok(Response{status:200,body:"OK"})|_→Err(Error{code:404,msg:"Not found"})}
+λhandle_request(req:Request)=>Response!Error match req.path{"/users"=>get_users(req)|"/health"=>Ok(Response{status:200,body:"OK"})|_=>Err(Error{code:404,msg:"Not found"})}
 ```
 
 ### Data Types
@@ -208,21 +209,21 @@ It does not use Hindley-Milner let-polymorphism for local bindings.
 ### Built-in List Operations
 ```sigil
 ⟦ Map: ↦ - Apply function to each element ⟧
-[1,2,3,4,5]↦λx→x*2  ⟦ Result: [2,4,6,8,10] ⟧
+[1,2,3,4,5]↦λx=>x*2  ⟦ Result: [2,4,6,8,10] ⟧
 
 ⟦ Filter: ⊳ - Keep elements matching predicate ⟧
-[1,2,3,4,5]⊳λx→x%2=0  ⟦ Result: [2,4] ⟧
+[1,2,3,4,5]⊳λx=>x%2=0  ⟦ Result: [2,4] ⟧
 
 ⟦ Fold: ⊕ - Reduce with function and initial value ⟧
-[1,2,3,4,5]⊕λ(acc,x)→acc+x⊕0  ⟦ Result: 15 ⟧
+[1,2,3,4,5]⊕λ(acc,x)=>acc+x⊕0  ⟦ Result: 15 ⟧
 
 ⟦ Chained operations ⟧
-[1,2,3,4,5]↦λx→x*2⊳λx→x>5⊕λ(acc,x)→acc+x⊕0  ⟦ Result: 30 ⟧
+[1,2,3,4,5]↦λx=>x*2⊳λx=>x>5⊕λ(acc,x)=>acc+x⊕0  ⟦ Result: 30 ⟧
 ```
 
 ### Pipeline Operations
 ```sigil
-λprocess_users(users:[User])→[String]=users|>filter(λu→u.active)|>map(λu→u.name)
+λprocess_users(users:[User])=>[String]=users|>filter(λu=>u.active)|>map(λu=>u.name)
 ```
 
 ## Token Efficiency Comparison
@@ -248,14 +249,14 @@ See `benchmarks/RESULTS.md` for methodology and per-algorithm code.
 
 ### Traditional Workflow
 ```
-Developer writes code → Compiler checks → If error, developer fixes
+Developer writes code => Compiler checks => If error, developer fixes
 ```
 
 ### Sigil Workflow
 ```
 Developer: "Create a function that validates email addresses"
 Claude Code: [Generates dense code]
-Claude Code: "I've created validate_email(email:String)→Bool!Error. It checks:
+Claude Code: "I've created validate_email(email:String)=>Bool!Error. It checks:
               - Contains exactly one @
               - Has characters before and after @
               - Domain has at least one dot"
@@ -393,8 +394,8 @@ Inspired by:
 Like XML vs JSON vs YAML - optimized for machine reading/writing, not human aesthetics. The difference is that we add an AI layer to make it understandable.
 
 **The future of programming:**
-- Nobody writes transpiled JavaScript directly → toolchains do it
-- Nobody writes Sigil directly → Claude Code does it
+- Nobody writes transpiled JavaScript directly => toolchains do it
+- Nobody writes Sigil directly => Claude Code does it
 - Humans guide through natural language, Claude Code generates optimal code
 - Claude Code explains code better than human-written documentation
 

@@ -1,7 +1,7 @@
-i src⋅topology
-i stdlib⋅tcpClient
+i src::topology
+i stdlib::tcpClient
 
-λmain()→!IO String match stdlib⋅tcpClient.send(src⋅topology.eventStream,"echoed"){
-  Ok(response)→response.message|
-  Err(error)→"ERR:"++error.message
+λmain()=>!IO String match stdlib::tcpClient.send(src::topology.eventStream,"echoed"){
+  Ok(response)=>response.message|
+  Err(error)=>"ERR:"++error.message
 }

@@ -34,7 +34,7 @@ Sigil demonstrates **11.2% average token reduction** compared to TypeScript acro
 - factorial: **+15.6%** (45 vs 52 tokens)
 - gcd: **+11.6%** (43 vs 48 tokens)
 
-Sigil's `match n{0→1|n→...}` vs TypeScript's `if (n === 0) return 1;` saves significant tokens.
+Sigil's `match n{0=>1|n=>...}` vs TypeScript's `if (n === 0) return 1;` saves significant tokens.
 
 ### 2. Functional Operations Are Competitive
 
@@ -48,8 +48,8 @@ Sigil's `↦` and `⊳` operators are compact but not dramatically better than `
 
 **sumList: -9.1%** (55 vs 50 tokens)
 
-Sigil's fold syntax `xs⊕(λ(a:Int,x:Int)→Int=a+x)⊕0` is more verbose than TypeScript's `.reduce((a, x) => a + x, 0)` because:
-- Lambda requires full type annotations: `λ(a:Int,x:Int)→Int`
+Sigil's fold syntax `xs⊕(λ(a:Int,x:Int)=>Int=a+x)⊕0` is more verbose than TypeScript's `.reduce((a, x) => a + x, 0)` because:
+- Lambda requires full type annotations: `λ(a:Int,x:Int)=>Int`
 - TypeScript infers lambda types from context
 
 **Trade-off:** Sigil prioritizes explicit types (better for training) over brevity.
@@ -67,7 +67,7 @@ Characters don't directly impact LLM training, but they show Sigil's syntactic d
 ### factorial (Recursive)
 
 ```
-Sigil:       λfactorial(n:Int)→Int match n{0→1|1→1|n→n*factorial(n-1)}
+Sigil:       λfactorial(n:Int)=>Int match n{0=>1|1=>1|n=>n*factorial(n-1)}
 TypeScript: function factorial(n: number): number {
               if (n === 0 || n === 1) return 1;
               return n * factorial(n - 1);
@@ -82,13 +82,13 @@ TypeScript: function factorial(n: number): number {
 
 **Why Sigil wins:**
 - `λ` vs `function` (1 char vs 8)
-- `→` vs `: ... { }` (1 char vs 5+)
-- `match n{0→1|n→...}` vs `if (n === 0) return 1;` (compact pattern matching)
+- `=>` vs `: ... { }` (1 char vs 5+)
+- `match n{0=>1|n=>...}` vs `if (n === 0) return 1;` (compact pattern matching)
 
 ### fibonacci (Recursive)
 
 ```
-Sigil:       λfib(n:Int)→Int match n{0→0|1→1|n→fib(n-1)+fib(n-2)}
+Sigil:       λfib(n:Int)=>Int match n{0=>0|1=>1|n=>fib(n-1)+fib(n-2)}
 TypeScript: function fib(n: number): number {
               if (n === 0) return 0;
               if (n === 1) return 1;
@@ -110,7 +110,7 @@ TypeScript: function fib(n: number): number {
 ### sumList (Fold/Reduce)
 
 ```
-Sigil:       λsum(xs:[Int])→Int=xs⊕(λ(a:Int,x:Int)→Int=a+x)⊕0
+Sigil:       λsum(xs:[Int])=>Int=xs⊕(λ(a:Int,x:Int)=>Int=a+x)⊕0
 TypeScript: function sum(xs: number[]): number {
               return xs.reduce((a, x) => a + x, 0);
             }
@@ -123,7 +123,7 @@ TypeScript: function sum(xs: number[]): number {
 | Lines | 3 | 8 | 2.667 |
 
 **Why Sigil loses:**
-- Sigil requires full lambda annotations: `λ(a:Int,x:Int)→Int`
+- Sigil requires full lambda annotations: `λ(a:Int,x:Int)=>Int`
 - TypeScript infers types: `(a, x) => a + x`
 - Trade-off: explicit types (training quality) vs brevity
 
@@ -177,7 +177,7 @@ We use **tiktoken** with GPT-4 encoding (`cl100k_base`) because:
 1. Industry standard for LLM token counting
 2. Same tokenizer used for GPT-3.5/GPT-4 training
 3. Reflects real-world LLM training costs
-4. Handles Unicode correctly (Sigil's `λ→match Int` symbols)
+4. Handles Sigil's canonical syntax correctly, including compact symbolic forms like `λ`
 
 ### Language Implementations
 
@@ -200,7 +200,7 @@ All implementations use:
 
 1. **11.2% average token reduction** vs TypeScript
 2. **Recursion excels** - Pattern matching is highly compact
-3. **Unicode operators work** - `→match ↦⊳⊕` are efficient in tiktoken
+3. **Compact symbolic syntax works** - Sigil's canonical forms remain efficient in tiktoken
 4. **Character efficiency** - 35.5% fewer characters (readability for humans)
 
 ### Trade-offs

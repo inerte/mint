@@ -15,22 +15,22 @@ tags: [compiler, type-system, pattern-matching]
 Consider this common Sigil pattern:
 
 ```sigil
-λtail(xs:[Int])→[Int] match xs{
-  []→[]|
-  [x,.xs]→xs
+λtail(xs:[Int])=>[Int] match xs{
+  []=>[]|
+  [x,.xs]=>xs
 }
 ```
 
 This function returns all elements except the first. The logic is straightforward: if the input list is empty, return an empty list. Otherwise, return everything after the head.
 
-But the compiler had a problem. When it encountered the first arm `[]→[]`, it would:
+But the compiler had a problem. When it encountered the first arm `[]=>[]`, it would:
 
 1. Match the pattern `[]` (empty list pattern)
 2. Try to synthesize the type of the body `[]` (empty list literal)
 3. Fail with: "Cannot infer type of empty list []"
 
 Even though:
-- The function return type is explicitly `→[Int]`
+- The function return type is explicitly `=>[Int]`
 - The context clearly expects a list of integers
 - A human reader immediately understands what's happening
 
@@ -99,20 +99,20 @@ This fix unblocked 15 functions in `stdlib/list.sigil` that use empty list patte
 
 ```sigil
 ⟦ Get all but first element ⟧
-λtail(xs:[Int])→[Int] match xs{[]→[]|[x,.xs]→xs}
+λtail(xs:[Int])=>[Int] match xs{[]=>[]|[x,.xs]=>xs}
 
 ⟦ Get all but last element ⟧
-λinit(xs:[Int])→[Int] match xs{
-  []→[]|
-  [x]→[]|
-  [x,.xs]→[x,.init(xs)]
+λinit(xs:[Int])=>[Int] match xs{
+  []=>[]|
+  [x]=>[]|
+  [x,.xs]=>[x,.init(xs)]
 }
 
 ⟦ Intersperse element between list elements ⟧
-λintersperse(xs:[Int],sep:Int)→[Int] match xs{
-  []→[]|
-  [x]→[x]|
-  [x,.xs]→[x,sep,.intersperse(xs,sep)]
+λintersperse(xs:[Int],sep:Int)=>[Int] match xs{
+  []=>[]|
+  [x]=>[x]|
+  [x,.xs]=>[x,sep,.intersperse(xs,sep)]
 }
 ```
 
@@ -160,9 +160,9 @@ We didn't add type annotations for expressions:
 
 ```sigil
 ⟦ BAD - Would violate canonical forms ⟧
-[]→([] as [Int])
-[]→([]:[Int])
-[]→[]:Int
+[]=>([] as [Int])
+[]=>([]:[Int])
+[]=>[]:Int
 ```
 
 Adding any of these would create syntactic variation. There would be multiple ways to write the same thing. That pollutes training data and creates decision fatigue for AI code generation.
@@ -198,9 +198,9 @@ Sigil now behaves consistently with these well-established type systems.
 Let's trace how `tail` typechecks now:
 
 ```sigil
-λtail(xs:[Int])→[Int] match xs{
-  []→[]|
-  [x,.xs]→xs
+λtail(xs:[Int])=>[Int] match xs{
+  []=>[]|
+  [x,.xs]=>xs
 }
 ```
 
@@ -211,7 +211,7 @@ Let's trace how `tail` typechecks now:
 **Step 2: Match expression**
 - Scrutinee: `xs` has type `[Int]`
 
-**Step 3: First arm `[]→[]`**
+**Step 3: First arm `[]=>[]`**
 - Pattern `[]` matches scrutinee type `[Int]` (empty list pattern)
 - Bindings: (none)
 - **Synthesize** body `[]`:
@@ -219,7 +219,7 @@ Let's trace how `tail` typechecks now:
   - Can infer empty list literal as `[Int]`
 - Established type: `[Int]`
 
-**Step 4: Second arm `[x,.xs]→xs`**
+**Step 4: Second arm `[x,.xs]=>xs`**
 - Pattern `[x,.xs]` matches scrutinee type `[Int]`
 - Bindings: `x:Int`, `xs:[Int]`
 - **Check** body `xs` against expected type `[Int]`:
@@ -242,24 +242,24 @@ One important detail: this fix only works when the first arm has a non-empty lis
 **This still fails:**
 
 ```sigil
-λbad()→[Int] match true{
-  true→[]|
-  false→[1,2,3]
+λbad()=>[Int] match true{
+  true=>[]|
+  false=>[1,2,3]
 }
 ```
 
-Why? The first arm `true→[]` is synthesized. The body `[]` has no context (the pattern `true` is a boolean, not a list). The typechecker can't infer what type of list `[]` should be, even though the function return type is `[Int]`.
+Why? The first arm `true=>[]` is synthesized. The body `[]` has no context (the pattern `true` is a boolean, not a list). The typechecker can't infer what type of list `[]` should be, even though the function return type is `[Int]`.
 
 The fix: reorder the arms:
 
 ```sigil
-λgood()→[Int] match true{
-  false→[1,2,3]|
-  true→[]
+λgood()=>[Int] match true{
+  false=>[1,2,3]|
+  true=>[]
 }
 ```
 
-Now the first arm `false→[1,2,3]` synthesizes to `[Int]`, and the second arm `true→[]` is checked against that type. Success.
+Now the first arm `false=>[1,2,3]` synthesizes to `[Int]`, and the second arm `true=>[]` is checked against that type. Success.
 
 This is acceptable because:
 1. Sigil doesn't guarantee arm order independence (that would require more complex type inference)
@@ -282,7 +282,7 @@ For those interested in the formal semantics, here's the typing rule for match e
 Γ, (pₙ : T_scrutinee) ⊢ gₙ ⇐ Bool   (if guard present)
 Γ, (pₙ : T_scrutinee) ⊢ eₙ ⇐ T
 ────────────────────────────────────────────────
-Γ ⊢ (match e { p₁ [when g₁] → e₁ | ... | pₙ [when gₙ] → eₙ }) ⇒ T
+Γ ⊢ (match e { p₁ [when g₁] => e₁ | ... | pₙ [when gₙ] => eₙ }) ⇒ T
 ```
 
 The key detail: the first arm body `e₁` is **synthesized** (⇒), establishing type `T`. All subsequent arm bodies `e₂...eₙ` are **checked** (⇐) against `T`.
@@ -293,26 +293,26 @@ With empty list patterns working, Sigil can now express clean recursive list fun
 
 **List predicates:**
 ```sigil
-λis_empty(xs:[Int])→Bool match xs{[]→true|[x,.xs]→false}
-λis_singleton(xs:[Int])→Bool match xs{[x]→true|_→false}
+λis_empty(xs:[Int])=>Bool match xs{[]=>true|[x,.xs]=>false}
+λis_singleton(xs:[Int])=>Bool match xs{[x]=>true|_=>false}
 ```
 
 **List transformations:**
 ```sigil
-λreverse(xs:[Int])→[Int]=xs⊕(λ(acc:[Int],x:Int)→[Int]=[x,.acc])⊕[]
+λreverse(xs:[Int])=>[Int]=xs⊕(λ(acc:[Int],x:Int)=>[Int]=[x,.acc])⊕[]
 
-λintersperse(xs:[Int],sep:Int)→[Int] match xs{
-  []→[]|
-  [x]→[x]|
-  [x,.xs]→[x,sep,.intersperse(xs,sep)]
+λintersperse(xs:[Int],sep:Int)=>[Int] match xs{
+  []=>[]|
+  [x]=>[x]|
+  [x,.xs]=>[x,sep,.intersperse(xs,sep)]
 }
 ```
 
 **Parser combinators:**
 ```sigil
-λparse_blocks(lines:[String],state:ParseState)→([Block],ParseState) match lines{
-  []→([],state)|
-  [line,.rest]→parse_line(line,state,rest)
+λparse_blocks(lines:[String],state:ParseState)=>([Block],ParseState) match lines{
+  []=>([],state)|
+  [line,.rest]=>parse_line(line,state,rest)
 }
 ```
 
@@ -337,7 +337,7 @@ The fix aligns Sigil with how ML languages work: first arm establishes type, sub
 Most importantly, it makes Sigil work as users expect. When you write:
 
 ```sigil
-λtail(xs:[Int])→[Int] match xs{[]→[]|[x,.xs]→xs}
+λtail(xs:[Int])=>[Int] match xs{[]=>[]|[x,.xs]=>xs}
 ```
 
 It just works. No type annotations, no workarounds, no surprises.

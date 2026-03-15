@@ -14,16 +14,16 @@ slug: 003-patternGuards-dog-fooding
 Sigil has a "batteries included" philosophy. We ship a comprehensive standard library with the compiler—no npm, no dependency hell, just one canonical way to do things.
 
 To prove this works, we decided to build Sigil's own website using only Sigil and its stdlib:
-- **`stdlib⋅markdown`** - Pure Sigil markdown parser
-- **`stdlib⋅http_server`** - HTTP server wrapper
-- **`stdlib⋅io`** - File operations
-- **`stdlib⋅string`** - String utilities
+- **`stdlib::markdown`** - Pure Sigil markdown parser
+- **`stdlib::http_server`** - HTTP server wrapper
+- **`stdlib::io`** - File operations
+- **`stdlib::string`** - String utilities
 
 Everything in stdlib, nothing external. If we couldn't build our own website in pure Sigil, the language wasn't ready.
 
 ## The Problem
 
-We started implementing `stdlib⋅markdown` — a markdown-to-HTML converter written entirely in Sigil. No FFI to existing parsers, no shortcuts. Real dog-fooding.
+We started implementing `stdlib::markdown` — a markdown-to-HTML converter written entirely in Sigil. No FFI to existing parsers, no shortcuts. Real dog-fooding.
 
 Markdown parsing is fundamentally a state machine:
 - Track whether you're inside a code block
@@ -34,20 +34,20 @@ Here's what the code looked like **without** pattern guards:
 
 ```sigil
 ⟦ Hypothetical pre-guards syntax - deeply nested matches ⟧
-λparse_line(state:ParseState, line:String)→(ParseState,[Block]) match state{
-  {in_code=true,..} → match is_code_fence(line){
-    true → close_code_block(state)|
-    false → accumulate_code_line(state,line)
+λparse_line(state:ParseState, line:String)=>(ParseState,[Block]) match state{
+  {in_code=true,..} => match is_code_fence(line){
+    true => close_code_block(state)|
+    false => accumulate_code_line(state,line)
   }|
-  {in_code=false,..} → match is_code_fence(line){
-    true → start_code_block(state,line)|
-    false → match is_header(line){
-      true → parse_header(state,line)|
-      false → match is_hr(line){
-        true → parse_hr(state)|
-        false → match is_empty(line){
-          true → flush_paragraph(state)|
-          false → accumulate_para(state,line)
+  {in_code=false,..} => match is_code_fence(line){
+    true => start_code_block(state,line)|
+    false => match is_header(line){
+      true => parse_header(state,line)|
+      false => match is_hr(line){
+        true => parse_hr(state)|
+        false => match is_empty(line){
+          true => flush_paragraph(state)|
+          false => accumulate_para(state,line)
         }
       }
     }
@@ -63,8 +63,8 @@ Sigil only had pattern matching with `match`:
 
 ```sigil
 match value{
-  pattern1 → result1|
-  pattern2 → result2
+  pattern1 => result1|
+  pattern2 => result2
 }
 ```
 
@@ -88,7 +88,7 @@ We chose syntax closest to our philosophy: **explicit and canonical**.
 
 ```sigil
 match value{
-  pattern when boolean_expr → result
+  pattern when boolean_expr => result
 }
 ```
 
@@ -123,7 +123,7 @@ export interface MatchArm {
 }
 ```
 
-Parse `when` clause between pattern and `→`:
+Parse `when` clause between pattern and `=>`:
 
 ```typescript
 const pattern = this.pattern();
@@ -131,7 +131,7 @@ let guard: Expr | null = null;
 if (this.match(TokenType.WHEN)) {
   guard = this.expression();
 }
-this.consume(TokenType.ARROW, 'Expected "→"');
+this.consume(TokenType.ARROW, 'Expected "=>"');
 ```
 
 ### 3. Type Checker
@@ -176,14 +176,14 @@ Now the markdown parser looks like this:
 
 ```sigil
 ⟦ With pattern guards - clean and linear ⟧
-λparse_line(state:ParseState, line:String)→(ParseState,[Block]) match state{
-  {in_code=true,..} when is_code_fence(line) → close_code_block(state)|
-  {in_code=true,..} → accumulate_code_line(state,line)|
-  {in_code=false,..} when is_code_fence(line) → start_code_block(state,line)|
-  {in_code=false,..} when is_header(line) → parse_header(state,line)|
-  {in_code=false,..} when is_hr(line) → parse_hr(state)|
-  {in_code=false,..} when is_empty(line) → flush_paragraph(state)|
-  {in_code=false,..} → accumulate_para(state,line)
+λparse_line(state:ParseState, line:String)=>(ParseState,[Block]) match state{
+  {in_code=true,..} when is_code_fence(line) => close_code_block(state)|
+  {in_code=true,..} => accumulate_code_line(state,line)|
+  {in_code=false,..} when is_code_fence(line) => start_code_block(state,line)|
+  {in_code=false,..} when is_header(line) => parse_header(state,line)|
+  {in_code=false,..} when is_hr(line) => parse_hr(state)|
+  {in_code=false,..} when is_empty(line) => flush_paragraph(state)|
+  {in_code=false,..} => accumulate_para(state,line)
 }
 ```
 
@@ -199,20 +199,20 @@ Pattern guards aren't just for parsers. They're useful anywhere you need to:
 ```sigil
 t User={name:String,age:Int}
 
-λvalidate(u:User)→String match u{
-  {name,age} when age<0 → "invalid age"|
-  {name,..} when #name=0 → "invalid name"|
-  {name,age} → "valid"
+λvalidate(u:User)=>String match u{
+  {name,age} when age<0 => "invalid age"|
+  {name,..} when #name=0 => "invalid name"|
+  {name,age} => "valid"
 }
 ```
 
 **Range checking:**
 ```sigil
-λclassify(n:Int)→String match n{
-  x when x>100 → "large"|
-  x when x>10 → "medium"|
-  x when x>0 → "small"|
-  _ → "non-positive"
+λclassify(n:Int)=>String match n{
+  x when x>100 => "large"|
+  x when x>10 => "medium"|
+  x when x>0 => "small"|
+  _ => "non-positive"
 }
 ```
 
@@ -220,11 +220,11 @@ t User={name:String,age:Int}
 ```sigil
 t Result=Ok(Int)|Err(String)
 
-λprocess(r:Result)→String match r{
-  Ok(n) when n>100 → "big success"|
-  Ok(n) when n>0 → "success"|
-  Ok(_) → "zero or negative"|
-  Err(msg) → "error: "++msg
+λprocess(r:Result)=>String match r{
+  Ok(n) when n>100 => "big success"|
+  Ok(n) when n>0 => "success"|
+  Ok(_) => "zero or negative"|
+  Err(msg) => "error: "++msg
 }
 ```
 
@@ -241,7 +241,7 @@ The result:
 - ✅ **Canonical:** One way to do conditional matching
 - ✅ **Practical:** Solves real problems (state machines, validation, ranges)
 
-And we finished `stdlib⋅markdown`, which we're using to build this website, which you're reading right now.
+And we finished `stdlib::markdown`, which we're using to build this website, which you're reading right now.
 
 ## Try It
 
@@ -253,10 +253,10 @@ sigil --version
 ```
 
 ```sigil
-λclassify(n:Int)→String match n{
-  x when x>10 → "big"|
-  x when x>0 → "small"|
-  _ → "non-positive"
+λclassify(n:Int)=>String match n{
+  x when x>10 => "big"|
+  x when x>0 => "small"|
+  _ => "non-positive"
 }
 ```
 
@@ -269,16 +269,16 @@ Pattern guards suggest a broader pattern: **state machines as a language constru
 Right now we write:
 ```sigil
 match state{
-  {mode:String,..} when mode="active" → ...
+  {mode:String,..} when mode="active" => ...
 }
 ```
 
 What if we had:
 ```sigil
 machine ParserState{
-  Idle(input:String) when #input>0 → Parsing |
-  Parsing when complete → Done |
-  Done → Idle
+  Idle(input:String) when #input>0 => Parsing |
+  Parsing when complete => Done |
+  Done => Idle
 }
 ```
 
@@ -288,4 +288,4 @@ That's how dog-fooding works: **build real things, evolve the language, repeat.*
 
 ---
 
-*This article was written in markdown, parsed by `stdlib⋅markdown` (using pattern guards), and served by `stdlib⋅http_server`. Meta.*
+*This article was written in markdown, parsed by `stdlib::markdown` (using pattern guards), and served by `stdlib::http_server`. Meta.*

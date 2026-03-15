@@ -1,12 +1,12 @@
-i stdlib⋅time
+i stdlib::time
 
-λmain()→Unit match stdlib⋅time.parseIso("2026-03-01"){
-    Ok(first)→
-      match stdlib⋅time.parseIso("2026-03-03"){
-        Ok(second)→
-          l _=(stdlib⋅time.compare(first,second):Int);
+λmain()=>Unit match stdlib::time.parseIso("2026-03-01"){
+    Ok(first)=>
+      match stdlib::time.parseIso("2026-03-03"){
+        Ok(second)=>
+          l _=(stdlib::time.compare(first,second):Int);
           ()|
-        Err(_)→()
+        Err(_)=>()
       }|
-    Err(_)→()
+    Err(_)=>()
   }

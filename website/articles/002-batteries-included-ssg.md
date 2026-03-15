@@ -73,16 +73,16 @@ Result: deterministic imports for AI agents, no decision paralysis, and **everyt
 
 Our SSG demonstrates how stdlib components compose:
 
-### Component 1: `stdlib⋅markdown` (~600 lines)
+### Component 1: `stdlib::markdown` (~600 lines)
 
 **A pure Sigil markdown parser** - not FFI, not npm, just Sigil code.
 
 ```sigil
-i stdlib⋅markdown
+i stdlib::markdown
 
-λmain()→!IO Unit={
+λmain()=>!IO Unit={
   l md="# Hello\n\nThis is **bold** text.";
-  l html=stdlib⋅markdown.parse(md);
+  l html=stdlib::markdown.parse(md);
   console.log(html)
 }
 
@@ -100,28 +100,28 @@ We could have wrapped `marked` or `markdown-it` with one line of FFI. But buildi
 - **Produces better training data** - LLMs see how to build parsers in Sigil
 
 The implementation uses:
-- `stdlib⋅string` for substring, split, trim, char_at
-- `stdlib⋅string` for starts_with, ends_with, is_digit
+- `stdlib::string` for substring, split, trim, char_at
+- `stdlib::string` for starts_with, ends_with, is_digit
 - Recursive descent parsing with state machines
 - Pattern matching on block types (Header, Paragraph, CodeBlock, etc.)
 
-### Component 2: `stdlib⋅http_server` (~200 lines)
+### Component 2: `stdlib::http_server` (~200 lines)
 
 **Thin FFI wrapper around Node.js HTTP** - canonical interface.
 
 ```sigil
-i stdlib⋅http_server
+i stdlib::http_server
 
-λhandle(req:Request)→!IO Response={
-  stdlib⋅http_server.log_request(req);
+λhandle(req:Request)=>!IO Response={
+  stdlib::http_server.log_request(req);
 
   req.path="/" ?
-    stdlib⋅http_server.ok("<h1>Welcome</h1>") :
-    stdlib⋅http_server.not_found()
+    stdlib::http_server.ok("<h1>Welcome</h1>") :
+    stdlib::http_server.not_found()
 }
 
-λmain()→!IO Unit={
-  stdlib⋅http_server.serve(3000,handle)
+λmain()=>!IO Unit={
+  stdlib::http_server.serve(3000,handle)
 }
 ```
 
@@ -138,11 +138,11 @@ We wrap Node's `http` module to provide:
 **Orchestrates stdlib components** to build the site.
 
 ```sigil
-i stdlib⋅io          ⟦ File I/O ⟧
-i stdlib⋅markdown    ⟦ Markdown parsing ⟧
-i stdlib⋅string  ⟦ String operations ⟧
+i stdlib::io          ⟦ File I/O ⟧
+i stdlib::markdown    ⟦ Markdown parsing ⟧
+i stdlib::string  ⟦ String operations ⟧
 
-λbuild(input_dir:String,output_dir:String)→!IO Unit={
+λbuild(input_dir:String,output_dir:String)=>!IO Unit={
   ⟦ 1. Read all .md files ⟧
   l files=list_markdown_files(input_dir);
 
@@ -150,8 +150,8 @@ i stdlib⋅string  ⟦ String operations ⟧
   l articles=files↦parse_article;
 
   ⟦ 3. Convert markdown to HTML ⟧
-  l html_articles=articles↦(λ(a)→Article={
-    a with {html=stdlib⋅markdown.parse(a.markdown)}
+  l html_articles=articles↦(λ(a)=>Article={
+    a with {html=stdlib::markdown.parse(a.markdown)}
   });
 
   ⟦ 4. Apply HTML templates ⟧
@@ -177,10 +177,10 @@ Here's the beautiful part: **you're reading this article on a site built with th
 
 The page you're viewing was:
 1. Written in `website/articles/002-batteries-included-ssg.md`
-2. Parsed by `stdlib⋅markdown.parse()`
+2. Parsed by `stdlib::markdown.parse()`
 3. Wrapped in HTML templates (string concatenation)
 4. Written to `dist/` by file I/O
-5. Served by `stdlib⋅http_server` during development
+5. Served by `stdlib::http_server` during development
 
 **Zero npm packages. Zero external dependencies. Just Sigil.**
 
@@ -217,8 +217,8 @@ import { marked } from "https://esm.sh/marked";
 
 ### Sigil ✅✅
 ```sigil
-i stdlib⋅http_server  ⟦ Ships with compiler ⟧
-i stdlib⋅markdown     ⟦ Ships with compiler ⟧
+i stdlib::http_server  ⟦ Ships with compiler ⟧
+i stdlib::markdown     ⟦ Ships with compiler ⟧
 ⟦ Zero external dependencies, ONE way to do each thing ⟧
 ```
 
@@ -227,10 +227,10 @@ i stdlib⋅markdown     ⟦ Ships with compiler ⟧
 When Claude Code builds a static site generator in Sigil:
 
 **No decisions required:**
-- ONE way to parse markdown: `stdlib⋅markdown.parse()`
-- ONE way to serve HTTP: `stdlib⋅http_server.serve()`
-- ONE way to read files: `fs⋅promises.readFile()` (FFI)
-- ONE way to write files: `fs⋅promises.writeFile()` (FFI)
+- ONE way to parse markdown: `stdlib::markdown.parse()`
+- ONE way to serve HTTP: `stdlib::http_server.serve()`
+- ONE way to read files: `fs::promises.readFile()` (FFI)
+- ONE way to write files: `fs::promises.writeFile()` (FFI)
 
 **No version management:**
 - No `package.json`
@@ -258,11 +258,11 @@ Building Sigil's website in Sigil taught us:
 Writing the markdown parser in pure Sigil (~600 lines) proved:
 - Pattern matching is expressive for parsing
 - Recursive functions handle nested structures well
-- String intrinsics (`stdlib⋅string`) are fast enough
+- String intrinsics (`stdlib::string`) are fast enough
 - No need for parser combinator libraries
 
 ### 2. Thin FFI wrappers beat raw FFI
-The `stdlib⋅http_server` wrapper (~200 lines) provides:
+The `stdlib::http_server` wrapper (~200 lines) provides:
 - Type safety (Sigil types instead of Node objects)
 - Simpler API (helper functions)
 - Future portability (could retarget)
@@ -316,10 +316,10 @@ We use this rubric:
 ## Implementation Stats
 
 **Stdlib modules (ship with compiler):**
-- `stdlib⋅markdown`: 600 lines (pure Sigil)
-- `stdlib⋅http_server`: 200 lines (FFI wrapper)
-- `stdlib⋅string`: compiler intrinsics
-- `stdlib⋅string`: compiler intrinsics
+- `stdlib::markdown`: 600 lines (pure Sigil)
+- `stdlib::http_server`: 200 lines (FFI wrapper)
+- `stdlib::string`: compiler intrinsics
+- `stdlib::string`: compiler intrinsics
 
 **SSG project (example usage):**
 - `src/build.sigil`: 150 lines
@@ -356,8 +356,8 @@ node ../../language/compiler/dist/cli.js run src/server.sigil
 You'll see:
 - This article
 - The `#` operator article
-- All rendered with `stdlib⋅markdown`
-- All served with `stdlib⋅http_server`
+- All rendered with `stdlib::markdown`
+- All served with `stdlib::http_server`
 - Zero npm packages
 
 ## Future: More Batteries
@@ -365,14 +365,14 @@ You'll see:
 We're considering adding to stdlib:
 
 **Near-term candidates:**
-- `stdlib⋅json` - JSON parse/stringify
-- `stdlib⋅http_client` - Fetch wrapper (for API calls)
-- `stdlib⋅testing` - Test framework (for stdlib itself)
+- `stdlib::json` - JSON parse/stringify
+- `stdlib::http_client` - Fetch wrapper (for API calls)
+- `stdlib::testing` - Test framework (for stdlib itself)
 
 **Longer-term candidates:**
-- `stdlib⋅crypto` - Hashing, signing (thin wrapper)
-- `stdlib⋅datetime` - Date/time operations
-- `stdlib⋅path` - Path manipulation (thin wrapper)
+- `stdlib::crypto` - Hashing, signing (thin wrapper)
+- `stdlib::datetime` - Date/time operations
+- `stdlib::path` - Path manipulation (thin wrapper)
 
 Each addition is carefully considered through the "batteries included" rubric.
 

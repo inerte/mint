@@ -8,58 +8,58 @@
 ⟧
 
 ⟦ Get character at index - compiler intrinsic ⟧
-λcharAt(idx:Int,s:String)→String=""
+λcharAt(idx:Int,s:String)=>String=""
 
 ⟦ Drop first n characters ⟧
-λdrop(n:Int,s:String)→String=substring(#s,s,n)
+λdrop(n:Int,s:String)=>String=substring(#s,s,n)
 
 ⟦ Check if string ends with suffix - compiler intrinsic ⟧
-λendsWith(s:String,suffix:String)→Bool=false
+λendsWith(s:String,suffix:String)=>Bool=false
 
 ⟦ Find index of first occurrence (-1 if not found) - compiler intrinsic ⟧
-λindexOf(s:String,search:String)→Int=-1
+λindexOf(s:String,search:String)=>Int=-1
 
 ⟦ Convert integer to string - compiler intrinsic ⟧
-λintToString(n:Int)→String=""
+λintToString(n:Int)=>String=""
 
 ⟦ Check if string is a single digit character (0-9) - compiler intrinsic ⟧
-λisDigit(s:String)→Bool=false
+λisDigit(s:String)=>Bool=false
 
 ⟦ Join list of strings with separator - compiler intrinsic ⟧
-λjoin(separator:String,strings:[String])→String=""
+λjoin(separator:String,strings:[String])=>String=""
 
 ⟦ Split string into lines ⟧
-λlines(s:String)→[String]=split("\n",s)
+λlines(s:String)=>[String]=split("\n",s)
 
 ⟦ Repeat string count times ⟧
-λrepeat(count:Int,s:String)→String match count≤0{
-  true → ""|
-  false → s++repeat(count-1,s)
+λrepeat(count:Int,s:String)=>String match count≤0{
+  true => ""|
+  false => s++repeat(count-1,s)
 }
 
 ⟦ Replace all occurrences - compiler intrinsic ⟧
-λreplaceAll(pattern:String,replacement:String,s:String)→String=""
+λreplaceAll(pattern:String,replacement:String,s:String)=>String=""
 
 ⟦ Split string by delimiter - compiler intrinsic ⟧
-λsplit(delimiter:String,s:String)→[String]=[""]
+λsplit(delimiter:String,s:String)=>[String]=[""]
 
 ⟦ Check if string starts with prefix - compiler intrinsic ⟧
-λstartsWith(prefix:String,s:String)→Bool=false
+λstartsWith(prefix:String,s:String)=>Bool=false
 
 ⟦ Get substring from start to end - compiler intrinsic ⟧
-λsubstring(end:Int,s:String,start:Int)→String=""
+λsubstring(end:Int,s:String,start:Int)=>String=""
 
 ⟦ Take first n characters ⟧
-λtake(n:Int,s:String)→String=substring(n,s,0)
+λtake(n:Int,s:String)=>String=substring(n,s,0)
 
 ⟦ Convert to lowercase - compiler intrinsic ⟧
-λtoLower(s:String)→String=""
+λtoLower(s:String)=>String=""
 
 ⟦ Convert to uppercase - compiler intrinsic ⟧
-λtoUpper(s:String)→String=""
+λtoUpper(s:String)=>String=""
 
 ⟦ Remove leading/trailing whitespace - compiler intrinsic ⟧
-λtrim(s:String)→String=""
+λtrim(s:String)=>String=""
 
 ⟦ Join lines with newline separators ⟧
-λunlines(lines:[String])→String=join("\n",lines)
+λunlines(lines:[String])=>String=join("\n",lines)

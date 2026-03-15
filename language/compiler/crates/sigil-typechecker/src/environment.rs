@@ -159,7 +159,7 @@ impl TypeEnvironment {
     ///
     /// Example: lookup_qualified_type(["src", "types"], "ArticleMeta")
     pub fn lookup_qualified_type(&self, module_path: &[String], type_name: &str) -> Option<TypeInfo> {
-        let module_id = module_path.join("⋅");
+        let module_id = module_path.join("::");
         if let Some(registry) = self.imported_type_registries.get(&module_id) {
             if let Some(info) = registry.get(type_name) {
                 return Some(info.clone());
@@ -176,7 +176,7 @@ impl TypeEnvironment {
         module_path: &[String],
         member_name: &str,
     ) -> Option<InferenceType> {
-        let module_id = module_path.join("⋅");
+        let module_id = module_path.join("::");
         if let Some(registry) = self.imported_value_schemes.get(&module_id) {
             if let Some(scheme) = registry.get(member_name) {
                 return Some(instantiate_scheme(scheme));
@@ -196,7 +196,7 @@ impl TypeEnvironment {
         module_path: &[String],
         constructor_name: &str,
     ) -> Option<(String, Vec<String>, Variant, Vec<String>)> {
-        let module_id = module_path.join("⋅");
+        let module_id = module_path.join("::");
 
         if let Some(registry) = self.imported_type_registries.get(&module_id) {
             let mut matches = Vec::new();
@@ -405,7 +405,7 @@ fn split_qualified_type_name(name: &str) -> Option<(Vec<String>, String)> {
     let module_id = &name[..dot_index];
     let type_name = &name[dot_index + 1..];
     Some((
-        module_id.split('⋅').map(|part| part.to_string()).collect(),
+        module_id.split("::").map(|part| part.to_string()).collect(),
         type_name.to_string(),
     ))
 }

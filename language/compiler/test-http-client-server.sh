@@ -61,11 +61,11 @@ run_and_assert src/headersClient.sigil "202:abc-123"
 run_and_assert src/missingClient.sigil "404"
 
 cat > src/rawEndpointClient.sigil << EOF
-i stdlib⋅httpClient
+i stdlib::httpClient
 
-λmain()→!IO String match stdlib⋅httpClient.get("http://127.0.0.1:${PORT}",stdlib⋅httpClient.emptyHeaders(),"/health"){
-  Ok(response)→response.body|
-  Err(error)→error.message
+λmain()=>!IO String match stdlib::httpClient.get("http://127.0.0.1:${PORT}",stdlib::httpClient.emptyHeaders(),"/health"){
+  Ok(response)=>response.body|
+  Err(error)=>error.message
 }
 EOF
 

@@ -76,9 +76,9 @@ Examples:
 
 ```sigil
 match 5{
-  0→"zero"|
-  5→"five"|
-  _→"other"
+  0=>"zero"|
+  5=>"five"|
+  _=>"other"
 }
 ```
 
@@ -111,8 +111,8 @@ Effectful functions and tests declare effects explicitly in the surface syntax.
 Examples:
 
 ```sigil
-λmain()→!IO Unit=console.log("hello")
-test "writes log" →!IO { console.log("x")=() }
+λmain()=>!IO Unit=console.log("hello")
+test "writes log" =>!IO { console.log("x")=() }
 ```
 
 ## What This Spec Does Not Claim

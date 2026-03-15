@@ -1,7 +1,7 @@
-⟦ stdlib⋅tcpClient - Canonical TCP Client for Sigil
+⟦ stdlib::tcpClient - Canonical TCP Client for Sigil
 
 Provides the typed Sigil surface for one-request, one-response TCP exchanges.
-Runtime behavior is implemented by the compiler runtime for stdlib⋅tcpClient.
+Runtime behavior is implemented by the compiler runtime for stdlib::tcpClient.
 ⟧
 
 t TcpError={
@@ -12,21 +12,21 @@ t TcpError={
 t TcpErrorKind=Connection()|InvalidAddress()|Protocol()|Timeout()|Topology()
 
 t TcpRequest={
-  dependency:stdlib⋅topology.TcpServiceDependency,
+  dependency:stdlib::topology.TcpServiceDependency,
   message:String
 }
 
 t TcpResponse={
   message:String
 }
-i stdlib⋅topology
+i stdlib::topology
 
-λrequest(request:TcpRequest)→!IO Result[TcpResponse,TcpError]=Err({
+λrequest(request:TcpRequest)=>!IO Result[TcpResponse,TcpError]=Err({
   kind:Connection(),
   message:"tcp client runtime unavailable"
 })
 
-λsend(dependency:stdlib⋅topology.TcpServiceDependency,message:String)→!IO Result[TcpResponse,TcpError]=request({
+λsend(dependency:stdlib::topology.TcpServiceDependency,message:String)=>!IO Result[TcpResponse,TcpError]=request({
   dependency:dependency,
   message:message
 })

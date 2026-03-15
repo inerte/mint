@@ -63,7 +63,7 @@ Invalid at top level:
 Canonical declaration ordering is:
 
 ```text
-t → e → i → c → λ → test
+t => e => i => c => λ => test
 ```
 
 There is no `export` keyword in current Sigil. Visibility is file-based:
@@ -82,16 +82,16 @@ Function declarations require:
 Regular expression body:
 
 ```sigil
-λadd(x:Int,y:Int)→Int=x+y
+λadd(x:Int,y:Int)=>Int=x+y
 ```
 
 Match body:
 
 ```sigil
-λfactorial(n:Int)→Int match n{
-  0→1|
-  1→1|
-  value→value*factorial(value-1)
+λfactorial(n:Int)=>Int match n{
+  0=>1|
+  1=>1|
+  value=>value*factorial(value-1)
 }
 ```
 
@@ -100,11 +100,11 @@ For function declarations:
 - `=` is required before a non-`match` body
 - `=` is forbidden before a `match` body
 
-Effects, when present, appear between `→` and the return type:
+Effects, when present, appear between `=>` and the return type:
 
 ```sigil
-λmain()→!IO Unit=console.log("hello")
-λfetchUser(id:Int)→!Network String=axios.get("https://example.com/"+stdlib⋅string.intToString(id))
+λmain()=>!IO Unit=console.log("hello")
+λfetchUser(id:Int)=>!Network String=axios.get("https://example.com/"+stdlib::string.intToString(id))
 ```
 
 ## Lambda Expressions
@@ -113,10 +113,10 @@ Lambda expressions are fully typed and use the same body rule as top-level
 functions:
 
 ```sigil
-λ(x:Int)→Int=x*2
-λ(value:Int)→Int match value{
-  0→1|
-  n→n+1
+λ(x:Int)=>Int=x*2
+λ(value:Int)=>Int match value{
+  0=>1|
+  n=>n+1
 }
 ```
 
@@ -149,13 +149,13 @@ t Result[T,E]=Ok(T)|Err(E)
 Imported constructors use qualified module syntax in expressions and patterns:
 
 ```sigil
-i src⋅graphTypes
+i src::graphTypes
 
-src⋅graphTypes.Ordering([1,2,3])
+src::graphTypes.Ordering([1,2,3])
 
 match result{
-  src⋅graphTypes.Ordering(order)→order|
-  src⋅graphTypes.CycleDetected()→[]
+  src::graphTypes.Ordering(order)=>order|
+  src::graphTypes.CycleDetected()=>[]
 }
 ```
 
@@ -176,24 +176,24 @@ older `c name:Type=value` surface are not current Sigil.
 Sigil imports are namespace imports only:
 
 ```sigil
-i core⋅map
-i src⋅todoDomain
-i stdlib⋅list
-i stdlib⋅json
+i core::map
+i src::todoDomain
+i stdlib::list
+i stdlib::json
 ```
 
 Use imported members through the namespace:
 
 ```sigil
-src⋅todoDomain.completedCount(todos)
-stdlib⋅list.last(items)
+src::todoDomain.completedCount(todos)
+stdlib::list.last(items)
 ```
 
 Canonical import roots include:
 
-- `core⋅...`
-- `src⋅...`
-- `stdlib⋅...`
+- `core::...`
+- `src::...`
+- `stdlib::...`
 
 There are no selective imports and no import aliases.
 
@@ -203,7 +203,7 @@ Extern declarations use `e`:
 
 ```sigil
 e console
-e axios:{get:λ(String)→!Network String}
+e axios:{get:λ(String)=>!Network String}
 ```
 
 ## Local Bindings
@@ -211,7 +211,7 @@ e axios:{get:λ(String)→!Network String}
 Local bindings use `l` inside expressions:
 
 ```sigil
-λdoubleAndAdd(x:Int,y:Int)→Int={
+λdoubleAndAdd(x:Int,y:Int)=>Int={
   l doubled=(x*2:Int);
   doubled+y
 }
@@ -227,9 +227,9 @@ Sigil uses `match` for value-based branching:
 
 ```sigil
 match value{
-  0→"zero"|
-  1→"one"|
-  _→"many"
+  0=>"zero"|
+  1=>"one"|
+  _=>"many"
 }
 ```
 
@@ -246,13 +246,13 @@ Examples:
 
 ```sigil
 match option{
-  Some(value)→value|
-  None()→0
+  Some(value)=>value|
+  None()=>0
 }
 
 match list{
-  []→0|
-  [head,..rest]→head
+  []=>0|
+  [head,..rest]=>head
 }
 ```
 
@@ -302,9 +302,9 @@ Sigil includes canonical list operators:
 Examples:
 
 ```sigil
-[1,2,3]↦λ(x:Int)→Int=x*2
-[1,2,3]⊳λ(x:Int)→Bool=x>1
-[1,2,3]⊕λ(acc:Int,x:Int)→Int=acc+x⊕0
+[1,2,3]↦λ(x:Int)=>Int=x*2
+[1,2,3]⊳λ(x:Int)=>Bool=x>1
+[1,2,3]⊕λ(acc:Int,x:Int)=>Int=acc+x⊕0
 [1,2]⧺[3,4]
 ```
 
@@ -323,7 +323,7 @@ test "adds numbers" {
 Effectful tests use explicit effect annotations:
 
 ```sigil
-test "writes log" →!IO {
+test "writes log" =>!IO {
   console.log("x")=()
 }
 ```
@@ -333,10 +333,10 @@ test "writes log" →!IO {
 Sigil includes a built-in `withMock(...) { ... }` expression for tests:
 
 ```sigil
-λfetchUser(id:Int)→!Network String="real"
+λfetchUser(id:Int)=>!Network String="real"
 
-test "fallback on API failure" →!Network {
-  withMock(fetchUser, λ(id:Int)→!Network String="ERR") {
+test "fallback on API failure" =>!Network {
+  withMock(fetchUser, λ(id:Int)=>!Network String="ERR") {
     fetchUser(1)="ERR"
   }
 }

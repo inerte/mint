@@ -2,28 +2,28 @@
   Sigil Standard Library - JSON
 
   Canonical JSON value model with safe parsing via Result.
-  Runtime behavior is provided by compiler intrinsics for stdlib⋅json.
+  Runtime behavior is provided by compiler intrinsics for stdlib::json.
 ⟧
 
 t JsonError={message:String}
 t JsonValue=JsonArray([JsonValue])|JsonBool(Bool)|JsonNull|JsonNumber(Float)|JsonObject({String↦JsonValue})|JsonString(String)
 
-λasArray(value:JsonValue)→Option[[JsonValue]]=None()
+λasArray(value:JsonValue)=>Option[[JsonValue]]=None()
 
-λasBool(value:JsonValue)→Option[Bool]=None()
+λasBool(value:JsonValue)=>Option[Bool]=None()
 
-λasNumber(value:JsonValue)→Option[Float]=None()
+λasNumber(value:JsonValue)=>Option[Float]=None()
 
-λasObject(value:JsonValue)→Option[{String↦JsonValue}]=None()
+λasObject(value:JsonValue)=>Option[{String↦JsonValue}]=None()
 
-λasString(value:JsonValue)→Option[String]=None()
+λasString(value:JsonValue)=>Option[String]=None()
 
-λgetField(key:String,obj:{String↦JsonValue})→Option[JsonValue]=None()
+λgetField(key:String,obj:{String↦JsonValue})=>Option[JsonValue]=None()
 
-λgetIndex(arr:[JsonValue],idx:Int)→Option[JsonValue]=None()
+λgetIndex(arr:[JsonValue],idx:Int)=>Option[JsonValue]=None()
 
-λisNull(value:JsonValue)→Bool=false
+λisNull(value:JsonValue)=>Bool=false
 
-λparse(input:String)→Result[JsonValue,JsonError]=Err({message:"JSON parse intrinsic unavailable"})
+λparse(input:String)=>Result[JsonValue,JsonError]=Err({message:"JSON parse intrinsic unavailable"})
 
-λstringify(value:JsonValue)→String=""
+λstringify(value:JsonValue)=>String=""

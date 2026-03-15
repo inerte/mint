@@ -31,13 +31,13 @@ Function and lambda signatures must be fully typed.
 Examples:
 
 ```sigil
-λfactorial(n:Int)→Int match n{
-  0→1|
-  1→1|
-  value→value*factorial(value-1)
+λfactorial(n:Int)=>Int match n{
+  0=>1|
+  1=>1|
+  value=>value*factorial(value-1)
 }
 
-λ(x:Int)→Int=x*2
+λ(x:Int)=>Int=x*2
 
 c pi=(3.14:Float)
 ```
@@ -49,8 +49,8 @@ Missing parameter or return type annotations are parse errors.
 Sigil supports explicit generic declarations at top level:
 
 ```sigil
-λidentity[T](x:T)→T=x
-λmapOption[T,U](fn:λ(T)→U,opt:Option[T])→Option[U]=...
+λidentity[T](x:T)=>T=x
+λmapOption[T,U](fn:λ(T)=>U,opt:Option[T])=>Option[U]=...
 ```
 
 Polymorphism comes from those declarations.
@@ -72,7 +72,7 @@ Compound forms:
 
 - lists: `[T]`
 - maps: `{K↦V}`
-- functions: `λ(T1,T2,...)→R`
+- functions: `λ(T1,T2,...)=>R`
 - named ADTs and aliases
 
 ## Records and Maps
@@ -113,14 +113,14 @@ That means:
 Effect annotations are part of the current surface:
 
 ```sigil
-λmain()→!IO Unit=console.log("hello")
-λfetch()→!Network String=axios.get("https://example.com")
+λmain()=>!IO Unit=console.log("hello")
+λfetch()=>!Network String=axios.get("https://example.com")
 ```
 
 Tests can also declare effects:
 
 ```sigil
-test "writes log" →!IO {
+test "writes log" =>!IO {
   console.log("x")=()
 }
 ```
@@ -144,15 +144,15 @@ Canonical shape:
 
 ```text
 raw input
-→ parse
-→ decode / validate
-→ exact internal record or named wrapper
+=> parse
+=> decode / validate
+=> exact internal record or named wrapper
 ```
 
 Examples:
 
 ```sigil
-t Message={createdAt:stdlib⋅time.Instant,text:String}
+t Message={createdAt:stdlib::time.Instant,text:String}
 t Email=Email(String)
 ```
 

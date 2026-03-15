@@ -1,14 +1,14 @@
-⟦ Tests for stdlib⋅tcpClient ⟧
+⟦ Tests for stdlib::tcpClient ⟧
 
-i stdlib⋅tcpClient
-i stdlib⋅topology
+i stdlib::tcpClient
+i stdlib::topology
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "tcp client request record preserves dependency and message" {
   l request=({
-    dependency:stdlib⋅topology.TcpServiceDependency("eventStream"),
+    dependency:stdlib::topology.TcpServiceDependency("eventStream"),
     message:"ping"
-  }:stdlib⋅tcpClient.TcpRequest);
-  request.dependency=stdlib⋅topology.TcpServiceDependency("eventStream") and request.message="ping"
+  }:stdlib::tcpClient.TcpRequest);
+  request.dependency=stdlib::topology.TcpServiceDependency("eventStream") and request.message="ping"
 }

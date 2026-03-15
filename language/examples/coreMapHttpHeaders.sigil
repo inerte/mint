@@ -1,5 +1,5 @@
-i core⋅map
+i core::map
 
-λmain()→Option[String]={
-  core⋅map.get("content-type",({"content-type"↦"application/json","x-request-id"↦"abc-123"}:{String↦String}))
+λmain()=>Option[String]={
+  core::map.get("content-type",({"content-type"↦"application/json","x-request-id"↦"abc-123"}:{String↦String}))
 }

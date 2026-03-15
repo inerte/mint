@@ -116,7 +116,7 @@ pub struct TypeAlias {
     pub location: SourceLocation,
 }
 
-/// Import declaration: i stdlib⋅list
+/// Import declaration: i stdlib::list
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ImportDecl {
@@ -146,12 +146,12 @@ pub struct TestDecl {
     pub location: SourceLocation,
 }
 
-/// External FFI declaration: e fs⋅promises { readFile: ... }
+/// External FFI declaration: e fs::promises { readFile: ... }
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExternDecl {
     #[cfg_attr(feature = "serde", serde(rename = "modulePath"))]
-    pub module_path: Vec<String>,     // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs⋅promises)
+    pub module_path: Vec<String>,     // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs::promises)
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub members: Option<Vec<ExternMember>>, // Optional typed members for FFI type checking
     pub location: SourceLocation,

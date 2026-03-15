@@ -88,12 +88,12 @@ If a parser ambiguity appears, favor the interpretation that preserves globally 
 
 Current constructor and list invariants:
 - imported sum-type constructors use fully qualified module syntax in both expressions and patterns
-- canonical example: `src⋅graphTypes.Ordering([1,2,3])`
-- canonical imported nullary pattern example: `src⋅graphTypes.CycleDetected()`
+- canonical example: `src::graphTypes.Ordering([1,2,3])`
+- canonical imported nullary pattern example: `src::graphTypes.CycleDetected()`
 - list literals preserve nesting exactly as written
 - use `⧺` only for explicit concatenation; never rely on list literals to flatten values
 - if a canonical helper exists in `stdlib`, prefer it over project-local reimplementation
-- for safe integer list lookup/end access, prefer `stdlib⋅list.nth` and `stdlib⋅list.last`
+- for safe integer list lookup/end access, prefer `stdlib::list.nth` and `stdlib::list.last`
 - Sigil is concurrent by default; do not describe it as "await every call"
 - effectful operations start in source order, even when their resolution overlaps
 - `↦` and `⊳` require pure callbacks; `⊕` is the ordered reduction form
@@ -102,9 +102,9 @@ Current constructor and list invariants:
 - do not describe Sigil as using Hindley-Milner let-polymorphism
 - prefer canonical `Option[T]` / `Result[T,E]` over monomorphic wrappers like `IntOption`
 - generic lambdas and call-site type arguments like `f[Int](x)` are not part of Sigil's surface
-- `Option`, `Result`, `Some`, `None`, `Ok`, and `Err` are implicit core vocabulary from `core⋅prelude`
+- `Option`, `Result`, `Some`, `None`, `Ok`, and `Err` are implicit core vocabulary from `core::prelude`
 - `Map` is a core collection concept with type syntax `{K↦V}` and literal syntax `{key↦value,...}` / `{↦}`
-- helper operations for foundational core types stay namespaced under `core⋅...`
+- helper operations for foundational core types stay namespaced under `core::...`
 - operational helpers live in canonical stdlib modules; use `language/docs/STDLIB.md` and `language/spec/stdlib-spec.md` as the source of truth for the current surface
 - prefixes are not intrinsically valuable; canonical ownership is
 - future changes should decide intentionally whether a concept belongs in:
@@ -119,11 +119,11 @@ Current constructor and list invariants:
   - never blur them in syntax, docs, examples, or future features
   - records are exact and closed; Sigil does not have open records, row tails, or width subtyping
   - if a field may be absent, keep the record exact and use `Option[T]` for that field
-  - prefer early boundary conversion with `stdlib⋅decode` instead of carrying raw `JsonValue` deep into business logic
+  - prefer early boundary conversion with `stdlib::decode` instead of carrying raw `JsonValue` deep into business logic
   - when a validated boundary value should remain distinct from a raw primitive, prefer a named wrapper type like `Email` or `UserId`
   - topology-aware projects must declare external HTTP/TCP dependencies and environment names in `src/topology.lib.sigil`
   - topology-aware projects are validated against the selected `--env`, which must resolve to `config/<env>.lib.sigil`
-  - topology-aware application code must use `src⋅topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
+  - topology-aware application code must use `src::topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
   - `process.env` belongs only in `config/*.lib.sigil`, never in ordinary application code
   - tests are environments; prefer `config/test.lib.sigil` over ad hoc runtime rewiring
   - inline single-use pure locals; keep bindings only for reuse, effects, destructuring, or syntax-required staging
@@ -136,7 +136,7 @@ Error messages should:
 - give a minimal example fix when possible
 
 Prefer:
-- `Use "⋅" (e.g., i stdlib⋅list)`
+- `Use "::" (e.g., i stdlib::list)`
 
 Over:
 - vague parse failures with no remediation
@@ -252,21 +252,21 @@ Sigil enforces canonical filename format:
 - Used for programs, scripts, examples
 
 **`tests/*.sigil` files** (tests):
-- Must have main()→Unit=() function
+- Must have main()=>Unit=() function
 - Can have test blocks
 - Must be in tests/ directory
 - Special privilege: can import from ANY file and see ALL functions
 
 When creating new files:
-- Library? → Use `.lib.sigil`, all functions auto-visible
-- Executable? → Use `.sigil` and add main()
-- Test? → Create in tests/ directory with main()
+- Library? => Use `.lib.sigil`, all functions auto-visible
+- Executable? => Use `.sigil` and add main()
+- Test? => Create in tests/ directory with main()
 
 ### Working with Tests
 
 Test files must:
 1. Live in `tests/` directories
-2. Have a `main()→Unit=()` function (executable marker)
+2. Have a `main()=>Unit=()` function (executable marker)
 3. Use `.sigil` extension (executables, not libraries)
 
 Run tests:
@@ -278,9 +278,9 @@ language/compiler/target/debug/sigil test projects/algorithms/tests
 Create new test file:
 ```sigil
 // tests/my-feature.sigil
-i stdlib⋅list
+i stdlib::list
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "my feature works" {
   #[1,2,3]=3
@@ -300,7 +300,7 @@ use sigil_validator::{validate_canonical_form, ValidationError};
 
 #[test]
 fn test_accumulator_blocked() {
-    let source = "λfactorial(n:Int,acc:Int)→Int match n{0→acc|n→factorial(n-1,n*acc)}";
+    let source = "λfactorial(n:Int,acc:Int)=>Int match n{0=>acc|n=>factorial(n-1,n*acc)}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -380,6 +380,6 @@ Good commit messages explain why the language/compiler change matters:
 
 Examples of useful verbs:
 - `Fix` parser ambiguity for namespace/division parsing
-- `Update` canonical import syntax to use ⋅ separators
+- `Update` canonical import syntax to use :: separators
 - `Export` stdlib list utilities for typed imports
 - `Sync` docs/spec examples with parser behavior

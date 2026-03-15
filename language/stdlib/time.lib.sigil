@@ -2,24 +2,24 @@
   Sigil Standard Library - Time
 
   Canonical instant model (epoch millis) with strict ISO-8601 parsing.
-  Runtime behavior is provided by compiler intrinsics for stdlib⋅time.
+  Runtime behavior is provided by compiler intrinsics for stdlib::time.
 ⟧
 
 t Instant={epochMillis:Int}
 t TimeError={message:String}
 
-λcompare(left:Instant,right:Instant)→Int=0
+λcompare(left:Instant,right:Instant)=>Int=0
 
-λformatIso(instant:Instant)→String=""
+λformatIso(instant:Instant)=>String=""
 
-λfromEpochMillis(millis:Int)→Instant={epochMillis:millis}
+λfromEpochMillis(millis:Int)=>Instant={epochMillis:millis}
 
-λisAfter(left:Instant,right:Instant)→Bool=false
+λisAfter(left:Instant,right:Instant)=>Bool=false
 
-λisBefore(left:Instant,right:Instant)→Bool=false
+λisBefore(left:Instant,right:Instant)=>Bool=false
 
-λnow()→!IO Instant={epochMillis:0}
+λnow()=>!IO Instant={epochMillis:0}
 
-λparseIso(input:String)→Result[Instant,TimeError]=Err({message:"time parse intrinsic unavailable"})
+λparseIso(input:String)=>Result[Instant,TimeError]=Err({message:"time parse intrinsic unavailable"})
 
-λtoEpochMillis(instant:Instant)→Int=instant.epochMillis
+λtoEpochMillis(instant:Instant)=>Int=instant.epochMillis

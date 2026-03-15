@@ -1,33 +1,33 @@
 e console
 e process
 
-i config⋅release
-i src⋅formula
-i stdlib⋅file
-i stdlib⋅path
+i config::release
+i src::formula
+i stdlib::file
+i stdlib::path
 
-λfail(message:String)→!IO Unit={
+λfail(message:String)=>!IO Unit={
   l _=(console.error(message):Unit);
   process.exit(1)
 }
 
-λmain()→!IO Unit match releaseVersion(){
-  Ok(version)→match sha256SumsPath(){
-    Ok(path)→{
-      l text=(stdlib⋅file.readText(path):String);
-      match src⋅formula.parseChecksums(text,version){
-        Some(checksums)→{
-          l _=(stdlib⋅file.makeDirs(stdlib⋅path.dirname(config⋅release.outputPath())):Unit);
-          (stdlib⋅file.writeText(src⋅formula.formula({checksums:checksums,repo:config⋅release.releaseRepo(),version:version}),config⋅release.outputPath()):Unit)
+λmain()=>!IO Unit match releaseVersion(){
+  Ok(version)=>match sha256SumsPath(){
+    Ok(path)=>{
+      l text=(stdlib::file.readText(path):String);
+      match src::formula.parseChecksums(text,version){
+        Some(checksums)=>{
+          l _=(stdlib::file.makeDirs(stdlib::path.dirname(config::release.outputPath())):Unit);
+          (stdlib::file.writeText(src::formula.formula({checksums:checksums,repo:config::release.releaseRepo(),version:version}),config::release.outputPath()):Unit)
         }|
-        None()→fail("could not parse required Homebrew release checksums")
+        None()=>fail("could not parse required Homebrew release checksums")
       }
     }|
-    Err(message)→fail(message)
+    Err(message)=>fail(message)
   }|
-  Err(message)→fail(message)
+  Err(message)=>fail(message)
 }
 
-λreleaseVersion()→Result[String,String]=config⋅release.releaseVersion()
+λreleaseVersion()=>Result[String,String]=config::release.releaseVersion()
 
-λsha256SumsPath()→Result[String,String]=config⋅release.sha256SumsPath()
+λsha256SumsPath()=>Result[String,String]=config::release.sha256SumsPath()

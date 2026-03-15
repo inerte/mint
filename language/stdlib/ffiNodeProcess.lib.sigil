@@ -4,11 +4,11 @@
   Import this module to get compile-time type checking for process operations.
 
   Example:
-    i stdlib⋅ffiNodeProcess
-    λgetWorkingDir()→String=process.cwd()
+    i stdlib::ffiNodeProcess
+    λgetWorkingDir()=>String=process.cwd()
 ⟧
 
 e process : {
-  cwd : λ() → String,
-  exit : λ(Int) → Unit
+  cwd : λ() => String,
+  exit : λ(Int) => Unit
 }

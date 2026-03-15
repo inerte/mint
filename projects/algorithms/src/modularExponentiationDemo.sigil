@@ -1,3 +1,3 @@
-i src⋅modularExponentiation
+i src::modularExponentiation
 
-λmain()→Int=src⋅modularExponentiation.modPow(5,117,19)
+λmain()=>Int=src::modularExponentiation.modPow(5,117,19)

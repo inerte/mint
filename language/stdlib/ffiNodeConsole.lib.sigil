@@ -4,14 +4,14 @@
   Import this module to get compile-time type checking for console methods.
 
   Example:
-    i stdlib⋅ffiNodeConsole
-    λmain()→Unit=console.log("typed!")
+    i stdlib::ffiNodeConsole
+    λmain()=>Unit=console.log("typed!")
 ⟧
 
 e console : {
-  debug : λ(String) → Unit,
-  error : λ(String) → Unit,
-  info : λ(String) → Unit,
-  log : λ(String) → Unit,
-  warn : λ(String) → Unit
+  debug : λ(String) => Unit,
+  error : λ(String) => Unit,
+  info : λ(String) => Unit,
+  log : λ(String) => Unit,
+  warn : λ(String) => Unit
 }

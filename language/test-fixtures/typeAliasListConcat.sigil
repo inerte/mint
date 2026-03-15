@@ -2,9 +2,9 @@
 
 t Todo={done:Bool,id:Int,text:String}
 
-λaddTodo(id:Int,text:String,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
+λaddTodo(id:Int,text:String,todos:[Todo])=>[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
 
-λmain()→Unit match addTodo(1,"First",[Todo{done:false,id:2,text:"Second"}]){
-  [_,_]→()|
-  _→()
+λmain()=>Unit match addTodo(1,"First",[Todo{done:false,id:2,text:"Second"}]){
+  [_,_]=>()|
+  _=>()
 }

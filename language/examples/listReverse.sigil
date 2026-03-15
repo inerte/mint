@@ -1,6 +1,6 @@
-λmain()→[Int]=reverse([1,2,3,4,5])
+λmain()=>[Int]=reverse([1,2,3,4,5])
 
-λreverse(lst:[Int])→[Int] match lst{
-  []→[]|
-  [x,.xs]→reverse(xs)⧺[x]
+λreverse(lst:[Int])=>[Int] match lst{
+  []=>[]|
+  [x,.xs]=>reverse(xs)⧺[x]
 }

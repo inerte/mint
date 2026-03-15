@@ -57,7 +57,7 @@ Current filename diagnostics:
 Top-level declarations must appear in this category order:
 
 ```text
-t → e → i → c → λ → test
+t => e => i => c => λ => test
 ```
 
 Module scope is declaration-only.
@@ -78,22 +78,22 @@ Canonical function/lambda rules:
 
 - parameter types are required
 - return types are required
-- effects, when present, appear between `→` and the return type
+- effects, when present, appear between `=>` and the return type
 - `=` is required before non-`match` bodies
 - `=` is forbidden before `match` bodies
 
 Examples:
 
 ```sigil
-λadd(x:Int,y:Int)→Int=x+y
+λadd(x:Int,y:Int)=>Int=x+y
 
-λfactorial(n:Int)→Int match n{
-  0→1|
-  1→1|
-  value→value*factorial(value-1)
+λfactorial(n:Int)=>Int match n{
+  0=>1|
+  1=>1|
+  value=>value*factorial(value-1)
 }
 
-λ(x:Int)→Int=x*2
+λ(x:Int)=>Int=x*2
 ```
 
 ## Constants
@@ -145,17 +145,17 @@ Sigil currently rejects pure local bindings used exactly once.
 Example:
 
 ```sigil
-λformulaText(checksums:Checksums,version:String)→String={
+λformulaText(checksums:Checksums,version:String)=>String={
   l repo=(releaseRepo():String);
-  src⋅formula.formula({checksums:checksums,repo:repo,version:version})
+  src::formula.formula({checksums:checksums,repo:repo,version:version})
 }
 ```
 
 Required canonical form:
 
 ```sigil
-λformulaText(checksums:Checksums,version:String)→String=
-  src⋅formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
+λformulaText(checksums:Checksums,version:String)=>String=
+  src::formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
 ```
 
 Current mechanical rule:
@@ -204,12 +204,12 @@ The overall pipeline is:
 
 ```text
 read source
-→ tokenize
-→ parse
-→ canonical validation
-→ typecheck
-→ typed canonical validation
-→ codegen / run / test
+=> tokenize
+=> parse
+=> canonical validation
+=> typecheck
+=> typed canonical validation
+=> codegen / run / test
 ```
 
 ## Source of Truth

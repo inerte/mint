@@ -41,7 +41,7 @@ pub enum ParseError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-PARSE-NS-SEP {file}:{line}:{column} invalid namespace separator (found {found}, expected ⋅)")]
+    #[error("SIGIL-PARSE-NS-SEP {file}:{line}:{column} invalid namespace separator (found {found}, expected ::)")]
     InvalidNamespaceSeparator {
         file: String,
         found: String,
@@ -181,7 +181,7 @@ impl From<ParseError> for Diagnostic {
                 "invalid namespace separator",
             )
             .with_location(source_location_to_span(file, location))
-            .with_found_expected(&found, "⋅"),
+            .with_found_expected(&found, "::"),
 
             ParseError::InvalidLocalBinding {
                 file,

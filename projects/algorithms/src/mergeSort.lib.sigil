@@ -1,62 +1,62 @@
-λfirstRun(runs:[[Int]])→[Int] match runs{
-  []→[]|
-  [head,.tail]→match tail{
-    []→head|
-    _→head
+λfirstRun(runs:[[Int]])=>[Int] match runs{
+  []=>[]|
+  [head,.tail]=>match tail{
+    []=>head|
+    _=>head
   }
 }
 
-λmerge(left:[Int],right:[Int])→[Int] match left{
-  []→right|
-  [leftHead,.leftTail]→match right{
-    []→left|
-    [rightHead,.rightTail]→match leftHead≤rightHead{
-      true→[leftHead]⧺merge(leftTail,right)|
-      false→[rightHead]⧺merge(left,rightTail)
+λmerge(left:[Int],right:[Int])=>[Int] match left{
+  []=>right|
+  [leftHead,.leftTail]=>match right{
+    []=>left|
+    [rightHead,.rightTail]=>match leftHead≤rightHead{
+      true=>[leftHead]⧺merge(leftTail,right)|
+      false=>[rightHead]⧺merge(left,rightTail)
     }
   }
 }
 
-λmergeAllRuns(runs:[[Int]])→[Int]=mergeAllRunsCount(#runs,runs)
+λmergeAllRuns(runs:[[Int]])=>[Int]=mergeAllRunsCount(#runs,runs)
 
-λmergeAllRunsCount(runCount:Int,runs:[[Int]])→[Int] match runCount≤1{
-  true→firstRun(runs)|
-  false→mergeAllRunsCount(nextRunCount(runCount),mergePairs(runs))
+λmergeAllRunsCount(runCount:Int,runs:[[Int]])=>[Int] match runCount≤1{
+  true=>firstRun(runs)|
+  false=>mergeAllRunsCount(nextRunCount(runCount),mergePairs(runs))
 }
 
-λmergePairs(runs:[[Int]])→[[Int]] match runs{
-  []→[]|
-  [head,.tail]→match tail{
-    []→{
+λmergePairs(runs:[[Int]])=>[[Int]] match runs{
+  []=>[]|
+  [head,.tail]=>match tail{
+    []=>{
       wrapRun(head)
     }|
-    [right,.rest]→{
+    [right,.rest]=>{
       wrapRun(merge(head,right))⧺mergePairs(rest)
     }
   }
 }
 
-λmergeSort(xs:[Int])→[Int]=mergeAllRuns(singletons(xs))
+λmergeSort(xs:[Int])=>[Int]=mergeAllRuns(singletons(xs))
 
-λnextRunCount(runCount:Int)→Int match runCount{
-  0→0|
-  1→1|
-  _→1+nextRunCount(runCount-2)
+λnextRunCount(runCount:Int)=>Int match runCount{
+  0=>0|
+  1=>1|
+  _=>1+nextRunCount(runCount-2)
 }
 
-λsingletons(xs:[Int])→[[Int]] match xs{
-  []→[]|
-  [head,.tail]→[[head]]⧺singletons(tail)
+λsingletons(xs:[Int])=>[[Int]] match xs{
+  []=>[]|
+  [head,.tail]=>[[head]]⧺singletons(tail)
 }
 
-λwrapAll(partials:[[Int]],values:[Int])→[[Int]] match values{
-  []→partials|
-  [head,.tail]→wrapAll(wrapHead(head,partials),tail)
+λwrapAll(partials:[[Int]],values:[Int])=>[[Int]] match values{
+  []=>partials|
+  [head,.tail]=>wrapAll(wrapHead(head,partials),tail)
 }
 
-λwrapHead(head:Int,partials:[[Int]])→[[Int]] match partials{
-  []→[]|
-  [partial,.tail]→[partial⧺[head]]⧺wrapHead(head,tail)
+λwrapHead(head:Int,partials:[[Int]])=>[[Int]] match partials{
+  []=>[]|
+  [partial,.tail]=>[partial⧺[head]]⧺wrapHead(head,tail)
 }
 
-λwrapRun(run:[Int])→[[Int]]=wrapAll([[]],run)
+λwrapRun(run:[Int])=>[[Int]]=wrapAll([[]],run)

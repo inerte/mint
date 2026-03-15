@@ -1,4 +1,4 @@
 t EmptyToken=Empty()
 
-λmain()→EmptyToken=test()
-λtest()→EmptyToken=Empty()
+λmain()=>EmptyToken=test()
+λtest()=>EmptyToken=Empty()

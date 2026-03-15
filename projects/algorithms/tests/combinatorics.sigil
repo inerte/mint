@@ -1,57 +1,57 @@
-i src⋅linearSearch
-i src⋅nQueens
-i src⋅permutations
+i src::linearSearch
+i src::nQueens
+i src::permutations
 
-λallUnique(cols:[Int])→Bool match cols{
-  []→true|
-  [head,.tail]→match src⋅linearSearch.linearSearch(head,tail)=-1{
-    true→allUnique(tail)|
-    false→false
+λallUnique(cols:[Int])=>Bool match cols{
+  []=>true|
+  [head,.tail]=>match src::linearSearch.linearSearch(head,tail)=-1{
+    true=>allUnique(tail)|
+    false=>false
   }
 }
 
-λdiagonalSafe(col:Int,distance:Int,nextCols:[Int])→Bool match nextCols{
-  []→true|
-  [nextCol,.tail]→match col+distance=nextCol or col-distance=nextCol{
-    true→false|
-    false→diagonalSafe(col,distance+1,tail)
+λdiagonalSafe(col:Int,distance:Int,nextCols:[Int])=>Bool match nextCols{
+  []=>true|
+  [nextCol,.tail]=>match col+distance=nextCol or col-distance=nextCol{
+    true=>false|
+    false=>diagonalSafe(col,distance+1,tail)
   }
 }
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
-λnoDiagonalConflicts(cols:[Int])→Bool match cols{
-  []→true|
-  [_]→true|
-  [head,.tail]→match diagonalSafe(head,1,tail){
-    true→noDiagonalConflicts(tail)|
-    false→false
+λnoDiagonalConflicts(cols:[Int])=>Bool match cols{
+  []=>true|
+  [_]=>true|
+  [head,.tail]=>match diagonalSafe(head,1,tail){
+    true=>noDiagonalConflicts(tail)|
+    false=>false
   }
 }
 
 test "permutations of empty list is list with empty list" {
-  src⋅permutations.permutations([])=[[]]
+  src::permutations.permutations([])=[[]]
 }
 
 test "permutations of three items has six outputs" {
-  #(src⋅permutations.permutations([1,2,3]))=6
+  #(src::permutations.permutations([1,2,3]))=6
 }
 
 test "permutations order starts with canonical recursive cases" {
-  src⋅permutations.permutations([1,2,3])=[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]
+  src::permutations.permutations([1,2,3])=[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]
 }
 
 test "n queens size one has one solution" {
-  src⋅nQueens.nQueens(1)=[[0]]
+  src::nQueens.nQueens(1)=[[0]]
 }
 
 test "n queens size four has two solutions" {
-  #(src⋅nQueens.nQueens(4))=2
+  #(src::nQueens.nQueens(4))=2
 }
 
 test "n queens solutions are conflict free" {
-  match src⋅nQueens.nQueens(4){
-    [firstSolution,secondSolution]→allUnique(firstSolution) and noDiagonalConflicts(firstSolution) and allUnique(secondSolution) and noDiagonalConflicts(secondSolution)|
-    _→false
+  match src::nQueens.nQueens(4){
+    [firstSolution,secondSolution]=>allUnique(firstSolution) and noDiagonalConflicts(firstSolution) and allUnique(secondSolution) and noDiagonalConflicts(secondSolution)|
+    _=>false
   }
 }

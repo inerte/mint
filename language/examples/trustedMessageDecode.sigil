@@ -1,31 +1,31 @@
 ⟦ Raw JSON becomes a trusted exact record before business logic sees it. ⟧
 
-t Message={createdAt:stdlib⋅time.Instant,text:String}
+t Message={createdAt:stdlib::time.Instant,text:String}
 
-i stdlib⋅decode
-i stdlib⋅json
-i stdlib⋅time
+i stdlib::decode
+i stdlib::json
+i stdlib::time
 
-λcreatedAt(value:stdlib⋅json.JsonValue)→Result[stdlib⋅time.Instant,stdlib⋅decode.DecodeError] match stdlib⋅decode.string(value){
-  Ok(text)→
-    match stdlib⋅time.parseIso(text){
-      Ok(instant)→Ok(instant)|
-      Err(error)→Err({message:error.message,path:[]})
+λcreatedAt(value:stdlib::json.JsonValue)=>Result[stdlib::time.Instant,stdlib::decode.DecodeError] match stdlib::decode.string(value){
+  Ok(text)=>
+    match stdlib::time.parseIso(text){
+      Ok(instant)=>Ok(instant)|
+      Err(error)=>Err({message:error.message,path:[]})
     }|
-  Err(error)→Err(error)
+  Err(error)=>Err(error)
 }
 
-λmain()→Result[Message,stdlib⋅decode.DecodeError]=
-  stdlib⋅decode.parse(
+λmain()=>Result[Message,stdlib::decode.DecodeError]=
+  stdlib::decode.parse(
     message,
     "{\"createdAt\":\"2026-03-07T00:00:00.000Z\",\"text\":\"hello\"}"
   )
 
-λmessage(value:stdlib⋅json.JsonValue)→Result[Message,stdlib⋅decode.DecodeError] match stdlib⋅decode.field(createdAt,"createdAt")(value){
-  Ok(createdAtValue)→
-    match stdlib⋅decode.field(stdlib⋅decode.string,"text")(value){
-      Ok(text)→Ok({createdAt:createdAtValue,text:text})|
-      Err(error)→Err(error)
+λmessage(value:stdlib::json.JsonValue)=>Result[Message,stdlib::decode.DecodeError] match stdlib::decode.field(createdAt,"createdAt")(value){
+  Ok(createdAtValue)=>
+    match stdlib::decode.field(stdlib::decode.string,"text")(value){
+      Ok(text)=>Ok({createdAt:createdAtValue,text:text})|
+      Err(error)=>Err(error)
     }|
-  Err(error)→Err(error)
+  Err(error)=>Err(error)
 }

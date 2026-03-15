@@ -18,17 +18,17 @@ Library code is file-based, not `export`-based:
 
 ```sigil
 ⟦ src/math.lib.sigil ⟧
-λdouble(x:Int)→Int=x*2
+λdouble(x:Int)=>Int=x*2
 ```
 
 ```sigil
 ⟦ tests/math.sigil ⟧
-i src⋅math
+i src::math
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "double 2" {
-  src⋅math.double(2)=4
+  src::math.double(2)=4
 }
 ```
 
@@ -49,7 +49,7 @@ Rules:
 Effectful tests use explicit effects:
 
 ```sigil
-test "writes log" →!IO {
+test "writes log" =>!IO {
   console.log("x")=()
 }
 ```
@@ -70,10 +70,10 @@ Placement rule:
 Example:
 
 ```sigil
-λfetchUser(id:Int)→!Network String="real"
+λfetchUser(id:Int)=>!Network String="real"
 
-test "fallback on API failure" →!Network {
-  withMock(fetchUser, λ(id:Int)→!Network String="ERR") {
+test "fallback on API failure" =>!Network {
+  withMock(fetchUser, λ(id:Int)=>!Network String="ERR") {
     fetchUser(1)="ERR"
   }
 }

@@ -4,7 +4,7 @@ use sigil_lexer::{tokenize, LexError, TokenType};
 
 #[test]
 fn test_all_unicode_operators() {
-    let source = "λ → match ⋅ and or ¬ ≤ ≥ ≠ ↦ ⊳ ⊕ ⧺";
+    let source = "λ => match :: and or ¬ ≤ ≥ ≠ ↦ ⊳ ⊕ ⧺";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::LAMBDA);
@@ -339,7 +339,7 @@ fn test_error_legacy_false_literal() {
 
 #[test]
 fn test_complex_expression() {
-    let source = "λfoo(x:Int,y:Float)→Bool=x>0 and y≠3.14";
+    let source = "λfoo(x:Int,y:Float)=>Bool=x>0 and y≠3.14";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::LAMBDA);
@@ -368,7 +368,7 @@ fn test_and_or_are_keywords_not_identifiers() {
 
 #[test]
 fn test_namespace_separator() {
-    let source = "stdlib⋅list⋅map";
+    let source = "stdlib::list::map";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::IDENTIFIER);

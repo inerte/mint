@@ -1,7 +1,7 @@
-i stdlib⋅numeric
+i stdlib::numeric
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "numeric.range builds ascending inclusive ranges" {
-  stdlib⋅numeric.range(2,5)=[2,3,4,5] and stdlib⋅numeric.range(3,3)=[3] and stdlib⋅numeric.range(5,2)=[]
+  stdlib::numeric.range(2,5)=[2,3,4,5] and stdlib::numeric.range(3,3)=[3] and stdlib::numeric.range(5,2)=[]
 }

@@ -1,7 +1,7 @@
-i src⋅breadthFirstSearch
-i src⋅graphTypes
+i src::breadthFirstSearch
+i src::graphTypes
 
-λdemoGraph()→src⋅graphTypes.Graph={
+λdemoGraph()=>src::graphTypes.Graph={
   nodes:[
     {neighbors:[2,3],vertex:1},
     {neighbors:[4],vertex:2},
@@ -11,4 +11,4 @@ i src⋅graphTypes
   ]
 }
 
-λmain()→[Int]=src⋅breadthFirstSearch.breadthFirstSearch(demoGraph(),1)
+λmain()=>[Int]=src::breadthFirstSearch.breadthFirstSearch(demoGraph(),1)

@@ -6,21 +6,21 @@ t State={
 }
 
 ⟦ This should work - record type provides context for empty list fields ⟧
-λemptyState()→State={
+λemptyState()=>State={
   items:[],
   names:[]
 }
 
 ⟦ Non-empty fields should also work ⟧
-λinitialState()→State={
+λinitialState()=>State={
   items:[1,2,3],
   names:["a","b"]
 }
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 ⟦ Mixed empty and non-empty ⟧
-λpartialState()→State={
+λpartialState()=>State={
   items:[],
   names:["test"]
 }

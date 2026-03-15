@@ -1,33 +1,33 @@
-⟦ Tests for stdlib⋅json ⟧
+⟦ Tests for stdlib::json ⟧
 
-i stdlib⋅json
+i stdlib::json
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "json parse returns Err for invalid input" {
-  match stdlib⋅json.parse("{bad"){
-    Ok(_)→false|
-    Err(_)→true
+  match stdlib::json.parse("{bad"){
+    Ok(_)=>false|
+    Err(_)=>true
   }
 }
 
 test "json parse returns object for valid input" {
-  match stdlib⋅json.parse("{\"name\":\"sigil\",\"ok\":true}"){
-    Ok(value)→match stdlib⋅json.asObject(value){
-      Some(_)→true|
-      None→false
+  match stdlib::json.parse("{\"name\":\"sigil\",\"ok\":true}"){
+    Ok(value)=>match stdlib::json.asObject(value){
+      Some(_)=>true|
+      None=>false
     }|
-    Err(_)→false
+    Err(_)=>false
   }
 }
 
 test "json stringify roundtrip preserves shape" {
-  l value=(stdlib⋅json.JsonObject({
-    "active"↦stdlib⋅json.JsonBool(true),
-    "name"↦stdlib⋅json.JsonString("sigil")
-  }):stdlib⋅json.JsonValue);
-  match stdlib⋅json.parse(stdlib⋅json.stringify(value)){
-    Ok(parsed)→parsed=value|
-    Err(_)→false
+  l value=(stdlib::json.JsonObject({
+    "active"↦stdlib::json.JsonBool(true),
+    "name"↦stdlib::json.JsonString("sigil")
+  }):stdlib::json.JsonValue);
+  match stdlib::json.parse(stdlib::json.stringify(value)){
+    Ok(parsed)=>parsed=value|
+    Err(_)=>false
   }
 }

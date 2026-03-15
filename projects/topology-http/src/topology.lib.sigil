@@ -1,9 +1,9 @@
-i stdlib⋅topology
+i stdlib::topology
 
-c local=(stdlib⋅topology.environment("local"):stdlib⋅topology.Environment)
+c local=(stdlib::topology.environment("local"):stdlib::topology.Environment)
 
-c mailerApi=(stdlib⋅topology.httpService("mailerApi"):stdlib⋅topology.HttpServiceDependency)
+c mailerApi=(stdlib::topology.httpService("mailerApi"):stdlib::topology.HttpServiceDependency)
 
-c prod=(stdlib⋅topology.environment("prod"):stdlib⋅topology.Environment)
+c prod=(stdlib::topology.environment("prod"):stdlib::topology.Environment)
 
-c test=(stdlib⋅topology.environment("test"):stdlib⋅topology.Environment)
+c test=(stdlib::topology.environment("test"):stdlib::topology.Environment)

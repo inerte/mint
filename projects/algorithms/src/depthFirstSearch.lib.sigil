@@ -1,22 +1,22 @@
-i src⋅graphHelpers
-i src⋅graphTypes
-i stdlib⋅list
+i src::graphHelpers
+i src::graphTypes
+i stdlib::list
 
-λdepthFirstSearch(graph:src⋅graphTypes.Graph,start:Int)→[Int] match src⋅graphHelpers.hasVertex(graph,start){
-  true→dfsVisit(graph,start,[])|
-  false→[]
+λdepthFirstSearch(graph:src::graphTypes.Graph,start:Int)=>[Int] match src::graphHelpers.hasVertex(graph,start){
+  true=>dfsVisit(graph,start,[])|
+  false=>[]
 }
 
-λdfsNeighbors(graph:src⋅graphTypes.Graph,neighbors:[Int],visited:[Int])→[Int] match neighbors{
-  []→visited|
-  [neighbor,.tail]→{
+λdfsNeighbors(graph:src::graphTypes.Graph,neighbors:[Int],visited:[Int])=>[Int] match neighbors{
+  []=>visited|
+  [neighbor,.tail]=>{
     dfsNeighbors(graph,tail,dfsVisit(graph,neighbor,visited))
   }
 }
 
-λdfsVisit(graph:src⋅graphTypes.Graph,vertex:Int,visited:[Int])→[Int] match stdlib⋅list.contains(vertex,visited){
-  true→visited|
-  false→{
-    dfsNeighbors(graph,src⋅graphHelpers.neighborsOf(graph,vertex),visited⧺[vertex])
+λdfsVisit(graph:src::graphTypes.Graph,vertex:Int,visited:[Int])=>[Int] match stdlib::list.contains(vertex,visited){
+  true=>visited|
+  false=>{
+    dfsNeighbors(graph,src::graphHelpers.neighborsOf(graph,vertex),visited⧺[vertex])
   }
 }

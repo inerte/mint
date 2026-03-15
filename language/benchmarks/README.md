@@ -133,13 +133,13 @@ The published baseline remains `openai_cl100k_base`.
 Example:
 
 ```sigil
-λends_with(s:String,suffix:String)→Bool=false
+λends_with(s:String,suffix:String)=>Bool=false
 ```
 
 may become:
 
 ```sigil
-function ends_with(s:String,suffix:String)→Bool=false
+function ends_with(s:String,suffix:String)=>Bool=false
 ```
 
 The inserted space is part of the real replacement cost and must be measured.
@@ -148,14 +148,14 @@ The inserted space is part of the real replacement cost and must be measured.
 
 **Hypothesis:** Sigil should have **20-40% fewer tokens** than TypeScript/Python due to:
 
-1. **Dense Unicode operators** - `→` vs `function`, `match` vs `switch/match`
+1. **Compact canonical syntax** - `λ`, `=>`, `::`, and `match` compress common structure
 2. **Canonical forms** - ONE way to write each construct
 3. **No syntactic noise** - Minimal keywords/boilerplate
 4. **Type annotations required** - More type info per token
 
 **Example (factorial):**
 ```
-Sigil:       λfactorial(n:Int)→Int match n{0→1|1→1|n→n*factorial(n-1)}
+Sigil:       λfactorial(n:Int)=>Int match n{0=>1|1=>1|n=>n*factorial(n-1)}
 TypeScript: function factorial(n: number): number {
               if (n === 0 || n === 1) return 1;
               return n * factorial(n - 1);

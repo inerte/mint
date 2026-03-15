@@ -1,13 +1,13 @@
-λmodPow(base:Int,exponent:Int,modulus:Int)→Int match modulus=1{
-  true→0|
-  false→match exponent=0{
-    true→1%modulus|
-    false→match exponent%2=0{
-      true→{
+λmodPow(base:Int,exponent:Int,modulus:Int)=>Int match modulus=1{
+  true=>0|
+  false=>match exponent=0{
+    true=>1%modulus|
+    false=>match exponent%2=0{
+      true=>{
         l half=(modPow(base,exponent/2,modulus):Int);
         (half*half)%modulus
       }|
-      false→(((base%modulus)*modPow(base,exponent-1,modulus))%modulus)
+      false=>(((base%modulus)*modPow(base,exponent-1,modulus))%modulus)
     }
   }
 }

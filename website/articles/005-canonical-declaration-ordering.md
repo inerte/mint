@@ -14,9 +14,9 @@ slug: 005-canonical-declaration-ordering
 > and
 > [language/docs/CANONICAL_FORMS.md](/Users/jnobreganetto/Documents/GitHub/ai-pl/language/docs/CANONICAL_FORMS.md).
 
-> **🚨 BREAKING CHANGE (Feb 25, 2026):** The canonical ordering has been updated to **`t → e → i → c → λ → test`** (types now come first). This enables typed FFI declarations to reference named types. See the [Typed FFI and Declaration Ordering](/articles/typed-ffi-and-declaration-ordering) article for details and migration guide. The content below describes the original `e → i → t` ordering for historical context.
+> **🚨 BREAKING CHANGE (Feb 25, 2026):** The canonical ordering has been updated to **`t => e => i => c => λ => test`** (types now come first). This enables typed FFI declarations to reference named types. See the [Typed FFI and Declaration Ordering](/articles/typed-ffi-and-declaration-ordering) article for details and migration guide. The content below describes the original `e => i => t` ordering for historical context.
 
-**TL;DR:** We enforced strict canonical declaration ordering in Sigil. ~~Every file must follow the same order: `e → i → t → c → λ → test`.~~ **Update:** The order is now `t → e → i → c → λ → test` (types first). Alphabetically within each category. Non-exported before exported. Zero flexibility. Maximum determinism.
+**TL;DR:** We enforced strict canonical declaration ordering in Sigil. ~~Every file must follow the same order: `e => i => t => c => λ => test`.~~ **Update:** The order is now `t => e => i => c => λ => test` (types first). Alphabetically within each category. Non-exported before exported. Zero flexibility. Maximum determinism.
 
 ## The Problem: Organization Bikeshedding
 
@@ -51,10 +51,10 @@ For human developers, this is annoying bikeshedding. For **AI code generation**,
 When an LLM learns to write code from a corpus of files, it sees:
 
 ```
-File 1: imports → types → consts → functions
-File 2: types → imports → functions → consts
-File 3: functions → types → imports
-File 4: imports → functions → consts → types
+File 1: imports => types => consts => functions
+File 2: types => imports => functions => consts
+File 3: functions => types => imports
+File 4: imports => functions => consts => types
 ```
 
 Every file teaches the model a **different organizational pattern**. The result:
@@ -72,12 +72,12 @@ Sigil enforces a single canonical ordering at **compile time**:
 
 ```
 Category Order:
-  e    → externs (FFI imports)
-  i    → imports (Sigil modules)
-  t    → types
-  c    → consts
-  λ    → functions
-  test → tests
+  e    => externs (FFI imports)
+  i    => imports (Sigil modules)
+  t    => types
+  c    => consts
+  λ    => functions
+  test => tests
 
 Within each category:
   1. Non-exported declarations (alphabetically)
@@ -93,8 +93,8 @@ Within each category:
 e console
 
 ⟦ 2. Imports second ⟧
-i stdlib⋅list
-i stdlib⋅string
+i stdlib::list
+i stdlib::string
 
 ⟦ 3. Types third ⟧
 t Color=Red|Green|Blue
@@ -106,17 +106,17 @@ c MAX_RETRIES=5
 c TIMEOUT=1000
 
 ⟦ 5. Non-exported functions (alphabetically) ⟧
-λhelper(n:Int)→Int=n+1
-λvalidate(s:String)→Bool=#s>0
+λhelper(n:Int)=>Int=n+1
+λvalidate(s:String)=>Bool=#s>0
 
 ⟦ 6. Exported functions (alphabetically) ⟧
-export λcreateUser(name:String)→User={name:name,age:0}
-export λformatPoint(p:Point)→String=stdlib⋅string.int_to_string(p.x)
+export λcreateUser(name:String)=>User={name:name,age:0}
+export λformatPoint(p:Point)=>String=stdlib::string.int_to_string(p.x)
 
 ⟦ 7. Tests last ⟧
 test "creates user with default age"={
   l user=createUser("Alice");
-  stdlib⋅assert.equals(user.age,0)
+  stdlib::assert.equals(user.age,0)
 }
 ```
 
@@ -149,8 +149,8 @@ This is crucial: **Sigil supports forward references**.
 You can write:
 
 ```sigil
-λfoo()→Int=bar()  ⟦ bar() is defined below - OK! ⟧
-λbar()→Int=42
+λfoo()=>Int=bar()  ⟦ bar() is defined below - OK! ⟧
+λbar()=>Int=42
 ```
 
 The typechecker uses **two-pass checking**:
@@ -171,7 +171,7 @@ The compiler catches ordering violations with **actionable error messages**:
 ### Wrong Category Order
 
 ```sigil
-i stdlib⋅list  ⟦ Import ⟧
+i stdlib::list  ⟦ Import ⟧
 e console            ⟦ ERROR: extern comes after import ⟧
 ```
 
@@ -182,7 +182,7 @@ Canonical Ordering Error: Wrong category position
 Found: e (extern) at line 2
 Expected: extern declarations must come before import declarations
 
-Category order: e → i → t → c → λ → test
+Category order: e => i => t => c => λ => test
   e    = externs (FFI imports)
   i    = imports (Sigil modules)
   t    = types
@@ -219,8 +219,8 @@ Sigil enforces ONE way: canonical declaration ordering.
 ### Export Before Non-Export
 
 ```sigil
-export λcreateUser(name:String)→User={name:name,age:0}
-λhelper(n:Int)→Int=n+1  ⟦ ERROR: non-exported after exported ⟧
+export λcreateUser(name:String)=>User={name:name,age:0}
+λhelper(n:Int)=>Int=n+1  ⟦ ERROR: non-exported after exported ⟧
 ```
 
 **Error:**
@@ -249,13 +249,13 @@ This would be valid in most languages:
 
 ```sigil
 ⟦ Random order - different in every file ⟧
-export λcreateUser(name:String)→User={name:name,age:0}
+export λcreateUser(name:String)=>User={name:name,age:0}
 
 t User={name:String,age:Int}
 
-i stdlib⋅string
+i stdlib::string
 
-λhelper(n:Int)→Int=n+1
+λhelper(n:Int)=>Int=n+1
 
 e console
 
@@ -263,7 +263,7 @@ c MAX_RETRIES=5
 
 t Point={x:Int,y:Int}
 
-export λformatPoint(p:Point)→String=stdlib⋅string.int_to_string(p.x)
+export λformatPoint(p:Point)=>String=stdlib::string.int_to_string(p.x)
 
 c TIMEOUT=1000
 ```
@@ -283,7 +283,7 @@ The ONLY valid form:
 ⟦ Canonical order - identical in every file ⟧
 e console
 
-i stdlib⋅string
+i stdlib::string
 
 t Point={x:Int,y:Int}
 t User={name:String,age:Int}
@@ -291,10 +291,10 @@ t User={name:String,age:Int}
 c MAX_RETRIES=5
 c TIMEOUT=1000
 
-λhelper(n:Int)→Int=n+1
+λhelper(n:Int)=>Int=n+1
 
-export λcreateUser(name:String)→User={name:name,age:0}
-export λformatPoint(p:Point)→String=stdlib⋅string.int_to_string(p.x)
+export λcreateUser(name:String)=>User={name:name,age:0}
+export λformatPoint(p:Point)=>String=stdlib::string.int_to_string(p.x)
 ```
 
 **Benefits:**
@@ -333,7 +333,7 @@ function validateCategoryBoundaries(decls: AST.Declaration[]): void {
       throw new CanonicalError(
         `Found: ${categorySymbol} at line ${decl.location.start.line}\n` +
         `Expected: ${category} must come before ${lastCategory}\n` +
-        `Category order: e → i → t → c → λ → test`
+        `Category order: e => i => t => c => λ => test`
       );
     }
 
@@ -435,7 +435,7 @@ import (
 ⟦ Compiler enforces complete ordering ⟧
 ⟦ Rejects non-canonical code ⟧
 ⟦ Zero configuration, zero flexibility ⟧
-e → i → t → c → λ → test
+e => i => t => c => λ => test
 ```
 
 **Best:** Complete enforcement at compile time. Not a linter suggestion—a language requirement.
@@ -540,9 +540,9 @@ Create a file with messy ordering:
 
 ```sigil
 ⟦ out-of-order.sigil ⟧
-λfoo()→Int=42
+λfoo()=>Int=42
 t MyType=Int
-i stdlib⋅list
+i stdlib::list
 ```
 
 Compile it:
@@ -559,7 +559,7 @@ Canonical Ordering Error: Wrong category position
 Found: t (type) at line 2
 Expected: type declarations must come before function declarations
 
-Category order: e → i → t → c → λ → test
+Category order: e => i => t => c => λ => test
   ...
 ```
 
@@ -567,11 +567,11 @@ Category order: e → i → t → c → λ → test
 
 ```sigil
 ⟦ canonical.sigil ⟧
-i stdlib⋅list
+i stdlib::list
 
 t MyType=Int
 
-λfoo()→Int=42
+λfoo()=>Int=42
 ```
 
 Compiles successfully. Zero complaints.
@@ -584,7 +584,7 @@ When 93% of code is AI-generated (2026 stats), languages should:
 
 1. **Eliminate syntactic variation** - ONE way to write everything
 2. **Enforce canonical forms** - Compiler rejects alternatives
-3. **Produce deterministic output** - Same input → same code
+3. **Produce deterministic output** - Same input => same code
 4. **Minimize decision points** - Fewer choices for AI
 5. **Optimize training data** - Clean, consistent corpus
 
@@ -592,7 +592,7 @@ Canonical ordering achieves all five:
 
 - ✅ **No variation** - Only one valid ordering
 - ✅ **Enforced** - Compiler rejects others
-- ✅ **Deterministic** - Same declarations → same order
+- ✅ **Deterministic** - Same declarations => same order
 - ✅ **Zero decisions** - AI knows where everything goes
 - ✅ **Clean corpus** - Every file identical structure
 
@@ -613,7 +613,7 @@ Canonical ordering achieves all five:
 - Git hook to reject non-canonical commits
 - Metrics tracking ordering violations in external projects
 
-**The rule is permanent:** `e → i → t → c → λ → test`. Alphabetically within categories. Non-exported before exported. Forever.
+**The rule is permanent:** `e => i => t => c => λ => test`. Alphabetically within categories. Non-exported before exported. Forever.
 
 ## Conclusion
 

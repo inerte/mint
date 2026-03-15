@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_suggestions() {
-        let _s1 = suggest_replace_symbol("use dot", "⋅", None);
+        let _s1 = suggest_replace_symbol("use dot", "::", None);
         let _s2 = suggest_export_member("export this", Some("foo".into()), None);
         let _s3 = suggest_use_operator("use operator", "+", None);
         let _s4 = suggest_reorder_declaration("reorder", None, None, None);

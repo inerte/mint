@@ -327,7 +327,7 @@ Each variant has a stable `kind` discriminator and structured fields for machine
 **Fixits:** Deterministic, safe, single correct answer
 
 - Replacing `let` with `l` - always safe
-- Replacing `/` with `⋅` in namespace separator - always correct
+- Replacing `/` with `::` in namespace separator - always correct
 - Inserting missing semicolons (if required) - deterministic
 
 **Suggestions:** Guidance-oriented, multiple approaches, or cross-file changes
@@ -338,7 +338,7 @@ Each variant has a stable `kind` discriminator and structured fields for machine
 
 ### Example: Parser Error with Both
 
-When the parser encounters `/` instead of the canonical `⋅` separator:
+When the parser encounters `/` instead of the canonical `::` separator:
 
 ```json
 {
@@ -347,16 +347,16 @@ When the parser encounters `/` instead of the canonical `⋅` separator:
   "message": "invalid namespace separator",
   "location": {"file": "demo.sigil", "start": {"line": 3, "column": 18}},
   "found": "/",
-  "expected": "⋅",
+  "expected": "::",
   "fixits": [{
     "kind": "replace",
     "range": {"file": "demo.sigil", "start": {"line": 3, "column": 18}},
-    "text": "⋅"
+    "text": "::"
   }],
   "suggestions": [{
     "kind": "replace_symbol",
-    "message": "Use canonical namespace separator ⋅",
-    "replacement": "⋅",
+    "message": "Use canonical namespace separator ::",
+    "replacement": "::",
     "target": "namespace_separator"
   }]
 }
@@ -365,7 +365,7 @@ When the parser encounters `/` instead of the canonical `⋅` separator:
 Why both?
 
 - **Fixit:** Can be applied immediately by a tool
-- **Suggestion:** Explains the broader pattern ("always use ⋅ for namespace separation") for the AI's learning model
+- **Suggestion:** Explains the broader pattern ("always use :: for namespace separation") for the AI's learning model
 
 ### Example: Canonical Ordering Error
 
@@ -402,14 +402,14 @@ When importing a non-exported module member:
 {
   "code": "SIGIL-TYPE-MODULE-NOT-EXPORTED",
   "phase": "typecheck",
-  "message": "Module stdlib⋅list does not export 'length'",
+  "message": "Module stdlib::list does not export 'length'",
   "location": {"file": "app.sigil", "start": {"line": 8, "column": 5}},
   "found": "length",
   "expected": "(one of the exported members)",
   "suggestions": [
     {
       "kind": "export_member",
-      "message": "Export 'length' from stdlib⋅list",
+      "message": "Export 'length' from stdlib::list",
       "targetFile": "language/stdlib/list.sigil",
       "member": "length"
     },
@@ -463,8 +463,8 @@ We replaced generic errors with **specific, stable codes**. Many now include **s
 - `SIGIL-PARSE-LOCAL-BINDING` - Used `let` instead of `l`
   - **Fixit:** Replace `let` with `l`
   - **Suggestion:** `replace_symbol` explaining canonical keyword
-- `SIGIL-PARSE-NS-SEP` - Used `/` or `.` instead of `⋅`
-  - **Fixit:** Replace separator with `⋅`
+- `SIGIL-PARSE-NS-SEP` - Used `/` or `.` instead of `::`
+  - **Fixit:** Replace separator with `::`
   - **Suggestion:** `replace_symbol` explaining canonical separator
 - `SIGIL-PARSE-CONST-NAME` - Const name not uppercase
   - Message shows expected uppercase form
@@ -567,7 +567,7 @@ When trying to use a non-exported stdlib function:
 {
   "code": "SIGIL-TYPE-MODULE-NOT-EXPORTED",
   "phase": "typecheck",
-  "message": "Module stdlib⋅list does not export 'len'",
+  "message": "Module stdlib::list does not export 'len'",
   "location": {"file": "app.sigil", "start": {"line": 12, "column": 10}},
   "found": "len",
   "expected": "(exported member)",
@@ -580,7 +580,7 @@ When trying to use a non-exported stdlib function:
     },
     {
       "kind": "export_member",
-      "message": "Export 'len' from stdlib⋅list (if appropriate)",
+      "message": "Export 'len' from stdlib::list (if appropriate)",
       "targetFile": "language/stdlib/list.sigil",
       "member": "len"
     }
@@ -679,14 +679,14 @@ Why did we build this now? Because we ran all the examples and harvested the act
 
 Common pain points:
 - `let` vs `l` confusion (ultra high frequency)
-- `/` or `.` instead of `⋅` in module imports
+- `/` or `.` instead of `::` in module imports
 - Generic "unexpected token" messages with no guidance
 - Missing file paths in error messages
 - Vague canonical ordering violations
 
 The diagnostics system directly addresses these empirical findings:
 - Specific codes for high-frequency errors
-- Fixits for mechanical corrections (`let` → `l`)
+- Fixits for mechanical corrections (`let` => `l`)
 - File paths in every diagnostic
 - Narrow codes instead of generic fallbacks
 
@@ -753,9 +753,9 @@ No shell gymnastics. No brittle parsing. Just `jq` and structured data.
 
 ### 1. Faster AI Convergence
 
-**Before:** Generic "parse error" → agent tries 5 different fixes → eventually succeeds
+**Before:** Generic "parse error" => agent tries 5 different fixes => eventually succeeds
 
-**After:** Specific `SIGIL-PARSE-LOCAL-BINDING` → agent applies fixit → succeeds immediately
+**After:** Specific `SIGIL-PARSE-LOCAL-BINDING` => agent applies fixit => succeeds immediately
 
 ### 2. Repeatable Recovery Patterns
 

@@ -6,10 +6,10 @@
 
 t Pair={a:String,b:String}
 
-λfirst()→!IO String="first"
+λfirst()=>!IO String="first"
 
-λmain()→!IO Pair={
+λmain()=>!IO Pair={
   {a:first(),b:second()}
 }
 
-λsecond()→!IO String="second"
+λsecond()=>!IO String="second"

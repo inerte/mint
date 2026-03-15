@@ -3,11 +3,11 @@
 t Inner={items:[Int]}
 t Outer={state:Inner}
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
-λtest(x:Bool)→Outer match x{
-  true →
+λtest(x:Bool)=>Outer match x{
+  true =>
     l dummy=(1:Int);
     {state:{items:[]}}|
-  false → {state:{items:[1,2,3]}}
+  false => {state:{items:[1,2,3]}}
 }

@@ -57,15 +57,15 @@ here use `cl100k_base` as the official baseline.
 Before:
 
 ```sigil
-λfib(n:ℤ)→ℤ match n{0→0|1→1|value→fib(value-1)+fib(value-2)}
-λmain()→ℤ=fib(10)
+λfib(n:ℤ)=>ℤ match n{0=>0|1=>1|value=>fib(value-1)+fib(value-2)}
+λmain()=>ℤ=fib(10)
 ```
 
 After:
 
 ```sigil
-λfib(n:Int)→Int match n{0→0|1→1|value→fib(value-1)+fib(value-2)}
-λmain()→Int=fib(10)
+λfib(n:Int)=>Int match n{0=>0|1=>1|value=>fib(value-1)+fib(value-2)}
+λmain()=>Int=fib(10)
 ```
 
 Full-file token count:
@@ -79,15 +79,15 @@ Full-file token count:
 Before:
 
 ```sigil
-λgcd(a:ℤ,b:ℤ)→ℤ match b{0→a|divisor→gcd(divisor,a%divisor)}
-λmain()→ℤ=gcd(48,18)
+λgcd(a:ℤ,b:ℤ)=>ℤ match b{0=>a|divisor=>gcd(divisor,a%divisor)}
+λmain()=>ℤ=gcd(48,18)
 ```
 
 After:
 
 ```sigil
-λgcd(a:Int,b:Int)→Int match b{0→a|divisor→gcd(divisor,a%divisor)}
-λmain()→Int=gcd(48,18)
+λgcd(a:Int,b:Int)=>Int match b{0=>a|divisor=>gcd(divisor,a%divisor)}
+λmain()=>Int=gcd(48,18)
 ```
 
 Full-file token count:
@@ -101,17 +101,17 @@ Full-file token count:
 Before:
 
 ```sigil
-λisPalindrome(s:𝕊)→𝔹=s=reverse(s)
-λmain()→𝔹=isPalindrome("racecar")
-λreverse(s:𝕊)→𝕊=s
+λisPalindrome(s:𝕊)=>𝔹=s=reverse(s)
+λmain()=>𝔹=isPalindrome("racecar")
+λreverse(s:𝕊)=>𝕊=s
 ```
 
 After:
 
 ```sigil
-λisPalindrome(s:String)→Bool=s=reverse(s)
-λmain()→Bool=isPalindrome("racecar")
-λreverse(s:String)→String=s
+λisPalindrome(s:String)=>Bool=s=reverse(s)
+λmain()=>Bool=isPalindrome("racecar")
+λreverse(s:String)=>String=s
 ```
 
 Full-file token count:
@@ -130,9 +130,9 @@ Before:
 ```sigil
 t Todo={done:𝔹,id:ℤ,text:𝕊}
 
-λaddTodo(id:ℤ,text:𝕊,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
+λaddTodo(id:ℤ,text:𝕊,todos:[Todo])=>[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
 
-λcanAdd(text:𝕊)→𝔹=text≠""
+λcanAdd(text:𝕊)=>𝔹=text≠""
 ```
 
 After:
@@ -140,9 +140,9 @@ After:
 ```sigil
 t Todo={done:Bool,id:Int,text:String}
 
-λaddTodo(id:Int,text:String,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
+λaddTodo(id:Int,text:String,todos:[Todo])=>[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
 
-λcanAdd(text:String)→Bool=text≠""
+λcanAdd(text:String)=>Bool=text≠""
 ```
 
 Full-file token count:
@@ -160,18 +160,18 @@ and helpers.
 Before:
 
 ```sigil
-λgetOrDefault(fallback:ℤ,res:Result[ℤ,𝕊])→ℤ match res{
-  Ok(value)→value|
-  Err(_)→fallback
+λgetOrDefault(fallback:ℤ,res:Result[ℤ,𝕊])=>ℤ match res{
+  Ok(value)=>value|
+  Err(_)=>fallback
 }
 ```
 
 After:
 
 ```sigil
-λgetOrDefault(fallback:Int,res:Result[Int,String])→Int match res{
-  Ok(value)→value|
-  Err(_)→fallback
+λgetOrDefault(fallback:Int,res:Result[Int,String])=>Int match res{
+  Ok(value)=>value|
+  Err(_)=>fallback
 }
 ```
 

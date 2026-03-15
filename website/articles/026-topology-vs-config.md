@@ -26,12 +26,12 @@ If a project depends on:
 then `src/topology.lib.sigil` should only say that:
 
 ```sigil
-i stdlib⋅topology
+i stdlib::topology
 
-c eventStream=(stdlib⋅topology.tcpService("eventStream"):stdlib⋅topology.TcpServiceDependency)
-c local=(stdlib⋅topology.environment("local"):stdlib⋅topology.Environment)
-c mailerApi=(stdlib⋅topology.httpService("mailerApi"):stdlib⋅topology.HttpServiceDependency)
-c production=(stdlib⋅topology.environment("production"):stdlib⋅topology.Environment)
+c eventStream=(stdlib::topology.tcpService("eventStream"):stdlib::topology.TcpServiceDependency)
+c local=(stdlib::topology.environment("local"):stdlib::topology.Environment)
+c mailerApi=(stdlib::topology.httpService("mailerApi"):stdlib::topology.HttpServiceDependency)
+c production=(stdlib::topology.environment("production"):stdlib::topology.Environment)
 ```
 
 No URLs.
@@ -44,14 +44,14 @@ Those belong in config:
 
 ```sigil
 ⟦ config/local.lib.sigil ⟧
-i src⋅topology
-i stdlib⋅config
+i src::topology
+i stdlib::config
 
-c bindings=(stdlib⋅config.bindings([
-  stdlib⋅config.bindHttp("http://127.0.0.1:45110",src⋅topology.mailerApi)
+c bindings=(stdlib::config.bindings([
+  stdlib::config.bindHttp("http://127.0.0.1:45110",src::topology.mailerApi)
 ],[
-  stdlib⋅config.bindTcp(src⋅topology.eventStream,"127.0.0.1",45120)
-]):stdlib⋅config.Bindings)
+  stdlib::config.bindTcp(src::topology.eventStream,"127.0.0.1",45120)
+]):stdlib::config.Bindings)
 ```
 
 Production config can use env vars:
@@ -60,14 +60,14 @@ Production config can use env vars:
 ⟦ config/production.lib.sigil ⟧
 e process
 
-i src⋅topology
-i stdlib⋅config
+i src::topology
+i stdlib::config
 
-c bindings=(stdlib⋅config.bindings([
-  stdlib⋅config.bindHttpEnv(src⋅topology.mailerApi,"MAILER_API_URL")
+c bindings=(stdlib::config.bindings([
+  stdlib::config.bindHttpEnv(src::topology.mailerApi,"MAILER_API_URL")
 ],[
-  stdlib⋅config.bindTcpEnv(src⋅topology.eventStream,"EVENT_STREAM_HOST","EVENT_STREAM_PORT")
-]):stdlib⋅config.Bindings)
+  stdlib::config.bindTcpEnv(src::topology.eventStream,"EVENT_STREAM_HOST","EVENT_STREAM_PORT")
+]):stdlib::config.Bindings)
 ```
 
 That gives you one place for local literals and one place for env-driven
@@ -106,7 +106,7 @@ then the model starts reconstructing intent from fragments.
 Sigil reduces that room:
 - topology is always `src/topology.lib.sigil`
 - environment bindings are always `config/<env>.lib.sigil`
-- app code always uses `src⋅topology` handles
+- app code always uses `src::topology` handles
 
 That is not an AI feature. It is a language/toolchain constraint that happens to
 make AI behavior less sloppy.

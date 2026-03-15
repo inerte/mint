@@ -120,7 +120,7 @@ use logos::Logos;
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Token {
     #[token("λ")] Lambda,
-    #[token("→")] Arrow,
+    #[token("=>")] Arrow,
     #[token("⟦")] CommentStart,
     #[token("⟧")] CommentEnd,
     #[token("Int")] IntType,
@@ -310,10 +310,10 @@ impl TypeChecker {
 **Goal:** Generate TypeScript output matching original compiler
 
 **Implementation:**
-- All functions → `async function`
-- All calls → `await`
-- Pattern matching → if/else chains with `__match` variables
-- Sum types → `{ __tag, __fields }` objects
+- All functions => `async function`
+- All calls => `await`
+- Pattern matching => if/else chains with `__match` variables
+- Sum types => `{ __tag, __fields }` objects
 - Runtime helper injection (`__sigil_call`, `__sigil_with_mock`, etc.)
 
 **Code:**
@@ -403,7 +403,7 @@ impl CodeGenerator {
 - Module graph building with dependency resolution
 - Topological sorting for correct compilation order
 - Import cycle detection
-- `stdlib⋅` and `src⋅` import resolution
+- `stdlib::` and `src::` import resolution
 
 **Code:**
 ```rust
@@ -693,7 +693,7 @@ This migration was completed in **~3 days** with heavy use of AI coding agents. 
 3. **Performance profiling** - Identified bottlenecks, guided optimizations
 4. **Integration testing** - Ran real projects, validated correctness
 
-**Key insight:** AI agents excel at mechanical translation (TS → Rust) but need human guidance on architecture and correctness verification.
+**Key insight:** AI agents excel at mechanical translation (TS => Rust) but need human guidance on architecture and correctness verification.
 
 ### AI-Assisted Workflow
 ```
@@ -820,8 +820,8 @@ cargo build --release
 ### Compile a Program
 ```sigil
 ⟦ hello.sigil ⟧
-λ greet(name: String) → String = "Hello, " + name + "!"
-λ main() → String = greet("Rust")
+λ greet(name: String) => String = "Hello, " + name + "!"
+λ main() => String = greet("Rust")
 ```
 
 ```bash

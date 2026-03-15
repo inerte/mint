@@ -4,11 +4,11 @@ t Block=Header(Int,String)|Paragraph(String)|HorizontalRule
 
 t ParseState={inCodeBlock:Bool}
 
-λemptyBlocks()→[Block]=[]
+λemptyBlocks()=>[Block]=[]
 
-λflushCodeBlock(state:ParseState)→[Block] match state.inCodeBlock{
-  true → [Paragraph("test")]|
-  false → emptyBlocks()
+λflushCodeBlock(state:ParseState)=>[Block] match state.inCodeBlock{
+  true => [Paragraph("test")]|
+  false => emptyBlocks()
 }
 
-λmain()→Unit=()
+λmain()=>Unit=()

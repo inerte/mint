@@ -30,7 +30,7 @@
     ]
   },
   "ARROW": {
-    "symbol": "→",
+    "symbol": "=>",
     "category": "arrow",
     "candidates": [
       {
@@ -38,12 +38,6 @@
         "commonalityScore": 0.95,
         "semanticFit": "high",
         "reason": "Common ASCII arrow in many languages and type signatures."
-      },
-      {
-        "replacement": "=>",
-        "commonalityScore": 0.85,
-        "semanticFit": "medium",
-        "reason": "Common in JavaScript/Scala-family syntax, but overloaded in many contexts."
       }
     ]
   },
@@ -180,7 +174,7 @@
     ]
   },
   "NamespaceSep": {
-    "symbol": "⋅",
+    "symbol": "::",
     "category": "namespace_separator",
     "candidates": [
       {
@@ -188,12 +182,6 @@
         "commonalityScore": 1.0,
         "semanticFit": "medium",
         "reason": "Most common namespace/member separator, though it may collide with existing field access semantics."
-      },
-      {
-        "replacement": "::",
-        "commonalityScore": 0.8,
-        "semanticFit": "medium",
-        "reason": "Common module/type namespace separator in Rust and related languages."
       }
     ]
   },

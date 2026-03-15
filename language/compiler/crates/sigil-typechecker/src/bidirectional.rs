@@ -67,7 +67,7 @@ pub fn type_check(
     if let Some(prelude_types) = options
         .imported_type_registries
         .as_ref()
-        .and_then(|registries| registries.get("core⋅prelude"))
+        .and_then(|registries| registries.get("core::prelude"))
     {
         for (name, info) in prelude_types {
             env.register_type(name.clone(), info.clone());
@@ -77,7 +77,7 @@ pub fn type_check(
     if let Some(prelude_schemes) = options
         .imported_value_schemes
         .as_ref()
-        .and_then(|schemes| schemes.get("core⋅prelude"))
+        .and_then(|schemes| schemes.get("core::prelude"))
     {
         for (name, scheme) in prelude_schemes {
             env.bind_scheme(name.clone(), scheme.clone());
@@ -193,7 +193,7 @@ pub fn type_check(
             }
 
             Declaration::Extern(extern_decl) => {
-                let namespace_name = extern_decl.module_path.join("⋅");
+                let namespace_name = extern_decl.module_path.join("::");
 
                 if let Some(members) = &extern_decl.members {
                     let mut fields = HashMap::new();
@@ -222,7 +222,7 @@ pub fn type_check(
             }
 
             Declaration::Import(import_decl) => {
-                let namespace_name = import_decl.module_path.join("⋅");
+                let namespace_name = import_decl.module_path.join("::");
                 let imported_type = options
                     .imported_namespaces
                     .as_ref()
@@ -315,7 +315,7 @@ fn resolve_qualified_type(
     type_param_env: Option<&TypeParamEnv>,
     qualified: &sigil_ast::QualifiedType,
 ) -> Result<InferenceType, TypeError> {
-    let module_id = qualified.module_path.join("⋅");
+    let module_id = qualified.module_path.join("::");
     let type_info = env.lookup_qualified_type(&qualified.module_path, &qualified.type_name);
 
     let Some(type_info) = type_info else {
@@ -402,7 +402,7 @@ fn split_qualified_constructor_name(name: &str) -> Option<(Vec<String>, String)>
     let module_id = &name[..dot_index];
     let type_name = &name[dot_index + 1..];
     Some((
-        module_id.split('⋅').map(|part| part.to_string()).collect(),
+        module_id.split("::").map(|part| part.to_string()).collect(),
         type_name.to_string(),
     ))
 }
@@ -411,7 +411,7 @@ fn constructor_display_name(module_path: &[String], name: &str) -> String {
     if module_path.is_empty() {
         name.to_string()
     } else {
-        format!("{}.{}", module_path.join("⋅"), name)
+        format!("{}.{}", module_path.join("::"), name)
     }
 }
 
@@ -427,7 +427,7 @@ fn lookup_constructor_type(
     if let Some((type_name, qualified_module_path, variant, type_params)) =
         env.lookup_qualified_constructor(module_path, name)
     {
-        let qualified_type_name = format!("{}.{}", qualified_module_path.join("⋅"), type_name);
+        let qualified_type_name = format!("{}.{}", qualified_module_path.join("::"), type_name);
         return Ok(Some(create_constructor_type_with_result_name(
             env,
             &variant,
@@ -779,7 +779,7 @@ fn validate_surface_type(ty: &Type) -> Result<(), TypeError> {
 
 /// Create a constructor function type for a sum type variant
 ///
-/// For example, Some : T → Option[T]
+/// For example, Some : T => Option[T]
 fn create_constructor_type(
     env: &TypeEnvironment,
     variant: &sigil_ast::Variant,
@@ -1561,7 +1561,7 @@ fn synthesize_binary(
     });
 
     match bin.operator {
-        // Arithmetic operators: Int → Int → Int
+        // Arithmetic operators: Int => Int => Int
         BinaryOperator::Add
         | BinaryOperator::Subtract
         | BinaryOperator::Multiply
@@ -1581,7 +1581,7 @@ fn synthesize_binary(
             Ok(int_type)
         }
 
-        // Comparison operators: Int → Int → Bool
+        // Comparison operators: Int => Int => Bool
         BinaryOperator::Less
         | BinaryOperator::Greater
         | BinaryOperator::LessEq
@@ -1591,7 +1591,7 @@ fn synthesize_binary(
             Ok(bool_type)
         }
 
-        // Equality operators: T → T → Bool (polymorphic)
+        // Equality operators: T => T => Bool (polymorphic)
         BinaryOperator::Equal | BinaryOperator::NotEqual => {
             let (normalized_left, normalized_right) = canonical_pair(env, &left_type, &right_type);
             if !types_equal(&normalized_left, &normalized_right) {
@@ -1607,21 +1607,21 @@ fn synthesize_binary(
             Ok(bool_type)
         }
 
-        // Logical operators: Bool → Bool → Bool
+        // Logical operators: Bool => Bool => Bool
         BinaryOperator::And | BinaryOperator::Or => {
             check(env, &bin.left, &bool_type)?;
             check(env, &bin.right, &bool_type)?;
             Ok(bool_type)
         }
 
-        // String concatenation: String → String → String
+        // String concatenation: String => String => String
         BinaryOperator::Append => {
             check(env, &bin.left, &string_type)?;
             check(env, &bin.right, &string_type)?;
             Ok(string_type)
         }
 
-        // List append: [T] → [T] → [T]
+        // List append: [T] => [T] => [T]
         BinaryOperator::ListAppend => {
             let (normalized_left, normalized_right) = canonical_pair(env, &left_type, &right_type);
 
@@ -1801,9 +1801,9 @@ fn validate_topology_application(
         return Ok(());
     };
 
-    let module_id = namespace.join("⋅");
+    let module_id = namespace.join("::");
 
-    if module_id == "stdlib⋅topology" {
+    if module_id == "stdlib::topology" {
         let restricted = matches!(
             member,
             "httpService"
@@ -1814,7 +1814,7 @@ fn validate_topology_application(
         if restricted && !is_canonical_topology_source(env) {
             return Err(TypeError::new(
                 format!(
-                    "{}: topology declarations must live in src⋅topology via src/topology.lib.sigil",
+                    "{}: topology declarations must live in src::topology via src/topology.lib.sigil",
                     codes::topology::CONSTRUCTOR_LOCATION
                 ),
                 Some(app.location),
@@ -1824,7 +1824,7 @@ fn validate_topology_application(
         return Ok(());
     }
 
-    if module_id == "stdlib⋅config" {
+    if module_id == "stdlib::config" {
         let restricted = matches!(
             member,
             "bindings" | "bindHttp" | "bindHttpEnv" | "bindTcp" | "bindTcpEnv"
@@ -1843,7 +1843,7 @@ fn validate_topology_application(
         return Ok(());
     }
 
-    let http_handle_arg_index = if module_id == "stdlib⋅httpClient" {
+    let http_handle_arg_index = if module_id == "stdlib::httpClient" {
         match member {
             "get" | "getJson" | "delete" | "deleteJson" => Some(0),
             "post" | "postJson" | "put" | "putJson" | "patch" | "patchJson" => Some(1),
@@ -1852,7 +1852,7 @@ fn validate_topology_application(
     } else {
         None
     };
-    let tcp_handle_arg_index = if module_id == "stdlib⋅tcpClient" && matches!(member, "request" | "send") {
+    let tcp_handle_arg_index = if module_id == "stdlib::tcpClient" && matches!(member, "request" | "send") {
         Some(0)
     } else {
         None
@@ -1872,7 +1872,7 @@ fn validate_topology_application(
         if matches!(handle_arg, Expr::Literal(_)) {
             return Err(TypeError::new(
                 format!(
-                    "{}: stdlib⋅httpClient calls must use src⋅topology dependency handles, not raw URLs",
+                    "{}: stdlib::httpClient calls must use src::topology dependency handles, not raw URLs",
                     codes::topology::RAW_ENDPOINT_FORBIDDEN
                 ),
                 Some(app.location),
@@ -1887,7 +1887,7 @@ fn validate_topology_application(
             };
             return Err(TypeError::new(
                 format!(
-                    "{}: stdlib⋅httpClient requires a HttpServiceDependency from src⋅topology as its first argument",
+                    "{}: stdlib::httpClient requires a HttpServiceDependency from src::topology as its first argument",
                     code
                 ),
                 Some(app.location),
@@ -1899,7 +1899,7 @@ fn validate_topology_application(
         if matches!(handle_arg, Expr::Literal(_)) {
             return Err(TypeError::new(
                 format!(
-                    "{}: stdlib⋅tcpClient calls must use src⋅topology dependency handles, not raw hosts or ports",
+                    "{}: stdlib::tcpClient calls must use src::topology dependency handles, not raw hosts or ports",
                     codes::topology::RAW_ENDPOINT_FORBIDDEN
                 ),
                 Some(app.location),
@@ -1914,7 +1914,7 @@ fn validate_topology_application(
             };
             return Err(TypeError::new(
                 format!(
-                    "{}: stdlib⋅tcpClient requires a TcpServiceDependency from src⋅topology as its first argument",
+                    "{}: stdlib::tcpClient requires a TcpServiceDependency from src::topology as its first argument",
                     code
                 ),
                 Some(app.location),
@@ -2247,7 +2247,7 @@ fn synthesize_member_access(
     env: &TypeEnvironment,
     member_access: &sigil_ast::MemberAccessExpr,
 ) -> Result<InferenceType, TypeError> {
-    let namespace_name = member_access.namespace.join("⋅");
+    let namespace_name = member_access.namespace.join("::");
 
     // Check namespace exists (should be registered from extern/import declaration)
     let namespace_type = env.lookup(&namespace_name);
@@ -2387,7 +2387,7 @@ fn synthesize_filter(
             ));
         }
 
-        // Predicate should be T → Bool
+        // Predicate should be T => Bool
         if pred.params.len() != 1 {
             return Err(TypeError::new(
                 format!("Filter (⊳) predicate should take 1 parameter, got {}", pred.params.len()),
@@ -2447,7 +2447,7 @@ fn synthesize_fold(
     let init_type = synthesize(env, &fold_expr.init)?;
 
     if let (InferenceType::List(ref list), InferenceType::Function(ref func)) = (&list_type, &fn_type) {
-        // Function should be (Acc, T) → Acc
+        // Function should be (Acc, T) => Acc
         if func.params.len() != 2 {
             return Err(TypeError::new(
                 format!("Fold (⊕) function should take 2 parameters, got {}", func.params.len()),
@@ -2455,7 +2455,7 @@ fn synthesize_fold(
             ));
         }
 
-        // Check function signature matches (Acc, T) → Acc
+        // Check function signature matches (Acc, T) => Acc
         let (normalized_acc_param, normalized_init) = canonical_pair(env, &func.params[0], &init_type);
         if !types_equal(&normalized_acc_param, &normalized_init) {
             return Err(TypeError::new(
@@ -3095,11 +3095,11 @@ mod tests {
         TypeCheckOptions {
             imported_namespaces: None,
             imported_type_registries: Some(HashMap::from([(
-                "core⋅prelude".to_string(),
+                "core::prelude".to_string(),
                 prelude_registry,
             )])),
             imported_value_schemes: Some(HashMap::from([(
-                "core⋅prelude".to_string(),
+                "core::prelude".to_string(),
                 prelude_schemes,
             )])),
             source_file: None,
@@ -3108,7 +3108,7 @@ mod tests {
 
     #[test]
     fn test_simple_integer_function() {
-        let source = "λadd(x:Int,y:Int)→Int=x+y";
+        let source = "λadd(x:Int,y:Int)=>Int=x+y";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3122,7 +3122,7 @@ mod tests {
 
     #[test]
     fn test_type_mismatch() {
-        let source = "λbad(x:Int)→String=x";
+        let source = "λbad(x:Int)=>String=x";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3132,7 +3132,7 @@ mod tests {
 
     #[test]
     fn test_literal_types() {
-        let source = "λf()→Int=42";
+        let source = "λf()=>Int=42";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3142,7 +3142,7 @@ mod tests {
 
     #[test]
     fn test_function_application() {
-        let source = "λadd(x:Int,y:Int)→Int=x+y\nλmain()→Int=add(1,2)";
+        let source = "λadd(x:Int,y:Int)=>Int=x+y\nλmain()=>Int=add(1,2)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3154,7 +3154,7 @@ mod tests {
     fn test_sum_type_constructors() {
         // Test that sum type constructors are registered and callable
         // Using fully specified constructor type for now
-        let source = "t Color=Red|Green|Blue\nλgetRed()→Color=Red()";
+        let source = "t Color=Red|Green|Blue\nλgetRed()=>Color=Red()";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3165,7 +3165,7 @@ mod tests {
 
     #[test]
     fn test_any_is_rejected_outside_ffi() {
-        let source = "t Response={headers:Any}\nλmain()→Response={headers:{}}";
+        let source = "t Response={headers:Any}\nλmain()=>Response={headers:{}}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3179,7 +3179,7 @@ mod tests {
 
     #[test]
     fn test_const_annotation_normalizes_named_product_type() {
-        let source = "t MkdirOptions={recursive:Bool}\nc opts=({recursive:true}:MkdirOptions)\nλmain()→Unit=()";
+        let source = "t MkdirOptions={recursive:Bool}\nc opts=({recursive:true}:MkdirOptions)\nλmain()=>Unit=()";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3189,7 +3189,7 @@ mod tests {
 
     #[test]
     fn test_list_append_normalizes_named_product_type() {
-        let source = "t Todo={done:Bool,id:Int,text:String}\nλmain()→[Todo]=[{done:false,id:1,text:\"a\"}]⧺[Todo{done:false,id:2,text:\"b\"}]";
+        let source = "t Todo={done:Bool,id:Int,text:String}\nλmain()=>[Todo]=[{done:false,id:1,text:\"a\"}]⧺[Todo{done:false,id:2,text:\"b\"}]";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3199,7 +3199,7 @@ mod tests {
 
     #[test]
     fn test_map_normalizes_named_product_type() {
-        let source = "t Todo={done:Bool,id:Int,text:String}\nλkeep(todo:Todo)→Todo=todo\nλmain()→[Todo]=[{done:false,id:1,text:\"a\"}]↦keep";
+        let source = "t Todo={done:Bool,id:Int,text:String}\nλkeep(todo:Todo)=>Todo=todo\nλmain()=>[Todo]=[{done:false,id:1,text:\"a\"}]↦keep";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3209,7 +3209,7 @@ mod tests {
 
     #[test]
     fn test_map_rejects_effectful_callback() {
-        let source = "λdouble(x:Int)→!IO Int=x*2\nλmain()→[Int]=[1,2,3]↦double";
+        let source = "λdouble(x:Int)=>!IO Int=x*2\nλmain()=>[Int]=[1,2,3]↦double";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3220,7 +3220,7 @@ mod tests {
 
     #[test]
     fn test_filter_rejects_effectful_callback() {
-        let source = "λkeep(x:Int)→!IO Bool=x>0\nλmain()→[Int]=[1,2,3]⊳keep";
+        let source = "λkeep(x:Int)=>!IO Bool=x>0\nλmain()=>[Int]=[1,2,3]⊳keep";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3231,7 +3231,7 @@ mod tests {
 
     #[test]
     fn test_named_product_equality_uses_canonical_form() {
-        let source = "t Todo={done:Bool,id:Int,text:String}\nλmain()→Bool=(({done:false,id:1,text:\"a\"}:Todo)={done:false,id:1,text:\"a\"})";
+        let source = "t Todo={done:Bool,id:Int,text:String}\nλmain()=>Bool=(({done:false,id:1,text:\"a\"}:Todo)={done:false,id:1,text:\"a\"})";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3241,7 +3241,7 @@ mod tests {
 
     #[test]
     fn test_named_product_normalizes_inside_generic_constructor_args() {
-        let source = "t Error={code:Int,msg:String}\nt Response={body:String,headers:{String↦String},status:Int}\nλmain()→Result[Response,Error]=Ok(Response{body:\"OK\",headers:({↦}:{String↦String}),status:200})";
+        let source = "t Error={code:Int,msg:String}\nt Response={body:String,headers:{String↦String},status:Int}\nλmain()=>Result[Response,Error]=Ok(Response{body:\"OK\",headers:({↦}:{String↦String}),status:200})";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3251,7 +3251,7 @@ mod tests {
 
     #[test]
     fn test_sum_types_remain_nominal_after_normalization() {
-        let source = "t Box={value:Int}\nt Wrap=Wrap(Box)\nλmain()→Wrap=({value:1}:Wrap)";
+        let source = "t Box={value:Int}\nt Wrap=Wrap(Box)\nλmain()=>Wrap=({value:1}:Wrap)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3261,13 +3261,13 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_product_type_resolves_for_field_access() {
-        let source = "i src⋅types\nλslug_len(meta:src⋅types.ArticleMeta)→Int=#meta.slug";
+        let source = "i src::types\nλslug_len(meta:src::types.ArticleMeta)=>Int=#meta.slug";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
         let mut imported_type_registries = HashMap::new();
         imported_type_registries.insert(
-            "src⋅types".to_string(),
+            "src::types".to_string(),
             HashMap::from([(
                 "ArticleMeta".to_string(),
                 TypeInfo {
@@ -3328,7 +3328,7 @@ mod tests {
 
     #[test]
     fn test_local_named_product_return_type_resolves_for_field_access() {
-        let source = "t ParseResult={content:String}\nλparse()→ParseResult={content:\"x\"}\nλmain()→Int=#(parse().content)";
+        let source = "t ParseResult={content:String}\nλparse()=>ParseResult={content:\"x\"}\nλmain()=>Int=#(parse().content)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3338,7 +3338,7 @@ mod tests {
 
     #[test]
     fn test_exact_record_rejects_missing_field() {
-        let source = "t Message={createdAt:String,text:String}\nλmain()→Message={createdAt:\"2026-03-07T00:00:00.000Z\"}";
+        let source = "t Message={createdAt:String,text:String}\nλmain()=>Message={createdAt:\"2026-03-07T00:00:00.000Z\"}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3348,7 +3348,7 @@ mod tests {
 
     #[test]
     fn test_exact_record_rejects_extra_field() {
-        let source = "t Message={createdAt:String,text:String}\nλmain()→Message={createdAt:\"2026-03-07T00:00:00.000Z\",debug:\"no\",text:\"hello\"}";
+        let source = "t Message={createdAt:String,text:String}\nλmain()=>Message={createdAt:\"2026-03-07T00:00:00.000Z\",debug:\"no\",text:\"hello\"}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3358,7 +3358,7 @@ mod tests {
 
     #[test]
     fn test_exact_records_do_not_width_subtype() {
-        let source = "t Message={createdAt:String,text:String}\nt Summary={text:String}\nλheadline(summary:Summary)→String=summary.text\nλmain()→String=headline(({createdAt:\"2026-03-07T00:00:00.000Z\",text:\"hello\"}:Message))";
+        let source = "t Message={createdAt:String,text:String}\nt Summary={text:String}\nλheadline(summary:Summary)=>String=summary.text\nλmain()=>String=headline(({createdAt:\"2026-03-07T00:00:00.000Z\",text:\"hello\"}:Message))";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3369,7 +3369,7 @@ mod tests {
 
     #[test]
     fn test_validated_wrapper_stays_distinct_from_primitive() {
-        let source = "t UserId=UserId(Int)\nλmain()→UserId=42";
+        let source = "t UserId=UserId(Int)\nλmain()=>UserId=42";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3379,7 +3379,7 @@ mod tests {
 
     #[test]
     fn test_process_env_access_is_rejected_outside_config_modules() {
-        let source = "e process\nλmain()→String=(process.env.sigilSiteBasePath:String)";
+        let source = "e process\nλmain()=>String=(process.env.sigilSiteBasePath:String)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "src/main.sigil").unwrap();
 
@@ -3402,7 +3402,7 @@ mod tests {
 
     #[test]
     fn test_process_env_access_is_allowed_in_config_modules() {
-        let source = "e process\nλmain()→String=(process.env.sigilSiteBasePath:String)";
+        let source = "e process\nλmain()=>String=(process.env.sigilSiteBasePath:String)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "config/local.lib.sigil").unwrap();
 
@@ -3421,7 +3421,7 @@ mod tests {
 
     #[test]
     fn test_function_alias_normalizes_for_application() {
-        let source = "t Decoder[T]=λ(String)→Result[T,String]\nλparseInt(text:String)→Result[Int,String]=Ok(42)\nλrun(decoder:Decoder[Int],input:String)→Result[Int,String]=decoder(input)";
+        let source = "t Decoder[T]=λ(String)=>Result[T,String]\nλparseInt(text:String)=>Result[Int,String]=Ok(42)\nλrun(decoder:Decoder[Int],input:String)=>Result[Int,String]=decoder(input)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3432,13 +3432,13 @@ mod tests {
     #[test]
     fn test_qualified_imported_constructor_expression_typechecks() {
         let source =
-            "i src⋅graphTypes\nλmk()→src⋅graphTypes.TopologicalSortResult=src⋅graphTypes.Ordering([1,2,3])";
+            "i src::graphTypes\nλmk()=>src::graphTypes.TopologicalSortResult=src::graphTypes.Ordering([1,2,3])";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
         let mut imported_type_registries = HashMap::new();
         imported_type_registries.insert(
-            "src⋅graphTypes".to_string(),
+            "src::graphTypes".to_string(),
             HashMap::from([(
                 "TopologicalSortResult".to_string(),
                 TypeInfo {
@@ -3483,13 +3483,13 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_constructor_pattern_typechecks() {
-        let source = "i src⋅graphTypes\nλproject(result:src⋅graphTypes.TopologicalSortResult)→[Int] match result{src⋅graphTypes.Ordering(order)→order|src⋅graphTypes.CycleDetected()→[]}";
+        let source = "i src::graphTypes\nλproject(result:src::graphTypes.TopologicalSortResult)=>[Int] match result{src::graphTypes.Ordering(order)=>order|src::graphTypes.CycleDetected()=>[]}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
         let mut imported_type_registries = HashMap::new();
         imported_type_registries.insert(
-            "src⋅graphTypes".to_string(),
+            "src::graphTypes".to_string(),
             HashMap::from([(
                 "TopologicalSortResult".to_string(),
                 TypeInfo {
@@ -3534,7 +3534,7 @@ mod tests {
 
     #[test]
     fn test_explicit_generic_function_typechecks() {
-        let source = "λidentity[T](x:T)→T=x\nλmain()→Int=identity(42)";
+        let source = "λidentity[T](x:T)=>T=x\nλmain()=>Int=identity(42)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3544,7 +3544,7 @@ mod tests {
 
     #[test]
     fn test_imported_generic_constructor_typechecks() {
-        let source = "i core⋅prelude\nλmain()→Option[Int]=Some(42)";
+        let source = "i core::prelude\nλmain()=>Option[Int]=Some(42)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3554,7 +3554,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_result_helper_typechecks() {
-        let source = "λnormalize[T,E](res:Result[T,E])→Result[T,E] match res{Ok(value)→Ok(value)|Err(error)→Err(error)}";
+        let source = "λnormalize[T,E](res:Result[T,E])=>Result[T,E] match res{Ok(value)=>Ok(value)|Err(error)=>Err(error)}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3564,7 +3564,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_bind_result_typechecks() {
-        let source = "λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E] match res{Ok(value)→fn(value)|Err(error)→Err(error)}";
+        let source = "λbind_result[T,U,E](fn:λ(T)=>Result[U,E],res:Result[T,E])=>Result[U,E] match res{Ok(value)=>fn(value)|Err(error)=>Err(error)}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -3574,7 +3574,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_bind_result_call_expr_builds() {
-        let source = "λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E] match res{Ok(value)→fn(value)|Err(error)→Err(error)}";
+        let source = "λbind_result[T,U,E](fn:λ(T)=>Result[U,E],res:Result[T,E])=>Result[U,E] match res{Ok(value)=>fn(value)|Err(error)=>Err(error)}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -3591,7 +3591,7 @@ mod tests {
         if let Some(prelude_types) = options
             .imported_type_registries
             .as_ref()
-            .and_then(|regs| regs.get("core⋅prelude"))
+            .and_then(|regs| regs.get("core::prelude"))
         {
             for (name, info) in prelude_types {
                 env.register_type(name.clone(), info.clone());
@@ -3600,7 +3600,7 @@ mod tests {
         if let Some(prelude_schemes) = options
             .imported_value_schemes
             .as_ref()
-            .and_then(|schemes| schemes.get("core⋅prelude"))
+            .and_then(|schemes| schemes.get("core::prelude"))
         {
             for (name, scheme) in prelude_schemes {
                 env.bind_scheme(name.clone(), scheme.clone());
@@ -3627,7 +3627,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_bind_result_match_expr_builds() {
-        let source = "λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E] match res{Ok(value)→fn(value)|Err(error)→Err(error)}";
+        let source = "λbind_result[T,U,E](fn:λ(T)=>Result[U,E],res:Result[T,E])=>Result[U,E] match res{Ok(value)=>fn(value)|Err(error)=>Err(error)}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -3640,7 +3640,7 @@ mod tests {
         if let Some(prelude_types) = options
             .imported_type_registries
             .as_ref()
-            .and_then(|regs| regs.get("core⋅prelude"))
+            .and_then(|regs| regs.get("core::prelude"))
         {
             for (name, info) in prelude_types {
                 env.register_type(name.clone(), info.clone());
@@ -3649,7 +3649,7 @@ mod tests {
         if let Some(prelude_schemes) = options
             .imported_value_schemes
             .as_ref()
-            .and_then(|schemes| schemes.get("core⋅prelude"))
+            .and_then(|schemes| schemes.get("core::prelude"))
         {
             for (name, scheme) in prelude_schemes {
                 env.bind_scheme(name.clone(), scheme.clone());
@@ -3674,7 +3674,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_err_arm_expr_builds() {
-        let source = "λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E] match res{Ok(value)→fn(value)|Err(error)→Err(error)}";
+        let source = "λbind_result[T,U,E](fn:λ(T)=>Result[U,E],res:Result[T,E])=>Result[U,E] match res{Ok(value)=>fn(value)|Err(error)=>Err(error)}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -3691,7 +3691,7 @@ mod tests {
         if let Some(prelude_types) = options
             .imported_type_registries
             .as_ref()
-            .and_then(|regs| regs.get("core⋅prelude"))
+            .and_then(|regs| regs.get("core::prelude"))
         {
             for (name, info) in prelude_types {
                 env.register_type(name.clone(), info.clone());
@@ -3700,7 +3700,7 @@ mod tests {
         if let Some(prelude_schemes) = options
             .imported_value_schemes
             .as_ref()
-            .and_then(|schemes| schemes.get("core⋅prelude"))
+            .and_then(|schemes| schemes.get("core::prelude"))
         {
             for (name, scheme) in prelude_schemes {
                 env.bind_scheme(name.clone(), scheme.clone());
@@ -3719,7 +3719,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_err_arm_checks_against_result_ue() {
-        let source = "λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E] match res{Ok(value)→fn(value)|Err(error)→Err(error)}";
+        let source = "λbind_result[T,U,E](fn:λ(T)=>Result[U,E],res:Result[T,E])=>Result[U,E] match res{Ok(value)=>fn(value)|Err(error)=>Err(error)}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -3736,7 +3736,7 @@ mod tests {
         if let Some(prelude_types) = options
             .imported_type_registries
             .as_ref()
-            .and_then(|regs| regs.get("core⋅prelude"))
+            .and_then(|regs| regs.get("core::prelude"))
         {
             for (name, info) in prelude_types {
                 env.register_type(name.clone(), info.clone());
@@ -3745,7 +3745,7 @@ mod tests {
         if let Some(prelude_schemes) = options
             .imported_value_schemes
             .as_ref()
-            .and_then(|schemes| schemes.get("core⋅prelude"))
+            .and_then(|schemes| schemes.get("core::prelude"))
         {
             for (name, scheme) in prelude_schemes {
                 env.bind_scheme(name.clone(), scheme.clone());
@@ -3813,7 +3813,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_bind_result_scheme_has_no_cycles() {
-        let source = "λbind_result[T,U,E](fn:λ(T)→Result[U,E],res:Result[T,E])→Result[U,E] match res{Ok(value)→fn(value)|Err(error)→Err(error)}";
+        let source = "λbind_result[T,U,E](fn:λ(T)=>Result[U,E],res:Result[T,E])=>Result[U,E] match res{Ok(value)=>fn(value)|Err(error)=>Err(error)}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -3825,7 +3825,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_map_literal_typechecks() {
-        let source = "λmain()→{String↦Int}={\"a\"↦1}";
+        let source = "λmain()=>{String↦Int}={\"a\"↦1}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3835,13 +3835,13 @@ mod tests {
 
     #[test]
     fn test_local_bindings_do_not_generalize() {
-        let ok_source = "λmain()→Int=l id=(λ(x:Int)→Int=x);id(42)";
+        let ok_source = "λmain()=>Int=l id=(λ(x:Int)=>Int=x);id(42)";
         let ok_tokens = tokenize(ok_source).unwrap();
         let ok_program = parse(ok_tokens, "test.sigil").unwrap();
         let ok_result = type_check(&ok_program, ok_source, TypeCheckOptions::default());
         assert!(ok_result.is_ok());
 
-        let failing_source = "λmain()→Unit=l id=(λ(x:Int)→Int=x);id(\"oops\")";
+        let failing_source = "λmain()=>Unit=l id=(λ(x:Int)=>Int=x);id(\"oops\")";
         let failing_tokens = tokenize(failing_source).unwrap();
         let failing_program = parse(failing_tokens, "test.sigil").unwrap();
         let failing_result =

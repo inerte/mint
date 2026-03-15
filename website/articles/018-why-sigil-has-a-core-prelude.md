@@ -11,14 +11,14 @@ That is not the interesting part.
 
 For Sigil, the real question is: **who canonically owns a concept?**
 
-LLMs do not care very much whether a function is written as `join(...)` or `stdlib⋅string.join(...)`.
+LLMs do not care very much whether a function is written as `join(...)` or `stdlib::string.join(...)`.
 They care much more about:
 
 1. whether there is one canonical spelling
 2. whether the same concept appears under multiple competing names
 3. whether a concept feels foundational enough to show up in most programs
 
-That is why Sigil now has a small `core⋅prelude`.
+That is why Sigil now has a small `core::prelude`.
 
 ## What Moved Into Core
 
@@ -45,8 +45,8 @@ Ok("done")
 is better for Sigil than:
 
 ```sigil
-stdlib⋅option.Some(42)
-stdlib⋅result.Ok("done")
+stdlib::option.Some(42)
+stdlib::result.Ok("done")
 ```
 
 The second form is not "more principled." It is just more repetitive.
@@ -58,9 +58,9 @@ Sigil does **not** want a giant implicit universe.
 These still live behind module names:
 
 ```sigil
-core⋅map.get("content-type",headers)
-core⋅option.unwrap_or("guest",maybe_name)
-stdlib⋅string.join(",",items)
+core::map.get("content-type",headers)
+core::option.unwrap_or("guest",maybe_name)
+stdlib::string.join(",",items)
 ```
 
 That keeps the implicit surface small while still giving each concept one canonical owner.

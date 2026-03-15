@@ -1,8 +1,8 @@
-λgcd(a:Int,b:Int)→Int match b{
-  0→a|
-  divisor→gcd(divisor,a%divisor)
+λgcd(a:Int,b:Int)=>Int match b{
+  0=>a|
+  divisor=>gcd(divisor,a%divisor)
 }
 
-λlcm(a:Int,b:Int)→Int=(a*b)/gcd(a,b)
+λlcm(a:Int,b:Int)=>Int=(a*b)/gcd(a,b)
 
-λmain()→Int=gcd(48,18)
+λmain()=>Int=gcd(48,18)

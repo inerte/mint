@@ -35,8 +35,8 @@ Consider what happens when an LLM learns to write code that gets string/list len
 **Noisy training data (what we avoid):**
 ```sigil
 ⟦ BAD - Multiple syntactic forms for same concept ⟧
-stdlib⋅string_utils.len("hello")
-stdlib⋅list.len([1,2,3])
+stdlib::string_utils.len("hello")
+stdlib::list.len([1,2,3])
 s.length  ⟦ if we allowed property access ⟧
 ```
 
@@ -49,9 +49,9 @@ The model sees three different syntactic patterns for the identical semantic con
 **Clean training data (what we enforce):**
 ```sigil
 ⟦ GOOD - Single canonical operator ⟧
-#"hello"     ⟦ → 5 ⟧
-#[1,2,3]     ⟦ → 3 ⟧
-#""          ⟦ → 0 ⟧
+#"hello"     ⟦ => 5 ⟧
+#[1,2,3]     ⟦ => 3 ⟧
+#""          ⟦ => 0 ⟧
 ```
 
 Every single example in every codebase uses `#`. No variations. No alternatives. **Deterministic code synthesis.**
@@ -62,8 +62,8 @@ We considered several approaches:
 
 ### Option 1: Type-Specific Functions ❌
 ```sigil
-stdlib⋅string_utils.len(s)
-stdlib⋅list.len(xs)
+stdlib::string_utils.len(s)
+stdlib::list.len(xs)
 ```
 
 **Problems:**
@@ -144,9 +144,9 @@ Both JavaScript strings and arrays use `.length`, so the generated code is ident
 Alongside the `#` operator, we added comprehensive string operations as **compiler intrinsics**:
 
 ```sigil
-stdlib⋅string.to_upper("hello")              ⟦ → "HELLO" ⟧
-stdlib⋅string.substring("hello world",6,11)  ⟦ → "world" ⟧
-stdlib⋅string.starts_with("# Title","# ")  ⟦ → true ⟧
+stdlib::string.to_upper("hello")              ⟦ => "HELLO" ⟧
+stdlib::string.substring("hello world",6,11)  ⟦ => "world" ⟧
+stdlib::string.starts_with("# Title","# ")  ⟦ => true ⟧
 ```
 
 These are not implemented in Sigil - they're recognized by the compiler and emit optimized JavaScript:
@@ -180,8 +180,8 @@ Following the "ONE way to do things" philosophy, we deliberately avoid redundant
 ```sigil
 ⟦ These are redundant - users can compose them ⟧
 is_empty(s)         ⟦ Just use: #s = 0 ⟧
-is_whitespace(s)    ⟦ Just use: stdlib⋅string.trim(s) = "" ⟧
-contains(s, search) ⟦ Just use: stdlib⋅string.index_of(s, search) ≠ -1 ⟧
+is_whitespace(s)    ⟦ Just use: stdlib::string.trim(s) = "" ⟧
+contains(s, search) ⟦ Just use: stdlib::string.index_of(s, search) ≠ -1 ⟧
 ```
 
 Each of these can be composed from existing primitives. Adding them would create multiple ways to express the same concept - exactly what we're trying to avoid.
@@ -221,19 +221,19 @@ This isn't about human ergonomics - it's about **machine learning efficiency**. 
 
 As of February 2026, Sigil has:
 - ✅ `#` operator for strings and lists
-- ✅ Compiler intrinsics for `stdlib⋅string` (10 functions)
-- ✅ Compiler intrinsics for `stdlib⋅string` (2 predicates)
+- ✅ Compiler intrinsics for `stdlib::string` (10 functions)
+- ✅ Compiler intrinsics for `stdlib::string` (2 predicates)
 - ✅ Full type checking and error messages
 - ✅ Optimized JavaScript codegen
 
-The old `stdlib⋅list.len` function has been removed. Use `#` instead.
+The old `stdlib::list.len` function has been removed. Use `#` instead.
 
 ## Try It Yourself
 
 ```sigil
 e console
 
-λmain()→!IO Unit={
+λmain()=>!IO Unit={
   console.log("Length of 'hello': "++(#"hello"));
   console.log("Length of list: "++(#[1,2,3,4]))
 }

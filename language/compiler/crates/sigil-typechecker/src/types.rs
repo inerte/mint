@@ -84,8 +84,8 @@ pub struct TConstructor {
 /// Type scheme for polymorphic types (∀α₁...αₙ.τ)
 ///
 /// Example:
-///   identity : ∀T. T → T
-///   map : ∀T,U. (T → U) → [T] → [U]
+///   identity : ∀T. T => T
+///   map : ∀T,U. (T => U) => [T] => [U]
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeScheme {
     pub quantified_vars: HashSet<u32>, // Type variable IDs that are quantified
@@ -363,7 +363,7 @@ fn format_inference_type(typ: &InferenceType) -> String {
                 .map(format_inference_type)
                 .collect::<Vec<_>>()
                 .join(",");
-            format!("λ({})→{}", params, format_inference_type(&func.return_type))
+            format!("λ({})=>{}", params, format_inference_type(&func.return_type))
         }
         InferenceType::List(list) => format!("[{}]", format_inference_type(&list.element_type)),
         InferenceType::Map(map) => format!(

@@ -26,7 +26,7 @@ Sigil wants to make that distinction mechanically obvious.
 If internal business logic has a value like:
 
 ```sigil
-t Message={createdAt:stdlib⋅time.Instant,text:String}
+t Message={createdAt:stdlib::time.Instant,text:String}
 ```
 
 then `Message` means:
@@ -40,7 +40,7 @@ So once code has a `Message`, it should just use `message.createdAt`.
 If `createdAt` might actually be absent, Sigil wants that fact in the type:
 
 ```sigil
-t MaybeMessage={createdAt:Option[stdlib⋅time.Instant],text:String}
+t MaybeMessage={createdAt:Option[stdlib::time.Instant],text:String}
 ```
 
 That is the practical rule:
@@ -63,36 +63,36 @@ The canonical Sigil flow is:
 
 ```text
 raw JSON text
-→ stdlib⋅json.parse
-→ stdlib⋅decode.parse / run
-→ trusted internal record
+=> stdlib::json.parse
+=> stdlib::decode.parse / run
+=> trusted internal record
 ```
 
 Example:
 
 ```sigil
-i stdlib⋅decode
-i stdlib⋅json
-i stdlib⋅time
+i stdlib::decode
+i stdlib::json
+i stdlib::time
 
-t Message={createdAt:stdlib⋅time.Instant,text:String}
+t Message={createdAt:stdlib::time.Instant,text:String}
 
-λinstant(value:stdlib⋅json.JsonValue)→Result[stdlib⋅time.Instant,stdlib⋅decode.DecodeError] match stdlib⋅decode.string(value){
-  Ok(text)→
-    match stdlib⋅time.parseIso(text){
-      Ok(instant)→Ok(instant)|
-      Err(error)→Err({message:error.message,path:[]})
+λinstant(value:stdlib::json.JsonValue)=>Result[stdlib::time.Instant,stdlib::decode.DecodeError] match stdlib::decode.string(value){
+  Ok(text)=>
+    match stdlib::time.parseIso(text){
+      Ok(instant)=>Ok(instant)|
+      Err(error)=>Err({message:error.message,path:[]})
     }|
-  Err(error)→Err(error)
+  Err(error)=>Err(error)
 }
 
-λmessage(value:stdlib⋅json.JsonValue)→Result[Message,stdlib⋅decode.DecodeError] match stdlib⋅decode.field(instant,"createdAt")(value){
-  Ok(createdAt)→
-    match stdlib⋅decode.field(stdlib⋅decode.string,"text")(value){
-      Ok(text)→Ok({createdAt:createdAt,text:text})|
-      Err(error)→Err(error)
+λmessage(value:stdlib::json.JsonValue)=>Result[Message,stdlib::decode.DecodeError] match stdlib::decode.field(instant,"createdAt")(value){
+  Ok(createdAt)=>
+    match stdlib::decode.field(stdlib::decode.string,"text")(value){
+      Ok(text)=>Ok({createdAt:createdAt,text:text})|
+      Err(error)=>Err(error)
     }|
-  Err(error)→Err(error)
+  Err(error)=>Err(error)
 }
 ```
 
@@ -159,8 +159,8 @@ Not:
 
 ### JSON Has Two Layers Now
 
-- `stdlib⋅json` is the raw layer
-- `stdlib⋅decode` is the trust-building layer
+- `stdlib::json` is the raw layer
+- `stdlib::decode` is the trust-building layer
 
 That split is deliberate.
 It keeps “parse raw bytes” separate from “turn this into a trusted internal value.”

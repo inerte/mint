@@ -4,126 +4,126 @@ Generic list helpers that work across element types, plus integer-specialized
 reducers and order predicates.
 ⟧
 
-λcontains[T](item:T,xs:[T])→Bool match xs{
-  []→false|
-  [x,.rest]→match x=item{
-    true→true|
-    false→contains(item,rest)
+λcontains[T](item:T,xs:[T])=>Bool match xs{
+  []=>false|
+  [x,.rest]=>match x=item{
+    true=>true|
+    false=>contains(item,rest)
   }
 }
 
-λcount[T](item:T,xs:[T])→Int match xs{
-  []→0|
-  [x,.rest]→match x=item{
-    true→1+count(item,rest)|
-    false→count(item,rest)
+λcount[T](item:T,xs:[T])=>Int match xs{
+  []=>0|
+  [x,.rest]=>match x=item{
+    true=>1+count(item,rest)|
+    false=>count(item,rest)
   }
 }
 
-λdrop[T](n:Int,xs:[T])→[T] match n≤0{
-  true→xs|
-  false→match xs{
-    []→[]|
-    [x,.rest]→drop(n-1,rest)
+λdrop[T](n:Int,xs:[T])=>[T] match n≤0{
+  true=>xs|
+  false=>match xs{
+    []=>[]|
+    [x,.rest]=>drop(n-1,rest)
   }
 }
 
-λfind[T](pred:λ(T)→Bool,xs:[T])→Option[T] match xs{
-  []→None()|
-  [x,.rest]→match pred(x){
-    true→Some(x)|
-    false→find(pred,rest)
+λfind[T](pred:λ(T)=>Bool,xs:[T])=>Option[T] match xs{
+  []=>None()|
+  [x,.rest]=>match pred(x){
+    true=>Some(x)|
+    false=>find(pred,rest)
   }
 }
 
-λfold[T,U](acc:U,fn:λ(U,T)→U,xs:[T])→U match xs{
-  []→acc|
-  [x,.rest]→fold(fn(acc,x),fn,rest)
+λfold[T,U](acc:U,fn:λ(U,T)=>U,xs:[T])=>U match xs{
+  []=>acc|
+  [x,.rest]=>fold(fn(acc,x),fn,rest)
 }
 
-λinBounds[T](idx:Int,xs:[T])→Bool=idx≥0 and idx<#xs
+λinBounds[T](idx:Int,xs:[T])=>Bool=idx≥0 and idx<#xs
 
-λlast[T](xs:[T])→Option[T]=lastHelper(None(),xs)
+λlast[T](xs:[T])=>Option[T]=lastHelper(None(),xs)
 
-λlastHelper[T](result:Option[T],xs:[T])→Option[T] match xs{
-  []→result|
-  [x,.rest]→lastHelper(Some(x),rest)
+λlastHelper[T](result:Option[T],xs:[T])=>Option[T] match xs{
+  []=>result|
+  [x,.rest]=>lastHelper(Some(x),rest)
 }
 
-λmax(xs:[Int])→Option[Int] match xs{
-  []→None()|
-  [x,.rest]→match max(rest){
-    Some(restMax)→match x>restMax{
-      true→Some(x)|
-      false→Some(restMax)
+λmax(xs:[Int])=>Option[Int] match xs{
+  []=>None()|
+  [x,.rest]=>match max(rest){
+    Some(restMax)=>match x>restMax{
+      true=>Some(x)|
+      false=>Some(restMax)
     }|
-    None()→Some(x)
+    None()=>Some(x)
   }
 }
 
-λmin(xs:[Int])→Option[Int] match xs{
-  []→None()|
-  [x,.rest]→match min(rest){
-    Some(restMin)→match x<restMin{
-      true→Some(x)|
-      false→Some(restMin)
+λmin(xs:[Int])=>Option[Int] match xs{
+  []=>None()|
+  [x,.rest]=>match min(rest){
+    Some(restMin)=>match x<restMin{
+      true=>Some(x)|
+      false=>Some(restMin)
     }|
-    None()→Some(x)
+    None()=>Some(x)
   }
 }
 
-λnth[T](idx:Int,xs:[T])→Option[T] match idx<0{
-  true→None()|
-  false→match xs{
-    []→None()|
-    [x,.rest]→match idx=0{
-      true→Some(x)|
-      false→nth(idx-1,rest)
+λnth[T](idx:Int,xs:[T])=>Option[T] match idx<0{
+  true=>None()|
+  false=>match xs{
+    []=>None()|
+    [x,.rest]=>match idx=0{
+      true=>Some(x)|
+      false=>nth(idx-1,rest)
     }
   }
 }
 
-λproduct(xs:[Int])→Int match xs{
-  []→1|
-  [x,.rest]→x*product(rest)
+λproduct(xs:[Int])=>Int match xs{
+  []=>1|
+  [x,.rest]=>x*product(rest)
 }
 
-λremoveFirst[T](item:T,xs:[T])→[T] match xs{
-  []→[]|
-  [x,.rest]→match x=item{
-    true→rest|
-    false→([x]:[T])⧺removeFirst(item,rest)
+λremoveFirst[T](item:T,xs:[T])=>[T] match xs{
+  []=>[]|
+  [x,.rest]=>match x=item{
+    true=>rest|
+    false=>([x]:[T])⧺removeFirst(item,rest)
   }
 }
 
-λreverse[T](xs:[T])→[T]=reverseHelper([],xs)
+λreverse[T](xs:[T])=>[T]=reverseHelper([],xs)
 
-λreverseHelper[T](acc:[T],xs:[T])→[T] match xs{
-  []→acc|
-  [x,.rest]→reverseHelper(([x]:[T])⧺acc,rest)
+λreverseHelper[T](acc:[T],xs:[T])=>[T] match xs{
+  []=>acc|
+  [x,.rest]=>reverseHelper(([x]:[T])⧺acc,rest)
 }
 
-λsortedAsc(xs:[Int])→Bool match xs{
-  []→true|
-  [x]→true|
-  [x,y,.rest]→x≤y and sortedAsc(([y]:[Int])⧺rest)
+λsortedAsc(xs:[Int])=>Bool match xs{
+  []=>true|
+  [x]=>true|
+  [x,y,.rest]=>x≤y and sortedAsc(([y]:[Int])⧺rest)
 }
 
-λsortedDesc(xs:[Int])→Bool match xs{
-  []→true|
-  [x]→true|
-  [x,y,.rest]→x≥y and sortedDesc(([y]:[Int])⧺rest)
+λsortedDesc(xs:[Int])=>Bool match xs{
+  []=>true|
+  [x]=>true|
+  [x,y,.rest]=>x≥y and sortedDesc(([y]:[Int])⧺rest)
 }
 
-λsum(xs:[Int])→Int match xs{
-  []→0|
-  [x,.rest]→x+sum(rest)
+λsum(xs:[Int])=>Int match xs{
+  []=>0|
+  [x,.rest]=>x+sum(rest)
 }
 
-λtake[T](n:Int,xs:[T])→[T] match n≤0{
-  true→[]|
-  false→match xs{
-    []→[]|
-    [x,.rest]→([x]:[T])⧺take(n-1,rest)
+λtake[T](n:Int,xs:[T])=>[T] match n≤0{
+  true=>[]|
+  false=>match xs{
+    []=>[]|
+    [x,.rest]=>([x]:[T])⧺take(n-1,rest)
   }
 }

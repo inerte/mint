@@ -1,15 +1,15 @@
 e process
 
-λbasePath()→String=basePathFromProperty(process.env.hasOwnProperty("sigilSiteBasePath"))
+λbasePath()=>String=basePathFromProperty(process.env.hasOwnProperty("sigilSiteBasePath"))
 
-λbasePathFromProperty(hasValue:Bool)→String match hasValue{
-  true→(process.env.sigilSiteBasePath:String)|
-  false→"/"
+λbasePathFromProperty(hasValue:Bool)=>String match hasValue{
+  true=>(process.env.sigilSiteBasePath:String)|
+  false=>"/"
 }
 
-λrepoUrl()→String=repoUrlFromProperty(process.env.hasOwnProperty("sigilSiteRepoUrl"))
+λrepoUrl()=>String=repoUrlFromProperty(process.env.hasOwnProperty("sigilSiteRepoUrl"))
 
-λrepoUrlFromProperty(hasValue:Bool)→String match hasValue{
-  true→(process.env.sigilSiteRepoUrl:String)|
-  false→""
+λrepoUrlFromProperty(hasValue:Bool)=>String match hasValue{
+  true=>(process.env.sigilSiteRepoUrl:String)|
+  false=>""
 }

@@ -194,7 +194,7 @@ pub struct IdentifierExpr {
     pub location: SourceLocation,
 }
 
-/// Lambda expression: λ (x: Int) → Int { x + 1 }
+/// Lambda expression: λ (x: Int) => Int { x + 1 }
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LambdaExpr {
@@ -331,7 +331,7 @@ impl std::fmt::Display for UnaryOperator {
     }
 }
 
-/// Match expression: match value{Some(x)→x|None→0}
+/// Match expression: match value{Some(x)=>x|None=>0}
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MatchExpr {
@@ -340,7 +340,7 @@ pub struct MatchExpr {
     pub location: SourceLocation,
 }
 
-/// Match arm: pattern → body or pattern when guard → body
+/// Match arm: pattern => body or pattern when guard => body
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MatchArm {
@@ -491,11 +491,11 @@ pub struct FoldExpr {
     pub location: SourceLocation,
 }
 
-/// Member access (FFI): fs⋅promises.readFile
+/// Member access (FFI): fs::promises.readFile
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MemberAccessExpr {
-    pub namespace: Vec<String>,    // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs⋅promises)
+    pub namespace: Vec<String>,    // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs::promises)
     pub member: String,             // 'readFile' or 'get'
     pub location: SourceLocation,
 }

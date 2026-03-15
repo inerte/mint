@@ -2,18 +2,18 @@
 
 e console
 
-λfetchStatus()→!IO String="real"
+λfetchStatus()=>!IO String="real"
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
-test "withMock body can compose booleans" →!IO {
-  withMock(fetchStatus, λ()→!IO String="temporary") {
+test "withMock body can compose booleans" =>!IO {
+  withMock(fetchStatus, λ()=>!IO String="temporary") {
     fetchStatus()="temporary" and fetchStatus()≠"real"
   }
 }
 
-test "withMock can replace any function in tests" →!IO {
-  withMock(fetchStatus, λ()→!IO String="mocked") {
+test "withMock can replace any function in tests" =>!IO {
+  withMock(fetchStatus, λ()=>!IO String="mocked") {
     fetchStatus()="mocked"
   }
 }

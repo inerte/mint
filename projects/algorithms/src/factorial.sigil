@@ -1,2 +1,2 @@
-λfactorial(n:Int)→Int match n{0→1|1→1|value→value*factorial(value-1)}
-λmain()→String="factorial(5) = "+factorial(5)
+λfactorial(n:Int)=>Int match n{0=>1|1=>1|value=>value*factorial(value-1)}
+λmain()=>String="factorial(5) = "+factorial(5)

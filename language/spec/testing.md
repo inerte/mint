@@ -30,7 +30,7 @@ test "adds numbers" {
 Effectful test:
 
 ```sigil
-test "writes log" →!IO {
+test "writes log" =>!IO {
   console.log("x")=()
 }
 ```
@@ -63,8 +63,8 @@ Test files are executable-oriented and must define `main`.
 Current built-in mocking form:
 
 ```sigil
-test "fallback on API failure" →!Network {
-  withMock(fetchUser, λ(id:Int)→!Network String="ERR") {
+test "fallback on API failure" =>!Network {
+  withMock(fetchUser, λ(id:Int)=>!Network String="ERR") {
     fetchUser(1)="ERR"
   }
 }

@@ -1,33 +1,33 @@
-i stdlib⋅numeric
+i stdlib::numeric
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
-λping()→!IO String="real"
+λping()=>!IO String="real"
 
-test "any function can be overridden in tests" →!IO {
-  withMock(ping, λ()→!IO String="fake") {
+test "any function can be overridden in tests" =>!IO {
+  withMock(ping, λ()=>!IO String="fake") {
     ping()="fake"
   }
 }
 
-test "nested withMock uses inner replacement lexically" →!IO {
-  withMock(ping, λ()→!IO String="outer") {
-    withMock(ping, λ()→!IO String="inner") {
+test "nested withMock uses inner replacement lexically" =>!IO {
+  withMock(ping, λ()=>!IO String="outer") {
+    withMock(ping, λ()=>!IO String="inner") {
       ping()="inner"
     }
   }
 }
 
 test "numeric predicates are available in projects" {
-  stdlib⋅numeric.isEven(2)=true and stdlib⋅numeric.isOdd(3)=true
+  stdlib::numeric.isEven(2)=true and stdlib::numeric.isOdd(3)=true
 }
 
 test "pure boolean passes" {
   1+1=2
 }
 
-test "withMock can be used in boolean expressions" →!IO {
-  withMock(ping, λ()→!IO String="pong") {
+test "withMock can be used in boolean expressions" =>!IO {
+  withMock(ping, λ()=>!IO String="pong") {
     ping()="pong" and ping()≠"real"
   }
 }

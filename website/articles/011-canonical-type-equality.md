@@ -24,7 +24,7 @@ and:
 
 ```sigil
 t Todo={done:Bool,id:Int,text:String}
-λaddTodo(id:Int,text:String,todos:[Todo])→[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
+λaddTodo(id:Int,text:String,todos:[Todo])=>[Todo]=[Todo{done:false,id:id,text:text}]⧺todos
 ```
 
 Both examples are obviously the same explicit type relation:
@@ -64,8 +64,8 @@ t Todo={done:Bool,id:Int,text:String}
 
 Canonical semantic forms:
 
-- `UserId` → `Int`
-- `Todo` → `{done:Bool,id:Int,text:String}`
+- `UserId` => `Int`
+- `Todo` => `{done:Bool,id:Int,text:String}`
 
 So the checker compares the normalized forms, not the unresolved names.
 

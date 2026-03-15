@@ -982,7 +982,7 @@ impl TypeScriptGenerator {
 
             for variant in &sum_type.variants {
                 // Generate constructor function
-                // Example: Some(x) → { __tag: "Some", __fields: [x] }
+                // Example: Some(x) => { __tag: "Some", __fields: [x] }
                 let param_names: Vec<String> = (0..variant.types.len())
                     .map(|i| format!("_{}", i))
                     .collect();
@@ -1044,7 +1044,7 @@ impl TypeScriptGenerator {
 
     fn generate_import(&mut self, import: &ImportDecl) -> Result<(), CodegenError> {
         // Convert Sigil import to ES module import (namespace style)
-        // For src⋅utils, create:
+        // For src::utils, create:
         //   - namespace: src_utils (matches member access generation)
         //   - import path: relative to current output file
         let namespace = sanitize_js_identifier(&import.module_path.join("_"));
@@ -2405,7 +2405,7 @@ mod tests {
 
     #[test]
     fn test_simple_function() {
-        let source = "λadd(x:Int,y:Int)→Int=x+y";
+        let source = "λadd(x:Int,y:Int)=>Int=x+y";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
@@ -2439,7 +2439,7 @@ mod tests {
 
     #[test]
     fn test_core_prelude_result_helper_codegen() {
-        let source = "t Result[T,E]=Ok(T)|Err(E)\nλnormalize[T,E](res:Result[T,E])→Result[T,E] match res{Ok(value)→Ok(value)|Err(error)→Err(error)}";
+        let source = "t Result[T,E]=Ok(T)|Err(E)\nλnormalize[T,E](res:Result[T,E])=>Result[T,E] match res{Ok(value)=>Ok(value)|Err(error)=>Err(error)}";
         let program = typed_program_for(source, "test.lib.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
@@ -2451,7 +2451,7 @@ mod tests {
 
     #[test]
     fn test_regular_function_calls_route_through_mock_runtime() {
-        let source = "λping()→String=\"real\"\nλmain()→String=ping()";
+        let source = "λping()=>String=\"real\"\nλmain()=>String=ping()";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
@@ -2463,7 +2463,7 @@ mod tests {
 
     #[test]
     fn test_generate_import_sanitizes_alias_and_uses_relative_path() {
-        let source = "i src⋅rot13Encoder\nλmain()→Unit=()";
+        let source = "i src::rot13Encoder\nλmain()=>Unit=()";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
@@ -2477,7 +2477,7 @@ mod tests {
 
     #[test]
     fn test_generate_import_uses_local_root_for_stdlib_test_outputs() {
-        let source = "i stdlib⋅numeric\nλmain()→Unit=()";
+        let source = "i stdlib::numeric\nλmain()=>Unit=()";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
@@ -2493,7 +2493,7 @@ mod tests {
 
     #[test]
     fn test_generate_extern_namespace_uses_full_sanitized_alias() {
-        let source = "e fs⋅promises\nλmain()→Unit=()";
+        let source = "e fs::promises\nλmain()=>Unit=()";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
@@ -2504,7 +2504,7 @@ mod tests {
 
     #[test]
     fn test_generate_match_with_guard_falls_through_to_later_arms() {
-        let source = "λclassify(x:Int)→String match x{n when n>1→\"big\"|0→\"zero\"|_→\"other\"}";
+        let source = "λclassify(x:Int)=>String match x{n when n>1=>\"big\"|0=>\"zero\"|_=>\"other\"}";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
@@ -2516,7 +2516,7 @@ mod tests {
 
     #[test]
     fn test_generate_list_preserves_nested_lists() {
-        let source = "λwrap(xs:[Int])→[[Int]]=[xs]";
+        let source = "λwrap(xs:[Int])=>[[Int]]=[xs]";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
@@ -2528,7 +2528,7 @@ mod tests {
 
     #[test]
     fn test_generate_list_append_parenthesizes_awaited_left_side() {
-        let source = "λleft()→[Int]=[1]\nλright()→[Int]=[2]\nλmain()→[Int]=left()⧺right()";
+        let source = "λleft()=>[Int]=[1]\nλright()=>[Int]=[2]\nλmain()=>[Int]=left()⧺right()";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
@@ -2540,7 +2540,7 @@ mod tests {
 
     #[test]
     fn test_generate_qualified_constructor_call_without_mock_wrapper() {
-        let source = "i src⋅graphTypes\nλmain()→Unit=src⋅graphTypes.Ordering([])";
+        let source = "i src::graphTypes\nλmain()=>Unit=src::graphTypes.Ordering([])";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
@@ -2557,7 +2557,7 @@ mod tests {
 
     #[test]
     fn test_generate_test_metadata_includes_id_and_location() {
-        let source = "λmain()→Unit=()\n\ntest \"smoke\" { true }";
+        let source = "λmain()=>Unit=()\n\ntest \"smoke\" { true }";
         let program = typed_program_for(source, "tests/smoke.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {

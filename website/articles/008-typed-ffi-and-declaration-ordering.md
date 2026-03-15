@@ -1,11 +1,11 @@
 ---
-title: "Typed FFI and the t→e→i Declaration Order Change"
+title: "Typed FFI and the t=>e=>i Declaration Order Change"
 date: 2026-02-25
 author: Sigil Language Team
 slug: typed-ffi-and-declaration-ordering
 ---
 
-# Typed FFI and the t→e→i Declaration Order Change
+# Typed FFI and the t=>e=>i Declaration Order Change
 
 > Historical note: this article reflects an earlier Sigil surface. Later
 > versions removed the `export` keyword and the old TypeScript validator paths
@@ -15,7 +15,7 @@ slug: typed-ffi-and-declaration-ordering
 > and
 > [language/docs/CANONICAL_FORMS.md](REPO_ROOT/language/docs/CANONICAL_FORMS.md).
 
-> **🚨 BREAKING CHANGE:** Sigil's canonical declaration ordering changed from `e → i → t → c → λ → test` to **`t → e → i → c → λ → test`** (types now come first). This enables typed FFI declarations to reference named types. Migration is straightforward: move type declarations before extern/import declarations.
+> **🚨 BREAKING CHANGE:** Sigil's canonical declaration ordering changed from `e => i => t => c => λ => test` to **`t => e => i => c => λ => test`** (types now come first). This enables typed FFI declarations to reference named types. Migration is straightforward: move type declarations before extern/import declarations.
 
 **TL;DR:** We added typed FFI declarations (compile-time type checking at FFI boundaries) and changed canonical declaration ordering to support them. Types must now come before externs because typed extern declarations can reference named types. This is a breaking change but affects very few files and the compiler gives clear fix-it instructions.
 
@@ -25,12 +25,12 @@ Before typed FFI, all external function calls used TypeScript's `any` type:
 
 ```sigil
 ⟦ Before: Untyped FFI ⟧
-e fs⋅promises
+e fs::promises
 
-λensureDir(dir:String)→Unit={
+λensureDir(dir:String)=>Unit={
   ⟦ What type is opts? The compiler doesn't know! ⟧
   l opts = {recursive:true};
-  fs⋅promises.mkdir(dir, opts)  ⟦ No type checking here ⟧
+  fs::promises.mkdir(dir, opts)  ⟦ No type checking here ⟧
 }
 ```
 
@@ -40,7 +40,7 @@ e fs⋅promises
 3. Can't reference Sigil types in FFI signatures
 4. IDE/LSP can't provide type information
 
-The original issue: `fs⋅promises.readdir` returned `any`, so you couldn't use `#files` to get the length—even though readdir returns a list!
+The original issue: `fs::promises.readdir` returned `any`, so you couldn't use `#files` to get the length—even though readdir returns a list!
 
 ## The Solution: Typed FFI Declarations
 
@@ -50,14 +50,14 @@ We added **optional type annotations** for extern declarations:
 ⟦ After: Typed FFI ⟧
 t MkdirOptions = { recursive: Bool }
 
-e fs⋅promises : {
-  mkdir : λ(String, MkdirOptions) → Unit
+e fs::promises : {
+  mkdir : λ(String, MkdirOptions) => Unit
 }
 
 c opts:MkdirOptions={recursive:true}
 
-λensureDir(dir:String)→Unit=
-  fs⋅promises.mkdir(dir, opts)  ⟦ Now type-checked! ⟧
+λensureDir(dir:String)=>Unit=
+  fs::promises.mkdir(dir, opts)  ⟦ Now type-checked! ⟧
 ```
 
 **Benefits:**
@@ -76,8 +76,8 @@ e console
 
 ⟦ Typed FFI (type-safe mode) ⟧
 e console : {
-  log : λ(String) → Unit,
-  error : λ(String) → Unit
+  log : λ(String) => Unit,
+  error : λ(String) => Unit
 }
 ```
 
@@ -87,12 +87,12 @@ Each member gets a function type signature. The compiler type-checks all calls a
 
 ```sigil
 ⟦ Typed FFI with list return type ⟧
-e fs⋅promises : {
-  readdir : λ(String) → [String]
+e fs::promises : {
+  readdir : λ(String) => [String]
 }
 
-λcountFiles(dir:String)→Int={
-  l files = fs⋅promises.readdir(dir);
+λcountFiles(dir:String)=>Int={
+  l files = fs::promises.readdir(dir);
   #files  ⟦ Now works! Type is [String], not any ⟧
 }
 ```
@@ -108,12 +108,12 @@ Here's where it gets interesting. **Typed FFI needs to reference named types:**
 ```sigil
 t MkdirOptions = { recursive: Bool }
 
-e fs⋅promises : {
-  mkdir : λ(String, MkdirOptions) → Unit  ⟦ References the type above ⟧
+e fs::promises : {
+  mkdir : λ(String, MkdirOptions) => Unit  ⟦ References the type above ⟧
 }
 ```
 
-But Sigil's original canonical ordering was `e → i → t` (externs before types).
+But Sigil's original canonical ordering was `e => i => t` (externs before types).
 
 **This created a conflict:**
 - Externs can reference types (for typed FFI)
@@ -139,13 +139,13 @@ This would work, but it violates Sigil's core principle: **canonical code over i
 - Doesn't match how humans read code (top-to-bottom)
 - Breaks Sigil's "one way to do it" philosophy
 
-## The Canonical Solution: t→e→i Ordering
+## The Canonical Solution: t=>e=>i Ordering
 
 Instead, we **changed the canonical declaration order** to match dependency flow:
 
 ```
-BEFORE (Feb 24, 2026):  e → i → t → c → λ → test
-AFTER  (Feb 25, 2026):  t → e → i → c → λ → test
+BEFORE (Feb 24, 2026):  e => i => t => c => λ => test
+AFTER  (Feb 25, 2026):  t => e => i => c => λ => test
 ```
 
 **Rationale:**
@@ -164,19 +164,19 @@ t MkdirOptions = { recursive: Bool }
 t User = { name: String, age: Int }
 
 ⟦ 2. Externs - Can reference types ⟧
-e fs⋅promises : {
-  mkdir : λ(String, MkdirOptions) → Unit
+e fs::promises : {
+  mkdir : λ(String, MkdirOptions) => Unit
 }
 
 ⟦ 3. Imports - Can reference types ⟧
-i stdlib⋅list
+i stdlib::list
 
 ⟦ 4. Consts - Can reference types ⟧
 c DEFAULT_USER:User={name:"Guest",age:0}
 
 ⟦ 5. Functions - Can reference everything ⟧
-λensureDir(dir:String)→Unit=
-  fs⋅promises.mkdir(dir, {recursive:true})
+λensureDir(dir:String)=>Unit=
+  fs::promises.mkdir(dir, {recursive:true})
 ```
 
 Everything flows **top-to-bottom**. Types are declared first because everything else can reference them.
@@ -193,7 +193,7 @@ Canonical Ordering Error: Wrong category position
 Found: e (extern) at line 5
 Expected: extern declarations must come before type declarations
 
-Category order: t → e → i → c → λ → test
+Category order: t => e => i => c => λ => test
   t    = types
   e    = externs (FFI imports)
   i    = imports (Sigil modules)
@@ -220,11 +220,11 @@ grep -l "^e " *.sigil | xargs grep -l "^t "
 Before (wrong order):
 ```sigil
 e console
-e fs⋅promises
+e fs::promises
 
 t MkdirOptions = { recursive: Bool }
 
-λmain()→Unit=console.log("hi")
+λmain()=>Unit=console.log("hi")
 ```
 
 After (correct order):
@@ -232,9 +232,9 @@ After (correct order):
 t MkdirOptions = { recursive: Bool }
 
 e console
-e fs⋅promises
+e fs::promises
 
-λmain()→Unit=console.log("hi")
+λmain()=>Unit=console.log("hi")
 ```
 
 **3. Compile to verify**
@@ -272,16 +272,16 @@ We updated the entire Sigil codebase (60+ files). Here's what we found:
 Before (would fail compilation):
 ```sigil
 ⟦ ERROR: extern references type that comes after it ⟧
-e fs⋅promises : {
-  mkdir : λ(String, MkdirOptions) → Unit  ⟦ MkdirOptions not defined yet! ⟧
+e fs::promises : {
+  mkdir : λ(String, MkdirOptions) => Unit  ⟦ MkdirOptions not defined yet! ⟧
 }
 
 t MkdirOptions = { recursive: Bool }
 
 c opts:MkdirOptions={recursive:true}
 
-λensureDir(dir:String)→Unit=
-  fs⋅promises.mkdir(dir, opts)
+λensureDir(dir:String)=>Unit=
+  fs::promises.mkdir(dir, opts)
 ```
 
 After (canonical and correct):
@@ -290,15 +290,15 @@ After (canonical and correct):
 t MkdirOptions = { recursive: Bool }
 
 ⟦ Extern can reference it ⟧
-e fs⋅promises : {
-  mkdir : λ(String, MkdirOptions) → Unit
+e fs::promises : {
+  mkdir : λ(String, MkdirOptions) => Unit
 }
 
 ⟦ Use it ⟧
 c opts:MkdirOptions={recursive:true}
 
-λensureDir(dir:String)→Unit=
-  fs⋅promises.mkdir(dir, opts)
+λensureDir(dir:String)=>Unit=
+  fs::promises.mkdir(dir, opts)
 ```
 
 **The fix:** Move `t MkdirOptions` from line 7 to line 1. That's it.
@@ -307,7 +307,7 @@ c opts:MkdirOptions={recursive:true}
 
 ### Canonical Syntax > Implementation Complexity
 
-Sigil could have supported `e → i → t` ordering with multi-pass type resolution. Many languages do this.
+Sigil could have supported `e => i => t` ordering with multi-pass type resolution. Many languages do this.
 
 **But Sigil is different:**
 - Designed for **AI code generation** (deterministic, canonical forms)
@@ -359,14 +359,14 @@ Tests:     Verify behavior (using everything)
 ```sigil
 ⟦ Define the signature ⟧
 e console : {
-  log : λ(String) → Unit
+  log : λ(String) => Unit
 }
 
 ⟦ This works - correct type ⟧
-λgood()→Unit=console.log("type safe")
+λgood()=>Unit=console.log("type safe")
 
 ⟦ This fails - type error ⟧
-λbad()→Unit=console.log(42)  ⟦ ERROR: Expected String, got Int ⟧
+λbad()=>Unit=console.log(42)  ⟦ ERROR: Expected String, got Int ⟧
 ```
 
 The compiler catches type errors **before runtime**!
@@ -379,15 +379,15 @@ t ReadFileOptions = { encoding: String, flag: String }
 t WriteFileOptions = { encoding: String, mode: Int }
 
 ⟦ Typed extern using those types ⟧
-e fs⋅promises : {
-  readFile : λ(String, ReadFileOptions) → String,
-  writeFile : λ(String, String, WriteFileOptions) → Unit
+e fs::promises : {
+  readFile : λ(String, ReadFileOptions) => String,
+  writeFile : λ(String, String, WriteFileOptions) => Unit
 }
 
 ⟦ Type-checked FFI calls ⟧
-λreadConfig(path:String)→String={
+λreadConfig(path:String)=>String={
   l opts=ReadFileOptions{encoding:"utf8",flag:"r"};
-  fs⋅promises.readFile(path, opts)
+  fs::promises.readFile(path, opts)
 }
 ```
 
@@ -400,17 +400,17 @@ e fs⋅promises : {
 ### List Types Enable Operators
 
 ```sigil
-e fs⋅promises : {
-  readdir : λ(String) → [String]
+e fs::promises : {
+  readdir : λ(String) => [String]
 }
 
-λcountFiles(dir:String)→Int={
-  l files=fs⋅promises.readdir(dir);
+λcountFiles(dir:String)=>Int={
+  l files=fs::promises.readdir(dir);
   #files  ⟦ Works! Type is [String] ⟧
 }
 
-λlogFiles(dir:String)→Unit={
-  l files=fs⋅promises.readdir(dir);
+λlogFiles(dir:String)=>Unit={
+  l files=fs::promises.readdir(dir);
   l count=#files;
   console.log("Found " + count + " files")
 }
@@ -429,32 +429,32 @@ We created typed FFI modules for common Node.js APIs:
 ```sigil
 ⟦ Typed console operations ⟧
 e console : {
-  log : λ(String) → Unit,
-  error : λ(String) → Unit,
-  warn : λ(String) → Unit
+  log : λ(String) => Unit,
+  error : λ(String) => Unit,
+  warn : λ(String) => Unit
 }
 
-export λlog(msg:String)→Unit=console.log(msg)
-export λerror(msg:String)→Unit=console.error(msg)
-export λwarn(msg:String)→Unit=console.warn(msg)
+export λlog(msg:String)=>Unit=console.log(msg)
+export λerror(msg:String)=>Unit=console.error(msg)
+export λwarn(msg:String)=>Unit=console.warn(msg)
 ```
 
 ### stdlib/ffi_node_fs.sigil
 
 ```sigil
 ⟦ Typed file system operations ⟧
-e fs⋅promises : {
-  readFile : λ(String, String) → String,
-  writeFile : λ(String, String) → Unit,
-  readdir : λ(String) → [String],
-  mkdir : λ(String, {recursive:Bool}) → Unit
+e fs::promises : {
+  readFile : λ(String, String) => String,
+  writeFile : λ(String, String) => Unit,
+  readdir : λ(String) => [String],
+  mkdir : λ(String, {recursive:Bool}) => Unit
 }
 
-export λreadFile(path:String)→String=
-  fs⋅promises.readFile(path, "utf8")
+export λreadFile(path:String)=>String=
+  fs::promises.readFile(path, "utf8")
 
-export λwriteFile(path:String, content:String)→Unit=
-  fs⋅promises.writeFile(path, content)
+export λwriteFile(path:String, content:String)=>Unit=
+  fs::promises.writeFile(path, content)
 ```
 
 These modules provide **type-safe wrappers** around Node.js APIs.
@@ -498,14 +498,14 @@ ExternMembers = ExternMember ("," ExternMember)* ","?
 
 ExternMember = Identifier ":" FunctionTypeExpr
 
-FunctionTypeExpr = "λ" "(" TypeList? ")" "→" Type
+FunctionTypeExpr = "λ" "(" TypeList? ")" "=>" Type
 ```
 
 ## Breaking Change Summary
 
 ### What Changed
 
-1. Canonical declaration order: `e → i → t` became `t → e → i`
+1. Canonical declaration order: `e => i => t` became `t => e => i`
 2. Compiler enforces types before externs before imports
 3. Error messages guide migration
 
@@ -567,11 +567,11 @@ e axios  ⟦ Automatically typed from @types/axios ⟧
 
 Typed FFI brings **compile-time type safety** to Sigil's foreign function interface. No more `any` types at FFI boundaries. No more runtime type surprises.
 
-The `t → e → i` declaration ordering change enables this feature while maintaining Sigil's core principles:
+The `t => e => i` declaration ordering change enables this feature while maintaining Sigil's core principles:
 
 1. **Canonical code** - ONE way to organize declarations
 2. **Machine-first** - Clear rules, no magic
-3. **Deterministic** - Same input → same output
+3. **Deterministic** - Same input => same output
 
 We chose to **fix the syntax** (reorder declarations) rather than **add implementation complexity** (multi-pass type resolution). This is the Sigil way.
 

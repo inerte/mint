@@ -1,8 +1,8 @@
-i src⋅topology
-i stdlib⋅httpClient
-i stdlib⋅string
+i src::topology
+i stdlib::httpClient
+i stdlib::string
 
-λmain()→!IO String match stdlib⋅httpClient.get(src⋅topology.mailerApi,stdlib⋅httpClient.emptyHeaders(),"/missing"){
-  Ok(response)→stdlib⋅string.intToString(response.status)|
-  Err(error)→"ERR:"++error.message
+λmain()=>!IO String match stdlib::httpClient.get(src::topology.mailerApi,stdlib::httpClient.emptyHeaders(),"/missing"){
+  Ok(response)=>stdlib::string.intToString(response.status)|
+  Err(error)=>"ERR:"++error.message
 }

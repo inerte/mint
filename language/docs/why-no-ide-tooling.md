@@ -28,7 +28,7 @@ Here's what the workflow looked like:
 ```
 Developer opens fibonacci.sigil in VS Code
   ↓
-VS Code syntax highlights: λfibonacci(n:Int)→Int match n{0→0|1→1|...}
+VS Code syntax highlights: λfibonacci(n:Int)=>Int match n{0=>0|1=>1|...}
   ↓
 Developer hovers over function
   ↓
@@ -105,9 +105,9 @@ The compiler CLI is 1,010 lines of TypeScript. It provides:
 Example error:
 
 ```
-Error: Expected "⋅" separator in import path
+Error: Expected "::" separator in import path
 Found: i stdlib/list
-Expected: i stdlib⋅list
+Expected: i stdlib::list
 ```
 
 Claude Code reads these diagnostics and explains them to humans in natural language.
@@ -117,12 +117,12 @@ Claude Code reads these diagnostics and explains them to humans in natural langu
 Sigil enforces one way to write anything:
 
 ```sigil
-λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)=>Int match n{0=>0|1=>1|n=>fibonacci(n-1)+fibonacci(n-2)}
 ```
 
 Not:
 - `function fibonacci(n: Int): Int = ...` (wrong keywords)
-- `λ fibonacci(n:Int) → Int = ...` (wrong spacing)
+- `λ fibonacci(n:Int) => Int = ...` (wrong spacing)
 - `def fib(n) { ... }` (missing types)
 
 There's only one valid token sequence. No ambiguity. No style debates. Claude Code generates it correctly every time.
@@ -143,7 +143,7 @@ Strong type inference with mandatory annotations:
 
 ```sigil
 ⟦ Type error: Cannot pass String where Int expected ⟧
-λadd(a:Int,b:Int)→Int=a+b
+λadd(a:Int,b:Int)=>Int=a+b
 test "add strings"=add("1","2") match 3  ⟦ Error here ⟧
 ```
 
@@ -211,17 +211,17 @@ Here's what actually happens when you develop with Sigil in 2026:
 Developer: "Create a function to validate email addresses"
 
 Claude Code: *generates dense canonical Sigil*
-λvalidate_email(email:String)→Bool=
+λvalidate_email(email:String)=>Bool=
   match email{
-    ""→false
-    |s→contains(s,"@") and contains(s,".")
+    ""=>false
+    |s=>contains(s,"@") and contains(s,".")
   }
 
 Claude Code: "I've created validate_email that returns true if
 the email contains both @ and . characters, false otherwise."
 ```
 
-The developer never writes `λvalidate_email(email:String)→Bool=...` by hand. They describe intent, Claude Code generates canonical syntax.
+The developer never writes `λvalidate_email(email:String)=>Bool=...` by hand. They describe intent, Claude Code generates canonical syntax.
 
 ### Understanding Code
 
@@ -229,7 +229,7 @@ The developer never writes `λvalidate_email(email:String)→Bool=...` by hand. 
 Developer: "What does fibonacci.sigil do?"
 
 Claude Code: *reads fibonacci.sigil*
-λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)=>Int match n{0=>0|1=>1|n=>fibonacci(n-1)+fibonacci(n-2)}
 
 Claude Code: "This is a recursive Fibonacci implementation:
 - Base case: fib(0)=0, fib(1)=1
@@ -264,10 +264,10 @@ Developer: "Add memoization to fibonacci"
 
 Claude Code: *edits fibonacci.sigil with canonical syntax*
 c memo={...}
-λfibonacci(n:Int)→Int=
+λfibonacci(n:Int)=>Int=
   match memo[n]{
-    Some(cached)→cached
-    |None→...
+    Some(cached)=>cached
+    |None=>...
   }
 
 Claude Code: "I've added a memo cache that stores computed values..."
@@ -405,10 +405,10 @@ Since removing IDE tooling:
 We haven't lost functionality. We've gained simplicity.
 
 The workflow is better:
-- Developer describes intent → Claude Code generates canonical Sigil
-- Developer asks questions → Claude Code explains from source
-- Compiler provides diagnostics → Claude Code interprets
-- Tests verify correctness → Claude Code shows results
+- Developer describes intent => Claude Code generates canonical Sigil
+- Developer asks questions => Claude Code explains from source
+- Compiler provides diagnostics => Claude Code interprets
+- Tests verify correctness => Claude Code shows results
 
 No LSP required. No VS Code extension required. No semantic maps required.
 

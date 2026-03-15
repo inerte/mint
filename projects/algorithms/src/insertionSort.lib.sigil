@@ -1,12 +1,12 @@
-λinsertSorted(item:Int,xs:[Int])→[Int] match xs{
-  []→[item]|
-  [head,.tail]→match item≤head{
-    true→[item,head]⧺tail|
-    false→[head]⧺insertSorted(item,tail)
+λinsertSorted(item:Int,xs:[Int])=>[Int] match xs{
+  []=>[item]|
+  [head,.tail]=>match item≤head{
+    true=>[item,head]⧺tail|
+    false=>[head]⧺insertSorted(item,tail)
   }
 }
 
-λinsertionSort(xs:[Int])→[Int] match xs{
-  []→[]|
-  [head,.tail]→insertSorted(head,insertionSort(tail))
+λinsertionSort(xs:[Int])=>[Int] match xs{
+  []=>[]|
+  [head,.tail]=>insertSorted(head,insertionSort(tail))
 }

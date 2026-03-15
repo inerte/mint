@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-10T00:28:26.215Z",
+  "generatedAt": "2026-03-15T00:47:21.881Z",
   "corpus": {
-    "files": 183,
+    "files": 214,
     "paths": [
       "language/benchmarks/algorithms/factorial/factorial.sigil",
       "language/benchmarks/algorithms/fibonacci/fibonacci.sigil",
@@ -54,6 +54,7 @@
       "language/examples/patternGuards.sigil",
       "language/examples/stringDemo.sigil",
       "language/examples/sumTypesDemo.sigil",
+      "language/examples/tcpEchoServer.sigil",
       "language/examples/testAnyRecord.sigil",
       "language/examples/testEmptyConstructor.sigil",
       "language/examples/testSingleVariantSimple.sigil",
@@ -69,6 +70,7 @@
       "language/stdlib-tests/tests/corePrelude.sigil",
       "language/stdlib-tests/tests/decode.sigil",
       "language/stdlib-tests/tests/file.sigil",
+      "language/stdlib-tests/tests/httpClient.sigil",
       "language/stdlib-tests/tests/json.sigil",
       "language/stdlib-tests/tests/listPredicates.sigil",
       "language/stdlib-tests/tests/listUtilities.sigil",
@@ -77,14 +79,17 @@
       "language/stdlib-tests/tests/numericRanges.sigil",
       "language/stdlib-tests/tests/path.sigil",
       "language/stdlib-tests/tests/string.sigil",
+      "language/stdlib-tests/tests/tcpClient.sigil",
       "language/stdlib-tests/tests/time.sigil",
       "language/stdlib-tests/tests/url.sigil",
+      "language/stdlib/config.lib.sigil",
       "language/stdlib/decode.lib.sigil",
       "language/stdlib/ffiNodeConsole.lib.sigil",
       "language/stdlib/ffiNodeFs.lib.sigil",
       "language/stdlib/ffiNodePath.lib.sigil",
       "language/stdlib/ffiNodeProcess.lib.sigil",
       "language/stdlib/file.lib.sigil",
+      "language/stdlib/httpClient.lib.sigil",
       "language/stdlib/httpServer.lib.sigil",
       "language/stdlib/io.lib.sigil",
       "language/stdlib/json.lib.sigil",
@@ -93,7 +98,10 @@
       "language/stdlib/numeric.lib.sigil",
       "language/stdlib/path.lib.sigil",
       "language/stdlib/string.lib.sigil",
+      "language/stdlib/tcpClient.lib.sigil",
+      "language/stdlib/tcpServer.lib.sigil",
       "language/stdlib/time.lib.sigil",
+      "language/stdlib/topology.lib.sigil",
       "language/stdlib/url.lib.sigil",
       "language/test-fixtures/test-typecheck/emptyListFunctionBody.sigil",
       "language/test-fixtures/test-typecheck/emptyListInMatch.sigil",
@@ -171,6 +179,11 @@
       "projects/dungeon-bsp/src/main.sigil",
       "projects/dungeon-caves/src/main.sigil",
       "projects/dungeon-random-rooms/src/main.sigil",
+      "projects/homebrewPackaging/config/release.lib.sigil",
+      "projects/homebrewPackaging/src/formula.lib.sigil",
+      "projects/homebrewPackaging/src/main.sigil",
+      "projects/homebrewPackaging/tests/formula.sigil",
+      "projects/ssg/config/site.lib.sigil",
       "projects/ssg/src/build.lib.sigil",
       "projects/ssg/src/content.lib.sigil",
       "projects/ssg/src/frontmatter.lib.sigil",
@@ -186,7 +199,25 @@
       "projects/todo-app/src/todoDomain.lib.sigil",
       "projects/todo-app/src/todoJson.lib.sigil",
       "projects/todo-app/tests/todoDomain.sigil",
-      "projects/todo-app/tests/todoJson.sigil"
+      "projects/todo-app/tests/todoJson.sigil",
+      "projects/topology-http/config/local.lib.sigil",
+      "projects/topology-http/config/prod.lib.sigil",
+      "projects/topology-http/config/test.lib.sigil",
+      "projects/topology-http/src/getClient.sigil",
+      "projects/topology-http/src/headersClient.sigil",
+      "projects/topology-http/src/httpRoundtripServer.sigil",
+      "projects/topology-http/src/jsonClient.sigil",
+      "projects/topology-http/src/missingClient.sigil",
+      "projects/topology-http/src/postClient.sigil",
+      "projects/topology-http/src/topology.lib.sigil",
+      "projects/topology-tcp/config/local.lib.sigil",
+      "projects/topology-tcp/config/prod.lib.sigil",
+      "projects/topology-tcp/config/test.lib.sigil",
+      "projects/topology-tcp/src/echoClient.sigil",
+      "projects/topology-tcp/src/pingClient.sigil",
+      "projects/topology-tcp/src/tcpRoundtripServer.sigil",
+      "projects/topology-tcp/src/topology.lib.sigil",
+      "projects/topology-tcp/src/upperClient.sigil"
     ]
   },
   "tokenizers": [
@@ -208,557 +239,11 @@
   ],
   "symbols": [
     {
-      "symbol": "⋅",
-      "tokenType": "NamespaceSep",
-      "category": "namespace_separator",
-      "occurrences": 1097,
-      "filesAffected": 86,
-      "sampleFiles": [
-        "language/examples/concurrentFfi.sigil",
-        "language/examples/coreMapHttpHeaders.sigil",
-        "language/examples/coreMapLiterals.sigil",
-        "language/examples/emailValidator.sigil",
-        "language/examples/genericListHelpers.sigil"
-      ],
-      "candidates": [
-        {
-          "replacement": ".",
-          "commonalityScore": 1,
-          "semanticFit": "medium",
-          "reason": "Most common namespace/member separator, though it may collide with existing field access semantics.",
-          "standaloneTokenCounts": {
-            "openai_cl100k_base": {
-              "before": 3,
-              "after": 1
-            },
-            "llama_sentencepiece_proxy": {
-              "before": 2,
-              "after": 1
-            },
-            "anthropic_legacy_proxy": {
-              "before": 2,
-              "after": 1
-            }
-          },
-          "boundarySnippet": {
-            "before": "te:String}\n\ne fs⋅promises : {\n  r",
-            "after": "te:String}\n\ne fs.promises : {\n  r"
-          },
-          "boundarySnippetTokenCounts": {
-            "before": {
-              "openai_cl100k_base": 14,
-              "llama_sentencepiece_proxy": 13,
-              "anthropic_legacy_proxy": 13
-            },
-            "after": {
-              "openai_cl100k_base": 11,
-              "llama_sentencepiece_proxy": 12,
-              "anthropic_legacy_proxy": 12
-            }
-          },
-          "corpusDelta": {
-            "openai_cl100k_base": -3229,
-            "llama_sentencepiece_proxy": -1097,
-            "anthropic_legacy_proxy": -1097
-          },
-          "topFileImpacts": [
-            {
-              "file": "projects/ssg/src/build.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -393,
-                "llama_sentencepiece_proxy": -131,
-                "anthropic_legacy_proxy": -131
-              }
-            },
-            {
-              "file": "projects/ssg/src/content.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -313,
-                "llama_sentencepiece_proxy": -105,
-                "anthropic_legacy_proxy": -105
-              }
-            },
-            {
-              "file": "projects/ssg/src/templates.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -168,
-                "llama_sentencepiece_proxy": -56,
-                "anthropic_legacy_proxy": -56
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/decode.sigil",
-              "delta": {
-                "openai_cl100k_base": -141,
-                "llama_sentencepiece_proxy": -47,
-                "anthropic_legacy_proxy": -47
-              }
-            },
-            {
-              "file": "projects/ssg/src/frontmatter.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -132,
-                "llama_sentencepiece_proxy": -44,
-                "anthropic_legacy_proxy": -44
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/listUtilities.sigil",
-              "delta": {
-                "openai_cl100k_base": -129,
-                "llama_sentencepiece_proxy": -44,
-                "anthropic_legacy_proxy": -44
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/string.sigil",
-              "delta": {
-                "openai_cl100k_base": -129,
-                "llama_sentencepiece_proxy": -43,
-                "anthropic_legacy_proxy": -43
-              }
-            },
-            {
-              "file": "projects/ssg/tests/buildE2e.sigil",
-              "delta": {
-                "openai_cl100k_base": -129,
-                "llama_sentencepiece_proxy": -43,
-                "anthropic_legacy_proxy": -43
-              }
-            },
-            {
-              "file": "projects/todo-app/src/todoJson.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -126,
-                "llama_sentencepiece_proxy": -42,
-                "anthropic_legacy_proxy": -42
-              }
-            },
-            {
-              "file": "language/stdlib/decode.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -117,
-                "llama_sentencepiece_proxy": -39,
-                "anthropic_legacy_proxy": -39
-              }
-            }
-          ],
-          "agreement": "high",
-          "aggregateScore": 4052.75,
-          "decision": "candidate"
-        },
-        {
-          "replacement": "::",
-          "commonalityScore": 0.8,
-          "semanticFit": "medium",
-          "reason": "Common module/type namespace separator in Rust and related languages.",
-          "standaloneTokenCounts": {
-            "openai_cl100k_base": {
-              "before": 3,
-              "after": 1
-            },
-            "llama_sentencepiece_proxy": {
-              "before": 2,
-              "after": 1
-            },
-            "anthropic_legacy_proxy": {
-              "before": 2,
-              "after": 1
-            }
-          },
-          "boundarySnippet": {
-            "before": "te:String}\n\ne fs⋅promises : {\n  r",
-            "after": "te:String}\n\ne fs::promises : {\n  r"
-          },
-          "boundarySnippetTokenCounts": {
-            "before": {
-              "openai_cl100k_base": 14,
-              "llama_sentencepiece_proxy": 13,
-              "anthropic_legacy_proxy": 13
-            },
-            "after": {
-              "openai_cl100k_base": 12,
-              "llama_sentencepiece_proxy": 12,
-              "anthropic_legacy_proxy": 12
-            }
-          },
-          "corpusDelta": {
-            "openai_cl100k_base": -2194,
-            "llama_sentencepiece_proxy": -1097,
-            "anthropic_legacy_proxy": -1097
-          },
-          "topFileImpacts": [
-            {
-              "file": "projects/ssg/src/build.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -262,
-                "llama_sentencepiece_proxy": -131,
-                "anthropic_legacy_proxy": -131
-              }
-            },
-            {
-              "file": "projects/ssg/src/content.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -210,
-                "llama_sentencepiece_proxy": -105,
-                "anthropic_legacy_proxy": -105
-              }
-            },
-            {
-              "file": "projects/ssg/src/templates.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -112,
-                "llama_sentencepiece_proxy": -56,
-                "anthropic_legacy_proxy": -56
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/decode.sigil",
-              "delta": {
-                "openai_cl100k_base": -94,
-                "llama_sentencepiece_proxy": -47,
-                "anthropic_legacy_proxy": -47
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/listUtilities.sigil",
-              "delta": {
-                "openai_cl100k_base": -88,
-                "llama_sentencepiece_proxy": -44,
-                "anthropic_legacy_proxy": -44
-              }
-            },
-            {
-              "file": "projects/ssg/src/frontmatter.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -88,
-                "llama_sentencepiece_proxy": -44,
-                "anthropic_legacy_proxy": -44
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/string.sigil",
-              "delta": {
-                "openai_cl100k_base": -86,
-                "llama_sentencepiece_proxy": -43,
-                "anthropic_legacy_proxy": -43
-              }
-            },
-            {
-              "file": "projects/ssg/tests/buildE2e.sigil",
-              "delta": {
-                "openai_cl100k_base": -86,
-                "llama_sentencepiece_proxy": -43,
-                "anthropic_legacy_proxy": -43
-              }
-            },
-            {
-              "file": "projects/todo-app/src/todoJson.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -84,
-                "llama_sentencepiece_proxy": -42,
-                "anthropic_legacy_proxy": -42
-              }
-            },
-            {
-              "file": "language/stdlib/decode.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -78,
-                "llama_sentencepiece_proxy": -39,
-                "anthropic_legacy_proxy": -39
-              }
-            }
-          ],
-          "agreement": "high",
-          "aggregateScore": 3017.55,
-          "decision": "candidate"
-        }
-      ],
-      "recommendation": {
-        "replacement": ".",
-        "confidence": "high",
-        "reason": "Most common namespace/member separator, though it may collide with existing field access semantics. Baseline delta: -3229. Agreement: high."
-      }
-    },
-    {
-      "symbol": "→",
-      "tokenType": "ARROW",
-      "category": "arrow",
-      "occurrences": 1909,
-      "filesAffected": 180,
-      "sampleFiles": [
-        "language/benchmarks/algorithms/factorial/factorial.sigil",
-        "language/benchmarks/algorithms/fibonacci/fibonacci.sigil",
-        "language/benchmarks/algorithms/filter-even/filterEven.sigil",
-        "language/benchmarks/algorithms/gcd/gcd.sigil",
-        "language/benchmarks/algorithms/is-palindrome/isPalindrome.sigil"
-      ],
-      "candidates": [
-        {
-          "replacement": "->",
-          "commonalityScore": 0.95,
-          "semanticFit": "high",
-          "reason": "Common ASCII arrow in many languages and type signatures.",
-          "standaloneTokenCounts": {
-            "openai_cl100k_base": {
-              "before": 1,
-              "after": 1
-            },
-            "llama_sentencepiece_proxy": {
-              "before": 2,
-              "after": 1
-            },
-            "anthropic_legacy_proxy": {
-              "before": 2,
-              "after": 1
-            }
-          },
-          "boundarySnippet": {
-            "before": "factorial(n:Int)→Int match n{0→1|",
-            "after": "factorial(n:Int)->Int match n{0→1|"
-          },
-          "boundarySnippetTokenCounts": {
-            "before": {
-              "openai_cl100k_base": 14,
-              "llama_sentencepiece_proxy": 19,
-              "anthropic_legacy_proxy": 18
-            },
-            "after": {
-              "openai_cl100k_base": 13,
-              "llama_sentencepiece_proxy": 18,
-              "anthropic_legacy_proxy": 17
-            }
-          },
-          "corpusDelta": {
-            "openai_cl100k_base": -1070,
-            "llama_sentencepiece_proxy": -1909,
-            "anthropic_legacy_proxy": -1909
-          },
-          "topFileImpacts": [
-            {
-              "file": "language/stdlib/decode.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -78,
-                "llama_sentencepiece_proxy": -96,
-                "anthropic_legacy_proxy": -96
-              }
-            },
-            {
-              "file": "projects/ssg/src/content.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -65,
-                "llama_sentencepiece_proxy": -161,
-                "anthropic_legacy_proxy": -161
-              }
-            },
-            {
-              "file": "language/stdlib/markdown.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -56,
-                "llama_sentencepiece_proxy": -81,
-                "anthropic_legacy_proxy": -81
-              }
-            },
-            {
-              "file": "language/stdlib/list.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -43,
-                "llama_sentencepiece_proxy": -79,
-                "anthropic_legacy_proxy": -79
-              }
-            },
-            {
-              "file": "projects/ssg/src/frontmatter.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -43,
-                "llama_sentencepiece_proxy": -77,
-                "anthropic_legacy_proxy": -77
-              }
-            },
-            {
-              "file": "projects/ssg/src/build.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -38,
-                "llama_sentencepiece_proxy": -50,
-                "anthropic_legacy_proxy": -50
-              }
-            },
-            {
-              "file": "projects/ssg/src/templates.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -33,
-                "llama_sentencepiece_proxy": -50,
-                "anthropic_legacy_proxy": -50
-              }
-            },
-            {
-              "file": "language/stdlib/path.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -28,
-                "llama_sentencepiece_proxy": -62,
-                "anthropic_legacy_proxy": -62
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/decode.sigil",
-              "delta": {
-                "openai_cl100k_base": -25,
-                "llama_sentencepiece_proxy": -31,
-                "anthropic_legacy_proxy": -31
-              }
-            },
-            {
-              "file": "projects/todo-app/src/todoJson.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -24,
-                "llama_sentencepiece_proxy": -26,
-                "anthropic_legacy_proxy": -26
-              }
-            }
-          ],
-          "agreement": "high",
-          "aggregateScore": 2502.7,
-          "decision": "candidate"
-        },
-        {
-          "replacement": "=>",
-          "commonalityScore": 0.85,
-          "semanticFit": "medium",
-          "reason": "Common in JavaScript/Scala-family syntax, but overloaded in many contexts.",
-          "standaloneTokenCounts": {
-            "openai_cl100k_base": {
-              "before": 1,
-              "after": 1
-            },
-            "llama_sentencepiece_proxy": {
-              "before": 2,
-              "after": 1
-            },
-            "anthropic_legacy_proxy": {
-              "before": 2,
-              "after": 1
-            }
-          },
-          "boundarySnippet": {
-            "before": "factorial(n:Int)→Int match n{0→1|",
-            "after": "factorial(n:Int)=>Int match n{0→1|"
-          },
-          "boundarySnippetTokenCounts": {
-            "before": {
-              "openai_cl100k_base": 14,
-              "llama_sentencepiece_proxy": 19,
-              "anthropic_legacy_proxy": 18
-            },
-            "after": {
-              "openai_cl100k_base": 13,
-              "llama_sentencepiece_proxy": 18,
-              "anthropic_legacy_proxy": 17
-            }
-          },
-          "corpusDelta": {
-            "openai_cl100k_base": -1093,
-            "llama_sentencepiece_proxy": -1909,
-            "anthropic_legacy_proxy": -1909
-          },
-          "topFileImpacts": [
-            {
-              "file": "projects/algorithms/src/rot13Encoder.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -106,
-                "llama_sentencepiece_proxy": -57,
-                "anthropic_legacy_proxy": -57
-              }
-            },
-            {
-              "file": "projects/ssg/src/content.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -84,
-                "llama_sentencepiece_proxy": -161,
-                "anthropic_legacy_proxy": -161
-              }
-            },
-            {
-              "file": "language/stdlib/decode.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -79,
-                "llama_sentencepiece_proxy": -96,
-                "anthropic_legacy_proxy": -96
-              }
-            },
-            {
-              "file": "language/stdlib/markdown.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -56,
-                "llama_sentencepiece_proxy": -81,
-                "anthropic_legacy_proxy": -81
-              }
-            },
-            {
-              "file": "projects/ssg/src/build.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -36,
-                "llama_sentencepiece_proxy": -50,
-                "anthropic_legacy_proxy": -50
-              }
-            },
-            {
-              "file": "projects/ssg/src/frontmatter.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -33,
-                "llama_sentencepiece_proxy": -77,
-                "anthropic_legacy_proxy": -77
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/decode.sigil",
-              "delta": {
-                "openai_cl100k_base": -25,
-                "llama_sentencepiece_proxy": -31,
-                "anthropic_legacy_proxy": -31
-              }
-            },
-            {
-              "file": "language/stdlib/list.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -24,
-                "llama_sentencepiece_proxy": -79,
-                "anthropic_legacy_proxy": -79
-              }
-            },
-            {
-              "file": "projects/ssg/src/templates.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -23,
-                "llama_sentencepiece_proxy": -50,
-                "anthropic_legacy_proxy": -50
-              }
-            },
-            {
-              "file": "projects/todo-app/src/todoJson.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -23,
-                "llama_sentencepiece_proxy": -26,
-                "anthropic_legacy_proxy": -26
-              }
-            }
-          ],
-          "agreement": "high",
-          "aggregateScore": 2525.6,
-          "decision": "candidate"
-        }
-      ],
-      "recommendation": {
-        "replacement": "=>",
-        "confidence": "high",
-        "reason": "Common in JavaScript/Scala-family syntax, but overloaded in many contexts. Baseline delta: -1093. Agreement: high."
-      }
-    },
-    {
       "symbol": "⧺",
       "tokenType": "ListAppend",
       "category": "list_operator",
-      "occurrences": 81,
-      "filesAffected": 23,
+      "occurrences": 83,
+      "filesAffected": 24,
       "sampleFiles": [
         "language/examples/listReverse.sigil",
         "language/stdlib/decode.lib.sigil",
@@ -787,25 +272,25 @@
             }
           },
           "boundarySnippet": {
-            "before": ".xs]→reverse(xs)⧺[x]\n}\n",
-            "after": ".xs]→reverse(xs)++[x]\n}\n"
+            "before": "xs]=>reverse(xs)⧺[x]\n}\n",
+            "after": "xs]=>reverse(xs)++[x]\n}\n"
           },
           "boundarySnippetTokenCounts": {
             "before": {
-              "openai_cl100k_base": 14,
-              "llama_sentencepiece_proxy": 16,
-              "anthropic_legacy_proxy": 16
+              "openai_cl100k_base": 12,
+              "llama_sentencepiece_proxy": 14,
+              "anthropic_legacy_proxy": 14
             },
             "after": {
-              "openai_cl100k_base": 12,
-              "llama_sentencepiece_proxy": 15,
-              "anthropic_legacy_proxy": 15
+              "openai_cl100k_base": 10,
+              "llama_sentencepiece_proxy": 13,
+              "anthropic_legacy_proxy": 13
             }
           },
           "corpusDelta": {
-            "openai_cl100k_base": -162,
-            "llama_sentencepiece_proxy": -81,
-            "anthropic_legacy_proxy": -81
+            "openai_cl100k_base": -166,
+            "llama_sentencepiece_proxy": -83,
+            "anthropic_legacy_proxy": -83
           },
           "topFileImpacts": [
             {
@@ -857,15 +342,15 @@
               }
             },
             {
-              "file": "projects/algorithms/src/nQueens.lib.sigil",
+              "file": "projects/ssg/src/build.lib.sigil",
               "delta": {
-                "openai_cl100k_base": -8,
-                "llama_sentencepiece_proxy": -4,
-                "anthropic_legacy_proxy": -4
+                "openai_cl100k_base": -10,
+                "llama_sentencepiece_proxy": -5,
+                "anthropic_legacy_proxy": -5
               }
             },
             {
-              "file": "projects/ssg/src/build.lib.sigil",
+              "file": "projects/algorithms/src/nQueens.lib.sigil",
               "delta": {
                 "openai_cl100k_base": -8,
                 "llama_sentencepiece_proxy": -4,
@@ -890,7 +375,7 @@
             }
           ],
           "agreement": "high",
-          "aggregateScore": 223.5,
+          "aggregateScore": 229,
           "decision": "candidate"
         },
         {
@@ -913,31 +398,31 @@
             }
           },
           "boundarySnippet": {
-            "before": ".xs]→reverse(xs)⧺[x]\n}\n",
-            "after": ".xs]→reverse(xs)append[x]\n}\n"
+            "before": "xs]=>reverse(xs)⧺[x]\n}\n",
+            "after": "xs]=>reverse(xs)append[x]\n}\n"
           },
           "boundarySnippetTokenCounts": {
             "before": {
-              "openai_cl100k_base": 14,
-              "llama_sentencepiece_proxy": 16,
-              "anthropic_legacy_proxy": 16
+              "openai_cl100k_base": 12,
+              "llama_sentencepiece_proxy": 14,
+              "anthropic_legacy_proxy": 14
             },
             "after": {
-              "openai_cl100k_base": 11,
-              "llama_sentencepiece_proxy": 15,
-              "anthropic_legacy_proxy": 15
+              "openai_cl100k_base": 9,
+              "llama_sentencepiece_proxy": 13,
+              "anthropic_legacy_proxy": 13
             }
           },
           "corpusDelta": {
-            "openai_cl100k_base": -172,
-            "llama_sentencepiece_proxy": -81,
-            "anthropic_legacy_proxy": -81
+            "openai_cl100k_base": -174,
+            "llama_sentencepiece_proxy": -83,
+            "anthropic_legacy_proxy": -83
           },
           "topFileImpacts": [
             {
               "file": "language/stdlib/markdown.lib.sigil",
               "delta": {
-                "openai_cl100k_base": -36,
+                "openai_cl100k_base": -34,
                 "llama_sentencepiece_proxy": -16,
                 "anthropic_legacy_proxy": -16
               }
@@ -951,15 +436,15 @@
               }
             },
             {
-              "file": "projects/algorithms/src/mergeSort.lib.sigil",
+              "file": "projects/algorithms/src/permutations.lib.sigil",
               "delta": {
-                "openai_cl100k_base": -12,
+                "openai_cl100k_base": -13,
                 "llama_sentencepiece_proxy": -6,
                 "anthropic_legacy_proxy": -6
               }
             },
             {
-              "file": "projects/algorithms/src/permutations.lib.sigil",
+              "file": "projects/algorithms/src/mergeSort.lib.sigil",
               "delta": {
                 "openai_cl100k_base": -12,
                 "llama_sentencepiece_proxy": -6,
@@ -983,15 +468,15 @@
               }
             },
             {
-              "file": "projects/algorithms/src/nQueens.lib.sigil",
+              "file": "projects/ssg/src/build.lib.sigil",
               "delta": {
-                "openai_cl100k_base": -9,
-                "llama_sentencepiece_proxy": -4,
-                "anthropic_legacy_proxy": -4
+                "openai_cl100k_base": -10,
+                "llama_sentencepiece_proxy": -5,
+                "anthropic_legacy_proxy": -5
               }
             },
             {
-              "file": "projects/ssg/src/build.lib.sigil",
+              "file": "projects/algorithms/src/nQueens.lib.sigil",
               "delta": {
                 "openai_cl100k_base": -8,
                 "llama_sentencepiece_proxy": -4,
@@ -1016,22 +501,22 @@
             }
           ],
           "agreement": "high",
-          "aggregateScore": 233.3,
+          "aggregateScore": 236.8,
           "decision": "candidate"
         }
       ],
       "recommendation": {
         "replacement": "append",
         "confidence": "high",
-        "reason": "Readable and common as a verb, but less canonical as infix syntax. Baseline delta: -172. Agreement: high."
+        "reason": "Readable and common as a verb, but less canonical as infix syntax. Baseline delta: -174. Agreement: high."
       }
     },
     {
       "symbol": "↦",
       "tokenType": "MAP",
       "category": "list_operator",
-      "occurrences": 117,
-      "filesAffected": 19,
+      "occurrences": 142,
+      "filesAffected": 21,
       "sampleFiles": [
         "language/benchmarks/algorithms/map-double/mapDouble.sigil",
         "language/core/map.lib.sigil",
@@ -1060,25 +545,25 @@
             }
           },
           "boundarySnippet": {
-            "before": ":[Int])→[Int]=xs↦double\n",
-            "after": ":[Int])→[Int]=xs map double\n"
+            "before": "[Int])=>[Int]=xs↦double\n",
+            "after": "[Int])=>[Int]=xs map double\n"
           },
           "boundarySnippetTokenCounts": {
             "before": {
-              "openai_cl100k_base": 12,
-              "llama_sentencepiece_proxy": 16,
-              "anthropic_legacy_proxy": 16
+              "openai_cl100k_base": 11,
+              "llama_sentencepiece_proxy": 14,
+              "anthropic_legacy_proxy": 14
             },
             "after": {
-              "openai_cl100k_base": 11,
-              "llama_sentencepiece_proxy": 15,
-              "anthropic_legacy_proxy": 15
+              "openai_cl100k_base": 10,
+              "llama_sentencepiece_proxy": 13,
+              "anthropic_legacy_proxy": 13
             }
           },
           "corpusDelta": {
-            "openai_cl100k_base": -98,
-            "llama_sentencepiece_proxy": -117,
-            "anthropic_legacy_proxy": -117
+            "openai_cl100k_base": -127,
+            "llama_sentencepiece_proxy": -142,
+            "anthropic_legacy_proxy": -142
           },
           "topFileImpacts": [
             {
@@ -1092,25 +577,25 @@
             {
               "file": "language/stdlib-tests/tests/coreMap.sigil",
               "delta": {
-                "openai_cl100k_base": -13,
-                "llama_sentencepiece_proxy": -17,
-                "anthropic_legacy_proxy": -17
-              }
-            },
-            {
-              "file": "language/stdlib/httpServer.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -12,
-                "llama_sentencepiece_proxy": -8,
-                "anthropic_legacy_proxy": -8
+                "openai_cl100k_base": -26,
+                "llama_sentencepiece_proxy": -30,
+                "anthropic_legacy_proxy": -30
               }
             },
             {
               "file": "language/examples/coreMapLiterals.sigil",
               "delta": {
-                "openai_cl100k_base": -8,
-                "llama_sentencepiece_proxy": -6,
-                "anthropic_legacy_proxy": -6
+                "openai_cl100k_base": -16,
+                "llama_sentencepiece_proxy": -12,
+                "anthropic_legacy_proxy": -12
+              }
+            },
+            {
+              "file": "language/stdlib/httpServer.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": -11,
+                "llama_sentencepiece_proxy": -7,
+                "anthropic_legacy_proxy": -7
               }
             },
             {
@@ -1122,7 +607,23 @@
               }
             },
             {
+              "file": "projects/topology-http/src/httpRoundtripServer.sigil",
+              "delta": {
+                "openai_cl100k_base": -5,
+                "llama_sentencepiece_proxy": -3,
+                "anthropic_legacy_proxy": -3
+              }
+            },
+            {
               "file": "language/examples/httpHandler.sigil",
+              "delta": {
+                "openai_cl100k_base": -4,
+                "llama_sentencepiece_proxy": -4,
+                "anthropic_legacy_proxy": -4
+              }
+            },
+            {
+              "file": "language/stdlib/httpClient.lib.sigil",
               "delta": {
                 "openai_cl100k_base": -4,
                 "llama_sentencepiece_proxy": -4,
@@ -1144,41 +645,25 @@
                 "llama_sentencepiece_proxy": -3,
                 "anthropic_legacy_proxy": -3
               }
-            },
-            {
-              "file": "language/examples/listOperations.sigil",
-              "delta": {
-                "openai_cl100k_base": -2,
-                "llama_sentencepiece_proxy": -2,
-                "anthropic_legacy_proxy": -2
-              }
-            },
-            {
-              "file": "language/stdlib-tests/tests/decode.sigil",
-              "delta": {
-                "openai_cl100k_base": -2,
-                "llama_sentencepiece_proxy": -9,
-                "anthropic_legacy_proxy": -9
-              }
             }
           ],
           "agreement": "high",
-          "aggregateScore": 186.7,
+          "aggregateScore": 234.45,
           "decision": "candidate"
         }
       ],
       "recommendation": {
         "replacement": "map",
         "confidence": "high",
-        "reason": "Very common higher-order function name across mainstream and FP languages. Baseline delta: -98. Agreement: high."
+        "reason": "Very common higher-order function name across mainstream and FP languages. Baseline delta: -127. Agreement: high."
       }
     },
     {
       "symbol": "λ",
       "tokenType": "LAMBDA",
       "category": "function_marker",
-      "occurrences": 790,
-      "filesAffected": 180,
+      "occurrences": 862,
+      "filesAffected": 203,
       "sampleFiles": [
         "language/benchmarks/algorithms/factorial/factorial.sigil",
         "language/benchmarks/algorithms/fibonacci/fibonacci.sigil",
@@ -1223,9 +708,9 @@
             }
           },
           "corpusDelta": {
-            "openai_cl100k_base": -26,
-            "llama_sentencepiece_proxy": -790,
-            "anthropic_legacy_proxy": -790
+            "openai_cl100k_base": -25,
+            "llama_sentencepiece_proxy": -862,
+            "anthropic_legacy_proxy": -862
           },
           "topFileImpacts": [
             {
@@ -1269,6 +754,14 @@
               }
             },
             {
+              "file": "projects/homebrewPackaging/config/release.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": -2,
+                "llama_sentencepiece_proxy": -8,
+                "anthropic_legacy_proxy": -8
+              }
+            },
+            {
               "file": "language/benchmarks/algorithms/factorial/factorial.sigil",
               "delta": {
                 "openai_cl100k_base": -1,
@@ -1299,18 +792,10 @@
                 "llama_sentencepiece_proxy": -2,
                 "anthropic_legacy_proxy": -2
               }
-            },
-            {
-              "file": "language/examples/ffiDemo.sigil",
-              "delta": {
-                "openai_cl100k_base": -1,
-                "llama_sentencepiece_proxy": -2,
-                "anthropic_legacy_proxy": -2
-              }
             }
           ],
           "agreement": "high",
-          "aggregateScore": 619.45,
+          "aggregateScore": 672.45,
           "decision": "candidate"
         },
         {
@@ -1350,8 +835,8 @@
           },
           "corpusDelta": {
             "openai_cl100k_base": -40,
-            "llama_sentencepiece_proxy": -790,
-            "anthropic_legacy_proxy": -790
+            "llama_sentencepiece_proxy": -862,
+            "anthropic_legacy_proxy": -862
           },
           "topFileImpacts": [
             {
@@ -1395,14 +880,6 @@
               }
             },
             {
-              "file": "language/stdlib/httpServer.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -2,
-                "llama_sentencepiece_proxy": -11,
-                "anthropic_legacy_proxy": -11
-              }
-            },
-            {
               "file": "language/stdlib/list.lib.sigil",
               "delta": {
                 "openai_cl100k_base": -2,
@@ -1433,10 +910,18 @@
                 "llama_sentencepiece_proxy": -3,
                 "anthropic_legacy_proxy": -3
               }
+            },
+            {
+              "file": "projects/homebrewPackaging/config/release.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": -2,
+                "llama_sentencepiece_proxy": -8,
+                "anthropic_legacy_proxy": -8
+              }
             }
           ],
           "agreement": "high",
-          "aggregateScore": 633.4,
+          "aggregateScore": 687.4,
           "decision": "candidate"
         },
         {
@@ -1475,9 +960,9 @@
             }
           },
           "corpusDelta": {
-            "openai_cl100k_base": -41,
-            "llama_sentencepiece_proxy": -790,
-            "anthropic_legacy_proxy": -790
+            "openai_cl100k_base": -40,
+            "llama_sentencepiece_proxy": -862,
+            "anthropic_legacy_proxy": -862
           },
           "topFileImpacts": [
             {
@@ -1494,14 +979,6 @@
                 "openai_cl100k_base": -3,
                 "llama_sentencepiece_proxy": -31,
                 "anthropic_legacy_proxy": -31
-              }
-            },
-            {
-              "file": "language/stdlib/httpServer.lib.sigil",
-              "delta": {
-                "openai_cl100k_base": -3,
-                "llama_sentencepiece_proxy": -11,
-                "anthropic_legacy_proxy": -11
               }
             },
             {
@@ -1559,10 +1036,18 @@
                 "llama_sentencepiece_proxy": -3,
                 "anthropic_legacy_proxy": -3
               }
+            },
+            {
+              "file": "projects/homebrewPackaging/config/release.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": -2,
+                "llama_sentencepiece_proxy": -8,
+                "anthropic_legacy_proxy": -8
+              }
             }
           ],
           "agreement": "high",
-          "aggregateScore": 634.5,
+          "aggregateScore": 687.5,
           "decision": "candidate"
         },
         {
@@ -1601,9 +1086,9 @@
             }
           },
           "corpusDelta": {
-            "openai_cl100k_base": -26,
-            "llama_sentencepiece_proxy": -790,
-            "anthropic_legacy_proxy": -790
+            "openai_cl100k_base": -25,
+            "llama_sentencepiece_proxy": -862,
+            "anthropic_legacy_proxy": -862
           },
           "topFileImpacts": [
             {
@@ -1647,6 +1132,14 @@
               }
             },
             {
+              "file": "projects/homebrewPackaging/config/release.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": -2,
+                "llama_sentencepiece_proxy": -8,
+                "anthropic_legacy_proxy": -8
+              }
+            },
+            {
               "file": "language/benchmarks/algorithms/factorial/factorial.sigil",
               "delta": {
                 "openai_cl100k_base": -1,
@@ -1677,33 +1170,25 @@
                 "llama_sentencepiece_proxy": -2,
                 "anthropic_legacy_proxy": -2
               }
-            },
-            {
-              "file": "language/examples/ffiDemo.sigil",
-              "delta": {
-                "openai_cl100k_base": -1,
-                "llama_sentencepiece_proxy": -2,
-                "anthropic_legacy_proxy": -2
-              }
             }
           ],
           "agreement": "high",
-          "aggregateScore": 618.95,
+          "aggregateScore": 671.95,
           "decision": "candidate"
         }
       ],
       "recommendation": {
         "replacement": "function",
         "confidence": "high",
-        "reason": "Canonical full-word function keyword in JavaScript and many tutorials. Baseline delta: -41. Agreement: high."
+        "reason": "Canonical full-word function keyword in JavaScript and many tutorials. Baseline delta: -40. Agreement: high."
       }
     },
     {
       "symbol": "≥",
       "tokenType": "GreaterEq",
       "category": "comparison_operator",
-      "occurrences": 21,
-      "filesAffected": 11,
+      "occurrences": 24,
+      "filesAffected": 12,
       "sampleFiles": [
         "language/examples/emailValidator.sigil",
         "language/stdlib/decode.lib.sigil",
@@ -1748,9 +1233,9 @@
             }
           },
           "corpusDelta": {
-            "openai_cl100k_base": -22,
-            "llama_sentencepiece_proxy": -21,
-            "anthropic_legacy_proxy": -21
+            "openai_cl100k_base": -25,
+            "llama_sentencepiece_proxy": -24,
+            "anthropic_legacy_proxy": -24
           },
           "topFileImpacts": [
             {
@@ -1759,6 +1244,14 @@
                 "openai_cl100k_base": -4,
                 "llama_sentencepiece_proxy": -4,
                 "anthropic_legacy_proxy": -4
+              }
+            },
+            {
+              "file": "projects/homebrewPackaging/tests/formula.sigil",
+              "delta": {
+                "openai_cl100k_base": -3,
+                "llama_sentencepiece_proxy": -3,
+                "anthropic_legacy_proxy": -3
               }
             },
             {
@@ -1824,25 +1317,17 @@
                 "llama_sentencepiece_proxy": -1,
                 "anthropic_legacy_proxy": -1
               }
-            },
-            {
-              "file": "language/test-fixtures/testUnicodeOperators.sigil",
-              "delta": {
-                "openai_cl100k_base": -1,
-                "llama_sentencepiece_proxy": -1,
-                "anthropic_legacy_proxy": -1
-              }
             }
           ],
           "agreement": "high",
-          "aggregateScore": 38.75,
+          "aggregateScore": 44,
           "decision": "candidate"
         }
       ],
       "recommendation": {
         "replacement": ">=",
         "confidence": "high",
-        "reason": "Canonical ASCII greater-or-equal operator in mainstream languages. Baseline delta: -22. Agreement: high."
+        "reason": "Canonical ASCII greater-or-equal operator in mainstream languages. Baseline delta: -25. Agreement: high."
       }
     },
     {
@@ -1879,19 +1364,19 @@
             }
           },
           "boundarySnippet": {
-            "before": "[T])→[T] match n≤0{\n  true→xs|\n  ",
-            "after": "[T])→[T] match n<=0{\n  true→xs|\n  "
+            "before": "T])=>[T] match n≤0{\n  true=>xs|\n ",
+            "after": "T])=>[T] match n<=0{\n  true=>xs|\n "
           },
           "boundarySnippetTokenCounts": {
             "before": {
               "openai_cl100k_base": 18,
-              "llama_sentencepiece_proxy": 20,
-              "anthropic_legacy_proxy": 20
+              "llama_sentencepiece_proxy": 17,
+              "anthropic_legacy_proxy": 17
             },
             "after": {
               "openai_cl100k_base": 17,
-              "llama_sentencepiece_proxy": 19,
-              "anthropic_legacy_proxy": 19
+              "llama_sentencepiece_proxy": 16,
+              "anthropic_legacy_proxy": 16
             }
           },
           "corpusDelta": {
@@ -2026,19 +1511,19 @@
             }
           },
           "boundarySnippet": {
-            "before": "xs:[Int])→Int=xs⊕(λ(a:Int,x:Int)→",
-            "after": "xs:[Int])→Int=xs fold(λ(a:Int,x:Int)→"
+            "before": "s:[Int])=>Int=xs⊕(λ(a:Int,x:Int)=",
+            "after": "s:[Int])=>Int=xs fold(λ(a:Int,x:Int)="
           },
           "boundarySnippetTokenCounts": {
             "before": {
-              "openai_cl100k_base": 19,
-              "llama_sentencepiece_proxy": 27,
-              "anthropic_legacy_proxy": 27
+              "openai_cl100k_base": 18,
+              "llama_sentencepiece_proxy": 25,
+              "anthropic_legacy_proxy": 25
             },
             "after": {
-              "openai_cl100k_base": 17,
-              "llama_sentencepiece_proxy": 26,
-              "anthropic_legacy_proxy": 26
+              "openai_cl100k_base": 16,
+              "llama_sentencepiece_proxy": 24,
+              "anthropic_legacy_proxy": 24
             }
           },
           "corpusDelta": {
@@ -2112,19 +1597,19 @@
             }
           },
           "boundarySnippet": {
-            "before": "xs:[Int])→Int=xs⊕(λ(a:Int,x:Int)→",
-            "after": "xs:[Int])→Int=xs reduce(λ(a:Int,x:Int)→"
+            "before": "s:[Int])=>Int=xs⊕(λ(a:Int,x:Int)=",
+            "after": "s:[Int])=>Int=xs reduce(λ(a:Int,x:Int)="
           },
           "boundarySnippetTokenCounts": {
             "before": {
-              "openai_cl100k_base": 19,
-              "llama_sentencepiece_proxy": 27,
-              "anthropic_legacy_proxy": 27
+              "openai_cl100k_base": 18,
+              "llama_sentencepiece_proxy": 25,
+              "anthropic_legacy_proxy": 25
             },
             "after": {
-              "openai_cl100k_base": 17,
-              "llama_sentencepiece_proxy": 26,
-              "anthropic_legacy_proxy": 26
+              "openai_cl100k_base": 16,
+              "llama_sentencepiece_proxy": 24,
+              "anthropic_legacy_proxy": 24
             }
           },
           "corpusDelta": {
@@ -2218,19 +1703,19 @@
             }
           },
           "boundarySnippet": {
-            "before": ":[Int])→[Int]=xs⊳isEven\nλisEven(x",
-            "after": ":[Int])→[Int]=xs filter isEven\nλisEven(x"
+            "before": "[Int])=>[Int]=xs⊳isEven\nλisEven(x",
+            "after": "[Int])=>[Int]=xs filter isEven\nλisEven(x"
           },
           "boundarySnippetTokenCounts": {
             "before": {
-              "openai_cl100k_base": 18,
-              "llama_sentencepiece_proxy": 22,
-              "anthropic_legacy_proxy": 22
+              "openai_cl100k_base": 17,
+              "llama_sentencepiece_proxy": 20,
+              "anthropic_legacy_proxy": 20
             },
             "after": {
-              "openai_cl100k_base": 16,
-              "llama_sentencepiece_proxy": 21,
-              "anthropic_legacy_proxy": 21
+              "openai_cl100k_base": 15,
+              "llama_sentencepiece_proxy": 19,
+              "anthropic_legacy_proxy": 19
             }
           },
           "corpusDelta": {
@@ -2317,19 +1802,19 @@
             }
           },
           "boundarySnippet": {
-            "before": "match (n%divisor≠0){\n    true→isP",
-            "after": "match (n%divisor!=0){\n    true→isP"
+            "before": "match (n%divisor≠0){\n    true=>is",
+            "after": "match (n%divisor!=0){\n    true=>is"
           },
           "boundarySnippetTokenCounts": {
             "before": {
-              "openai_cl100k_base": 15,
-              "llama_sentencepiece_proxy": 16,
-              "anthropic_legacy_proxy": 16
+              "openai_cl100k_base": 14,
+              "llama_sentencepiece_proxy": 14,
+              "anthropic_legacy_proxy": 14
             },
             "after": {
-              "openai_cl100k_base": 14,
-              "llama_sentencepiece_proxy": 15,
-              "anthropic_legacy_proxy": 15
+              "openai_cl100k_base": 13,
+              "llama_sentencepiece_proxy": 13,
+              "anthropic_legacy_proxy": 13
             }
           },
           "corpusDelta": {
@@ -2422,19 +1907,19 @@
             }
           },
           "boundarySnippet": {
-            "before": "Odd(x:Int)→Bool=¬(isEven(x))\n\n⟦ C",
-            "after": "Odd(x:Int)→Bool=not(isEven(x))\n\n⟦ C"
+            "before": "dd(x:Int)=>Bool=¬(isEven(x))\n\n⟦ C",
+            "after": "dd(x:Int)=>Bool=not(isEven(x))\n\n⟦ C"
           },
           "boundarySnippetTokenCounts": {
             "before": {
-              "openai_cl100k_base": 16,
-              "llama_sentencepiece_proxy": 22,
-              "anthropic_legacy_proxy": 22
-            },
-            "after": {
               "openai_cl100k_base": 15,
               "llama_sentencepiece_proxy": 21,
               "anthropic_legacy_proxy": 21
+            },
+            "after": {
+              "openai_cl100k_base": 14,
+              "llama_sentencepiece_proxy": 20,
+              "anthropic_legacy_proxy": 20
             }
           },
           "corpusDelta": {
@@ -2477,6 +1962,674 @@
         "replacement": "not",
         "confidence": "high",
         "reason": "Common boolean negation word and easy for models to predict. Baseline delta: -3. Agreement: high."
+      }
+    },
+    {
+      "symbol": "Float",
+      "tokenType": "TypeFloat",
+      "category": "primitive_type",
+      "occurrences": 3,
+      "filesAffected": 2,
+      "sampleFiles": [
+        "language/stdlib/decode.lib.sigil",
+        "language/stdlib/json.lib.sigil"
+      ],
+      "candidates": [
+        {
+          "replacement": "float",
+          "commonalityScore": 0.95,
+          "semanticFit": "high",
+          "reason": "Common mainstream floating-point type word.",
+          "standaloneTokenCounts": {
+            "openai_cl100k_base": {
+              "before": 1,
+              "after": 1
+            },
+            "llama_sentencepiece_proxy": {
+              "before": 1,
+              "after": 1
+            },
+            "anthropic_legacy_proxy": {
+              "before": 1,
+              "after": 1
+            }
+          },
+          "boundarySnippet": {
+            "before": "nValue)=>Result[Float,DecodeError] ma",
+            "after": "nValue)=>Result[float,DecodeError] ma"
+          },
+          "boundarySnippetTokenCounts": {
+            "before": {
+              "openai_cl100k_base": 11,
+              "llama_sentencepiece_proxy": 16,
+              "anthropic_legacy_proxy": 14
+            },
+            "after": {
+              "openai_cl100k_base": 10,
+              "llama_sentencepiece_proxy": 16,
+              "anthropic_legacy_proxy": 14
+            }
+          },
+          "corpusDelta": {
+            "openai_cl100k_base": -2,
+            "llama_sentencepiece_proxy": 0,
+            "anthropic_legacy_proxy": 0
+          },
+          "topFileImpacts": [
+            {
+              "file": "language/stdlib/decode.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": -1,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/stdlib/json.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": -1,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            }
+          ],
+          "agreement": "low",
+          "aggregateScore": 2.95,
+          "decision": "candidate"
+        }
+      ],
+      "recommendation": {
+        "replacement": "float",
+        "confidence": "medium",
+        "reason": "Common mainstream floating-point type word. Baseline delta: -2. Agreement: low."
+      }
+    },
+    {
+      "symbol": "Bool",
+      "tokenType": "TypeBool",
+      "category": "primitive_type",
+      "occurrences": 125,
+      "filesAffected": 48,
+      "sampleFiles": [
+        "language/benchmarks/algorithms/filter-even/filterEven.sigil",
+        "language/benchmarks/algorithms/is-palindrome/isPalindrome.sigil",
+        "language/core/map.lib.sigil",
+        "language/core/option.lib.sigil",
+        "language/core/result.lib.sigil"
+      ],
+      "candidates": [
+        {
+          "replacement": "bool",
+          "commonalityScore": 0.95,
+          "semanticFit": "high",
+          "reason": "Common boolean type name in mainstream typed languages.",
+          "standaloneTokenCounts": {
+            "openai_cl100k_base": {
+              "before": 1,
+              "after": 1
+            },
+            "llama_sentencepiece_proxy": {
+              "before": 1,
+              "after": 1
+            },
+            "anthropic_legacy_proxy": {
+              "before": 1,
+              "after": 1
+            }
+          },
+          "boundarySnippet": {
+            "before": "λisEven(x:Int)=>Bool=x%2=0\nλmain()=>",
+            "after": "λisEven(x:Int)=>bool=x%2=0\nλmain()=>"
+          },
+          "boundarySnippetTokenCounts": {
+            "before": {
+              "openai_cl100k_base": 16,
+              "llama_sentencepiece_proxy": 23,
+              "anthropic_legacy_proxy": 23
+            },
+            "after": {
+              "openai_cl100k_base": 16,
+              "llama_sentencepiece_proxy": 23,
+              "anthropic_legacy_proxy": 23
+            }
+          },
+          "corpusDelta": {
+            "openai_cl100k_base": -1,
+            "llama_sentencepiece_proxy": 0,
+            "anthropic_legacy_proxy": 0
+          },
+          "topFileImpacts": [
+            {
+              "file": "language/stdlib/json.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": -1,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/benchmarks/algorithms/filter-even/filterEven.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/benchmarks/algorithms/is-palindrome/isPalindrome.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/core/map.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/core/option.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/core/result.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/coreMapLiterals.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/genericListHelpers.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/listOperations.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/optionResultPractical.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            }
+          ],
+          "agreement": "low",
+          "aggregateScore": 1.95,
+          "decision": "candidate"
+        }
+      ],
+      "recommendation": {
+        "replacement": "bool",
+        "confidence": "medium",
+        "reason": "Common boolean type name in mainstream typed languages. Baseline delta: -1. Agreement: low."
+      }
+    },
+    {
+      "symbol": "String",
+      "tokenType": "TypeString",
+      "category": "primitive_type",
+      "occurrences": 859,
+      "filesAffected": 100,
+      "sampleFiles": [
+        "language/benchmarks/algorithms/is-palindrome/isPalindrome.sigil",
+        "language/examples/concurrentFfi.sigil",
+        "language/examples/coreMapHttpHeaders.sigil",
+        "language/examples/coreMapLiterals.sigil",
+        "language/examples/coreOptionResult.sigil"
+      ],
+      "candidates": [
+        {
+          "replacement": "string",
+          "commonalityScore": 0.95,
+          "semanticFit": "high",
+          "reason": "Common string type name in mainstream languages.",
+          "standaloneTokenCounts": {
+            "openai_cl100k_base": {
+              "before": 1,
+              "after": 1
+            },
+            "llama_sentencepiece_proxy": {
+              "before": 1,
+              "after": 1
+            },
+            "anthropic_legacy_proxy": {
+              "before": 1,
+              "after": 1
+            }
+          },
+          "boundarySnippet": {
+            "before": "λisPalindrome(s:String)=>Bool=s=revers",
+            "after": "λisPalindrome(s:string)=>Bool=s=revers"
+          },
+          "boundarySnippetTokenCounts": {
+            "before": {
+              "openai_cl100k_base": 10,
+              "llama_sentencepiece_proxy": 18,
+              "anthropic_legacy_proxy": 17
+            },
+            "after": {
+              "openai_cl100k_base": 10,
+              "llama_sentencepiece_proxy": 18,
+              "anthropic_legacy_proxy": 17
+            }
+          },
+          "corpusDelta": {
+            "openai_cl100k_base": 0,
+            "llama_sentencepiece_proxy": 0,
+            "anthropic_legacy_proxy": 0
+          },
+          "topFileImpacts": [
+            {
+              "file": "language/benchmarks/algorithms/is-palindrome/isPalindrome.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/concurrentFfi.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/coreMapHttpHeaders.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/coreMapLiterals.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/coreOptionResult.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/effectDemo.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/effectOrdering.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/emailValidator.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/ffiDemo.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/genericListHelpers.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            }
+          ],
+          "agreement": "mixed",
+          "aggregateScore": 0.95,
+          "decision": "keep_current"
+        }
+      ],
+      "recommendation": {
+        "replacement": "string",
+        "confidence": "low",
+        "reason": "Common string type name in mainstream languages. Baseline delta: 0. Agreement: mixed."
+      }
+    },
+    {
+      "symbol": "Int",
+      "tokenType": "TypeInt",
+      "category": "primitive_type",
+      "occurrences": 611,
+      "filesAffected": 119,
+      "sampleFiles": [
+        "language/benchmarks/algorithms/factorial/factorial.sigil",
+        "language/benchmarks/algorithms/fibonacci/fibonacci.sigil",
+        "language/benchmarks/algorithms/filter-even/filterEven.sigil",
+        "language/benchmarks/algorithms/gcd/gcd.sigil",
+        "language/benchmarks/algorithms/map-double/mapDouble.sigil"
+      ],
+      "candidates": [
+        {
+          "replacement": "int",
+          "commonalityScore": 1,
+          "semanticFit": "high",
+          "reason": "Most common mainstream integer type word.",
+          "standaloneTokenCounts": {
+            "openai_cl100k_base": {
+              "before": 1,
+              "after": 1
+            },
+            "llama_sentencepiece_proxy": {
+              "before": 1,
+              "after": 1
+            },
+            "anthropic_legacy_proxy": {
+              "before": 1,
+              "after": 1
+            }
+          },
+          "boundarySnippet": {
+            "before": "λfactorial(n:Int)=>Int match n{0",
+            "after": "λfactorial(n:int)=>Int match n{0"
+          },
+          "boundarySnippetTokenCounts": {
+            "before": {
+              "openai_cl100k_base": 11,
+              "llama_sentencepiece_proxy": 16,
+              "anthropic_legacy_proxy": 15
+            },
+            "after": {
+              "openai_cl100k_base": 11,
+              "llama_sentencepiece_proxy": 16,
+              "anthropic_legacy_proxy": 15
+            }
+          },
+          "corpusDelta": {
+            "openai_cl100k_base": 0,
+            "llama_sentencepiece_proxy": 0,
+            "anthropic_legacy_proxy": 0
+          },
+          "topFileImpacts": [
+            {
+              "file": "language/benchmarks/algorithms/factorial/factorial.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/benchmarks/algorithms/fibonacci/fibonacci.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/benchmarks/algorithms/filter-even/filterEven.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/benchmarks/algorithms/gcd/gcd.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/benchmarks/algorithms/map-double/mapDouble.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/benchmarks/algorithms/power/power.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/benchmarks/algorithms/sum-list/sumList.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/core/map.lib.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/commentsDemo.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/concurrentByDefault.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            }
+          ],
+          "agreement": "mixed",
+          "aggregateScore": 1,
+          "decision": "keep_current"
+        }
+      ],
+      "recommendation": {
+        "replacement": "int",
+        "confidence": "low",
+        "reason": "Most common mainstream integer type word. Baseline delta: 0. Agreement: mixed."
+      }
+    },
+    {
+      "symbol": "Unit",
+      "tokenType": "TypeUnit",
+      "category": "primitive_type",
+      "occurrences": 223,
+      "filesAffected": 81,
+      "sampleFiles": [
+        "language/examples/effectDemo.sigil",
+        "language/examples/emailValidator.sigil",
+        "language/examples/example03StringConcat.sigil",
+        "language/examples/ffiDemo.sigil",
+        "language/examples/jsonRoundtrip.sigil"
+      ],
+      "candidates": [
+        {
+          "replacement": "unit",
+          "commonalityScore": 0.65,
+          "semanticFit": "high",
+          "reason": "Common in typed functional languages, though less universal than other primitives.",
+          "standaloneTokenCounts": {
+            "openai_cl100k_base": {
+              "before": 1,
+              "after": 1
+            },
+            "llama_sentencepiece_proxy": {
+              "before": 1,
+              "after": 1
+            },
+            "anthropic_legacy_proxy": {
+              "before": 1,
+              "after": 1
+            }
+          },
+          "boundarySnippet": {
+            "before": "sg:String)=>!IO Unit=console.log(msg",
+            "after": "sg:String)=>!IO unit=console.log(msg"
+          },
+          "boundarySnippetTokenCounts": {
+            "before": {
+              "openai_cl100k_base": 10,
+              "llama_sentencepiece_proxy": 17,
+              "anthropic_legacy_proxy": 17
+            },
+            "after": {
+              "openai_cl100k_base": 10,
+              "llama_sentencepiece_proxy": 17,
+              "anthropic_legacy_proxy": 17
+            }
+          },
+          "corpusDelta": {
+            "openai_cl100k_base": 0,
+            "llama_sentencepiece_proxy": 0,
+            "anthropic_legacy_proxy": 0
+          },
+          "topFileImpacts": [
+            {
+              "file": "language/examples/effectDemo.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/emailValidator.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/example03StringConcat.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/ffiDemo.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/jsonRoundtrip.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/jsonSafeAccess.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/patternGuards.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/stringDemo.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/tcpEchoServer.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            },
+            {
+              "file": "language/examples/timeIsoSort.sigil",
+              "delta": {
+                "openai_cl100k_base": 0,
+                "llama_sentencepiece_proxy": 0,
+                "anthropic_legacy_proxy": 0
+              }
+            }
+          ],
+          "agreement": "mixed",
+          "aggregateScore": 0.65,
+          "decision": "keep_current"
+        }
+      ],
+      "recommendation": {
+        "replacement": "unit",
+        "confidence": "low",
+        "reason": "Common in typed functional languages, though less universal than other primitives. Baseline delta: 0. Agreement: mixed."
       }
     }
   ]

@@ -7,101 +7,101 @@
 t DivMod={quotient:Int,remainder:Int}
 
 ⟦ Absolute value ⟧
-λabs(x:Int)→Int match x<0{true→-x|false→x}
+λabs(x:Int)=>Int match x<0{true=>-x|false=>x}
 
 ⟦ Clamp value between min and max ⟧
-λclamp(hi:Int,lo:Int,x:Int)→Int=max(lo,min(x,hi))
+λclamp(hi:Int,lo:Int,x:Int)=>Int=max(lo,min(x,hi))
 
 ⟦ Check if n is divisible by d ⟧
-λdivisible(d:Int,n:Int)→Bool=n%d=0
+λdivisible(d:Int,n:Int)=>Bool=n%d=0
 
 ⟦ Quotient and Euclidean remainder pair ⟧
-λdivmod(a:Int,b:Int)→DivMod={
+λdivmod(a:Int,b:Int)=>DivMod={
   DivMod{quotient:((a-(mod(a,b):Int))/b),remainder:(mod(a,b):Int)}
 }
 
 ⟦ Greatest common divisor (Euclidean algorithm) ⟧
-λgcd(a:Int,b:Int)→Int match b{0→a|divisor→gcd(divisor,a%divisor)}
+λgcd(a:Int,b:Int)=>Int match b{0=>a|divisor=>gcd(divisor,a%divisor)}
 
 ⟦ Check if value is in range [min, max] (inclusive) ⟧
-λinRange(max:Int,min:Int,x:Int)→Bool=inRangeHelper(max,min,x)
+λinRange(max:Int,min:Int,x:Int)=>Bool=inRangeHelper(max,min,x)
 
 ⟦ Helper: Range checking ⟧
-λinRangeHelper(max:Int,min:Int,x:Int)→Bool match (x≥min){
-  true→x≤max|
-  false→false
+λinRangeHelper(max:Int,min:Int,x:Int)=>Bool match (x≥min){
+  true=>x≤max|
+  false=>false
 }
 
 ⟦ Check if value is even ⟧
-λisEven(x:Int)→Bool=(x%2)=0
+λisEven(x:Int)=>Bool=(x%2)=0
 
 ⟦ Check if value is negative ⟧
-λisNegative(x:Int)→Bool=x<0
+λisNegative(x:Int)=>Bool=x<0
 
 ⟦ Check if value is non-negative (≥0) ⟧
-λisNonNegative(x:Int)→Bool=x≥0
+λisNonNegative(x:Int)=>Bool=x≥0
 
 ⟦ Check if value is odd ⟧
-λisOdd(x:Int)→Bool=¬(isEven(x))
+λisOdd(x:Int)=>Bool=¬(isEven(x))
 
 ⟦ Check if value is positive ⟧
-λisPositive(x:Int)→Bool=x>0
+λisPositive(x:Int)=>Bool=x>0
 
 ⟦ Check if value is prime ⟧
-λisPrime(n:Int)→Bool match n{
-  0→false|
-  1→false|
-  value→isPrimeHelper(2,value)
+λisPrime(n:Int)=>Bool match n{
+  0=>false|
+  1=>false|
+  value=>isPrimeHelper(2,value)
 }
 
 ⟦ Helper: Prime checking ⟧
-λisPrimeHelper(divisor:Int,n:Int)→Bool match (divisor*divisor>n){
-  true→true|
-  false→match (n%divisor≠0){
-    true→isPrimeHelper(divisor+1,n)|
-    false→false
+λisPrimeHelper(divisor:Int,n:Int)=>Bool match (divisor*divisor>n){
+  true=>true|
+  false=>match (n%divisor≠0){
+    true=>isPrimeHelper(divisor+1,n)|
+    false=>false
   }
 }
 
 ⟦ Least common multiple ⟧
-λlcm(a:Int,b:Int)→Int match (a=0) or (b=0){
-  true→0|
-  false→{
+λlcm(a:Int,b:Int)=>Int match (a=0) or (b=0){
+  true=>0|
+  false=>{
     abs((a/(abs(gcd(a,b)):Int))*b)
   }
 }
 
 ⟦ Maximum of two numbers ⟧
-λmax(a:Int,b:Int)→Int match a>b{true→a|false→b}
+λmax(a:Int,b:Int)=>Int match a>b{true=>a|false=>b}
 
 ⟦ Minimum of two numbers ⟧
-λmin(a:Int,b:Int)→Int match a<b{true→a|false→b}
+λmin(a:Int,b:Int)=>Int match a<b{true=>a|false=>b}
 
 ⟦ Euclidean modulo with non-negative remainder ⟧
-λmod(a:Int,b:Int)→Int={
+λmod(a:Int,b:Int)=>Int={
   match ((a%b):Int)<0{
-    true→((a%b):Int)+abs(b)|
-    false→((a%b):Int)
+    true=>((a%b):Int)+abs(b)|
+    false=>((a%b):Int)
   }
 }
 
 ⟦ Integer power (exponentiation) ⟧
-λpow(base:Int,exp:Int)→Int match exp{
-  0→1|
-  remainingExp→base*pow(base,remainingExp-1)
+λpow(base:Int,exp:Int)=>Int match exp{
+  0=>1|
+  remainingExp=>base*pow(base,remainingExp-1)
 }
 
 ⟦ Integer range from start to stop, inclusive ⟧
-λrange(start:Int,stop:Int)→[Int] match start>stop{
-  true→[]|
-  false→[start]⧺range(start+1,stop)
+λrange(start:Int,stop:Int)=>[Int] match start>stop{
+  true=>[]|
+  false=>[start]⧺range(start+1,stop)
 }
 
 ⟦ Sign of an integer: -1, 0, or 1 ⟧
-λsign(x:Int)→Int match x<0{
-  true→-1|
-  false→match x=0{
-    true→0|
-    false→1
+λsign(x:Int)=>Int match x<0{
+  true=>-1|
+  false=>match x=0{
+    true=>0|
+    false=>1
   }
 }

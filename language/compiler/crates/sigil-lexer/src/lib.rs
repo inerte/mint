@@ -7,12 +7,12 @@
 //! # Design Principles
 //!
 //! - **Canonical Formatting**: No tabs, precise whitespace requirements
-//! - **Canonical Symbols + Keywords**: λ, →, match, ⋅, and, or, ¬, ≤, ≥, ≠, etc.
+//! - **Canonical Symbols + Keywords**: λ, =>, match, ::, and, or, ¬, ≤, ≥, ≠, etc.
 //! - **Deterministic**: Same input always produces same token stream
 //! - **Error Recovery**: Clear error messages with source locations
 
-pub mod token;
 mod lexer_impl;
+pub mod token;
 
-pub use token::*;
 pub use lexer_impl::*;
+pub use token::*;

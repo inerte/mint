@@ -21,35 +21,35 @@ t ValidationResult=Valid|Invalid(String)
 
 e console
 
-i stdlib⋅string
+i stdlib::string
 
 ⟦ Helper: Count occurrences of character in string ⟧
-λcountChar(char:String,str:String)→Int=countHelper(0,char,0,str)
+λcountChar(char:String,str:String)=>Int=countHelper(0,char,0,str)
 
-λcountHelper(acc:Int,char:String,idx:Int,str:String)→Int match idx<#str{
-  true → countHelper(acc+match stdlib⋅string.charAt(idx,str)=char{true→1|false→0},char,idx+1,str) |
-  false → acc
+λcountHelper(acc:Int,char:String,idx:Int,str:String)=>Int match idx<#str{
+  true => countHelper(acc+match stdlib::string.charAt(idx,str)=char{true=>1|false=>0},char,idx+1,str) |
+  false => acc
 }
 
 ⟦ Helper: Extract local and domain from split result ⟧
-λextractParts(parts:[String])→EmailParts match #parts=2{
-  true → extractTwoParts(parts) |
-  false → {domain:"",local:""}
+λextractParts(parts:[String])=>EmailParts match #parts=2{
+  true => extractTwoParts(parts) |
+  false => {domain:"",local:""}
 }
 
-λextractTwoParts(parts:[String])→EmailParts match parts{
-  [local,domain] → {domain:domain,local:local} |
-  _ → {domain:"",local:""}
+λextractTwoParts(parts:[String])=>EmailParts match parts{
+  [local,domain] => {domain:domain,local:local} |
+  _ => {domain:"",local:""}
 }
 
 ⟦ Helper: Format validation result for display ⟧
-λformatResult(email:String,result:ValidationResult)→String match result{
-  Valid → "✓ '"++email++"' is valid" |
-  Invalid(reason) → "✗ '"++email++"': "++reason
+λformatResult(email:String,result:ValidationResult)=>String match result{
+  Valid => "✓ '"++email++"' is valid" |
+  Invalid(reason) => "✗ '"++email++"': "++reason
 }
 
 ⟦ Main - Demonstrate email validation ⟧
-λmain()→!IO Unit={
+λmain()=>!IO Unit={
   l _=(console.log("=== Email Validator ===\n"):Unit);
 
   ⟦ Valid emails ⟧
@@ -92,24 +92,24 @@ i stdlib⋅string
 }
 
 ⟦ Helper: Split email at @ symbol ⟧
-λsplitAt(email:String)→EmailParts=extractParts(stdlib⋅string.split(email,"@"))
+λsplitAt(email:String)=>EmailParts=extractParts(stdlib::string.split(email,"@"))
 
 ⟦ Validate domain part (after @) ⟧
-λvalidateDomain(domain:String)→ValidationResult=validateDomainChecks(domain,#domain)
+λvalidateDomain(domain:String)=>ValidationResult=validateDomainChecks(domain,#domain)
 
-λvalidateDomainChecks(domain:String,len:Int)→ValidationResult match len=0{
-  true → Invalid("Domain cannot be empty") |
-  false → match len>255{
-    true → Invalid("Domain too long (max 255 characters)") |
-    false → match stdlib⋅string.indexOf(domain,".")<0{
-      true → Invalid("Domain must contain at least one dot") |
-      false → match stdlib⋅string.startsWith(domain,"."){
-        true → Invalid("Domain cannot start with dot") |
-        false → match stdlib⋅string.endsWith(domain,"."){
-          true → Invalid("Domain cannot end with dot") |
-          false → match stdlib⋅string.indexOf(domain,"..")≥0{
-            true → Invalid("Domain cannot contain consecutive dots") |
-            false → Valid()
+λvalidateDomainChecks(domain:String,len:Int)=>ValidationResult match len=0{
+  true => Invalid("Domain cannot be empty") |
+  false => match len>255{
+    true => Invalid("Domain too long (max 255 characters)") |
+    false => match stdlib::string.indexOf(domain,".")<0{
+      true => Invalid("Domain must contain at least one dot") |
+      false => match stdlib::string.startsWith(domain,"."){
+        true => Invalid("Domain cannot start with dot") |
+        false => match stdlib::string.endsWith(domain,"."){
+          true => Invalid("Domain cannot end with dot") |
+          false => match stdlib::string.indexOf(domain,"..")≥0{
+            true => Invalid("Domain cannot contain consecutive dots") |
+            false => Valid()
           }
         }
       }
@@ -118,39 +118,39 @@ i stdlib⋅string
 }
 
 ⟦ Main email validation function - exported for testing ⟧
-λvalidateEmail(email:String)→ValidationResult=validateEmailWithParts(email,splitAt(email))
+λvalidateEmail(email:String)=>ValidationResult=validateEmailWithParts(email,splitAt(email))
 
 ⟦ Validate email parts after splitting ⟧
-λvalidateEmailParts(parts:EmailParts)→ValidationResult match validateLocal(parts.local){
-  Invalid(msg) → Invalid(msg) |
-  Valid → validateDomain(parts.domain)
+λvalidateEmailParts(parts:EmailParts)=>ValidationResult match validateLocal(parts.local){
+  Invalid(msg) => Invalid(msg) |
+  Valid => validateDomain(parts.domain)
 }
 
-λvalidateEmailWithParts(email:String,parts:EmailParts)→ValidationResult match #email=0{
-  true → Invalid("Email cannot be empty") |
-  false → match #email>320{
-    true → Invalid("Email too long (max 320 characters)") |
-    false → match #parts.local=0 and #parts.domain=0{
-      true → Invalid("Email must contain exactly one @ symbol") |
-      false → validateEmailParts(parts)
+λvalidateEmailWithParts(email:String,parts:EmailParts)=>ValidationResult match #email=0{
+  true => Invalid("Email cannot be empty") |
+  false => match #email>320{
+    true => Invalid("Email too long (max 320 characters)") |
+    false => match #parts.local=0 and #parts.domain=0{
+      true => Invalid("Email must contain exactly one @ symbol") |
+      false => validateEmailParts(parts)
     }
   }
 }
 
 ⟦ Validate local part (before @) ⟧
-λvalidateLocal(local:String)→ValidationResult=validateLocalChecks(#local,local)
+λvalidateLocal(local:String)=>ValidationResult=validateLocalChecks(#local,local)
 
-λvalidateLocalChecks(len:Int,local:String)→ValidationResult match len=0{
-  true → Invalid("Local part cannot be empty") |
-  false → match len>64{
-    true → Invalid("Local part too long (max 64 characters)") |
-    false → match stdlib⋅string.startsWith(local,"."){
-      true → Invalid("Local part cannot start with dot") |
-      false → match stdlib⋅string.endsWith(local,"."){
-        true → Invalid("Local part cannot end with dot") |
-        false → match stdlib⋅string.indexOf(local,"..")≥0{
-          true → Invalid("Local part cannot contain consecutive dots") |
-          false → Valid()
+λvalidateLocalChecks(len:Int,local:String)=>ValidationResult match len=0{
+  true => Invalid("Local part cannot be empty") |
+  false => match len>64{
+    true => Invalid("Local part too long (max 64 characters)") |
+    false => match stdlib::string.startsWith(local,"."){
+      true => Invalid("Local part cannot start with dot") |
+      false => match stdlib::string.endsWith(local,"."){
+        true => Invalid("Local part cannot end with dot") |
+        false => match stdlib::string.indexOf(local,"..")≥0{
+          true => Invalid("Local part cannot contain consecutive dots") |
+          false => Valid()
         }
       }
     }

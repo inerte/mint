@@ -1,8 +1,8 @@
-⟦ Comprehensive tests for stdlib⋅string ⟧
+⟦ Comprehensive tests for stdlib::string ⟧
 
-i stdlib⋅string
+i stdlib::string
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 ⟦ Test # operator on strings ⟧
 test "# returns string length" {
@@ -23,165 +23,165 @@ test "# returns list length" {
 }
 
 test "charAt at index 0" {
-  stdlib⋅string.charAt(0,"hello")="h"
+  stdlib::string.charAt(0,"hello")="h"
 }
 
 test "charAt at middle index" {
-  stdlib⋅string.charAt(2,"hello")="l"
+  stdlib::string.charAt(2,"hello")="l"
 }
 
 test "drop first n characters" {
-  stdlib⋅string.drop(2,"hello")="llo"
+  stdlib::string.drop(2,"hello")="llo"
 }
 
 test "drop with 0" {
-  stdlib⋅string.drop(0,"hello")="hello"
+  stdlib::string.drop(0,"hello")="hello"
 }
 
 test "endsWith actual suffix" {
-  stdlib⋅string.endsWith("file.txt",".txt")=true
+  stdlib::string.endsWith("file.txt",".txt")=true
 }
 
 test "endsWith non-suffix" {
-  stdlib⋅string.endsWith("hello",".txt")=false
+  stdlib::string.endsWith("hello",".txt")=false
 }
 
 test "indexOf finds occurrence" {
-  stdlib⋅string.indexOf("hello world","o")=4
+  stdlib::string.indexOf("hello world","o")=4
 }
 
 test "indexOf not found" {
-  stdlib⋅string.indexOf("hello","z")=-1
+  stdlib::string.indexOf("hello","z")=-1
 }
 
 test "intToString negative" {
-  stdlib⋅string.intToString(-10)="-10"
+  stdlib::string.intToString(-10)="-10"
 }
 
 test "intToString positive" {
-  stdlib⋅string.intToString(42)="42"
+  stdlib::string.intToString(42)="42"
 }
 
 test "intToString zero" {
-  stdlib⋅string.intToString(0)="0"
+  stdlib::string.intToString(0)="0"
 }
 
 test "isDigit letter" {
-  stdlib⋅string.isDigit("a")=false
+  stdlib::string.isDigit("a")=false
 }
 
 test "isDigit multi-character" {
-  stdlib⋅string.isDigit("42")=false
+  stdlib::string.isDigit("42")=false
 }
 
 test "isDigit single" {
-  stdlib⋅string.isDigit("5")=true
+  stdlib::string.isDigit("5")=true
 }
 
 test "join empty list" {
-  stdlib⋅string.join(",",[])=""
+  stdlib::string.join(",",[])=""
 }
 
 test "join with separator" {
-  stdlib⋅string.join(",",["a","b","c"])="a,b,c"
+  stdlib::string.join(",",["a","b","c"])="a,b,c"
 }
 
 test "lines splits on newline" {
-  stdlib⋅string.lines("a\nb\nc")=["a","b","c"]
+  stdlib::string.lines("a\nb\nc")=["a","b","c"]
 }
 
 test "lines preserves single line" {
-  stdlib⋅string.lines("hello")=["hello"]
+  stdlib::string.lines("hello")=["hello"]
 }
 
 test "repeat repeats content" {
-  stdlib⋅string.repeat(3,"ab")="ababab"
+  stdlib::string.repeat(3,"ab")="ababab"
 }
 
 test "repeat with non-positive count returns empty" {
-  stdlib⋅string.repeat(0,"ab")=""
+  stdlib::string.repeat(0,"ab")=""
 }
 
 test "replaceAll all occurrences" {
-  stdlib⋅string.replaceAll("o","0","hello world")="hell0 w0rld"
+  stdlib::string.replaceAll("o","0","hello world")="hell0 w0rld"
 }
 
 test "replaceAll no matches" {
-  stdlib⋅string.replaceAll("z","x","hello")="hello"
+  stdlib::string.replaceAll("z","x","hello")="hello"
 }
 
 test "split by delimiter" {
-  stdlib⋅string.split(",","a,b,c")=["a","b","c"]
+  stdlib::string.split(",","a,b,c")=["a","b","c"]
 }
 
 test "split single element" {
-  stdlib⋅string.split(",","hello")=["hello"]
+  stdlib::string.split(",","hello")=["hello"]
 }
 
 test "startsWith non-prefix" {
-  stdlib⋅string.startsWith("abc","hello")=false
+  stdlib::string.startsWith("abc","hello")=false
 }
 
 test "startsWith prefix" {
-  stdlib⋅string.startsWith("hel","hello")=true
+  stdlib::string.startsWith("hel","hello")=true
 }
 
 test "substring full string" {
-  stdlib⋅string.substring(5,"hello",0)="hello"
+  stdlib::string.substring(5,"hello",0)="hello"
 }
 
 test "substring portion" {
-  stdlib⋅string.substring(4,"hello",1)="ell"
+  stdlib::string.substring(4,"hello",1)="ell"
 }
 
 test "take first n" {
-  stdlib⋅string.take(3,"hello")="hel"
+  stdlib::string.take(3,"hello")="hel"
 }
 
 test "take n greater than length" {
-  stdlib⋅string.take(10,"hi")="hi"
+  stdlib::string.take(10,"hi")="hi"
 }
 
 test "toLower converts uppercase" {
-  stdlib⋅string.toLower("HELLO")="hello"
+  stdlib::string.toLower("HELLO")="hello"
 }
 
 test "toLower preserves lowercase" {
-  stdlib⋅string.toLower("hello")="hello"
+  stdlib::string.toLower("hello")="hello"
 }
 
 test "toUpper converts lowercase" {
-  stdlib⋅string.toUpper("hello")="HELLO"
+  stdlib::string.toUpper("hello")="HELLO"
 }
 
 test "toUpper preserves uppercase" {
-  stdlib⋅string.toUpper("HELLO")="HELLO"
+  stdlib::string.toUpper("HELLO")="HELLO"
 }
 
 test "trim both sides" {
-  stdlib⋅string.trim("  hello  ")="hello"
+  stdlib::string.trim("  hello  ")="hello"
 }
 
 test "trim leading" {
-  stdlib⋅string.trim("  hello")="hello"
+  stdlib::string.trim("  hello")="hello"
 }
 
 test "trim trailing" {
-  stdlib⋅string.trim("hello  ")="hello"
+  stdlib::string.trim("hello  ")="hello"
 }
 
 test "unlines joins with newline" {
-  stdlib⋅string.unlines(["a","b","c"])="a\nb\nc"
+  stdlib::string.unlines(["a","b","c"])="a\nb\nc"
 }
 
 test "unlines on empty list" {
-  stdlib⋅string.unlines([])=""
+  stdlib::string.unlines([])=""
 }
 
 ⟦ Integration test: parse markdown title ⟧
 test "extract title from markdown" {
-  match stdlib⋅string.startsWith("# ",stdlib⋅string.split("\n","# Hello World\nContent here")[0]){
-    true→stdlib⋅string.substring(#stdlib⋅string.split("\n","# Hello World\nContent here")[0],stdlib⋅string.split("\n","# Hello World\nContent here")[0],2)="Hello World"|
-    false→false
+  match stdlib::string.startsWith("# ",stdlib::string.split("\n","# Hello World\nContent here")[0]){
+    true=>stdlib::string.substring(#stdlib::string.split("\n","# Hello World\nContent here")[0],stdlib::string.split("\n","# Hello World\nContent here")[0],2)="Hello World"|
+    false=>false
   }
 }

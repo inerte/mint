@@ -17,11 +17,10 @@ pub enum ParseError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-PARSE-UNEXPECTED-TOKEN {file}:EOF unexpected end of file (expected {expected})")]
-    UnexpectedEof {
-        file: String,
-        expected: String,
-    },
+    #[error(
+        "SIGIL-PARSE-UNEXPECTED-TOKEN {file}:EOF unexpected end of file (expected {expected})"
+    )]
+    UnexpectedEof { file: String, expected: String },
 
     #[error("SIGIL-PARSE-CONST-NAME {file}:{line}:{column} invalid constant name (found {found}, expected lowerCamelCase identifier)")]
     InvalidConstantName {
@@ -41,7 +40,7 @@ pub enum ParseError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-PARSE-NS-SEP {file}:{line}:{column} invalid namespace separator (found {found}, expected ⋅)")]
+    #[error("SIGIL-PARSE-NS-SEP {file}:{line}:{column} invalid namespace separator (found {found}, expected ::)")]
     InvalidNamespaceSeparator {
         file: String,
         found: String,
@@ -181,7 +180,7 @@ impl From<ParseError> for Diagnostic {
                 "invalid namespace separator",
             )
             .with_location(source_location_to_span(file, location))
-            .with_found_expected(&found, "⋅"),
+            .with_found_expected(&found, "::"),
 
             ParseError::InvalidLocalBinding {
                 file,

@@ -1,3 +1,3 @@
-λfactHelper(n:Int)→Int match n{0→1|1→1|value→value*factHelper(value-1)}
-λfactorial(n:Int)→Int=factHelper(n)
-λmain()→Int=factorial(5)
+λfactHelper(n:Int)=>Int match n{0=>1|1=>1|value=>value*factHelper(value-1)}
+λfactorial(n:Int)=>Int=factHelper(n)
+λmain()=>Int=factorial(5)

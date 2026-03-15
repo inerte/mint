@@ -35,10 +35,10 @@ Sigil enforces **alphabetical parameter ordering**. Every function signature has
 
 ```sigil
 ✅ VALID - alphabetical order:
-λsend_email(body:String, from:String, subject:String, to:String)→Unit=...
+λsend_email(body:String, from:String, subject:String, to:String)=>Unit=...
 
 ❌ REJECTED - non-alphabetical:
-λsend_email(to:String, from:String, subject:String, body:String)→Unit=...
+λsend_email(to:String, from:String, subject:String, body:String)=>Unit=...
 ```
 
 The compiler catches this immediately:
@@ -111,7 +111,7 @@ But "natural" is subjective:
 
 ```sigil
 ✅ The ONE way in Sigil:
-λcreate_user(age:Int, email:String, name:String)→User=...
+λcreate_user(age:Int, email:String, name:String)=>User=...
 ```
 
 ## Effect Ordering Too
@@ -120,10 +120,10 @@ Sigil also enforces alphabetical ordering for effect annotations:
 
 ```sigil
 ✅ VALID - alphabetical order:
-λfetch_data()→!Error !IO !Network String=...
+λfetch_data()=>!Error !IO !Network String=...
 
 ❌ REJECTED - non-alphabetical:
-λfetch_data()→!Network !IO !Error String=...
+λfetch_data()=>!Network !IO !Error String=...
 ```
 
 Standard effects in alphabetical order:
@@ -139,24 +139,24 @@ When we added this rule, we found:
 - **25 functions** reordered
 - **~50 function calls** updated to match
 
-Example from `stdlib⋅httpServer`:
+Example from `stdlib::httpServer`:
 
 ```sigil
 # Before:
-λjson(status:Int, body:String)→Response=...
+λjson(status:Int, body:String)=>Response=...
 
 # After (alphabetical):
-λjson(body:String, status:Int)→Response=...
+λjson(body:String, status:Int)=>Response=...
 ```
 
 All calls were updated automatically:
 
 ```sigil
 # Before:
-stdlib⋅httpServer.json(200, "{}")
+stdlib::httpServer.json(200, "{}")
 
 # After:
-stdlib⋅httpServer.json("{}", 200)
+stdlib::httpServer.json("{}", 200)
 ```
 
 ## For AI Code Generation

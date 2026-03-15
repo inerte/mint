@@ -1233,7 +1233,7 @@ fn build_imported_namespaces(
 
     for decl in &ast.declarations {
         if let Declaration::Import(import_decl) = decl {
-            let module_id = import_decl.module_path.join("⋅");
+            let module_id = import_decl.module_path.join("::");
 
             if let Some(types) = compiled_modules.get(&module_id) {
                 // Build namespace type from exported functions/consts
@@ -1300,7 +1300,7 @@ fn qualify_inference_type_in_context(typ: &InferenceType, module_id: &str) -> In
             name: record.name.as_ref().map(|name| {
                 if is_core_prelude_name(name) {
                     name.clone()
-                } else if name.contains('⋅') {
+                } else if name.contains("::") {
                     name.clone()
                 } else if name.contains('.') {
                     name.clone()
@@ -1312,7 +1312,7 @@ fn qualify_inference_type_in_context(typ: &InferenceType, module_id: &str) -> In
         InferenceType::Constructor(constructor) => InferenceType::Constructor(TConstructor {
             name: if is_core_prelude_name(&constructor.name) {
                 constructor.name.clone()
-            } else if constructor.name.contains('⋅') || constructor.name.contains('.') {
+            } else if constructor.name.contains("::") || constructor.name.contains('.') {
                 constructor.name.clone()
             } else {
                 format!("{}.{}", module_id, constructor.name)
@@ -1335,13 +1335,13 @@ fn build_imported_type_registries(
 ) -> HashMap<String, HashMap<String, TypeInfo>> {
     let mut imported = HashMap::new();
 
-    if let Some(registry) = type_registries.get("core⋅prelude") {
-        imported.insert("core⋅prelude".to_string(), registry.clone());
+    if let Some(registry) = type_registries.get("core::prelude") {
+        imported.insert("core::prelude".to_string(), registry.clone());
     }
 
     for decl in &ast.declarations {
         if let Declaration::Import(import_decl) = decl {
-            let module_id = import_decl.module_path.join("⋅");
+            let module_id = import_decl.module_path.join("::");
 
             if let Some(registry) = type_registries.get(&module_id) {
                 imported.insert(module_id.clone(), registry.clone());
@@ -1358,9 +1358,9 @@ fn build_imported_value_schemes(
 ) -> HashMap<String, HashMap<String, TypeScheme>> {
     let mut imported = HashMap::new();
 
-    if let Some(schemes) = compiled_schemes.get("core⋅prelude") {
+    if let Some(schemes) = compiled_schemes.get("core::prelude") {
         imported.insert(
-            "core⋅prelude".to_string(),
+            "core::prelude".to_string(),
             schemes
                 .iter()
                 .map(|(name, scheme)| (name.clone(), scheme.clone()))
@@ -1370,7 +1370,7 @@ fn build_imported_value_schemes(
 
     for decl in &ast.declarations {
         if let Declaration::Import(import_decl) = decl {
-            let module_id = import_decl.module_path.join("⋅");
+            let module_id = import_decl.module_path.join("::");
 
             if let Some(schemes) = compiled_schemes.get(&module_id) {
                 imported.insert(
@@ -1551,7 +1551,7 @@ fn qualify_type_in_context(
             }
 
             Type::Qualified(sigil_ast::QualifiedType {
-                module_path: module_id.split('⋅').map(|s| s.to_string()).collect(),
+                module_path: module_id.split("::").map(|s| s.to_string()).collect(),
                 type_name: var_type.name.clone(),
                 type_args: vec![],
                 location: var_type.location,
@@ -1566,7 +1566,7 @@ fn qualify_type_in_context(
 
             if local_type_registry.contains_key(&constructor.name) && !type_params.contains(&constructor.name) {
                 Type::Qualified(sigil_ast::QualifiedType {
-                    module_path: module_id.split('⋅').map(|s| s.to_string()).collect(),
+                    module_path: module_id.split("::").map(|s| s.to_string()).collect(),
                     type_name: constructor.name.clone(),
                     type_args: qualified_args,
                     location: constructor.location,
@@ -1685,8 +1685,8 @@ fn extract_type_registry(
 /// Get output path for a compiled module
 ///
 /// Converts module ID to file path, using repo root's .local directory:
-/// - stdlib⋅list → <repo_root>/.local/language/stdlib/list.ts
-/// - src⋅utils → <repo_root>/.local/path/to/src/utils.ts
+/// - stdlib::list => <repo_root>/.local/language/stdlib/list.ts
+/// - src::utils => <repo_root>/.local/path/to/src/utils.ts
 fn get_module_output_path(module: &LoadedModule) -> PathBuf {
     use std::env;
     use std::fs;
@@ -1694,7 +1694,7 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
     // Check if this is a project file
     if let Some(project) = module.project.clone().or_else(|| crate::project::get_project_config(&module.file_path)) {
         // Use project's output directory
-        let path_str = module.id.replace('⋅', "/");
+        let path_str = module.id.replace("::", "/");
         return project.root.join(&project.layout.out).join(format!("{}.ts", path_str));
     }
 

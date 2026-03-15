@@ -2,8 +2,8 @@
 
 t Todo={done:Bool,id:Int,text:String}
 
-λkeep(todo:Todo)→Todo=todo
+λkeep(todo:Todo)=>Todo=todo
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
-λtest()→[Todo]=[{done:false,id:1,text:"one"}]↦keep
+λtest()=>[Todo]=[{done:false,id:1,text:"one"}]↦keep

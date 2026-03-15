@@ -1,4 +1,4 @@
-⟦ stdlib⋅markdown - Pure Sigil Markdown Parser
+⟦ stdlib::markdown - Pure Sigil Markdown Parser
 
 This is the canonical markdown-to-HTML converter for the Sigil ecosystem.
 Implemented entirely in Sigil (no FFI) to demonstrate the language capabilities.
@@ -48,38 +48,38 @@ t ParserState={
 ⟦ Parse result - state and blocks ⟧
 t ParsingResult={blocks:[Block],state:ParserState}
 
-i stdlib⋅string
+i stdlib::string
 
 ⟦ Block to HTML Conversion ⟧
-λblockToHtml(block:Block)→String match block{
-  Header(level,text) →
-    l tag=("h"++stdlib⋅string.intToString(level):String);
+λblockToHtml(block:Block)=>String match block{
+  Header(level,text) =>
+    l tag=("h"++stdlib::string.intToString(level):String);
     "<"++tag++">"++processInline(text)++"</"++tag++">"|
 
-  Paragraph(text) →
+  Paragraph(text) =>
     "<p>"++processInline(text)++"</p>"|
 
-  CodeBlock(lang,code) →
+  CodeBlock(lang,code) =>
     "<pre><code>"++code++"</code></pre>"|
 
-  UnorderedList(items) →
-    "<ul>"++stdlib⋅string.join("",items↦λ(item:String)→String="<li>"++processInline(item)++"</li>")++"</ul>"|
+  UnorderedList(items) =>
+    "<ul>"++stdlib::string.join("",items↦λ(item:String)=>String="<li>"++processInline(item)++"</li>")++"</ul>"|
 
-  OrderedList(items) →
-    "<ol>"++stdlib⋅string.join("",items↦λ(item:String)→String="<li>"++processInline(item)++"</li>")++"</ol>"|
+  OrderedList(items) =>
+    "<ol>"++stdlib::string.join("",items↦λ(item:String)=>String="<li>"++processInline(item)++"</li>")++"</ol>"|
 
-  Blockquote(text) →
+  Blockquote(text) =>
     "<blockquote>"++processInline(text)++"</blockquote>"|
 
-  HorizontalRule →
+  HorizontalRule =>
     "<hr>"
 }
 
 ⟦ Empty block list helper ⟧
-λemptyBlocks()→[Block]=[]
+λemptyBlocks()=>[Block]=[]
 
 ⟦ Initial empty state ⟧
-λemptyState()→ParserState={
+λemptyState()=>ParserState={
   codeLang:"",
   codeLines:[],
   inCodeBlock:false,
@@ -90,160 +90,160 @@ i stdlib⋅string
 }
 
 ⟦ Extract content from special lines ⟧
-λextractBlockquoteText(line:String)→String=
-  stdlib⋅string.substring(#line,line,2)
+λextractBlockquoteText(line:String)=>String=
+  stdlib::string.substring(#line,line,2)
 
-λextractCodeLang(line:String)→String match #line{
-  len when len>3 → stdlib⋅string.substring(len,line,3)|
-  _ → ""
+λextractCodeLang(line:String)=>String match #line{
+  len when len>3 => stdlib::string.substring(len,line,3)|
+  _ => ""
 }
 
-λextractHeaderLevel(line:String)→Int match line{
-  s when stdlib⋅string.startsWith("###### ",s) → 6|
-  s when stdlib⋅string.startsWith("##### ",s) → 5|
-  s when stdlib⋅string.startsWith("#### ",s) → 4|
-  s when stdlib⋅string.startsWith("### ",s) → 3|
-  s when stdlib⋅string.startsWith("## ",s) → 2|
-  s when stdlib⋅string.startsWith("# ",s) → 1|
-  _ → 0
+λextractHeaderLevel(line:String)=>Int match line{
+  s when stdlib::string.startsWith("###### ",s) => 6|
+  s when stdlib::string.startsWith("##### ",s) => 5|
+  s when stdlib::string.startsWith("#### ",s) => 4|
+  s when stdlib::string.startsWith("### ",s) => 3|
+  s when stdlib::string.startsWith("## ",s) => 2|
+  s when stdlib::string.startsWith("# ",s) => 1|
+  _ => 0
 }
 
-λextractHeaderText(level:Int,line:String)→String=
-  stdlib⋅string.substring(#line,line,level+1)
+λextractHeaderText(level:Int,line:String)=>String=
+  stdlib::string.substring(#line,line,level+1)
 
-λextractListItem(line:String)→String match line{
-  s when isUnorderedList(s) → stdlib⋅string.substring(#s,s,2)|
-  s when isOrderedList(s) → stdlib⋅string.substring(#s,s,3)|
-  _ → ""
+λextractListItem(line:String)=>String match line{
+  s when isUnorderedList(s) => stdlib::string.substring(#s,s,2)|
+  s when isOrderedList(s) => stdlib::string.substring(#s,s,3)|
+  _ => ""
 }
 
 ⟦ Flush accumulated content to blocks ⟧
-λflushCodeBlock(state:ParserState)→[Block] match state.inCodeBlock{
-  true → [CodeBlock(state.codeLang,stdlib⋅string.join("\n",state.codeLines))]|
-  false → emptyBlocks()
+λflushCodeBlock(state:ParserState)=>[Block] match state.inCodeBlock{
+  true => [CodeBlock(state.codeLang,stdlib::string.join("\n",state.codeLines))]|
+  false => emptyBlocks()
 }
 
-λflushList(state:ParserState)→[Block] match state.inList{
-  false → emptyBlocks()|
-  true → flushListByType(state.listItems,state.listType)
+λflushList(state:ParserState)=>[Block] match state.inList{
+  false => emptyBlocks()|
+  true => flushListByType(state.listItems,state.listType)
 }
 
-λflushListByType(listItems:[String],listType:String)→[Block] match listType{
-  "ul" → [UnorderedList(listItems)]|
-  "ol" → [OrderedList(listItems)]|
-  _ → emptyBlocks()
+λflushListByType(listItems:[String],listType:String)=>[Block] match listType{
+  "ul" => [UnorderedList(listItems)]|
+  "ol" => [OrderedList(listItems)]|
+  _ => emptyBlocks()
 }
 
-λflushParagraph(state:ParserState)→[Block] match state.paraLines{
-  [] → emptyBlocks()|
-  lines → [Paragraph(stdlib⋅string.join(" ",lines))]
+λflushParagraph(state:ParserState)=>[Block] match state.paraLines{
+  [] => emptyBlocks()|
+  lines => [Paragraph(stdlib::string.join(" ",lines))]
 }
 
 ⟦ Line Type Predicates ⟧
-λisBlockquote(line:String)→Bool=
-  stdlib⋅string.startsWith("> ",line)
+λisBlockquote(line:String)=>Bool=
+  stdlib::string.startsWith("> ",line)
 
-λisCodeFence(line:String)→Bool=
-  stdlib⋅string.startsWith("```",line)
+λisCodeFence(line:String)=>Bool=
+  stdlib::string.startsWith("```",line)
 
-λisEmpty(line:String)→Bool=
-  stdlib⋅string.trim(line)=""
+λisEmpty(line:String)=>Bool=
+  stdlib::string.trim(line)=""
 
-λisHeader(line:String)→Bool=
-  stdlib⋅string.startsWith("#",line)
+λisHeader(line:String)=>Bool=
+  stdlib::string.startsWith("#",line)
 
-λisHr(line:String)→Bool match line{
-  "---" → true|
-  "***" → true|
-  "___" → true|
-  _ → false
+λisHr(line:String)=>Bool match line{
+  "---" => true|
+  "***" => true|
+  "___" => true|
+  _ => false
 }
 
-λisOrderedList(line:String)→Bool=
+λisOrderedList(line:String)=>Bool=
   #line>2 and
-  stdlib⋅string.isDigit(stdlib⋅string.charAt(0,line)) and
-  stdlib⋅string.charAt(1,line)="."
+  stdlib::string.isDigit(stdlib::string.charAt(0,line)) and
+  stdlib::string.charAt(1,line)="."
 
-λisUnorderedList(line:String)→Bool=
-  stdlib⋅string.startsWith("- ",line) or
-  stdlib⋅string.startsWith("* ",line) or
-  stdlib⋅string.startsWith("+ ",line)
+λisUnorderedList(line:String)=>Bool=
+  stdlib::string.startsWith("- ",line) or
+  stdlib::string.startsWith("* ",line) or
+  stdlib::string.startsWith("+ ",line)
 
 ⟦ Main Export - Parse markdown to HTML ⟧
-λparse(markdown:String)→String=
-  stdlib⋅string.join("\n",parseLines(markdown)↦blockToHtml)
+λparse(markdown:String)=>String=
+  stdlib::string.join("\n",parseLines(markdown)↦blockToHtml)
 
 ⟦ State Machine - Main Line Parser
 
 Uses field access in pattern guards for the one canonical way to inspect state.
 ⟧
-λparseLine(line:String,state:ParserState)→ParsingResult match state.inCodeBlock{
+λparseLine(line:String,state:ParserState)=>ParsingResult match state.inCodeBlock{
   ⟦ Inside code block - check for closing fence ⟧
-  true when isCodeFence(line) →
+  true when isCodeFence(line) =>
     {blocks:flushCodeBlock(state),state:emptyState()}|
 
   ⟦ Inside code block - accumulate code lines ⟧
-  true →
+  true =>
     {blocks:[],state:{codeLang:state.codeLang,codeLines:state.codeLines⧺[line],
       inCodeBlock:true,inList:false,listItems:[],listType:"",paraLines:[]}}|
 
   ⟦ Not in code block - check for opening fence ⟧
-  false when isCodeFence(line) →
+  false when isCodeFence(line) =>
     {blocks:flushList(state)⧺flushParagraph(state),state:{codeLang:extractCodeLang(line),codeLines:[],
       inCodeBlock:true,inList:false,listItems:[],listType:"",paraLines:[]}}|
 
   ⟦ Header line ⟧
-  false when isHeader(line) →
+  false when isHeader(line) =>
     l level=(extractHeaderLevel(line):Int);
     {blocks:flushList(state)⧺flushParagraph(state)⧺[Header(level,extractHeaderText(level,line))],state:emptyState()}|
 
   ⟦ Horizontal rule ⟧
-  false when isHr(line) →
+  false when isHr(line) =>
     {blocks:flushList(state)⧺flushParagraph(state)⧺[HorizontalRule()],state:emptyState()}|
 
   ⟦ Unordered list item - continuing existing ul ⟧
-  false when state.inList and state.listType="ul" and isUnorderedList(line) →
+  false when state.inList and state.listType="ul" and isUnorderedList(line) =>
     {blocks:flushParagraph(state),state:{codeLang:"",codeLines:[],
       inCodeBlock:false,inList:true,listItems:state.listItems⧺[extractListItem(line)],listType:"ul",paraLines:[]}}|
 
   ⟦ Unordered list item - starting new ul ⟧
-  false when isUnorderedList(line) →
+  false when isUnorderedList(line) =>
     {blocks:flushParagraph(state),state:{codeLang:"",codeLines:[],
       inCodeBlock:false,inList:true,listItems:[extractListItem(line)],listType:"ul",paraLines:[]}}|
 
   ⟦ Ordered list item - continuing existing ol ⟧
-  false when state.inList and state.listType="ol" and isOrderedList(line) →
+  false when state.inList and state.listType="ol" and isOrderedList(line) =>
     {blocks:flushParagraph(state),state:{codeLang:"",codeLines:[],
       inCodeBlock:false,inList:true,listItems:state.listItems⧺[extractListItem(line)],listType:"ol",paraLines:[]}}|
 
   ⟦ Ordered list item - starting new ol ⟧
-  false when isOrderedList(line) →
+  false when isOrderedList(line) =>
     {blocks:flushParagraph(state),state:{codeLang:"",codeLines:[],
       inCodeBlock:false,inList:true,listItems:[extractListItem(line)],listType:"ol",paraLines:[]}}|
 
   ⟦ Blockquote ⟧
-  false when isBlockquote(line) →
+  false when isBlockquote(line) =>
     {blocks:flushList(state)⧺flushParagraph(state)⧺[Blockquote(extractBlockquoteText(line))],state:emptyState()}|
 
   ⟦ Empty line - flush paragraph and list ⟧
-  false when isEmpty(line) →
+  false when isEmpty(line) =>
     {blocks:flushList(state)⧺flushParagraph(state),state:emptyState()}|
 
   ⟦ Regular text - accumulate paragraph ⟧
-  false →
+  false =>
     {blocks:flushList(state),state:{codeLang:"",codeLines:[],
       inCodeBlock:false,inList:false,listItems:[],listType:"",paraLines:state.paraLines⧺[line]}}
 }
 
 ⟦ Parse all lines into blocks ⟧
-λparseLines(markdown:String)→[Block]=
-  parseLinesHelper([],stdlib⋅string.split("\n",markdown),emptyState())
+λparseLines(markdown:String)=>[Block]=
+  parseLinesHelper([],stdlib::string.split("\n",markdown),emptyState())
 
-λparseLinesHelper(blocks:[Block],lines:[String],state:ParserState)→[Block] match lines{
-  [] →
+λparseLinesHelper(blocks:[Block],lines:[String],state:ParserState)=>[Block] match lines{
+  [] =>
     blocks⧺flushCodeBlock(state)⧺flushList(state)⧺flushParagraph(state)|
 
-  [line,.rest] →
+  [line,.rest] =>
     l result=(parseLine(line,state):ParsingResult);
     parseLinesHelper(blocks⧺result.blocks,rest,result.state)
 }
@@ -253,39 +253,39 @@ Uses field access in pattern guards for the one canonical way to inspect state.
 Process **bold**, *italic*, `code`, and [links](url) within text.
 ⟧
 
-λprocessInline(text:String)→String=
+λprocessInline(text:String)=>String=
   processInlineLinks(processInlineItalic(processInlineBold(processInlineCode(text))))
 
-λprocessInlineBold(text:String)→String=
+λprocessInlineBold(text:String)=>String=
   replacePairedDelimiters("</strong>","**","<strong>","",text)
 
-λprocessInlineCode(text:String)→String=
+λprocessInlineCode(text:String)=>String=
   replacePairedDelimiters("</code>","`","<code>","",text)
 
-λprocessInlineItalic(text:String)→String=
+λprocessInlineItalic(text:String)=>String=
   replacePairedDelimiters("</em>","*","<em>","",text)
 
 ⟦ Simplified link processing - find [text](url) patterns ⟧
-λprocessInlineLinks(text:String)→String=
+λprocessInlineLinks(text:String)=>String=
   ⟦ For v1, just return as-is - proper link parsing is complex ⟧
   text
 
 ⟦ Replace paired delimiters with HTML tags ⟧
-λreplacePairedDelimiters(closeTag:String,delimiter:String,openTag:String,result:String,text:String)→String match stdlib⋅string.indexOf(text,delimiter){
-    idx when idx≥0 →
-      l afterFirst=(stdlib⋅string.substring(#text,text,idx+#delimiter):String);
-      match stdlib⋅string.indexOf(afterFirst,delimiter){
-        idx2 when idx2≥0 →
+λreplacePairedDelimiters(closeTag:String,delimiter:String,openTag:String,result:String,text:String)=>String match stdlib::string.indexOf(text,delimiter){
+    idx when idx≥0 =>
+      l afterFirst=(stdlib::string.substring(#text,text,idx+#delimiter):String);
+      match stdlib::string.indexOf(afterFirst,delimiter){
+        idx2 when idx2≥0 =>
           replacePairedDelimiters(
             closeTag,
             delimiter,
             openTag,
-            result+stdlib⋅string.substring(idx,text,0)+openTag+stdlib⋅string.substring(idx2,afterFirst,0)+closeTag,
-            stdlib⋅string.substring(#afterFirst,afterFirst,idx2+#delimiter)
+            result+stdlib::string.substring(idx,text,0)+openTag+stdlib::string.substring(idx2,afterFirst,0)+closeTag,
+            stdlib::string.substring(#afterFirst,afterFirst,idx2+#delimiter)
           )|
-        _ →
+        _ =>
           result+text
       }|
-    _ →
+    _ =>
       result+text
   }

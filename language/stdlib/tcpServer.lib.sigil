@@ -1,7 +1,7 @@
-⟦ stdlib⋅tcpServer - Canonical TCP Server for Sigil
+⟦ stdlib::tcpServer - Canonical TCP Server for Sigil
 
 Provides the typed Sigil surface for one-request, one-response TCP services.
-Runtime behavior is implemented by the compiler runtime for stdlib⋅tcpServer.
+Runtime behavior is implemented by the compiler runtime for stdlib::tcpServer.
 ⟧
 
 t Request={
@@ -14,7 +14,7 @@ t Response={
   message:String
 }
 
-λresponse(message:String)→Response={message:message}
+λresponse(message:String)=>Response={message:message}
 
 ⟦
   Start a TCP server on the specified port.
@@ -22,6 +22,6 @@ t Response={
   The server accepts one UTF-8 line per connection and returns one UTF-8 line
   response before closing that connection.
 
-  Runtime behavior is provided by the compiler for stdlib⋅tcpServer.serve.
+  Runtime behavior is provided by the compiler for stdlib::tcpServer.serve.
 ⟧
-λserve(handler:λ(Request)→!IO Response,port:Int)→!IO Unit=()
+λserve(handler:λ(Request)=>!IO Response,port:Int)=>!IO Unit=()

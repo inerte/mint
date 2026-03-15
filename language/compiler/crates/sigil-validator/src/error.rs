@@ -278,7 +278,7 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-CANON-MATCH-BOOLEAN: Cannot pattern match on boolean expression\n\nUse if-expression instead: (condition)→thenBranch|elseBranch")]
+    #[error("SIGIL-CANON-MATCH-BOOLEAN: Cannot pattern match on boolean expression\n\nUse if-expression instead: (condition)=>thenBranch|elseBranch")]
     MatchBoolean {
         location: SourceLocation,
     },
@@ -288,7 +288,7 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-CANON-DECL-CATEGORY-ORDER: Declarations out of category order\n\nExpected: types → externs → imports → consts → functions → tests\nFound: {found_category} after {prev_category}")]
+    #[error("SIGIL-CANON-DECL-CATEGORY-ORDER: Declarations out of category order\n\nExpected: types => externs => imports => consts => functions => tests\nFound: {found_category} after {prev_category}")]
     DeclCategoryOrder {
         found_category: String,
         prev_category: String,

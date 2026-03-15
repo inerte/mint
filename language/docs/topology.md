@@ -23,7 +23,7 @@ Without this split, runtime truth gets blurred together:
 Sigil prefers one explicit model:
 - `src/topology.lib.sigil` declares dependency handles and environment names
 - `config/<env>.lib.sigil` binds every declared dependency for the selected environment
-- application code uses typed handles from `src⋅topology`
+- application code uses typed handles from `src::topology`
 - only config modules may read `process.env`
 
 ## Canonical Project Shape
@@ -46,13 +46,13 @@ Environment names are flexible, but the file path is canonical:
 `src/topology.lib.sigil` declares only dependency handles and environment names:
 
 ```sigil
-i stdlib⋅topology
+i stdlib::topology
 
-c eventStream=(stdlib⋅topology.tcpService("eventStream"):stdlib⋅topology.TcpServiceDependency)
-c local=(stdlib⋅topology.environment("local"):stdlib⋅topology.Environment)
-c mailerApi=(stdlib⋅topology.httpService("mailerApi"):stdlib⋅topology.HttpServiceDependency)
-c production=(stdlib⋅topology.environment("production"):stdlib⋅topology.Environment)
-c test=(stdlib⋅topology.environment("test"):stdlib⋅topology.Environment)
+c eventStream=(stdlib::topology.tcpService("eventStream"):stdlib::topology.TcpServiceDependency)
+c local=(stdlib::topology.environment("local"):stdlib::topology.Environment)
+c mailerApi=(stdlib::topology.httpService("mailerApi"):stdlib::topology.HttpServiceDependency)
+c production=(stdlib::topology.environment("production"):stdlib::topology.Environment)
+c test=(stdlib::topology.environment("test"):stdlib::topology.Environment)
 ```
 
 No URLs.
@@ -69,14 +69,14 @@ Each declared environment gets one config module:
 
 ```sigil
 ⟦ config/test.lib.sigil ⟧
-i src⋅topology
-i stdlib⋅config
+i src::topology
+i stdlib::config
 
-c bindings=(stdlib⋅config.bindings([
-  stdlib⋅config.bindHttp("http://127.0.0.1:45110",src⋅topology.mailerApi)
+c bindings=(stdlib::config.bindings([
+  stdlib::config.bindHttp("http://127.0.0.1:45110",src::topology.mailerApi)
 ],[
-  stdlib⋅config.bindTcp(src⋅topology.eventStream,"127.0.0.1",45120)
-]):stdlib⋅config.Bindings)
+  stdlib::config.bindTcp(src::topology.eventStream,"127.0.0.1",45120)
+]):stdlib::config.Bindings)
 ```
 
 Production-style config can read env vars, but only there:
@@ -85,14 +85,14 @@ Production-style config can read env vars, but only there:
 ⟦ config/production.lib.sigil ⟧
 e process
 
-i src⋅topology
-i stdlib⋅config
+i src::topology
+i stdlib::config
 
-c bindings=(stdlib⋅config.bindings([
-  stdlib⋅config.bindHttpEnv(src⋅topology.mailerApi,"MAILER_API_URL")
+c bindings=(stdlib::config.bindings([
+  stdlib::config.bindHttpEnv(src::topology.mailerApi,"MAILER_API_URL")
 ],[
-  stdlib⋅config.bindTcpEnv(src⋅topology.eventStream,"EVENT_STREAM_HOST","EVENT_STREAM_PORT")
-]):stdlib⋅config.Bindings)
+  stdlib::config.bindTcpEnv(src::topology.eventStream,"EVENT_STREAM_HOST","EVENT_STREAM_PORT")
+]):stdlib::config.Bindings)
 ```
 
 ## Application Code Uses Handles, Not Endpoints
@@ -100,36 +100,36 @@ c bindings=(stdlib⋅config.bindings([
 Canonical HTTP usage:
 
 ```sigil
-i src⋅topology
-i stdlib⋅httpClient
+i src::topology
+i stdlib::httpClient
 
-λmain()→!IO String match stdlib⋅httpClient.get(
-  src⋅topology.mailerApi,
-  stdlib⋅httpClient.emptyHeaders(),
+λmain()=>!IO String match stdlib::httpClient.get(
+  src::topology.mailerApi,
+  stdlib::httpClient.emptyHeaders(),
   "/health"
 ){
-  Ok(response)→response.body|
-  Err(error)→error.message
+  Ok(response)=>response.body|
+  Err(error)=>error.message
 }
 ```
 
 Canonical TCP usage:
 
 ```sigil
-i src⋅topology
-i stdlib⋅tcpClient
+i src::topology
+i stdlib::tcpClient
 
-λmain()→!IO String match stdlib⋅tcpClient.send(src⋅topology.eventStream,"ping"){
-  Ok(response)→response.message|
-  Err(error)→error.message
+λmain()=>!IO String match stdlib::tcpClient.send(src::topology.eventStream,"ping"){
+  Ok(response)=>response.message|
+  Err(error)=>error.message
 }
 ```
 
 Forbidden patterns:
 
 ```sigil
-stdlib⋅httpClient.get("http://127.0.0.1:45110",headers,"/health")
-stdlib⋅tcpClient.send("127.0.0.1","ping",45120)
+stdlib::httpClient.get("http://127.0.0.1:45110",headers,"/health")
+stdlib::tcpClient.send("127.0.0.1","ping",45120)
 process.env.MAILER_API_URL
 ```
 

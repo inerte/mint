@@ -4,24 +4,24 @@
   Import this module to get compile-time type checking for file system operations.
 
   Example:
-    i stdlib⋅ffiNodeFs
-    λreadConfig()→String=fs⋅promises.readFile("config.json", "utf8")
+    i stdlib::ffiNodeFs
+    λreadConfig()=>String=fs::promises.readFile("config.json", "utf8")
 ⟧
 
 t MkdirOptions = { recursive: Bool }
 t RmOptions = { force: Bool, recursive: Bool }
 
 e fs : {
-  existsSync : λ(String) → Bool
+  existsSync : λ(String) => Bool
 }
 
-e fs⋅promises : {
-  access : λ(String) → Unit,
-  appendFile : λ(String, String, String) → Unit,
-  mkdir : λ(String, MkdirOptions) → Unit,
-  readFile : λ(String, String) → String,
-  readdir : λ(String) → [String],
-  rm : λ(String, RmOptions) → Unit,
-  unlink : λ(String) → Unit,
-  writeFile : λ(String, String, String) → Unit
+e fs::promises : {
+  access : λ(String) => Unit,
+  appendFile : λ(String, String, String) => Unit,
+  mkdir : λ(String, MkdirOptions) => Unit,
+  readFile : λ(String, String) => String,
+  readdir : λ(String) => [String],
+  rm : λ(String, RmOptions) => Unit,
+  unlink : λ(String) => Unit,
+  writeFile : λ(String, String, String) => Unit
 }

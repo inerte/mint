@@ -35,37 +35,37 @@ config/production.lib.sigil
 `src/topology.lib.sigil`:
 
 ```sigil
-i stdlib⋅topology
+i stdlib::topology
 
-c mailerApi=(stdlib⋅topology.httpService("mailerApi"):stdlib⋅topology.HttpServiceDependency)
-c production=(stdlib⋅topology.environment("production"):stdlib⋅topology.Environment)
-c test=(stdlib⋅topology.environment("test"):stdlib⋅topology.Environment)
+c mailerApi=(stdlib::topology.httpService("mailerApi"):stdlib::topology.HttpServiceDependency)
+c production=(stdlib::topology.environment("production"):stdlib::topology.Environment)
+c test=(stdlib::topology.environment("test"):stdlib::topology.Environment)
 ```
 
 `config/test.lib.sigil`:
 
 ```sigil
-i src⋅topology
-i stdlib⋅config
+i src::topology
+i stdlib::config
 
-c bindings=(stdlib⋅config.bindings([
-  stdlib⋅config.bindHttp("http://127.0.0.1:45110",src⋅topology.mailerApi)
-],[]):stdlib⋅config.Bindings)
+c bindings=(stdlib::config.bindings([
+  stdlib::config.bindHttp("http://127.0.0.1:45110",src::topology.mailerApi)
+],[]):stdlib::config.Bindings)
 ```
 
 Application code still does not know the base URL:
 
 ```sigil
-i src⋅topology
-i stdlib⋅httpClient
+i src::topology
+i stdlib::httpClient
 
-λmain()→!IO String match stdlib⋅httpClient.get(
-  src⋅topology.mailerApi,
-  stdlib⋅httpClient.emptyHeaders(),
+λmain()=>!IO String match stdlib::httpClient.get(
+  src::topology.mailerApi,
+  stdlib::httpClient.emptyHeaders(),
   "/health"
 ){
-  Ok(response)→response.body|
-  Err(error)→error.message
+  Ok(response)=>response.body|
+  Err(error)=>error.message
 }
 ```
 

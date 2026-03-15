@@ -24,7 +24,7 @@ Before this change, Sigil allowed `test` blocks anywhere:
 
 ```sigil
 // examples/fibonacci.sigil
-λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)=>Int match n{0=>0|1=>1|n=>fibonacci(n-1)+fibonacci(n-2)}
 
 test "fibonacci works" {  // Allowed but not canonical
   fibonacci(5)=5
@@ -48,20 +48,20 @@ We evaluated three options:
 ### Option 1: Test Annotations on Functions ❌
 ```sigil
 #[test]
-λtest_fibonacci()→Bool=fibonacci(5)=5
+λtest_fibonacci()=>Bool=fibonacci(5)=5
 ```
 **Problem:** Introduces decorators, adds syntax complexity, tests still scattered.
 
 ### Option 2: Separate Test Files Anywhere ❌
 ```sigil
-// fibonacci.sigil → fibonacci.test.sigil
+// fibonacci.sigil => fibonacci.test.sigil
 ```
 **Problem:** Non-deterministic location (next to source? in subdirs?), file naming conventions vary.
 
 ### Option 3: Canonical Test Directory + File Purpose ✅
 ```sigil
 // tests/fibonacci.sigil
-λmain()→Unit=()
+λmain()=>Unit=()
 test "fibonacci works" { ... }
 ```
 **Winner:** Single location rule, enforces file purpose, zero ambiguity.
@@ -73,7 +73,7 @@ test "fibonacci works" { ... }
 This means:
 
 1. **Location enforcement**: Test blocks ONLY in `tests/` directories
-2. **Purpose enforcement**: Test files MUST have `λmain()→Unit=()`
+2. **Purpose enforcement**: Test files MUST have `λmain()=>Unit=()`
 3. **Export restriction**: Test files CANNOT have exports (they're executables, not libraries)
 
 This preserves Sigil's binary file classification:
@@ -88,31 +88,31 @@ Every test file follows the same pattern:
 
 ```sigil
 // tests/listPredicates.sigil
-i stdlib⋅list
+i stdlib::list
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "list.in_bounds checks valid and invalid indexes" {
-  stdlib⋅list.in_bounds(0,[10,20,30])=true and stdlib⋅list.in_bounds(3,[10,20,30])=false
+  stdlib::list.in_bounds(0,[10,20,30])=true and stdlib::list.in_bounds(3,[10,20,30])=false
 }
 
 test "list.sorted_asc accepts ascending list" {
-  stdlib⋅list.sorted_asc([1,2,3,4])=true
+  stdlib::list.sorted_asc([1,2,3,4])=true
 }
 
 test "list.sorted_desc accepts descending list" {
-  stdlib⋅list.sorted_desc([4,3,2,1])=true
+  stdlib::list.sorted_desc([4,3,2,1])=true
 }
 ```
 
 **Structure:**
 1. Imports (if needed)
-2. `λmain()→Unit=()` function (always)
+2. `λmain()=>Unit=()` function (always)
 3. Test blocks (one or more)
 
 **Why `main()` if tests run independently?**
 
-The `main()→Unit` function is a **marker for executable status**, not the entry point for test execution. When you run `sigil test tests/`, the compiler:
+The `main()=>Unit` function is a **marker for executable status**, not the entry point for test execution. When you run `sigil test tests/`, the compiler:
 
 1. Scans `tests/` for `.sigil` files
 2. Compiles each file (building module graph)
@@ -129,7 +129,7 @@ The validator catches three violations with actionable error messages:
 
 ```sigil
 // examples/fibonacci.sigil
-λfibonacci(n:Int)→Int match n{0→0|1→1|n→fibonacci(n-1)+fibonacci(n-2)}
+λfibonacci(n:Int)=>Int match n{0=>0|1=>1|n=>fibonacci(n-1)+fibonacci(n-2)}
 
 test "fibonacci works" {  // ❌ ERROR
   fibonacci(5)=5
@@ -150,16 +150,16 @@ Move this file to a tests/ directory (e.g., tests/fibonacci.sigil).
 Sigil enforces ONE way: tests live in tests/ directories.
 ```
 
-**Fix:** Move the entire file to `tests/fibonacci.sigil` and add `λmain()→Unit=()`.
+**Fix:** Move the entire file to `tests/fibonacci.sigil` and add `λmain()=>Unit=()`.
 
 ### Violation 2: Test File Without `main()` Function
 
 ```sigil
 // tests/my-test.sigil
-i stdlib⋅list
+i stdlib::list
 
 test "example" {
-  stdlib⋅list.length([1,2,3])=3
+  stdlib::list.length([1,2,3])=3
 }
 
 // ❌ ERROR: File has no purpose (no main, no exports)
@@ -172,28 +172,28 @@ Error: SIGIL-CANON-FILE-PURPOSE-NONE
 This file has no purpose declaration.
 
 Files must be EITHER:
-  - Executable: λmain()→Unit=() (no exports)
+  - Executable: λmain()=>Unit=() (no exports)
   - Library: export λ... or export t... (no main)
 
 This file is in tests/ and contains test blocks.
 Test files are executables.
 
-Add: λmain()→Unit=()
+Add: λmain()=>Unit=()
 
 Sigil enforces ONE way: every file has exactly one purpose.
 ```
 
-**Fix:** Add `λmain()→Unit=()` to the file.
+**Fix:** Add `λmain()=>Unit=()` to the file.
 
 ### Violation 3: Test File With Exports
 
 ```sigil
 // tests/my-test.sigil
-export λhelper()→Int=42  // ❌ ERROR: exports in test file
+export λhelper()=>Int=42  // ❌ ERROR: exports in test file
 
 test "example" { true }
 
-λmain()→Unit=()
+λmain()=>Unit=()
 ```
 
 **Compiler error:**
@@ -277,7 +277,7 @@ fn validate_file_purpose(program: &Program) -> Result<(), ValidationError> {
 
     match (has_main, has_exports, has_tests) {
         (false, false, true) => Err(ValidationError::FilePurposeNone {
-            hint: "Test files must have λmain()→Unit=()"
+            hint: "Test files must have λmain()=>Unit=()"
         }),
         (true, true, _) => Err(ValidationError::FilePurposeBoth),
         (_, true, true) => Err(ValidationError::TestNoExports),
@@ -326,12 +326,12 @@ These were already in `tests/` directories but lacked the executable marker:
 
 ```diff
   // tests/listPredicates.sigil
-  i stdlib⋅list
+  i stdlib::list
 
-+ λmain()→Unit=()
++ λmain()=>Unit=()
 
   test "list.in_bounds checks valid indexes" {
-    stdlib⋅list.in_bounds(0,[10,20,30])=true
+    stdlib::list.in_bounds(0,[10,20,30])=true
   }
 ```
 
@@ -359,7 +359,7 @@ language/tests/string-ops.sigil               # ✅ canonical location
 
 Files that had neither `main()` nor exports:
 
-- **Example files**: Added `λmain()→Unit=()` to make them executables
+- **Example files**: Added `λmain()=>Unit=()` to make them executables
 - **Stdlib files**: Added `export` to make them libraries
 - **Test fixtures**: Added `main()` or restructured
 
@@ -399,7 +399,7 @@ Every Sigil project:
   tests/fibonacci.sigil        ← tests (executable with test blocks)
 ```
 
-**What the AI learns:** "Tests always go in `tests/`, always have `main()→Unit=()`, always contain test blocks."
+**What the AI learns:** "Tests always go in `tests/`, always have `main()=>Unit=()`, always contain test blocks."
 
 **Result:** Deterministic test generation. Same prompt, same structure, every time.
 
@@ -451,23 +451,23 @@ The canonical pattern is now second nature:
 
 ```sigil
 // tests/my-feature.sigil
-i stdlib⋅list
+i stdlib::list
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "my feature works correctly" {
-  stdlib⋅list.length([1,2,3])=3
+  stdlib::list.length([1,2,3])=3
 }
 
 test "handles edge cases" {
-  stdlib⋅list.length([])=0
+  stdlib::list.length([])=0
 }
 ```
 
 **Remember:**
 1. File location: `tests/` directory
 2. Imports first (if needed)
-3. `λmain()→Unit=()` function
+3. `λmain()=>Unit=()` function
 4. Test blocks
 
 **That's it.** No other organization is valid. No decisions to make.
@@ -531,7 +531,7 @@ This change completes Sigil's canonical file purpose enforcement. Here's the ful
 - Final newline required
 - No trailing whitespace
 - Max one consecutive blank line
-- Declaration ordering: `t → e → i → c → λ → test`
+- Declaration ordering: `t => e => i => c => λ => test`
 
 ### Semantic Form (enforced by validator)
 - No tail-call optimization
@@ -592,7 +592,7 @@ echo 'test "x" { true }' > /tmp/tests/no-main.sigil
 ```
 Error: SIGIL-CANON-FILE-PURPOSE-NONE
 This file has no purpose declaration.
-Test files must have λmain()→Unit=()
+Test files must have λmain()=>Unit=()
 ```
 
 **Verified:** ✅ Test files without `main()` are rejected.
@@ -602,9 +602,9 @@ Test files must have λmain()→Unit=()
 ```bash
 # Create test file with exports
 cat > /tmp/tests/with-export.sigil << 'EOF'
-export λf()→Int=1
+export λf()=>Int=1
 test "x" { true }
-λmain()→Unit=()
+λmain()=>Unit=()
 EOF
 ./target/debug/sigil compile /tmp/tests/with-export.sigil
 ```
@@ -674,7 +674,7 @@ test blocks can only appear in files under tests/ directories.
 # Create canonical test file
 mkdir -p /tmp/tests
 cat > /tmp/tests/my-test.sigil << 'EOF'
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "this will work" {
   1+1=2
@@ -718,7 +718,7 @@ The validator caught all 30 violations. No runtime surprises.
 This isn't just about test location. It's about determinism at every level:
 
 - **Syntax**: ONE way to write each construct
-- **Declaration ordering**: ONE valid order (`t → e → i → c → λ → test`)
+- **Declaration ordering**: ONE valid order (`t => e => i => c => λ => test`)
 - **File purpose**: ONE purpose per file (executable OR library)
 - **Test location**: ONE location for tests (`tests/` directory)
 

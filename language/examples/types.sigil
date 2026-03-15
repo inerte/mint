@@ -4,4 +4,4 @@ t Result[T,E]=Ok(T)|Err(E)
 t Tree[T]=Leaf(T)|Node(Tree[T],T,Tree[T])
 t User={active:Bool,email:String,id:Int,name:String}
 
-λmain()→Unit=()
+λmain()=>Unit=()

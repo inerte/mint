@@ -3,27 +3,27 @@
 Canonical operations over the core Option type.
 ⟧
 
-λbindOption[T,U](fn:λ(T)→Option[U],opt:Option[T])→Option[U] match opt{
-  Some(value)→fn(value)|
-  None()→None()
+λbindOption[T,U](fn:λ(T)=>Option[U],opt:Option[T])=>Option[U] match opt{
+  Some(value)=>fn(value)|
+  None()=>None()
 }
 
-λisNone[T](opt:Option[T])→Bool match opt{
-  Some(value)→false|
-  None()→true
+λisNone[T](opt:Option[T])=>Bool match opt{
+  Some(value)=>false|
+  None()=>true
 }
 
-λisSome[T](opt:Option[T])→Bool match opt{
-  Some(value)→true|
-  None()→false
+λisSome[T](opt:Option[T])=>Bool match opt{
+  Some(value)=>true|
+  None()=>false
 }
 
-λmapOption[T,U](fn:λ(T)→U,opt:Option[T])→Option[U] match opt{
-  Some(value)→Some(fn(value))|
-  None()→None()
+λmapOption[T,U](fn:λ(T)=>U,opt:Option[T])=>Option[U] match opt{
+  Some(value)=>Some(fn(value))|
+  None()=>None()
 }
 
-λunwrapOr[T](fallback:T,opt:Option[T])→T match opt{
-  Some(value)→value|
-  None()→fallback
+λunwrapOr[T](fallback:T,opt:Option[T])=>T match opt{
+  Some(value)=>value|
+  None()=>fallback
 }

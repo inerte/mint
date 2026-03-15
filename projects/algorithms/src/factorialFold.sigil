@@ -1,8 +1,8 @@
-i stdlib⋅list
-i stdlib⋅numeric
+i stdlib::list
+i stdlib::numeric
 
-λfactorial(n:Int)→Int=stdlib⋅list.fold(1,multiply,stdlib⋅numeric.range(1,n))
+λfactorial(n:Int)=>Int=stdlib::list.fold(1,multiply,stdlib::numeric.range(1,n))
 
-λmain()→Int=factorial(5)
+λmain()=>Int=factorial(5)
 
-λmultiply(acc:Int,x:Int)→Int=acc*x
+λmultiply(acc:Int,x:Int)=>Int=acc*x

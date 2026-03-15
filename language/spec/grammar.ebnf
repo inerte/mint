@@ -12,10 +12,10 @@ TopLevelDecl = TypeDecl
              | TestDecl ;
 
 (* Canonical declaration order is enforced separately:
-   t → e → i → c → λ → test *)
+   t => e => i => c => λ => test *)
 
 ImportDecl = "i" , ModulePath ;
-ModulePath = Identifier , { "⋅" , Identifier } ;
+ModulePath = Identifier , { "::" , Identifier } ;
 
 ExternDecl = "e" , ModulePath , [ ":" , TypedMembers ] ;
 TypedMembers = "{" , TypedMember , { "," , TypedMember } , "}" ;
@@ -44,20 +44,20 @@ Type = PrimitiveType
 PrimitiveType = "Int" | "Float" | "Bool" | "String" | "Char" | "Unit" | "Never" ;
 ListType = "[" , Type , "]" ;
 MapType = "{" , Type , "↦" , Type , "}" ;
-FunctionType = "λ(" , [ TypeList ] , ")" , "→" , [ Effects ] , Type ;
+FunctionType = "λ(" , [ TypeList ] , ")" , "=>" , [ Effects ] , Type ;
 TypeConstructor = TypeName , [ "[" , TypeList , "]" ] ;
 TypeVariable = UpperIdentifier ;
 TypeList = Type , { "," , Type } ;
 
 ConstDecl = "c" , Identifier , "=" , "(" , Expr , ":" , Type , ")" ;
 
-FunctionDecl = "λ" , Identifier , "(" , [ ParamList ] , ")" , "→" , [ Effects ] , Type , FunctionBody ;
+FunctionDecl = "λ" , Identifier , "(" , [ ParamList ] , ")" , "=>" , [ Effects ] , Type , FunctionBody ;
 FunctionBody = "=" , Expr | MatchExpr ;
 
 ParamList = Param , { "," , Param } ;
 Param = Identifier , ":" , Type ;
 
-TestDecl = "test" , StringLiteral , [ "→" , Effects ] , BlockExpr ;
+TestDecl = "test" , StringLiteral , [ "=>" , Effects ] , BlockExpr ;
 
 Effects = Effect , { Effect } ;
 Effect = "!" , UpperIdentifier ;
@@ -70,13 +70,13 @@ Expr = LetExpr
 
 LetExpr = "l" , Pattern , "=" , Expr , ";" , Expr ;
 
-LambdaExpr = "λ" , "(" , [ ParamList ] , ")" , "→" , [ Effects ] , Type , LambdaBody ;
+LambdaExpr = "λ" , "(" , [ ParamList ] , ")" , "=>" , [ Effects ] , Type , LambdaBody ;
 LambdaBody = "=" , Expr | MatchExpr ;
 
 WithMockExpr = "withMock" , "(" , Expr , "," , Expr , ")" , BlockExpr ;
 
 MatchExpr = "match" , Expr , "{" , MatchArm , { "|" , MatchArm } , "}" ;
-MatchArm = Pattern , "→" , Expr ;
+MatchArm = Pattern , "=>" , Expr ;
 
 Pattern = LiteralPattern
         | VariablePattern

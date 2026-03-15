@@ -7,7 +7,7 @@ Sigil can call external modules (including TypeScript/JavaScript packages) using
 ## Syntax
 
 ```sigil
-e module⋅path
+e module::path
 ```
 
 That's it. Exactly ONE way to do FFI (canonical form).
@@ -19,17 +19,17 @@ That's it. Exactly ONE way to do FFI (canonical form).
 ```sigil
 e console
 
-λmain()→Unit=console.log("Hello from Sigil!")
+λmain()=>Unit=console.log("Hello from Sigil!")
 ```
 
 ### Node.js Built-ins
 
 ```sigil
-e fs⋅promises
+e fs::promises
 
-λwriteFile(path:String,content:String)→Unit=fs⋅promises.writeFile(path,content)
+λwriteFile(path:String,content:String)=>Unit=fs::promises.writeFile(path,content)
 
-λmain()→Unit=writeFile("output.txt","Hello, Sigil!")
+λmain()=>Unit=writeFile("output.txt","Hello, Sigil!")
 ```
 
 ### NPM Packages
@@ -43,9 +43,9 @@ Then use it:
 ```sigil
 e axios
 
-λfetchUser(id:Int)→Unit=axios.get("https://api.example.com/users/" + id)
+λfetchUser(id:Int)=>Unit=axios.get("https://api.example.com/users/" + id)
 
-λmain()→Unit=fetchUser(123)
+λmain()=>Unit=fetchUser(123)
 ```
 
 ## How It Works
@@ -53,7 +53,7 @@ e axios
 ### 1. Declaration
 
 ```sigil
-e module⋅path
+e module::path
 ```
 
 Declares that you'll use an external module.
@@ -61,7 +61,7 @@ Declares that you'll use an external module.
 ### 2. Usage
 
 ```sigil
-module⋅path.member(args)
+module::path.member(args)
 ```
 
 Access members using full namespace path + dot + member name.
@@ -78,8 +78,8 @@ This catches typos WITHOUT needing type annotations!
 ### 4. Code Generation
 
 ```sigil
-e fs⋅promises
-λmain()→Unit=fs⋅promises.readFile("file.txt","utf-8")
+e fs::promises
+λmain()=>Unit=fs::promises.readFile("file.txt","utf-8")
 ```
 
 Compiles to:
@@ -95,7 +95,7 @@ export async function main() {
 
 ## Namespace Rules
 
-- Full path becomes namespace: `e fs⋅promises` → use as `fs⋅promises.readFile`
+- Full path becomes namespace: `e fs::promises` => use as `fs::promises.readFile`
 - No conflicts possible: `moduleA/utils` and `moduleB/utils` are different namespaces
 - Slash visible in Sigil source (machines don't care about syntax aesthetics)
 - Converted to underscores in generated TypeScript: `fs_promises.readFile`
@@ -106,14 +106,14 @@ export async function main() {
 
 ```sigil
 e console
-λmain()→Unit=console.log("works!")
+λmain()=>Unit=console.log("works!")
 ```
 
 ### ❌ Fails - Typo in member
 
 ```sigil
 e console
-λmain()→Unit=console.logg("typo!")
+λmain()=>Unit=console.logg("typo!")
 ```
 
 ```
@@ -126,7 +126,7 @@ Check for typos or see module documentation.
 
 ```sigil
 e axios
-λmain()→Unit=axios.get("url")
+λmain()=>Unit=axios.get("url")
 ```
 
 ```
@@ -143,7 +143,7 @@ Sigil supports both **untyped** and **typed** FFI declarations.
 
 ```sigil
 e console
-e fs⋅promises
+e fs::promises
 ```
 
 Uses `any` type for FFI calls. Member validation is **structural** (does it exist?) not type-based.
@@ -157,13 +157,13 @@ You can optionally provide type signatures for extern members:
 ```sigil
 t MkdirOptions = { recursive: Bool }
 
-e fs⋅promises : {
-  mkdir : λ(String, MkdirOptions) → Unit
+e fs::promises : {
+  mkdir : λ(String, MkdirOptions) => Unit
 }
 
-λensureDir(dir:String)→Unit={
+λensureDir(dir:String)=>Unit={
   l opts=({recursive:true}:MkdirOptions);
-  fs⋅promises.mkdir(dir, opts)
+  fs::promises.mkdir(dir, opts)
 }
 ```
 
@@ -187,9 +187,9 @@ Example: HTTP headers are maps, not records.
 
 **Syntax:**
 ```sigil
-e module⋅path : {
-  member1 : λ(ParamType1, ParamType2) → ReturnType,
-  member2 : λ(ParamType3) → ReturnType
+e module::path : {
+  member1 : λ(ParamType1, ParamType2) => ReturnType,
+  member2 : λ(ParamType3) => ReturnType
 }
 ```
 
@@ -200,14 +200,14 @@ e module⋅path : {
 ```sigil
 ✅ VALID: Type before extern
 t MkdirOptions = { recursive: Bool }
-e fs⋅promises : { mkdir : λ(String, MkdirOptions) → Unit }
+e fs::promises : { mkdir : λ(String, MkdirOptions) => Unit }
 
 ❌ INVALID: Extern before type (compiler error)
-e fs⋅promises : { mkdir : λ(String, MkdirOptions) → Unit }
+e fs::promises : { mkdir : λ(String, MkdirOptions) => Unit }
 t MkdirOptions = { recursive: Bool }
 ```
 
-This is why Sigil's canonical declaration ordering is: **`t → e → i → c → λ → test`**
+This is why Sigil's canonical declaration ordering is: **`t => e => i => c => λ => test`**
 
 See [Canonical Declaration Ordering](/articles/canonical-declaration-ordering) for more details.
 
@@ -216,11 +216,11 @@ See [Canonical Declaration Ordering](/articles/canonical-declaration-ordering) f
 Sigil uses one promise-shaped runtime model for FFI too. Promise-returning FFI calls are started automatically and joined only when a strict consumer needs their values:
 
 ```sigil
-e fs⋅promises
+e fs::promises
 
-λread_file(path:String)→!IO String=fs⋅promises.readFile(path,"utf8")
+λread_file(path:String)=>!IO String=fs::promises.readFile(path,"utf8")
 
-λmain()→!IO String=read_file("data.txt")
+λmain()=>!IO String=read_file("data.txt")
 ```
 
 Compiles to:
@@ -246,11 +246,11 @@ See [ASYNC.md](./ASYNC.md) for the full concurrentByDefault model.
 
 FFI has exactly **TWO syntactic forms**:
 
-✅ ONLY: `e module⋅path` (untyped)
-✅ ONLY: `e module⋅path : { member : λ(...) → ... }` (typed)
-❌ NO: `extern module⋅path` (no full keyword)
-❌ NO: `e module⋅path as alias` (no aliasing)
-❌ NO: `e module⋅path{member1,member2}` (no destructuring)
+✅ ONLY: `e module::path` (untyped)
+✅ ONLY: `e module::path : { member : λ(...) => ... }` (typed)
+❌ NO: `extern module::path` (no full keyword)
+❌ NO: `e module::path as alias` (no aliasing)
+❌ NO: `e module::path{member1,member2}` (no destructuring)
 
 This ensures deterministic, unambiguous code generation for LLMs.
 
@@ -291,10 +291,10 @@ Use functional APIs or wrapper functions.
 ```sigil
 e console
 
-λlog(msg:String)→Unit=console.log(msg)
-λerror(msg:String)→Unit=console.error(msg)
+λlog(msg:String)=>Unit=console.log(msg)
+λerror(msg:String)=>Unit=console.error(msg)
 
-λmain()→Unit={
+λmain()=>Unit={
   log("Info message")
   error("Error message")
 }
@@ -303,10 +303,10 @@ e console
 ### 2. Use Semantic Names
 
 ```sigil
-e fs⋅promises
+e fs::promises
 
-λreadFile(path:String)→Unit=fs⋅promises.readFile(path,"utf-8")
-λwriteFile(path:String,content:String)→Unit=fs⋅promises.writeFile(path,content)
+λreadFile(path:String)=>Unit=fs::promises.readFile(path,"utf-8")
+λwriteFile(path:String,content:String)=>Unit=fs::promises.writeFile(path,content)
 ```
 
 ### 3. Validate at Boundaries
@@ -333,7 +333,7 @@ Why keep a separate bridge?
 - Type annotations for FFI declarations
 - Method chaining syntax
 - Class/object interop
-- Callback conversions (JS → Sigil functions)
+- Callback conversions (JS => Sigil functions)
 
 ---
 

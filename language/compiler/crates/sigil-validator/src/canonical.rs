@@ -1136,7 +1136,7 @@ fn validate_no_duplicates(program: &Program) -> Result<(), Vec<ValidationError>>
             }
 
             Declaration::Extern(ExternDecl { module_path, location, .. }) => {
-                let name = module_path.join("⋅");
+                let name = module_path.join("::");
                 if let Some(first_loc) = extern_names.get(&name) {
                     errors.push(ValidationError::DuplicateDeclaration {
                         kind: "EXTERN".to_string(),
@@ -1151,7 +1151,7 @@ fn validate_no_duplicates(program: &Program) -> Result<(), Vec<ValidationError>>
             }
 
             Declaration::Import(ImportDecl { module_path, location }) => {
-                let path = module_path.join("⋅");
+                let path = module_path.join("::");
                 if let Some(first_loc) = import_paths.get(&path) {
                     errors.push(ValidationError::DuplicateDeclaration {
                         kind: "IMPORT".to_string(),
@@ -1255,7 +1255,7 @@ fn validate_file_purpose(program: &Program, file_path: Option<&str>) -> Result<(
     // Test-specific validation
     if has_tests && !has_main {
         return Err(vec![ValidationError::TestNeedsMain {
-            message: "Test files must have λmain()→Unit=()\n\nHint: Test files are executables".to_string(),
+            message: "Test files must have λmain()=>Unit=()\n\nHint: Test files are executables".to_string(),
         }]);
     }
 
@@ -2212,8 +2212,8 @@ mod tests {
 
     #[test]
     fn test_no_duplicate_functions() {
-        let source = r#"λ bar(y: Int) → Int = y * 2
-λ foo(x: Int) → Int = x + 1
+        let source = r#"λ bar(y: Int) => Int = y * 2
+λ foo(x: Int) => Int = x + 1
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
@@ -2223,8 +2223,8 @@ mod tests {
 
     #[test]
     fn test_duplicate_function_error() {
-        let source = r#"λ foo(x: Int) → Int = x + 1
-λ foo(y: Int) → Int = y * 2
+        let source = r#"λ foo(x: Int) => Int = x + 1
+λ foo(y: Int) => Int = y * 2
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();
@@ -2241,7 +2241,7 @@ mod tests {
     fn test_simple_recursion_allowed() {
         // TODO: Parser bug - match expressions with scrutinee (match n{...}) don't work yet
         // For now, test with a simple recursive function without pattern matching
-        let source = r#"λfactorial(n:Int)→Int=factorial(n-1)"#;
+        let source = r#"λfactorial(n:Int)=>Int=factorial(n-1)"#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -2251,12 +2251,12 @@ mod tests {
 
     #[test]
     fn test_single_use_pure_binding_rejected() {
-        let source = r#"λmain()→String={
+        let source = r#"λmain()=>String={
   l repo=(releaseRepo():String);
   {repo:repo}.repo
 }
 
-λreleaseRepo()→String="inerte/sigil"
+λreleaseRepo()=>String="inerte/sigil"
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
@@ -2273,12 +2273,12 @@ mod tests {
 
     #[test]
     fn test_multi_use_pure_binding_allowed() {
-        let source = r#"λmain()→Int={
+        let source = r#"λmain()=>Int={
   l count=(releaseCount():Int);
   count+count
 }
 
-λreleaseCount()→Int=2
+λreleaseCount()=>Int=2
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
@@ -2289,8 +2289,8 @@ mod tests {
 
     #[test]
     fn test_single_use_effectful_binding_allowed() {
-        let source = r#"λemit()→!IO String="x"
-λmain()→!IO String={
+        let source = r#"λemit()=>!IO String="x"
+λmain()=>!IO String={
   l value=(emit():String);
   value
 }"#;
@@ -2306,7 +2306,7 @@ mod tests {
 fn validate_declaration_ordering(program: &Program) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
     
-    // Check category order (type → extern → import → const → function → test)
+    // Check category order (type => extern => import => const => function => test)
     if let Err(e) = validate_category_boundaries(&program.declarations) {
         errors.extend(e);
     }
@@ -2353,7 +2353,7 @@ fn validate_category_boundaries(declarations: &[Declaration]) -> Result<(), Vec<
                 message: format!(
                     "SIGIL-CANON-DECL-CATEGORY-ORDER: Wrong category position\n\
                      Found: {} ({}) at line {}\n\
-                     Category order: t → e → i → c → λ → test",
+                     Category order: t => e => i => c => λ => test",
                     category_symbols[current_index as usize],
                     category_names[current_index as usize],
                     get_declaration_location(decl).start.line

@@ -37,9 +37,9 @@ pub struct TPrimitive {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TVar {
-    pub id: u32,                           // Unique type variable ID
-    pub name: Option<String>,              // Optional name for display (α, β, T, U)
-    pub instance: Option<InferenceType>,   // For unification - points to actual type when unified
+    pub id: u32,                         // Unique type variable ID
+    pub name: Option<String>,            // Optional name for display (α, β, T, U)
+    pub instance: Option<InferenceType>, // For unification - points to actual type when unified
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,7 +73,7 @@ pub struct TRecord {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TConstructor {
-    pub name: String,              // e.g., "Option", "Result", "Maybe"
+    pub name: String,                  // e.g., "Option", "Result", "Maybe"
     pub type_args: Vec<InferenceType>, // Generic type arguments
 }
 
@@ -84,12 +84,12 @@ pub struct TConstructor {
 /// Type scheme for polymorphic types (∀α₁...αₙ.τ)
 ///
 /// Example:
-///   identity : ∀T. T → T
-///   map : ∀T,U. (T → U) → [T] → [U]
+///   identity : ∀T. T => T
+///   map : ∀T,U. (T => U) => [T] => [U]
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeScheme {
     pub quantified_vars: HashSet<u32>, // Type variable IDs that are quantified
-    pub typ: InferenceType,             // The actual type with quantified variables
+    pub typ: InferenceType,            // The actual type with quantified variables
 }
 
 // ============================================================================
@@ -155,32 +155,24 @@ pub fn apply_subst(subst: &Substitution, typ: &InferenceType) -> InferenceType {
             InferenceType::Var(tvar.clone())
         }
 
-        InferenceType::Function(tfunc) => {
-            InferenceType::Function(Box::new(TFunction {
-                params: tfunc.params.iter().map(|p| apply_subst(subst, p)).collect(),
-                return_type: apply_subst(subst, &tfunc.return_type),
-                effects: tfunc.effects.clone(),
-            }))
-        }
+        InferenceType::Function(tfunc) => InferenceType::Function(Box::new(TFunction {
+            params: tfunc.params.iter().map(|p| apply_subst(subst, p)).collect(),
+            return_type: apply_subst(subst, &tfunc.return_type),
+            effects: tfunc.effects.clone(),
+        })),
 
-        InferenceType::List(tlist) => {
-            InferenceType::List(Box::new(TList {
-                element_type: apply_subst(subst, &tlist.element_type),
-            }))
-        }
+        InferenceType::List(tlist) => InferenceType::List(Box::new(TList {
+            element_type: apply_subst(subst, &tlist.element_type),
+        })),
 
-        InferenceType::Map(tmap) => {
-            InferenceType::Map(Box::new(TMap {
-                key_type: apply_subst(subst, &tmap.key_type),
-                value_type: apply_subst(subst, &tmap.value_type),
-            }))
-        }
+        InferenceType::Map(tmap) => InferenceType::Map(Box::new(TMap {
+            key_type: apply_subst(subst, &tmap.key_type),
+            value_type: apply_subst(subst, &tmap.value_type),
+        })),
 
-        InferenceType::Tuple(ttuple) => {
-            InferenceType::Tuple(TTuple {
-                types: ttuple.types.iter().map(|t| apply_subst(subst, t)).collect(),
-            })
-        }
+        InferenceType::Tuple(ttuple) => InferenceType::Tuple(TTuple {
+            types: ttuple.types.iter().map(|t| apply_subst(subst, t)).collect(),
+        }),
 
         InferenceType::Record(trec) => {
             let mut new_fields = HashMap::new();
@@ -193,12 +185,14 @@ pub fn apply_subst(subst: &Substitution, typ: &InferenceType) -> InferenceType {
             })
         }
 
-        InferenceType::Constructor(tcons) => {
-            InferenceType::Constructor(TConstructor {
-                name: tcons.name.clone(),
-                type_args: tcons.type_args.iter().map(|arg| apply_subst(subst, arg)).collect(),
-            })
-        }
+        InferenceType::Constructor(tcons) => InferenceType::Constructor(TConstructor {
+            name: tcons.name.clone(),
+            type_args: tcons
+                .type_args
+                .iter()
+                .map(|arg| apply_subst(subst, arg))
+                .collect(),
+        }),
 
         InferenceType::Any => InferenceType::Any,
     }
@@ -304,7 +298,9 @@ fn unify_into(
         (InferenceType::Any, _) | (_, InferenceType::Any) => Ok(()),
         (InferenceType::Var(tvar), other) => bind_var(tvar, other, subst),
         (other, InferenceType::Var(tvar)) => bind_var(tvar, other, subst),
-        (InferenceType::Primitive(p1), InferenceType::Primitive(p2)) if p1.name == p2.name => Ok(()),
+        (InferenceType::Primitive(p1), InferenceType::Primitive(p2)) if p1.name == p2.name => {
+            Ok(())
+        }
         (InferenceType::List(l1), InferenceType::List(l2)) => {
             unify_into(&l1.element_type, &l2.element_type, subst)
         }
@@ -312,7 +308,9 @@ fn unify_into(
             unify_into(&m1.key_type, &m2.key_type, subst)?;
             unify_into(&m1.value_type, &m2.value_type, subst)
         }
-        (InferenceType::Tuple(t1), InferenceType::Tuple(t2)) if t1.types.len() == t2.types.len() => {
+        (InferenceType::Tuple(t1), InferenceType::Tuple(t2))
+            if t1.types.len() == t2.types.len() =>
+        {
             for (left_item, right_item) in t1.types.iter().zip(&t2.types) {
                 unify_into(left_item, right_item, subst)?;
             }
@@ -326,7 +324,9 @@ fn unify_into(
             }
             unify_into(&f1.return_type, &f2.return_type, subst)
         }
-        (InferenceType::Record(r1), InferenceType::Record(r2)) if r1.fields.len() == r2.fields.len() => {
+        (InferenceType::Record(r1), InferenceType::Record(r2))
+            if r1.fields.len() == r2.fields.len() =>
+        {
             for (field_name, left_field) in &r1.fields {
                 let right_field = r2
                     .fields
@@ -363,7 +363,11 @@ fn format_inference_type(typ: &InferenceType) -> String {
                 .map(format_inference_type)
                 .collect::<Vec<_>>()
                 .join(",");
-            format!("λ({})→{}", params, format_inference_type(&func.return_type))
+            format!(
+                "λ({})=>{}",
+                params,
+                format_inference_type(&func.return_type)
+            )
         }
         InferenceType::List(list) => format!("[{}]", format_inference_type(&list.element_type)),
         InferenceType::Map(map) => format!(
@@ -425,7 +429,11 @@ pub fn types_equal(t1: &InferenceType, t2: &InferenceType) -> bool {
 
         (InferenceType::Function(f1), InferenceType::Function(f2)) => {
             f1.params.len() == f2.params.len()
-                && f1.params.iter().zip(&f2.params).all(|(p1, p2)| types_equal(p1, p2))
+                && f1
+                    .params
+                    .iter()
+                    .zip(&f2.params)
+                    .all(|(p1, p2)| types_equal(p1, p2))
                 && types_equal(&f1.return_type, &f2.return_type)
         }
 
@@ -434,26 +442,35 @@ pub fn types_equal(t1: &InferenceType, t2: &InferenceType) -> bool {
         }
 
         (InferenceType::Map(m1), InferenceType::Map(m2)) => {
-            types_equal(&m1.key_type, &m2.key_type)
-                && types_equal(&m1.value_type, &m2.value_type)
+            types_equal(&m1.key_type, &m2.key_type) && types_equal(&m1.value_type, &m2.value_type)
         }
 
         (InferenceType::Tuple(t1), InferenceType::Tuple(t2)) => {
             t1.types.len() == t2.types.len()
-                && t1.types.iter().zip(&t2.types).all(|(ty1, ty2)| types_equal(ty1, ty2))
+                && t1
+                    .types
+                    .iter()
+                    .zip(&t2.types)
+                    .all(|(ty1, ty2)| types_equal(ty1, ty2))
         }
 
         (InferenceType::Record(r1), InferenceType::Record(r2)) => {
             r1.fields.len() == r2.fields.len()
                 && r1.fields.iter().all(|(name, ty1)| {
-                    r2.fields.get(name).map_or(false, |ty2| types_equal(ty1, ty2))
+                    r2.fields
+                        .get(name)
+                        .map_or(false, |ty2| types_equal(ty1, ty2))
                 })
         }
 
         (InferenceType::Constructor(c1), InferenceType::Constructor(c2)) => {
             c1.name == c2.name
                 && c1.type_args.len() == c2.type_args.len()
-                && c1.type_args.iter().zip(&c2.type_args).all(|(a1, a2)| types_equal(a1, a2))
+                && c1
+                    .type_args
+                    .iter()
+                    .zip(&c2.type_args)
+                    .all(|(a1, a2)| types_equal(a1, a2))
         }
 
         (InferenceType::Any, _) | (_, InferenceType::Any) => true,
@@ -478,7 +495,10 @@ pub fn ast_type_to_inference_type_with_params(
         AstType::Primitive(p) => InferenceType::Primitive(TPrimitive { name: p.name }),
 
         AstType::List(list_type) => InferenceType::List(Box::new(TList {
-            element_type: ast_type_to_inference_type_with_params(&list_type.element_type, type_params),
+            element_type: ast_type_to_inference_type_with_params(
+                &list_type.element_type,
+                type_params,
+            ),
         })),
 
         AstType::Map(map_type) => InferenceType::Map(Box::new(TMap {
@@ -500,7 +520,10 @@ pub fn ast_type_to_inference_type_with_params(
                 .iter()
                 .map(|item| ast_type_to_inference_type_with_params(item, type_params))
                 .collect(),
-            return_type: ast_type_to_inference_type_with_params(&func_type.return_type, type_params),
+            return_type: ast_type_to_inference_type_with_params(
+                &func_type.return_type,
+                type_params,
+            ),
             effects: if func_type.effects.is_empty() {
                 None
             } else {

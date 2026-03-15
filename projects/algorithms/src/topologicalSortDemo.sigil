@@ -1,7 +1,7 @@
-i src⋅graphTypes
-i src⋅topologicalSort
+i src::graphTypes
+i src::topologicalSort
 
-λdemoGraph()→src⋅graphTypes.Graph={
+λdemoGraph()=>src::graphTypes.Graph={
   nodes:[
     {neighbors:[2,3],vertex:1},
     {neighbors:[4],vertex:2},
@@ -10,4 +10,4 @@ i src⋅topologicalSort
   ]
 }
 
-λmain()→src⋅graphTypes.TopologicalSortResult=src⋅topologicalSort.topologicalSort(demoGraph())
+λmain()=>src::graphTypes.TopologicalSortResult=src::topologicalSort.topologicalSort(demoGraph())

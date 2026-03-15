@@ -39,27 +39,27 @@ t Result[T,E]=Ok(T)|Err(E)
 Generic top-level functions:
 
 ```sigil
-λidentity[T](x:T)→T=x
-λunwrap_or[T](fallback:T,opt:Option[T])→T match opt{
-  Some(value)→value|
-  None()→fallback
+λidentity[T](x:T)=>T=x
+λunwrap_or[T](fallback:T,opt:Option[T])=>T match opt{
+  Some(value)=>value|
+  None()=>fallback
 }
 ```
 
 Imported constructors use the same qualified form as everything else when they are not part of the implicit core prelude:
 
 ```sigil
-i core⋅option
+i core::option
 
-λmain()→Option[Int]=Some(42)
+λmain()=>Option[Int]=Some(42)
 ```
 
 Pattern matching keeps the same shape:
 
 ```sigil
 match opt{
-  Some(value)→value|
-  None()→0
+  Some(value)=>value|
+  None()=>0
 }
 ```
 

@@ -2,12 +2,12 @@
 
 e console
 
-λboolText(value:Bool)→String match value{
-  true→"true"|
-  false→"false"
+λboolText(value:Bool)=>String match value{
+  true=>"true"|
+  false=>"false"
 }
 
-λmain()→Unit=console.log(
+λmain()=>Unit=console.log(
   "All tests passed: "
   ++boolText(testLe(5,10))
   ++", "
@@ -21,14 +21,14 @@ e console
 )
 
 ⟦ Test and / or ⟧
-λtestAnd(a:Bool,b:Bool)→Bool=a and b
+λtestAnd(a:Bool,b:Bool)=>Bool=a and b
 
 ⟦ Test ≤ and ≥ ⟧
-λtestGe(a:Int,b:Int)→Bool=a≥b
-λtestLe(a:Int,b:Int)→Bool=a≤b
+λtestGe(a:Int,b:Int)=>Bool=a≥b
+λtestLe(a:Int,b:Int)=>Bool=a≤b
 
 ⟦ Test ≠ ⟧
-λtestNe(a:Int,b:Int)→Bool=a≠b
+λtestNe(a:Int,b:Int)=>Bool=a≠b
 
 ⟦ Test and / or ⟧
-λtestOr(a:Bool,b:Bool)→Bool=a or b
+λtestOr(a:Bool,b:Bool)=>Bool=a or b

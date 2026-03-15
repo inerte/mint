@@ -1,39 +1,39 @@
-i src⋅todoJson
-i src⋅todoDomain
+i src::todoJson
+i src::todoDomain
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "todo json decode rejects invalid payload" {
-  match src⋅todoJson.decodeState("{bad"){
-    Ok(_)→false|
-    Err(_)→true
+  match src::todoJson.decodeState("{bad"){
+    Ok(_)=>false|
+    Err(_)=>true
   }
 }
 
 test "todo json decode rejects missing fields" {
-  match src⋅todoJson.decodeState("{\"todos\":[]}"){
-    Ok(_)→false|
-    Err(_)→true
+  match src::todoJson.decodeState("{\"todos\":[]}"){
+    Ok(_)=>false|
+    Err(_)=>true
   }
 }
 
 test "todo json roundtrip preserves state" {
   l state=({
-    nextId:src⋅todoJson.NextTodoId(9),
+    nextId:src::todoJson.NextTodoId(9),
     todos:[
       {done:false,id:1,text:"Ship JSON stdlib"},
       {done:true,id:2,text:"Write tests"}
     ]
-  }:src⋅todoJson.PersistedState);
-  match src⋅todoJson.decodeState((src⋅todoJson.encodeState(state):String)){
-    Ok(decoded)→decoded=state|
-    Err(_)→false
+  }:src::todoJson.PersistedState);
+  match src::todoJson.decodeState((src::todoJson.encodeState(state):String)){
+    Ok(decoded)=>decoded=state|
+    Err(_)=>false
   }
 }
 
 test "todo json decode accepts numeric ids from older payloads" {
-  match src⋅todoJson.decodeState("{\"nextId\":9,\"todos\":[{\"done\":false,\"id\":1,\"text\":\"Ship JSON stdlib\"}]}"){
-    Ok(state)→src⋅todoJson.nextTodoIdValue(state.nextId)=9 and #state.todos=1 and state.todos[0].id=1|
-    Err(_)→false
+  match src::todoJson.decodeState("{\"nextId\":9,\"todos\":[{\"done\":false,\"id\":1,\"text\":\"Ship JSON stdlib\"}]}"){
+    Ok(state)=>src::todoJson.nextTodoIdValue(state.nextId)=9 and #state.todos=1 and state.todos[0].id=1|
+    Err(_)=>false
   }
 }

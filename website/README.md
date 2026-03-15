@@ -29,17 +29,17 @@ claude "Write a Hello World in Sigil and run it"
 ## Quick Example
 
 ```sigil
-i stdlib⋅list
+i stdlib::list
 
-λsum(numbers:[Int])→Int match numbers{
-  []→0|
-  [first,.rest]→first+sum(rest)
+λsum(numbers:[Int])=>Int match numbers{
+  []=>0|
+  [first,.rest]=>first+sum(rest)
 }
 
-test sum_test()→Unit|AssertionFailure =
+test sum_test()=>Unit|AssertionFailure =
   assert sum([1,2,3,4,5])=15
 ```
 
 ---
 
-This website is built from markdown using a Static Site Generator built in Sigil. Docs stay in `language/docs`, specs in `language/spec`. <a href="about-site/">Learn more about the site →</a>
+This website is built from markdown using a Static Site Generator built in Sigil. Docs stay in `language/docs`, specs in `language/spec`. <a href="about-site/">Learn more about the site =></a>

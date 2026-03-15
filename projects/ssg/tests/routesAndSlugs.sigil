@@ -1,38 +1,38 @@
-i src⋅content
-i src⋅types
+i src::content
+i src::types
 
-λdocPage(slug:String)→src⋅types.SitePage=
-  src⋅content.blankPage(
+λdocPage(slug:String)=>src::types.SitePage=
+  src::content.blankPage(
     "",
     {author:"",category:"",date:"",description:"",slug:slug,title:slug},
     "docs/"++slug,
-    src⋅types.Doc(),
+    src::types.Doc(),
     "language/docs/"++slug++".md"
   )
 
-λhomePage()→src⋅types.SitePage=
-  src⋅content.blankPage(
+λhomePage()=>src::types.SitePage=
+  src::content.blankPage(
     "",
     {author:"",category:"",date:"",description:"",slug:"home",title:"Home"},
     "",
-    src⋅types.Home(),
+    src::types.Home(),
     "website/README.md"
   )
 
-λmain()→Unit=()
+λmain()=>Unit=()
 
 test "article route uses section slug" {
-  src⋅content.canonicalRoute((src⋅content.blankPage("",{author:"",category:"",date:"",description:"",slug:"hello-world",title:"Hello World"},"articles/hello-world",src⋅types.Article(),"website/articles/hello-world.md"):src⋅types.SitePage))="/articles/hello-world/"
+  src::content.canonicalRoute((src::content.blankPage("",{author:"",category:"",date:"",description:"",slug:"hello-world",title:"Hello World"},"articles/hello-world",src::types.Article(),"website/articles/hello-world.md"):src::types.SitePage))="/articles/hello-world/"
 }
 
 test "docs sort uses canonical slug order" {
-  l sorted=(src⋅content.pagesSortedByTitle(([
+  l sorted=(src::content.pagesSortedByTitle(([
     docPage("stdlib"),
     docPage("async")
-  ]:[src⋅types.SitePage])):[src⋅types.SitePage]);
+  ]:[src::types.SitePage])):[src::types.SitePage]);
   sorted[0].meta.slug="async" and sorted[1].meta.slug="stdlib"
 }
 
 test "home route is canonical root" {
-  src⋅content.canonicalRoute(homePage())="/"
+  src::content.canonicalRoute(homePage())="/"
 }

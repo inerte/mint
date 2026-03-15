@@ -193,8 +193,8 @@ function getValidationPlan(relPath, projectDir) {
     });
     plan.checks.push({
       label: 'Running canonical form tests',
-      cmd: 'bash',
-      args: ['language/test-canonical.sh'],
+      cmd: COMPILER_BINARY,
+      args: ['test', 'language/testHarnesses/tests/canonical.sigil'],
     });
     return plan;
   }

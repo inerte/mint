@@ -8,68 +8,28 @@ slug: 021-one-canonical-naming-system
 
 # One Canonical Naming System
 
-## Summary
-
 Sigil now uses one naming system across the language:
 
 - `UpperCamelCase` for types, constructors, and type variables
-- `lowerCamelCase` for everything else
+- `lowerCamelCase` for values, functions, locals, fields, module segments, and
+  filenames
 
-That includes functions, constants, parameters, locals, record fields, module path segments, and filenames.
+## Why This Matters
 
-## Why
+This is not mainly about aesthetic consistency. It is about reducing ambiguity.
 
-This is not about copying another language's style. It is about reducing ambiguity.
+When the shape of a name already tells you whether you are looking at a type or a
+value-level symbol, tools and readers get that information cheaply. At the same
+time, avoiding a mix of `snake_case`, `kebab-case`, and `camelCase` removes one
+more axis of stylistic variance.
 
-LLMs and tools do better when a name tells you what category it belongs to with almost no context. `UserProfile` is obviously type-level. `userProfile` is obviously value-level. That is cheap lexical information, and Sigil should keep it.
+## What the Rule Buys
 
-At the same time, Sigil should not make you choose between `snake_case`, `kebab-case`, and `camelCase` depending on where the name appears. That multiplies alternatives for no real gain.
+The language gets a simpler naming story:
 
-## What Changed
+- type-level names are visually distinct
+- value-level names share one canonical style
+- imports and filenames align with the same rule
 
-Old forms are gone:
-
-- no `_`
-- no `-`
-- no leading digits
-
-Examples:
-
-- `fetchUser`
-- `createdAt`
-- `fileName`
-- `userProfile`
-- `UserProfile`
-- `SomeValue`
-- `example01Introduction.sigil`
-
-Invalid:
-
-- `fetch_user`
-- `user-profile`
-- `01-introduction.sigil`
-
-## External Keys Are Different
-
-String data is not a Sigil identifier.
-
-So these stay exactly as they are when they come from external protocols:
-
-- `"content-type"`
-- `"created_at"`
-- `"snake_case_from_api"`
-
-Sigil identifiers should be canonical. External string keys should remain faithful to the data they represent.
-
-## Why This Fits Sigil
-
-Sigil is trying to remove needless representational choice.
-
-One naming system everywhere means:
-
-- fewer equivalent spellings
-- less search pressure for tools
-- less style drift across modules
-- clearer local distinction between type-level and value-level names
-
-That is a better default for a machine-first language than a mixed naming story inherited from other ecosystems.
+That is a better fit for Sigil than inheriting several naming systems from other
+language traditions.

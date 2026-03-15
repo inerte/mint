@@ -7,113 +7,42 @@ slug: why-sigil-switched-to-colon-colon-and-fat-arrow
 
 # Why Sigil Switched to :: and =>
 
-Sigil is a machine-first language.
+Sigil replaced `⋅` with `::` and `→` with `=>`.
 
-That means syntax is not only a readability question. It is also a tokenizer
-question.
+## Why the Change Happened
 
-We just replaced:
+The decision was based on whole-file tokenization over the actual Sigil corpus,
+not on isolated symbol comparisons. Under the tokenizer that matters most for
+this repo, the older Unicode forms were more expensive than the ASCII
+alternatives.
 
-- `⋅` with `::`
-- `→` with `=>`
+The measured savings across the `language/` and `projects/` corpus were large
+enough to justify a hard break.
 
-This was a hard break. No compatibility layer. No dual syntax. One canonical
-surface.
+## Why `::` Instead of `.`
 
-## The Measured Win
-
-We measured the change the only way that matters for this repo:
-
-- take the real Sigil corpus
-- rewrite syntax in memory
-- retokenize whole files with the local tokenizer harness
-
-On the current `language/` and `projects/` Sigil corpus:
-
-- files measured: `214`
-- baseline tokenizer: OpenAI `cl100k_base`
-- total savings from `⋅` -> `::` and `→` -> `=>`: `4017` tokens
-
-Per change:
-
-- `⋅` -> `::`: `2768` tokens saved
-- `→` -> `=>`: `1249` tokens saved
-
-Cross-checks also moved in the same direction:
-
-- SentencePiece/Llama proxy: `3474` tokens saved total
-- Anthropic legacy proxy: `3474` tokens saved total
-
-That is enough to matter.
-
-## Why Not Use `.`
-
-The benchmark winner for namespace syntax was not `::`.
-
-It was `.`
-
-But `.` is already field access.
-
-Sigil needs these to stay distinct:
+The strongest token winner for namespace syntax was `.`, but that would have
+collapsed an important structural distinction:
 
 - `record.field`
 - `fs::promises.readFile`
 - `src::graphTypes.Ordering`
 
-If module paths also used `.`, the parser would have to recover intent from
-context in places where the current grammar is clean and deterministic.
-
-That is the wrong trade.
-
-`::` still saves a large number of tokens while preserving a strong structural
-boundary between:
-
-- namespace paths
-- value field access
-- qualified constructors and types
-
-Machine-first does not mean blindly picking the shortest glyph sequence.
-It means picking the shortest syntax that still preserves deterministic parsing
-and canonical generation.
+Sigil already uses `.` for field access. Reusing it for namespace paths would
+make parsing less direct and weaken a grammar boundary the language currently
+keeps clean. `::` still improves token cost while preserving that distinction.
 
 ## Why `=>`
 
-For arrows, the decision was easier.
+The arrow change was simpler. `=>` measured slightly better than `->` on the
+current corpus and works cleanly across function signatures and match arms.
 
-`=>` measured slightly better than `->` on the corpus, and it keeps a visually
-strong separator between:
+Using one canonical arrow throughout the language also keeps the surface easier
+to predict.
 
-- parameter list
-- effects
-- return type
-- match arm body
+## Result
 
-So Sigil now uses one arrow everywhere:
-
-```sigil
-λadd(x:Int,y:Int)=>Int=x+y
-λidentity[T](x:T)=>T=x
-match value{
-  Ok(result)=>result|
-  Err(error)=>fallback(error)
-}
-```
-
-That uniformity matters as much as the raw count.
-
-## The Real Principle
-
-The important lesson is not "Unicode bad" or "ASCII good."
-
-The important lesson is:
-
-> token claims must be measured on surrounding code, not on isolated symbols
-
-`⋅` looked elegant.
-`→` looked compact.
-But whole-file retokenization said there was cheaper syntax available that kept
-the language deterministic.
-
-So Sigil changed.
-
-That is what a machine-first language should do.
+This change is a good example of Sigil's syntax policy. Token cost matters, but
+it is measured on surrounding code and balanced against deterministic parsing.
+The language does not simply pick the shortest glyph sequence. It picks the
+canonical form that reduces cost without weakening structure.

@@ -1,227 +1,62 @@
 ---
-title: "Stdlib Tests + Claude Hooks: Making Sigil Dog-Food Itself Continuously"
+title: Stdlib Tests and Claude Hooks
 date: 2026-02-25
 author: Sigil Language Team
 slug: 004-stdlib-tests-and-claude-hooks
 ---
 
-# Stdlib Tests + Claude Hooks: Making Sigil Dog-Food Itself Continuously
+# Stdlib Tests and Claude Hooks
 
-**TL;DR:** We moved ad-hoc stdlib demo scripts out of `language/stdlib/`, created a real `language/stdlib-tests/` Sigil test project with first-class `test` syntax, and wired a Claude Code hook to run stdlib tests automatically after relevant edits.
+This change combined two related cleanup steps: turning ad hoc stdlib demo files
+into real Sigil tests, and wiring repo automation so those tests run after
+relevant edits. The goal was not just better test hygiene. It was to make the
+repository follow the same language rules it asks users and tools to follow.
 
-This was not just cleanup. It tightened Sigil's feedback loop and made the repo more faithful to its own rules.
+## The Problem
 
-## The Problem: “Tests” That Weren't Really Tests
+The repo had files under `language/stdlib/` with names that looked like tests,
+but they were actually small executable demos built around `λmain()` and console
+output. That created a mismatch between Sigil's stated testing model and the way
+the stdlib area was exercised in practice.
 
-We had files like:
+For a language that pushes canonical structure, that inconsistency matters. The
+repo is part of the language surface that people and agents learn from.
 
-- `language/stdlib/test_list.sigil`
-- `language/stdlib/test_numeric.sigil`
+## The Decision
 
-But they were not first-class Sigil tests. They were small demo programs using `λmain()` and `console.log(...)`.
+The solution was to create a dedicated `language/stdlib-tests/` project and move
+behavioral checks there as proper `test` declarations under `tests/`.
 
-That created two problems:
+That gave the stdlib a cleaner split:
 
-1. **Naming inconsistency**
-   - They looked like tests, but they were demos.
+- `language/stdlib/` contains library modules
+- `language/stdlib-tests/` contains consumer-facing behavior tests
 
-2. **Philosophy inconsistency**
-   - Sigil says tests belong in a `tests/` folder and use `test "..." {}` syntax.
-   - Our own stdlib area was not following that pattern.
+This matches Sigil's broader rule that tests live under `tests/` and use the
+language's native test syntax rather than ad hoc executable programs.
 
-For a language that emphasizes canonical forms, this kind of drift matters. Agents (and humans) learn from examples.
+## Why the Hook Matters
 
-## The Design Goal
+Once those tests existed, the next problem was feedback timing. Manual test runs
+work, but they are easy to skip during rapid compiler or stdlib edits,
+especially in an AI-assisted workflow.
 
-We wanted three things at once:
+The Claude hook closes that gap:
 
-1. **Real stdlib behavior tests**
-   - Use Sigil's first-class test syntax.
+1. a relevant file is edited
+2. the hook inspects the path
+3. stdlib tests run automatically when the change is likely to matter
 
-2. **Canonical project layout**
-   - Tests live under `tests/`.
+Path filtering is important here. Running the stdlib suite after every edit
+would make the automation noisy and easy to ignore. Restricting it to the stdlib
+and compiler paths keeps the signal higher.
 
-3. **Automatic execution during AI-assisted editing**
-   - If Claude edits stdlib or compiler code, run stdlib tests immediately.
+## Why This Fits Sigil
 
-## Why a Dedicated `language/stdlib-tests/` Project?
+This change did not introduce a new language feature, but it tightened the
+relationship between the language and the repo that hosts it. Sigil now uses its
+own testing model for the stdlib, and the automation reinforces that model
+during day-to-day development.
 
-We considered just leaving the demo files in `language/stdlib/`, or turning all of `language/` into a single Sigil project.
-
-Instead, we created a dedicated Sigil project:
-
-- `language/stdlib-tests/sigil.json`
-- `language/stdlib-tests/tests/*.sigil`
-
-This gives us:
-
-- **first-class tests** (`test "..." {}`)
-- **canonical location** (`tests/`)
-- **clean boundaries**
-  - `language/stdlib/` stays library modules only
-  - `language/stdlib-tests/` is the consumer/behavior test suite
-
-That split mirrors the rest of the repo:
-
-- compiler internals / fixtures / specs
-- stdlib modules
-- project tests
-
-## Why This Matters for Sigil (Specifically)
-
-This is not generic “test hygiene.” It directly supports Sigil's machine-first design.
-
-### 1) Better training examples for agents
-
-If we want AI agents to learn Sigil's canonical patterns, then the repository examples must be unambiguous:
-
-- demos look like demos
-- tests look like tests
-- tests use `test` syntax and live in `tests/`
-
-### 2) Faster regression detection in the right place
-
-The stdlib is where many language semantics show up first:
-
-- list behavior
-- predicate behavior
-- codegen/runtime semantics
-
-A parser/typechecker/codegen change can silently break stdlib behavior even if compiler unit tests still pass.
-
-`language/stdlib-tests/` is a high-signal regression suite for language development.
-
-### 3) Dog-fooding the language's own testing model
-
-If Sigil has first-class tests, we should use them for Sigil's own library.
-
-Otherwise we create a subtle anti-pattern:
-- “the language has one testing model”
-- “except we don't use it here”
-
-## Why Claude Hooks (and Why Path-Filtered)?
-
-Manual testing is easy to forget, especially during rapid AI-assisted edits.
-
-We wanted the feedback loop to be:
-
-1. Edit stdlib/compiler file
-2. stdlib tests run automatically
-3. See pass/fail immediately
-
-Claude Code hooks are a good fit because they run after actual `Edit`/`Write` tool actions.
-
-### Why not run on every edit?
-
-Because that would be noisy and slow:
-- editing docs should not run stdlib tests
-- editing app code under `projects/` should not run stdlib tests
-
-So we path-filtered the hook to trigger only for:
-
-- `language/stdlib/`
-- `language/compiler/src/`
-
-That keeps the automation focused on files that can affect stdlib behavior.
-
-## Why a Wrapper Script Instead of Just `pnpm sigil:test:stdlib`?
-
-The command itself is simple:
-
-```bash
-pnpm sigil:test:stdlib
-```
-
-But the hook needs logic:
-
-- inspect Claude hook JSON from `stdin`
-- extract the edited file path
-- decide whether the path is relevant
-- skip or run tests
-
-Claude hooks can match tool names like `Edit|Write`, but they do not natively express “only if file path starts with `language/stdlib/`”.
-
-So we used a small wrapper script to keep the hook config simple and the path filter explicit.
-
-## What We Added
-
-### Stdlib test commands
-
-At the repo root:
-
-- `pnpm sigil:test:stdlib` — runs stdlib behavior tests
-- `pnpm sigil:test:all` — runs stdlib + project Sigil tests
-
-### Dedicated stdlib behavior tests
-
-Examples:
-
-- `language/stdlib-tests/tests/listPredicates.sigil`
-- `language/stdlib-tests/tests/numericPredicates.sigil`
-
-These are proper Sigil tests:
-
-```sigil
-i stdlib::numeric
-
-test "numeric.is_even and is_odd basics" {
-  stdlib::numeric.is_even(4)=true and stdlib::numeric.is_odd(5)=true
-}
-```
-
-### Claude hook automation
-
-We added a repo-shared Claude Code hook that:
-
-- watches `Edit|Write` tool events
-- path-filters relevant files
-- runs `pnpm sigil:test:stdlib`
-
-This makes stdlib regressions much harder to miss during language work.
-
-## A Useful Side Effect: It Surfaced a Real Bug
-
-While writing the new stdlib tests, one list predicate test exposed an existing behavior issue involving list-pattern specificity.
-
-That was a great outcome:
-
-- the tests did their job immediately
-- the hook would have caught it on future edits too
-
-We adjusted the initial test set to keep the automation green while preserving a note to investigate the underlying compiler behavior separately.
-
-This is exactly what a good “always-on” feedback loop should do: reveal problems early, close to the edit that might have caused them.
-
-## The Bigger Pattern
-
-This change reflects a broader Sigil principle:
-
-**Use the language's own canonical mechanisms inside the language repo.**
-
-If Sigil says:
-
-- one canonical test syntax
-- tests live in `tests/`
-- deterministic workflows matter
-
-Then the Sigil repository should embody those rules, not just document them.
-
-## Practical Outcome
-
-After the change:
-
-- stdlib behavior tests are first-class Sigil tests
-- there is a single command to run them (`pnpm sigil:test:stdlib`)
-- Claude can run them automatically after relevant edits
-- the repository's examples are more consistent with the language philosophy
-
-This is small infrastructure, but high leverage. It reduces drift between:
-
-- what Sigil says is canonical
-- what Sigil's own repository actually does
-
-And for a machine-first language, that alignment is everything.
-
----
-
-**Takeaway:** Canonical language design is not just syntax design. It also applies to repository structure, test placement, and AI-assisted workflows. Moving stdlib tests into a real Sigil test project and automating them with Claude hooks makes Sigil's development process more consistent with Sigil's own principles.
+That is the right kind of dog-fooding. It does not just prove that the feature
+exists. It forces the repository to depend on it continuously.

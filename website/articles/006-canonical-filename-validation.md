@@ -8,52 +8,37 @@ slug: 006-canonical-filename-validation
 
 # Canonical Filename Validation
 
-## Summary
+Sigil now treats filenames as part of canonical source structure rather than as
+an external project convention. Module filenames must use `lowerCamelCase`
+stems.
 
-Sigil now enforces canonical filename format: `lowerCamelCase` only.
-
-That means:
-
-- no `_`
-- no `-`
-- no leading digits
-- file stems must start with a lowercase letter
-
-Examples:
+Examples of valid names include:
 
 - `userService.lib.sigil`
 - `example01Introduction.sigil`
 - `ffiNodeConsole.lib.sigil`
 
-Invalid:
+Invalid forms include:
 
 - `UserService.sigil`
 - `user_service.sigil`
 - `user-service.sigil`
 - `01-introduction.sigil`
 
-## Why
+## Why This Rule Exists
 
-This is not about matching ecosystem fashion. It is about removing representational choice.
+If the language wants one canonical naming system, filenames cannot be left to a
+mix of `snake_case`, `kebab-case`, and `camelCase`. Those differences create
+avoidable variance in imports, project layout, and generated code.
 
-If Sigil wants one obvious way to write code, filenames cannot have three competing styles. The compiler now enforces the same value-level naming rule it expects elsewhere: `lowerCamelCase`.
-
-That gives us:
+The filename rule keeps module names aligned with the rest of Sigil's value-level
+naming story:
 
 - predictable import paths
-- case-insensitive filesystem safety
-- less style drift across modules
-- less ambiguity for tools and LLMs
+- less style drift across repos
+- fewer filesystem-specific surprises
+- less ambiguity for tools and agents
 
-## Error Codes
-
-- `SIGIL-CANON-FILENAME-CASE`
-  filename does not start with a lowercase letter
-- `SIGIL-CANON-FILENAME-INVALID-CHAR`
-  filename contains `_`, `-`, or another invalid character
-- `SIGIL-CANON-FILENAME-FORMAT`
-  filename is not `lowerCamelCase` or starts with a digit
-
-## Result
-
-Sigil now has one canonical filename form instead of a mixed `snake_case` / `kebab-case` / `camelCase` story.
+This is a small rule, but it fits the same general pattern as the rest of
+Sigil's canonicality work: remove representational choice where it does not buy
+anything meaningful.

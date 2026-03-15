@@ -1,120 +1,41 @@
 ---
-title: "Why Sigil Has a Core Prelude"
+title: Why Sigil Has a Core Prelude
 date: 2026-03-04
 author: Sigil Language Team
 slug: why-sigil-has-a-corePrelude
 ---
 
-People often turn "core vs stdlib" into a namespace argument.
+# Why Sigil Has a Core Prelude
 
-That is not the interesting part.
+The interesting question behind `core` versus `stdlib` is not namespace purity.
+It is ownership. Sigil wants each foundational concept to have one canonical
+home.
 
-For Sigil, the real question is: **who canonically owns a concept?**
+## The Problem
 
-LLMs do not care very much whether a function is written as `join(...)` or `stdlib::string.join(...)`.
-They care much more about:
+If a concept appears both as implicit vocabulary and as a normal library helper,
+or if several modules feel equally responsible for it, then code generation and
+ordinary programming both inherit an unnecessary naming decision.
 
-1. whether there is one canonical spelling
-2. whether the same concept appears under multiple competing names
-3. whether a concept feels foundational enough to show up in most programs
+That ambiguity is more important than whether a function call happens to be
+qualified with a module prefix.
 
-That is why Sigil now has a small `core::prelude`.
+## The Decision
 
-## What Moved Into Core
+Sigil uses a small `core::prelude` for concepts that are foundational enough to
+shape the whole language surface. Other operational domains remain in `stdlib`
+with explicit ownership.
 
-These names are now implicit vocabulary:
+This keeps the distinction narrow:
 
-```sigil
-Option[T]
-Result[T,E]
-Some
-None
-Ok
-Err
-```
+- foundational language vocabulary goes in core
+- operational helpers stay in the standard library
 
-They are not special syntax. They are just foundational enough that forcing an import adds noise without adding real clarity.
+## Why This Matters
 
-So this:
+The goal is not to maximize or minimize prefixes. The goal is to keep ownership
+canonical. A concept should have one obvious place where users, tools, and docs
+expect to find it.
 
-```sigil
-Some(42)
-Ok("done")
-```
-
-is better for Sigil than:
-
-```sigil
-stdlib::option.Some(42)
-stdlib::result.Ok("done")
-```
-
-The second form is not "more principled." It is just more repetitive.
-
-## Why Most Helpers Still Stay Namespaced
-
-Sigil does **not** want a giant implicit universe.
-
-These still live behind module names:
-
-```sigil
-core::map.get("content-type",headers)
-core::option.unwrap_or("guest",maybe_name)
-stdlib::string.join(",",items)
-```
-
-That keeps the implicit surface small while still giving each concept one canonical owner.
-
-The rule is:
-
-1. foundational control/data vocabulary may belong in core
-2. operational APIs usually stay namespaced
-3. backend implementation details do not define the language surface
-
-## Why `Map` Had To Become Real
-
-`Map` was stuck in an awkward half-state:
-
-1. the type existed in the language
-2. the value-level story was unclear
-3. records and dynamic dictionaries were too easy to blur together
-
-That is worse than either extreme.
-
-So Sigil now makes the distinction explicit:
-
-### Records
-
-Fixed-shape products use `:`
-
-```sigil
-t Response={body:String,status:Int}
-Response{body:"OK",status:200}
-```
-
-### Maps
-
-Dynamic keyed collections use `↦`
-
-```sigil
-{"content-type"↦"text/plain","x-id"↦"42"}
-({↦}:{String↦String})
-```
-
-This is the important distinction, not whether map operations happen to be implemented with JavaScript under the hood.
-
-## The Real Design Lesson
-
-Sigil is not trying to win a purity argument about prefixes.
-
-It is trying to keep one canonical surface for each concept.
-
-A large stdlib is fine.
-A small core is fine.
-What is not fine is:
-
-1. duplicate ownership
-2. muddy boundaries
-3. half-core / half-library concepts
-
-That is the standard future Sigil changes should follow.
+That is why the core prelude is small. It is not a convenience dump. It is a
+carefully restricted ownership decision.

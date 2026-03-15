@@ -7,121 +7,51 @@ slug: topology-is-runtime-truth
 
 # Topology Is Runtime Truth
 
-Sigil topology is the canonical declaration of a project's external runtime
-dependencies.
+Sigil uses topology files to declare a project's external runtime dependencies.
+That is not the same job as configuration, deployment, or orchestration.
 
-Not config.
-Not deployment.
-Not orchestration.
+## The Split
 
 Topology answers:
-- what external things exist
-- what their logical names are
-- what environment names the project recognizes
 
-Config answers:
-- how one environment binds those logical dependencies
+- what dependencies exist
+- what logical names they have
+- which environment names the project recognizes
 
-## The Practical Shape
+Configuration answers:
 
-A topology-aware project now looks like this:
+- how a given environment binds those declared dependencies
 
-```text
-src/topology.lib.sigil
-config/test.lib.sigil
-config/production.lib.sigil
-```
+Keeping those roles separate is the whole point of the topology model.
 
-`src/topology.lib.sigil`:
+## Why This Matters
 
-```sigil
-i stdlib::topology
+Without that split, one file or one mechanism often ends up mixing several
+different concerns:
 
-c mailerApi=(stdlib::topology.httpService("mailerApi"):stdlib::topology.HttpServiceDependency)
-c production=(stdlib::topology.environment("production"):stdlib::topology.Environment)
-c test=(stdlib::topology.environment("test"):stdlib::topology.Environment)
-```
-
-`config/test.lib.sigil`:
-
-```sigil
-i src::topology
-i stdlib::config
-
-c bindings=(stdlib::config.bindings([
-  stdlib::config.bindHttp("http://127.0.0.1:45110",src::topology.mailerApi)
-],[]):stdlib::config.Bindings)
-```
-
-Application code still does not know the base URL:
-
-```sigil
-i src::topology
-i stdlib::httpClient
-
-λmain()=>!IO String match stdlib::httpClient.get(
-  src::topology.mailerApi,
-  stdlib::httpClient.emptyHeaders(),
-  "/health"
-){
-  Ok(response)=>response.body|
-  Err(error)=>error.message
-}
-```
-
-## Why This Is Better
-
-This split removes one of the worst forms of runtime ambiguity.
-
-Before, one file mixed:
 - dependency identity
-- environment names
 - concrete URLs and ports
-- sometimes env-var names too
+- environment-specific bindings
+- ambient environment-variable access
 
-Now Sigil makes the separation explicit:
-- topology says what exists
-- config says how one environment binds it
+Sigil treats that as a structural problem. If application code can bypass the
+declared dependency model and reach directly for raw endpoints or `process.env`,
+then topology stops being the runtime source of truth.
 
-That is easier for:
-- humans
-- validators
-- code generators
-- LLM agents
+## The Decision
 
-## The Constraint That Matters
+Sigil now pushes runtime structure into explicit project files:
 
-Sigil now treats `process.env` as a config boundary.
+- `src/topology.lib.sigil` declares dependency handles and environments
+- `config/<env>.lib.sigil` binds those handles for each environment
+- ordinary application code uses topology handles instead of raw endpoints
 
-That means:
-- `process.env` is allowed in `config/*.lib.sigil`
-- `process.env` is rejected in ordinary application modules
+This makes runtime structure visible to the compiler rather than leaving it
+spread across configuration conventions and application code.
 
-This matters because otherwise topology becomes optional theater.
-If any module can read `MAILER_API_URL` directly, then the declared topology is
-just a suggestion.
+## Result
 
-## Runtime Selection Is Explicit
-
-Sigil also does not guess the environment:
-
-```bash
-sigil validate projects/topology-http --env test
-sigil run projects/topology-http/src/getClient.sigil --env test
-```
-
-No implicit `local`.
-No implicit `test`.
-
-If the project is topology-aware, `--env` is required.
-
-## The PL Version
-
-The more formal statement is:
-
-- topology declares logical dependency identities
-- config materializes one environment's bindings for those identities
-- ambient env access is restricted to config modules
-- application code is forced to route external access through dependency handles
-
-That is a stricter and much more machine-readable runtime model.
+Topology becomes the authoritative declaration of runtime dependencies, config
+materializes one environment's bindings, and application code is forced through
+the typed handles that connect the two. That is a clearer and more machine-readable
+runtime model than ambient configuration alone.

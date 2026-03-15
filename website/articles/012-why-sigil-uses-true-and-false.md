@@ -1,5 +1,5 @@
 ---
-title: "Why Sigil Uses true and false"
+title: Why Sigil Uses true and false
 date: 2026-03-02
 author: Sigil Language Team
 slug: why-sigil-uses-true-and-false
@@ -7,127 +7,33 @@ slug: why-sigil-uses-true-and-false
 
 # Why Sigil Uses true and false
 
-**TL;DR:** Sigil replaced `⊤` and `⊥` with `true` and `false` because the ASCII literals are cheaper for LLMs, more aligned with Claude Code and Codex priors, and still preserve Sigil's one-way canonical syntax.
+Sigil originally used `⊤` and `⊥` for booleans. The language now uses `true`
+and `false` instead.
 
-## The Old Choice Was Elegant, But Wrong For Sigil
+## Why the Change Happened
 
-`⊤` and `⊥` are mathematically neat.
+The symbolic literals were visually distinctive, but they were a poor fit for
+Sigil's actual goals. They cost more under the tokenizers that matter for the
+repo, they are less likely to be produced naturally by coding agents, and they
+increase the chance of simple parse failures in ordinary editing environments.
 
-They also lose on the dimensions Sigil actually cares about:
+None of those costs were offset by a real language-design benefit.
 
-- they cost more tokens
-- they are less likely to be produced naturally by coding agents
-- they create avoidable parse failures and correction loops
+## Why ASCII Won
 
-Sigil is not optimizing for human language aesthetics first.
-It is optimizing for machine production and machine consumption first.
+`true` and `false` have three advantages:
 
-That means a boolean literal should be judged by:
+- they are cheaper or comparable under real tokenization
+- they align with the priors of existing coding tools and agents
+- they remain explicit and easy to read
 
-1. token cost in real programs
-2. how naturally models reach for it
-3. whether it still preserves one canonical form
+The important point is not that symbolic booleans are inherently bad. It is that
+Sigil wants canonical syntax that works well in the environments where the
+language is actually being written and generated.
 
-`true` and `false` win all three.
+## Result
 
-## We Measured It, We Did Not Guess
-
-We added an offline Unicode-replacement benchmark that:
-
-- inventories Sigil syntax
-- rewrites whole `.sigil` files in memory
-- retokenizes the rewritten corpus
-- includes separator costs and neighboring token effects
-
-The baseline tokenizer is `cl100k_base`.
-We also cross-check with two local heuristic proxies so we do not overfit to one tokenizer family.
-
-For booleans, the result was decisive:
-
-### `⊤ -> true`
-
-- `cl100k_base`: `-219`
-- local SentencePiece/Llama heuristic proxy: `-134`
-- local Anthropic heuristic proxy: `-134`
-
-### `⊥ -> false`
-
-- `cl100k_base`: `-234`
-- local SentencePiece/Llama heuristic proxy: `-130`
-- local Anthropic heuristic proxy: `-130`
-
-Those are whole-corpus savings, not isolated symbol trivia.
-
-## Why This Matters For Claude Code And Codex
-
-Most programming languages use `true` and `false`.
-
-That matters because Sigil's primary user is not a human carefully memorizing a bespoke syntax surface. It is Claude Code or Codex generating code from familiar programming priors.
-
-If the model naturally wants to write:
-
-```sigil
-done=false
-```
-
-but the language requires:
-
-```sigil
-done=⊥
-```
-
-you have introduced friction for no semantic gain.
-
-That friction shows up as:
-
-- incorrect first drafts
-- extra repair passes
-- more parser failures
-- wasted tokens
-
-## This Does Not Weaken Canonical Syntax
-
-Sigil still has one boolean syntax.
-
-Before:
-
-- `⊤`
-- `⊥`
-
-Now:
-
-- `true`
-- `false`
-
-This is not adding flexibility.
-It is replacing one canonical form with a better canonical form.
-
-That distinction matters.
-Sigil is not becoming "accept anything humans like."
-It is becoming stricter about using the forms that best serve AI-generated code.
-
-## What Is Not Changing
-
-- the boolean type is still `Bool`
-- boolean semantics do not change
-- operators like `¬`, `and`, and `or` are not part of this decision
-
-Only the literal spelling changes.
-
-## The Broader Rule
-
-Sigil should keep Unicode where Unicode pays for itself.
-
-Sigil should replace Unicode where a common programming term wins clearly on:
-
-- token cost
-- model prior alignment
-- canonical simplicity
-
-`true` and `false` are the clearest case so far.
-
-They are cheaper.
-They are more universal.
-They are what coding models already want to write.
-
-For an AI-first language, that is the right answer.
+Booleans now follow the same general policy as the rest of Sigil's recent syntax
+changes: when a mathematically elegant spelling loses on machine-facing
+ergonomics and token cost, the language prefers the more practical canonical
+form.

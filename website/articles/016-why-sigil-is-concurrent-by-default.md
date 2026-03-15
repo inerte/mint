@@ -1,5 +1,5 @@
 ---
-title: "Why Sigil Is Concurrent by Default"
+title: Why Sigil Is Concurrent by Default
 date: 2026-03-03
 author: Sigil Language Team
 slug: why-sigil-is-concurrentByDefault
@@ -7,107 +7,32 @@ slug: why-sigil-is-concurrentByDefault
 
 # Why Sigil Is Concurrent by Default
 
-Sigil used to describe itself as "async by default", but the generated JavaScript still eagerly emitted `await` at ordinary call sites. That kept the surface language uniform while leaving most generated programs more sequential than they looked.
+Sigil used to describe itself as "async by default," but that phrasing obscured
+what the compiler was actually trying to do. The more precise statement is that
+Sigil is concurrent by default.
 
-The new rule is stricter and more honest: Sigil is **concurrent by default**.
+## The Model
 
-## The model
+Sigil keeps one function form. User code does not introduce separate `async`
+syntax, explicit futures, or manual `await` choreography.
 
-Sigil keeps one function form. There is no extra `async` syntax and no `Future` syntax in user code.
+Instead, the compiler starts independent work in source order, keeps values in a
+promise-shaped form while they flow through expressions, and only joins them at
+strict demand points.
 
-Instead, the compiler:
+## Why This Matters
 
-- starts independent work early
-- keeps results promise-shaped while they flow through expressions
-- joins values only at strict demand points
+The point is not to hide effects. Effects are still tracked in the type system.
+The point is to avoid forcing the programmer to spell concurrency management at
+every ordinary call site when the dependencies between operations are already
+clear from the expression graph.
 
-Strict demand points include:
+That gives Sigil a simpler surface while still allowing overlapping effectful
+work where the program structure permits it.
 
-- `if` conditions
-- `match` scrutinees and guards
-- arithmetic and comparison operators
-- indexing and field access
-- the final observable result of a program or test
+## Why the Terminology Changed
 
-## Why not add async syntax?
-
-Because that would reintroduce the exact split Sigil is trying to avoid.
-
-If the language had separate sync and async spellings, users and models would have to decide which form to use for every function, every API, and every example. Sigil wants one dominant way to write code and one runtime model underneath it.
-
-## Ordered effects, concurrent resolution
-
-Concurrent-by-default does **not** mean "effects happen in random order".
-
-Effectful operations are initiated in source order. What changes is that Sigil no longer has to wait for each one to resolve before starting the next independent step.
-
-That means:
-
-- source order still matters for effects
-- promise-based I/O can overlap
-- the compiler does not force an `await` after every call
-
-## Example
-
-Source:
-
-```sigil
-λleft()=>Int=21
-λright()=>Int=21
-
-λmain()=>Int=left()+right()
-```
-
-Representative generated shape:
-
-```ts
-function main() {
-  return __sigil_all([left(), right()])
-    .then(([__left, __right]) => (__left + __right));
-}
-```
-
-The important change is not laziness for its own sake. It is that the compiler can start both calls before the `+` operator forces their values.
-
-## Why remove `!Async`?
-
-Because concurrency is no longer a user-visible effect.
-
-`!IO`, `!Network`, `!Error`, and `!Mut` still describe observable behavior. `Async` does not. It is an execution strategy the compiler applies uniformly.
-
-## Why `↦` and `⊳` stay pure
-
-Sigil treats `↦` and `⊳` as canonical pure data-parallel operators.
-
-That gives them simple semantics:
-
-- `xs↦fn` means map a pure function across a list
-- `xs⊳pred` means filter with a pure predicate
-
-Ordered accumulation still belongs to `⊕`, because reductions depend on the previous accumulator value.
-
-## Backend honesty
-
-On the JavaScript backend, concurrentByDefault means:
-
-- overlapping async I/O
-- overlapping Promise-based work
-
-It does **not** mean automatic CPU parallelism.
-
-That distinction matters. Sigil is making the generated code truly asynchronous, not pretending JavaScript can run CPU-bound pure code on multiple threads by itself.
-
-## Compiler follow-through
-
-This change is not only a documentation claim. The compiler now treats concurrency as a semantic rule instead of a code generation trick.
-
-The typechecker produces typed semantic information for whole programs, and code generation lowers that semantic view directly. That matters because the compiler no longer has to guess from raw syntax whether something is:
-
-- a pure value that can stay deferred
-- a strict demand point that must join results
-- an effectful operation that must still start in source order
-- a constructor call, extern call, or ordinary function call
-
-That keeps the public language model and the compiler architecture aligned.
-
-Sigil still has one surface language. The difference is that the implementation now reflects that model more honestly: semantic analysis decides what kind of work an expression represents, and code generation turns that into concurrent runtime behavior.
+"Async by default" suggested a looser runtime story than Sigil actually wanted.
+"Concurrent by default" is narrower and more accurate: the compiler preserves the
+declaration of effects, but it does not serialize independent work unless the
+program demands it.

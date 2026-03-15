@@ -14,3 +14,21 @@ These articles document real design decisions made during Sigil's development. T
 - **Philosophy guide** - Core principles applied in practice
 
 Each article is written at the time of the design decision, capturing the reasoning and trade-offs in real-time.
+
+## Writing Style
+
+Articles should read like technical blog posts, not social media posts.
+
+Prefer:
+
+- clear problem statements
+- direct explanation of the decision
+- concrete technical tradeoffs
+- normal paragraph structure
+
+Avoid:
+
+- "LinkedIn broetry" paragraphing
+- sloganized binaries
+- hype-heavy hooks
+- dramatic one-line emphasis in place of explanation

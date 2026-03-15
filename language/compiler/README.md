@@ -17,8 +17,7 @@ compiler/
 │   ├── sigil-parser/
 │   ├── sigil-typechecker/
 │   └── sigil-validator/
-├── ERROR_CODES.md
-└── test-multimodule.sh
+└── ERROR_CODES.md
 ```
 
 ## Common Commands

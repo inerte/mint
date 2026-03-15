@@ -2,10 +2,9 @@
 
 Sigil tests are first-class language declarations, not a separate test framework.
 
-Repo-level integration harnesses now live mostly in Sigil as well. The
-`test-*.sh` entrypoints under `language/` and `language/compiler/` are thin
-launchers that bootstrap the compiler and then run Sigil harness programs from
-`language/testHarnesses/src/`.
+Repo-level integration harnesses are ordinary Sigil test files under
+`language/testHarnesses/tests/`. They run through the same `sigil test`
+machinery as project tests rather than through separate shell launchers.
 
 ## Canonical Layout
 

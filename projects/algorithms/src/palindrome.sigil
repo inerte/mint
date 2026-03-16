@@ -1,6 +1,3 @@
-λmain()=>[Int]=reverse([1,2,3,2,1])
+i stdlib::list
 
-λreverse(lst:[Int])=>[Int] match lst{
-  []=>[]|
-  [x,.xs]=>reverse(xs)⧺[x]
-}
+λmain()=>[Int]=stdlib::list.reverse([1,2,3,2,1])

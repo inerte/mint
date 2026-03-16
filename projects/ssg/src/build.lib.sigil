@@ -12,6 +12,8 @@ i stdlib::file
 
 i stdlib::json
 
+i stdlib::list
+
 i stdlib::path
 
 i stdlib::string
@@ -69,13 +71,7 @@ i stdlib::time
   copyAssetFiles(assetNames,assetSourceDir,assetTargetDir)
 }
 
-λfilterMarkdownFiles(files:[String])=>[String] match files{
-  []=>[]|
-  [file,.rest]=>match stdlib::string.endsWith(file,".md"){
-    true=>[file]⧺filterMarkdownFiles(rest)|
-    false=>filterMarkdownFiles(rest)
-  }
-}
+λfilterMarkdownFiles(files:[String])=>[String]=files⊳(λ(file:String)=>Bool=stdlib::string.endsWith(file,".md"))
 
 λlistDir(path:String)=>!IO [String]=stdlib::file.listDir(path)
 
@@ -137,13 +133,7 @@ i stdlib::time
   stdlib::file.makeDirs(outputDir)
 }
 
-λremoveIntroPage(pages:[src::types.SitePage])=>[src::types.SitePage] match pages{
-  []=>[]|
-  [page,.rest]=>match page.sourcePath{
-    "website/articles/README.md"=>removeIntroPage(rest)|
-    _=>[page]⧺removeIntroPage(rest)
-  }
-}
+λremoveIntroPage(pages:[src::types.SitePage])=>[src::types.SitePage]=pages⊳(λ(page:src::types.SitePage)=>Bool=page.sourcePath≠"website/articles/README.md")
 
 λrenderPages(aliasRoutes:[src::types.AliasRoute],basePath:String,pages:[src::types.SitePage])=>[src::types.SitePage] match pages{
   []=>[]|

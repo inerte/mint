@@ -6,10 +6,9 @@ i stdlib::list
 
 λcountEdgesToVertex(neighbors:[Int],target:Int)=>Int=stdlib::list.count(target,neighbors)
 
-λindegreeFromSources(graph:src::graphTypes.Graph,sources:[Int],target:Int)=>Int match sources{
-  []=>0|
-  [source,.tail]=>countEdgesToVertex(src::graphHelpers.neighborsOf(graph,source),target)+indegreeFromSources(graph,tail,target)
-}
+λindegreeFromSource(acc:Int,graph:src::graphTypes.Graph,source:Int,target:Int)=>Int=acc+countEdgesToVertex(src::graphHelpers.neighborsOf(graph,source),target)
+
+λindegreeFromSources(graph:src::graphTypes.Graph,sources:[Int],target:Int)=>Int=stdlib::list.fold(0,λ(acc:Int,source:Int)=>Int=indegreeFromSource(acc,graph,source,target),sources)
 
 λpickZeroCandidate(candidates:[Int],graph:src::graphTypes.Graph,remaining:[Int])=>Int match candidates{
   []=>-1|

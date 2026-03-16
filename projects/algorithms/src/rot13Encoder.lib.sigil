@@ -1,7 +1,6 @@
-λrot13(chars:[String])=>String match chars{
-  []=>""|
-  [x,.rest]=>rot13Char(x)++rot13(rest)
-}
+i stdlib::string
+
+λrot13(chars:[String])=>String=stdlib::string.join("",chars↦rot13Char)
 
 λrot13Char(ch:String)=>String match ch{
   "A"=>"N"|

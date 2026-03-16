@@ -1,3 +1,5 @@
+λaddInt(acc:Int,x:Int)=>Int=acc+x
+
 λcontains[T](item:T,xs:[T])=>Bool match xs{
   []=>false|
   [x,.rest]=>match x=item{
@@ -44,27 +46,33 @@
   [x,.rest]=>lastHelper(Some(x),rest)
 }
 
-λmax(xs:[Int])=>Option[Int] match xs{
-  []=>None()|
-  [x,.rest]=>match max(rest){
-    Some(restMax)=>match x>restMax{
-      true=>Some(x)|
-      false=>Some(restMax)
+λmax(xs:[Int])=>Option[Int]=maxHelper(None(),xs)
+
+λmaxHelper(current:Option[Int],xs:[Int])=>Option[Int] match xs{
+  []=>current|
+  [x,.rest]=>match current{
+    Some(value)=>match x>value{
+      true=>maxHelper(Some(x),rest)|
+      false=>maxHelper(current,rest)
     }|
-    None()=>Some(x)
+    None()=>maxHelper(Some(x),rest)
   }
 }
 
-λmin(xs:[Int])=>Option[Int] match xs{
-  []=>None()|
-  [x,.rest]=>match min(rest){
-    Some(restMin)=>match x<restMin{
-      true=>Some(x)|
-      false=>Some(restMin)
+λmin(xs:[Int])=>Option[Int]=minHelper(None(),xs)
+
+λminHelper(current:Option[Int],xs:[Int])=>Option[Int] match xs{
+  []=>current|
+  [x,.rest]=>match current{
+    Some(value)=>match x<value{
+      true=>minHelper(Some(x),rest)|
+      false=>minHelper(current,rest)
     }|
-    None()=>Some(x)
+    None()=>minHelper(Some(x),rest)
   }
 }
+
+λmultiplyInt(acc:Int,x:Int)=>Int=acc*x
 
 λnth[T](idx:Int,xs:[T])=>Option[T] match idx<0{
   true=>None()|
@@ -77,16 +85,15 @@
   }
 }
 
-λproduct(xs:[Int])=>Int match xs{
-  []=>1|
-  [x,.rest]=>x*product(rest)
-}
+λproduct(xs:[Int])=>Int=fold(1,multiplyInt,xs)
 
-λremoveFirst[T](item:T,xs:[T])=>[T] match xs{
-  []=>[]|
+λremoveFirst[T](item:T,xs:[T])=>[T]=reverse(removeFirstHelper([],item,xs))
+
+λremoveFirstHelper[T](acc:[T],item:T,xs:[T])=>[T] match xs{
+  []=>acc|
   [x,.rest]=>match x=item{
-    true=>rest|
-    false=>([x]:[T])⧺removeFirst(item,rest)
+    true=>reverse(rest)⧺acc|
+    false=>removeFirstHelper(([x]:[T])⧺acc,item,rest)
   }
 }
 
@@ -99,25 +106,32 @@
 
 λsortedAsc(xs:[Int])=>Bool match xs{
   []=>true|
-  [x]=>true|
-  [x,y,.rest]=>x≤y and sortedAsc(([y]:[Int])⧺rest)
+  [x,.rest]=>sortedAscHelper(x,rest)
+}
+
+λsortedAscHelper(previous:Int,xs:[Int])=>Bool match xs{
+  []=>true|
+  [x,.rest]=>previous≤x and sortedAscHelper(x,rest)
 }
 
 λsortedDesc(xs:[Int])=>Bool match xs{
   []=>true|
-  [x]=>true|
-  [x,y,.rest]=>x≥y and sortedDesc(([y]:[Int])⧺rest)
+  [x,.rest]=>sortedDescHelper(x,rest)
 }
 
-λsum(xs:[Int])=>Int match xs{
-  []=>0|
-  [x,.rest]=>x+sum(rest)
+λsortedDescHelper(previous:Int,xs:[Int])=>Bool match xs{
+  []=>true|
+  [x,.rest]=>previous≥x and sortedDescHelper(x,rest)
 }
 
-λtake[T](n:Int,xs:[T])=>[T] match n≤0{
-  true=>[]|
+λsum(xs:[Int])=>Int=fold(0,addInt,xs)
+
+λtake[T](n:Int,xs:[T])=>[T]=reverse(takeHelper([],n,xs))
+
+λtakeHelper[T](acc:[T],n:Int,xs:[T])=>[T] match n≤0{
+  true=>acc|
   false=>match xs{
-    []=>[]|
-    [x,.rest]=>([x]:[T])⧺take(n-1,rest)
+    []=>acc|
+    [x,.rest]=>takeHelper(([x]:[T])⧺acc,n-1,rest)
   }
 }

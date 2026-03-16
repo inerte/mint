@@ -22,7 +22,4 @@ i src::graphTypes
 
 λvertices(graph:src::graphTypes.Graph)=>[Int]=verticesFromNodes(graph.nodes)
 
-λverticesFromNodes(nodes:[src::graphTypes.NodeNeighbors])=>[Int] match nodes{
-  []=>[]|
-  [node,.tail]=>[node.vertex]⧺verticesFromNodes(tail)
-}
+λverticesFromNodes(nodes:[src::graphTypes.NodeNeighbors])=>[Int]=nodes↦(λ(node:src::graphTypes.NodeNeighbors)=>Int=node.vertex)

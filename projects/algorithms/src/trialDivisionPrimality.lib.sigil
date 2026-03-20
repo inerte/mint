@@ -1,0 +1,8 @@
+i stdlib::numeric
+
+λcandidateDivisors(n:Int)=>[Int]=stdlib::numeric.range(2,n-1)
+
+λtrialDivisionPrimality(n:Int)=>Bool match n≤1{
+  true=>false|
+  false=>(candidateDivisors(n)⊳(λ(divisor:Int)=>Bool=n%divisor=0)⊕(λ(acc:Int,divisor:Int)=>Int=acc+1)⊕0:Int)=0
+}

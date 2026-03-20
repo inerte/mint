@@ -1,0 +1,10 @@
+λgreaterOrEqual(pivot:Int,xs:[Int])=>[Int]=xs⊳(λ(value:Int)=>Bool=value≥pivot)
+
+λlessThan(pivot:Int,xs:[Int])=>[Int]=xs⊳(λ(value:Int)=>Bool=value<pivot)
+
+λquickSort(xs:[Int])=>[Int]=quickSortInto([],xs)
+
+λquickSortInto(acc:[Int],xs:[Int])=>[Int] match xs{
+  []=>acc|
+  [pivot,.tail]=>quickSortInto([pivot]⧺(quickSortInto(acc,greaterOrEqual(pivot,tail)):[Int]),lessThan(pivot,tail))
+}

@@ -1,0 +1,21 @@
+t IntTree=Empty()|Node([IntTree],Int)
+
+i stdlib::list
+
+i stdlib::numeric
+
+λflatten(tree:IntTree)=>[Int] match tree{
+  Empty()=>[]|
+  Node(children,value)=>[value]⧺stdlib::list.flatMap(flatten,children)
+}
+
+λincremented(tree:IntTree)=>IntTree match tree{
+  Empty()=>Empty()|
+  Node(children,value)=>Node(children↦incremented,value+1)
+}
+
+λpositiveValues(tree:IntTree)=>[Int]=flatten(tree)⊳stdlib::numeric.isPositive
+
+λpreorder(tree:IntTree)=>[Int]=flatten(tree)
+
+λsumValues(tree:IntTree)=>Int=flatten(tree)⊕(λ(acc:Int,value:Int)=>Int=acc+value)⊕0

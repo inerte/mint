@@ -1,6 +1,6 @@
 # Algorithms (Sigil Project)
 
-Canonical pure-Sigil example project.
+Canonical practical Sigil corpus for algorithms and data-processing examples.
 
 Layout:
 - `sigil.json`
@@ -9,17 +9,23 @@ Layout:
 
 Implemented algorithms:
 
-- Sorting: `insertionSort.lib.sigil`, `mergeSort.lib.sigil`
-- Number theory: `extendedGcd.lib.sigil`, `sieveOfEratosthenes.lib.sigil`, `modularExponentiation.lib.sigil`
-- Graphs: `depthFirstSearch.lib.sigil`, `breadthFirstSearch.lib.sigil`, `topologicalSort.lib.sigil`
-- Combinatorics: `permutations.lib.sigil`, `nQueens.lib.sigil`
-- Search and distance: `linearSearch.lib.sigil`, `levenshteinDistance.lib.sigil`
+- Sorting and selection: `insertionSort.lib.sigil`, `kWayMerge.lib.sigil`, `mergeSort.lib.sigil`, `quickSelect.lib.sigil`, `quickSort.lib.sigil`
+- Number theory: `extendedGcd.lib.sigil`, `modularExponentiation.lib.sigil`, `primeFactorization.lib.sigil`, `sieveOfEratosthenes.lib.sigil`, `trialDivisionPrimality.lib.sigil`
+- Graphs and trees: `breadthFirstSearch.lib.sigil`, `connectedComponents.lib.sigil`, `depthFirstSearch.lib.sigil`, `topologicalSort.lib.sigil`, `treeTraversals.lib.sigil`
+- Combinatorics: `combinations.lib.sigil`, `nQueens.lib.sigil`, `permutations.lib.sigil`
+- Search and distance: `fibonacciSearch.lib.sigil`, `jumpSearch.lib.sigil`, `levenshteinDistance.lib.sigil`, `linearSearch.lib.sigil`
+- Data processing: `histogram.lib.sigil`, `wordFrequency.lib.sigil`
 
 Supporting modules:
 
 - `graphTypes.lib.sigil`
 - `graphHelpers.lib.sigil`
-- `int-list-helpers.lib.sigil`
+
+Standalone algorithm/demo entrypoints:
+
+- `factorial.sigil`, `factorialFold.sigil`, `factorialHelper.sigil`, `factorialMutual.sigil`, `factorialValid.sigil`
+- `fibonacci.sigil`, `gcd.sigil`, `power.sigil`
+- `filterEven.sigil`, `isPalindrome.sigil`, `listLength.sigil`, `listReverse.sigil`, `mapDouble.sigil`, `sumList.sigil`
 
 Commands (from repo root):
 
@@ -28,11 +34,22 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compil
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test projects/algorithms/tests
 ```
 
-Phase 1 demo files:
+These files are the canonical home for the practical algorithm corpus that used to be split across `language/examples/` and `projects/algorithms/`.
 
+Demo files:
+
+- `src/combinationsDemo.sigil`
+- `src/connectedComponentsDemo.sigil`
 - `src/insertionSortDemo.sigil`
+- `src/fibonacciSearchDemo.sigil`
+- `src/histogramDemo.sigil`
+- `src/jumpSearchDemo.sigil`
+- `src/kWayMergeDemo.sigil`
 - `src/mergeSortDemo.sigil`
 - `src/extendedGcdDemo.sigil`
+- `src/primeFactorizationDemo.sigil`
+- `src/quickSelectDemo.sigil`
+- `src/quickSortDemo.sigil`
 - `src/sieveOfEratosthenesDemo.sigil`
 - `src/modularExponentiationDemo.sigil`
 - `src/depthFirstSearchDemo.sigil`
@@ -42,17 +59,6 @@ Phase 1 demo files:
 - `src/nQueensDemo.sigil`
 - `src/linearSearchDemo.sigil`
 - `src/levenshteinDistanceDemo.sigil`
-
-Planned next:
-
-- `quicksort`
-- `quickselect`
-- `k-way-merge`
-- `prime-factorization`
-- `trial-division-primality`
-- `tree-traversals`
-- `connected-components`
-- `combinations`
-- `stable-matching`
-- `fibonacci-search`
-- `jump-search`
+- `src/treeTraversalsDemo.sigil`
+- `src/trialDivisionPrimalityDemo.sigil`
+- `src/wordFrequencyDemo.sigil`

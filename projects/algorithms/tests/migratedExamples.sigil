@@ -1,0 +1,25 @@
+i src::filterEven
+
+i src::isPalindrome
+
+i src::mapDouble
+
+i src::sumList
+
+λmain()=>Unit=()
+
+test "filter even keeps only even numbers" {
+  src::filterEven.filterEven([1,2,3,4,5,6])=[2,4,6]
+}
+
+test "is palindrome recognizes mirrored strings" {
+  src::isPalindrome.isPalindrome("racecar")
+}
+
+test "map double doubles every value" {
+  src::mapDouble.mapDouble([1,2,3,4])=[2,4,6,8]
+}
+
+test "sum list uses canonical stdlib sum" {
+  src::sumList.sumList([1,2,3,4,5])=15
+}

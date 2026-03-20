@@ -66,8 +66,14 @@ i stdlib::string
   [path,.rest]=>match ignorePath(path){
     true=>readIssues(rest,root,rules)|
     false=>{
-      l source=(stdlib::file.readText(stdlib::path.join(root,path)):String);
-      (analyzeFile(path,rules,source):[Issue])⧺(readIssues(rest,root,rules):[Issue])
+      l fullPath=(stdlib::path.join(root,path):String);
+      match stdlib::file.exists(fullPath){
+        true=>{
+          l source=(stdlib::file.readText(fullPath):String);
+          (analyzeFile(path,rules,source):[Issue])⧺(readIssues(rest,root,rules):[Issue])
+        }|
+        false=>readIssues(rest,root,rules)
+      }
     }
   }
 }

@@ -203,13 +203,13 @@ cargo build --manifest-path language/compiler/Cargo.toml -p sigil-cli
 Compile one Sigil file:
 
 ```bash
-cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile language/examples/fibonacci.sigil
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile language/examples/listOperations.sigil
 ```
 
 Run one Sigil file:
 
 ```bash
-cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run language/examples/fibonacci.sigil
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run language/examples/listOperations.sigil
 ```
 
 Run project tests:

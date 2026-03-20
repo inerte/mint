@@ -1,0 +1,44 @@
+i stdlib::list
+
+λadvanceOne(changed:Bool,minHead:Int,runs:[[Int]])=>[[Int]] match runs{
+  []=>[]|
+  [run,.rest]=>match changed{
+    true=>[run]⧺advanceOne(true,minHead,rest)|
+    false=>match head(run)=minHead{
+      true=>match tail(run){
+        []=>advanceOne(true,minHead,rest)|
+        next=>[next]⧺advanceOne(true,minHead,rest)
+      }|
+      false=>[run]⧺advanceOne(false,minHead,rest)
+    }
+  }
+}
+
+λhead(xs:[Int])=>Int match stdlib::list.nth(0,xs){
+  Some(value)=>value|
+  None()=>0
+}
+
+λkWayMerge(runs:[[Int]])=>[Int]=kWayMergeCount(totalValues(runs),runs)
+
+λkWayMergeCount(remaining:Int,runs:[[Int]])=>[Int] match remaining{
+  0=>[]|
+  _=>match runs⊳nonEmpty{
+    []=>[]|
+    active=>{
+      l minHead=(smallestHead(active):Int);
+      [minHead]⧺kWayMergeCount(remaining-1,advanceOne(false,minHead,active))
+    }
+  }
+}
+
+λnonEmpty(xs:[Int])=>Bool=#xs>0
+
+λsmallestHead(runs:[[Int]])=>Int match stdlib::list.min(runs↦head){
+  Some(value)=>value|
+  None()=>0
+}
+
+λtail(xs:[Int])=>[Int]=stdlib::list.drop(1,xs)
+
+λtotalValues(runs:[[Int]])=>Int=runs↦(λ(run:[Int])=>Int=#run)⊕(λ(acc:Int,count:Int)=>Int=acc+count)⊕0

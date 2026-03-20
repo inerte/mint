@@ -1,0 +1,22 @@
+t WordBucket={count:Int,word:String}
+
+i core::map
+
+i stdlib::list
+
+i stdlib::string
+
+λfrequency(lines:[String])=>{String↦Int}=normalizedWords(lines)⊕increment⊕(core::map.empty():{String↦Int})
+
+λincrement(histogram:{String↦Int},word:String)=>{String↦Int} match core::map.get(word,histogram){
+  Some(count)=>core::map.insert(word,histogram,count+1)|
+  None()=>core::map.insert(word,histogram,1)
+}
+
+λnonEmpty(word:String)=>Bool=word≠""
+
+λnormalizedWords(lines:[String])=>[String]=stdlib::list.flatMap(splitWords,lines)⊳nonEmpty
+
+λsplitWords(line:String)=>[String]=stdlib::string.split(" ",stdlib::string.toLower(line))
+
+λsummary(lines:[String])=>[WordBucket]=core::map.entries(frequency(lines))↦(λ(entry:core::map.Entry[String,Int])=>WordBucket={count:entry.value,word:entry.key})

@@ -1,0 +1,21 @@
+i src::fibonacciSearch
+
+i src::jumpSearch
+
+λmain()=>Unit=()
+
+test "fibonacci search finds present target" {
+  src::fibonacciSearch.fibonacciSearch(13,[1,3,5,7,9,11,13,15,17,19])=6
+}
+
+test "fibonacci search returns minus one when absent" {
+  src::fibonacciSearch.fibonacciSearch(12,[1,3,5,7,9,11,13,15,17,19])=-1
+}
+
+test "jump search finds present target" {
+  src::jumpSearch.jumpSearch(13,[1,3,5,7,9,11,13,15,17,19])=6
+}
+
+test "jump search returns minus one when absent" {
+  src::jumpSearch.jumpSearch(12,[1,3,5,7,9,11,13,15,17,19])=-1
+}

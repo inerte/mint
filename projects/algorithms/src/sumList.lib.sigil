@@ -1,0 +1,3 @@
+i stdlib::list
+
+λsumList(xs:[Int])=>Int=stdlib::list.sum(xs)

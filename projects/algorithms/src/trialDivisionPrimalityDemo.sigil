@@ -1,0 +1,3 @@
+i src::trialDivisionPrimality
+
+λmain()=>Bool=src::trialDivisionPrimality.trialDivisionPrimality(97)

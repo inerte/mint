@@ -1,0 +1,5 @@
+i src::treeTraversals
+
+λmain()=>[Int]=src::treeTraversals.preorder(sampleTree())
+
+λsampleTree()=>src::treeTraversals.IntTree=src::treeTraversals.Node([src::treeTraversals.Node([src::treeTraversals.Node([],4)],2),src::treeTraversals.Node([],3)],1)

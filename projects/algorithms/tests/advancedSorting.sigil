@@ -1,0 +1,31 @@
+i src::kWayMerge
+
+i src::quickSelect
+
+i src::quickSort
+
+λmain()=>Unit=()
+
+test "k way merge merges three sorted lists" {
+  src::kWayMerge.kWayMerge([[1,4,7],[2,5,8],[3,6,9]])=[1,2,3,4,5,6,7,8,9]
+}
+
+test "k way merge skips empty runs" {
+  src::kWayMerge.kWayMerge([[],[1,3,5],[],[2,4,6]])=[1,2,3,4,5,6]
+}
+
+test "quick select finds zero based kth element" {
+  src::quickSelect.quickSelect(3,[9,1,7,3,5,8,2])=Some(5)
+}
+
+test "quick select returns none when out of bounds" {
+  src::quickSelect.quickSelect(10,[1,2,3])=(None():Option[Int])
+}
+
+test "quick sort handles duplicates" {
+  src::quickSort.quickSort([4,2,4,1,3,2])=[1,2,2,3,4,4]
+}
+
+test "quick sort sorts reverse ordered input" {
+  src::quickSort.quickSort([5,4,3,2,1])=[1,2,3,4,5]
+}

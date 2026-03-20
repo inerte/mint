@@ -1,0 +1,3 @@
+λdouble(x:Int)=>Int=x*2
+
+λmapDouble(xs:[Int])=>[Int]=xs↦double

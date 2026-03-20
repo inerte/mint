@@ -1,0 +1,3 @@
+i stdlib::numeric
+
+λfilterEven(xs:[Int])=>[Int]=xs⊳stdlib::numeric.isEven

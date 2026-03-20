@@ -20,7 +20,7 @@ This repo contains three distinct things:
 pnpm build
 
 # Compile a file through the root convenience wrapper
-pnpm sigil -- compile language/examples/fibonacci.sigil
+pnpm sigil -- compile projects/algorithms/src/fibonacci.sigil
 
 # Run Sigil tests in the algorithms example project
 pnpm sigil:test:algorithms

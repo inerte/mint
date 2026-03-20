@@ -1,0 +1,48 @@
+t FibFrame={fibM:Int,fibMm1:Int,fibMm2:Int,offset:Int}
+
+i stdlib::list
+
+λcandidateIndex(frame:FibFrame,xs:[Int])=>Int=minIndex(#xs-1,frame.offset+frame.fibMm2)
+
+λfibonacciSearch(target:Int,xs:[Int])=>Int match #xs=0{
+  true=>-1|
+  false=>searchFrame(initialFrame(#xs),target,xs)
+}
+
+λindexValue(idx:Int,xs:[Int])=>Int match stdlib::list.nth(idx,xs){
+  Some(value)=>value|
+  None()=>0
+}
+
+λinitialFrame(size:Int)=>FibFrame=initialFrameFrom({fibM:1,fibMm1:1,fibMm2:0,offset:-1},size)
+
+λinitialFrameFrom(frame:FibFrame,size:Int)=>FibFrame match frame.fibM<size{
+  true=>initialFrameFrom({fibM:frame.fibM+frame.fibMm1,fibMm1:frame.fibM,fibMm2:frame.fibMm1,offset:-1},size)|
+  false=>frame
+}
+
+λminIndex(left:Int,right:Int)=>Int match left<right{
+  true=>left|
+  false=>right
+}
+
+λmoveLeft(frame:FibFrame)=>FibFrame={fibM:frame.fibMm2,fibMm1:frame.fibMm1-frame.fibMm2,fibMm2:frame.fibMm2-(frame.fibMm1-frame.fibMm2),offset:frame.offset}
+
+λmoveRight(frame:FibFrame,idx:Int)=>FibFrame={fibM:frame.fibMm1,fibMm1:frame.fibMm2,fibMm2:frame.fibMm1-frame.fibMm2,offset:idx}
+
+λsearchFrame(frame:FibFrame,target:Int,xs:[Int])=>Int match frame.fibM>1{
+  true=>{
+    l idx=(candidateIndex(frame,xs):Int);
+    match indexValue(idx,xs)<target{
+      true=>searchFrame(moveRight(frame,idx),target,xs)|
+      false=>match indexValue(idx,xs)>target{
+        true=>searchFrame(moveLeft(frame),target,xs)|
+        false=>idx
+      }
+    }
+  }|
+  false=>match frame.fibMm1=1 and frame.offset+1<#xs and indexValue(frame.offset+1,xs)=target{
+    true=>frame.offset+1|
+    false=>-1
+  }
+}

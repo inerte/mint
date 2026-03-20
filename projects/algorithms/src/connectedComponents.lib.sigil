@@ -1,0 +1,30 @@
+i src::graphHelpers
+
+i src::graphTypes
+
+i stdlib::list
+
+λaddUnique(acc:[Int],value:Int)=>[Int] match stdlib::list.contains(value,acc){
+  true=>acc|
+  false=>acc⧺[value]
+}
+
+λcomponentMembers(frontier:[Int],graph:src::graphTypes.Graph,seen:[Int])=>[Int] match frontier{
+  []=>seen|
+  _=>{
+    l nextSeen=(frontier⊕addUnique⊕seen:[Int]);
+    componentMembers((uniqueInts((stdlib::list.flatMap(λ(vertex:Int)=>[Int]=src::graphHelpers.neighborsOf(graph,vertex),frontier):[Int])⊳(λ(vertex:Int)=>Bool=¬stdlib::list.contains(vertex,nextSeen))):[Int]),graph,nextSeen)
+  }
+}
+
+λcomponentsFrom(acc:[[Int]],graph:src::graphTypes.Graph,remaining:[Int])=>[[Int]] match remaining{
+  []=>acc|
+  [vertex,.tail]=>{
+    l component=(componentMembers([vertex],graph,[]):[Int]);
+    componentsFrom(acc⧺[component],graph,(tail⊳(λ(candidate:Int)=>Bool=¬stdlib::list.contains(candidate,component)):[Int]))
+  }
+}
+
+λconnectedComponents(graph:src::graphTypes.Graph)=>[[Int]]=componentsFrom([],graph,src::graphHelpers.vertices(graph))
+
+λuniqueInts(xs:[Int])=>[Int]=xs⊕addUnique⊕[]

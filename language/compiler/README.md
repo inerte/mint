@@ -29,10 +29,10 @@ From the repo root:
 cargo build --manifest-path language/compiler/Cargo.toml -p sigil-cli
 
 # Compile a file
-cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile language/examples/fibonacci.sigil
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile projects/algorithms/src/fibonacci.sigil
 
 # Run a file
-cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run language/examples/fibonacci.sigil
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run projects/algorithms/src/fibonacci.sigil
 
 # Run tests
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test projects/algorithms/tests
@@ -44,7 +44,7 @@ cargo test --manifest-path language/compiler/Cargo.toml -p sigil-parser
 For automation after the build:
 
 ```bash
-language/compiler/target/debug/sigil compile language/examples/fibonacci.sigil
+language/compiler/target/debug/sigil compile projects/algorithms/src/fibonacci.sigil
 ```
 
 ## Notes

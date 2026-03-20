@@ -10,6 +10,68 @@ if(searchRoot){
 
   const normalize=(text)=>text.toLowerCase().trim();
 
+  const countOccurrences=(haystack,needle)=>{
+    if(needle.length===0){
+      return 0;
+    }
+
+    let count=0;
+    let index=0;
+
+    while(index<haystack.length){
+      const found=haystack.indexOf(needle,index);
+
+      if(found<0){
+        return count;
+      }
+
+      count+=1;
+      index=found+needle.length;
+    }
+
+    return count;
+  };
+
+  const queryTerms=(query)=>query.split(/\s+/).filter((term)=>term.length>0);
+
+  const scoreEntry=(entry,query,index)=>{
+    const title=normalize(entry.title);
+    const description=normalize(entry.description);
+    const section=normalize(entry.section);
+    const text=normalize(entry.text);
+    const terms=queryTerms(query);
+    const exactTitle=title===query;
+    const titleStarts=title.startsWith(query);
+    const titleIncludes=title.includes(query);
+    const descriptionIncludes=description.includes(query);
+    const sectionExact=section===query;
+    const textIncludes=text.includes(query);
+    const termScore=terms.reduce((score,term)=>{
+      return score
+        +(countOccurrences(title,term)*40)
+        +(countOccurrences(description,term)*12)
+        +(countOccurrences(section,term)*8)
+        +(Math.min(countOccurrences(text,term),6)*4);
+    },0);
+
+    if(!(titleIncludes||descriptionIncludes||sectionExact||textIncludes)){
+      return null;
+    }
+
+    return {
+      entry,
+      index,
+      score:
+        (exactTitle?1000:0)
+        +(titleStarts?700:0)
+        +(titleIncludes?350:0)
+        +(descriptionIncludes?120:0)
+        +(sectionExact?80:0)
+        +(textIncludes?25:0)
+        +termScore
+    };
+  };
+
   const renderResult=(entry,query)=>{
     const item=document.createElement("li");
     item.className="search-result";
@@ -51,10 +113,17 @@ if(searchRoot){
       return [];
     }
 
-    return entries.filter((entry)=>{
-      const haystack=normalize(`${entry.title}\n${entry.description}\n${entry.section}\n${entry.text}`);
-      return haystack.includes(query);
-    }).slice(0,20);
+    return entries.map((entry,index)=>scoreEntry(entry,query,index))
+      .filter((entry)=>entry!==null)
+      .sort((left,right)=>{
+        if(left.score===right.score){
+          return left.index-right.index;
+        }
+
+        return right.score-left.score;
+      })
+      .slice(0,20)
+      .map((entry)=>entry.entry);
   };
 
   fetch(indexUrl).then((response)=>{

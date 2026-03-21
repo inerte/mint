@@ -84,9 +84,7 @@ const UNICODE_TOKEN_COSTS = {
     '≤': 2,
     '≥': 2,
     '⧺': 2,
-    '↦': 2,
-    '⊳': 2,
-    '⊕': 2
+    '↦': 2
   },
   anthropic_legacy_proxy: {
     '⊤': 2,
@@ -107,9 +105,7 @@ const UNICODE_TOKEN_COSTS = {
     '≤': 2,
     '≥': 2,
     '⧺': 2,
-    '↦': 2,
-    '⊳': 2,
-    '⊕': 2
+    '↦': 2
   }
 };
 

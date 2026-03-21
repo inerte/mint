@@ -25,10 +25,10 @@ Library code is file-based, not `export`-based:
 ```sigil module projects/todo-app/src/todoDomain.lib.sigil
 t Todo={done:Bool,id:Int,text:String}
 
-λcompletedCount(todos:[Todo])=>Int=todos⊕(λ(acc:Int,todo:Todo)=>Int match todo.done{
+λcompletedCount(todos:[Todo])=>Int=todos reduce (λ(acc:Int,todo:Todo)=>Int match todo.done{
   true=>acc+1|
   false=>acc
-})⊕0
+}) from 0
 ```
 
 ```sigil program projects/todo-app/tests/todoDomain.sigil

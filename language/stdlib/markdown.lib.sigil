@@ -13,8 +13,8 @@ i stdlib::string
   }|
   Paragraph(text)=>"<p>"++processInline(text)++"</p>"|
   CodeBlock(lang,code)=>"<pre><code>"++code++"</code></pre>"|
-  UnorderedList(items)=>"<ul>"++stdlib::string.join("",items↦(λ(item:String)=>String="<li>"++processInline(item)++"</li>"))++"</ul>"|
-  OrderedList(items)=>"<ol>"++stdlib::string.join("",items↦(λ(item:String)=>String="<li>"++processInline(item)++"</li>"))++"</ol>"|
+  UnorderedList(items)=>"<ul>"++stdlib::string.join("",items map (λ(item:String)=>String="<li>"++processInline(item)++"</li>"))++"</ul>"|
+  OrderedList(items)=>"<ol>"++stdlib::string.join("",items map (λ(item:String)=>String="<li>"++processInline(item)++"</li>"))++"</ol>"|
   Blockquote(text)=>"<blockquote>"++processInline(text)++"</blockquote>"|
   HorizontalRule()=>"<hr>"
 }
@@ -88,7 +88,7 @@ i stdlib::string
 
 λisUnorderedList(line:String)=>Bool=stdlib::string.startsWith("- ",line) or stdlib::string.startsWith("* ",line) or stdlib::string.startsWith("+ ",line)
 
-λparse(markdown:String)=>String=stdlib::string.join("\n",parseLines(markdown)↦blockToHtml)
+λparse(markdown:String)=>String=stdlib::string.join("\n",parseLines(markdown) map blockToHtml)
 
 λparseLine(line:String,state:ParserState)=>ParsingResult match state.inCodeBlock{
   true when isCodeFence(line)=>{blocks:flushCodeBlock(state),state:emptyState()}|

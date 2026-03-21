@@ -2912,7 +2912,7 @@ mod tests {
 
     #[test]
     fn test_generate_map_uses_ordered_helper_not_promise_all_map() {
-        let source = "λdouble(xs:[Int])=>[Int]=xs↦(λ(x:Int)=>Int=x*2)";
+        let source = "λdouble(xs:[Int])=>[Int]=xs map (λ(x:Int)=>Int=x*2)";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());

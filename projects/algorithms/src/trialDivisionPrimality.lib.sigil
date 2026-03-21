@@ -4,5 +4,5 @@ i stdlib::numeric
 
 λtrialDivisionPrimality(n:Int)=>Bool match n≤1{
   true=>false|
-  false=>(candidateDivisors(n)⊳(λ(divisor:Int)=>Bool=n%divisor=0)⊕(λ(acc:Int,divisor:Int)=>Int=acc+1)⊕0:Int)=0
+  false=>(candidateDivisors(n) filter (λ(divisor:Int)=>Bool=n%divisor=0) reduce (λ(acc:Int,divisor:Int)=>Int=acc+1) from 0:Int)=0
 }

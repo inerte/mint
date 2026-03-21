@@ -212,7 +212,7 @@ i stdlib::string
 λparseFenceInfo(info:String)=>Result[src::types.FenceInfo,String]=src::fences.parseFenceInfo(info)
 
 λparseTrackedFiles(result:stdlib::process.ProcessResult)=>Result[[String],String] match result.code=0{
-  true=>Ok((stdlib::string.lines(result.stdout):[String])⊳src::fences.nonEmpty)|
+  true=>Ok((stdlib::string.lines(result.stdout):[String]) filter src::fences.nonEmpty)|
   false=>Err(result.stderr)
 }
 
@@ -529,7 +529,7 @@ i stdlib::string
       l issues=(executeSnippetCheck(snippetKind="expr" or snippetKind="exprs" or snippetKind="module" or snippetKind="program" or snippetKind="type",filePath,root,snippetSubcommandForSnippet(snippet),ordinalPath(ordinal,tempDir),snippetVirtualPath(snippet),snippetSource(snippet)):[src::types.Issue]);
       match #issues=0{
         true=>{documentedRefs:[],issues:[],snippetRefs:snippetRefsForValidatedSnippet(snippet)}|
-        false=>{documentedRefs:[],issues:issues↦(λ(issue:src::types.Issue)=>src::types.Issue={line:snippet.line,message:issue.message,path:snippet.filePath}),snippetRefs:[]}
+        false=>{documentedRefs:[],issues:issues map (λ(issue:src::types.Issue)=>src::types.Issue={line:snippet.line,message:issue.message,path:snippet.filePath}),snippetRefs:[]}
       }
     }
   }

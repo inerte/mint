@@ -4,16 +4,16 @@ t Todo={done:Bool,id:Int,text:String}
 
 λcanAdd(text:String)=>Bool=text≠""
 
-λclearCompleted(todos:[Todo])=>[Todo]=todos⊳(λ(todo:Todo)=>Bool=¬todo.done)
+λclearCompleted(todos:[Todo])=>[Todo]=todos filter (λ(todo:Todo)=>Bool=¬todo.done)
 
-λcompletedCount(todos:[Todo])=>Int=todos⊕(λ(acc:Int,todo:Todo)=>Int match todo.done{
+λcompletedCount(todos:[Todo])=>Int=todos reduce (λ(acc:Int,todo:Todo)=>Int match todo.done{
   true=>acc+1|
   false=>acc
-})⊕0
+}) from 0
 
-λdeleteTodo(targetId:Int,todos:[Todo])=>[Todo]=todos⊳(λ(todo:Todo)=>Bool=todo.id≠targetId)
+λdeleteTodo(targetId:Int,todos:[Todo])=>[Todo]=todos filter (λ(todo:Todo)=>Bool=todo.id≠targetId)
 
-λeditTodo(newText:String,targetId:Int,todos:[Todo])=>[Todo]=todos↦(λ(todo:Todo)=>Todo match todo.id=targetId{
+λeditTodo(newText:String,targetId:Int,todos:[Todo])=>[Todo]=todos map (λ(todo:Todo)=>Todo match todo.id=targetId{
   true=>{done:todo.done,id:todo.id,text:newText}|
   false=>todo
 })
@@ -27,7 +27,7 @@ t Todo={done:Bool,id:Int,text:String}
 
 λremainingCount(completed:Int,total:Int)=>Int=total-completed
 
-λtoggleTodo(targetId:Int,todos:[Todo])=>[Todo]=todos↦(λ(todo:Todo)=>Todo match todo.id=targetId{
+λtoggleTodo(targetId:Int,todos:[Todo])=>[Todo]=todos map (λ(todo:Todo)=>Todo match todo.id=targetId{
   true=>{done:¬todo.done,id:todo.id,text:todo.text}|
   false=>todo
 })

@@ -237,7 +237,7 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **Description:** Recursive function appends to the recursive result.
 **Message:** "Recursive function 'name' appends to the recursive result"
 **Example:** `λreverse(xs:[Int])=>[Int] match xs{[]=>[]|[x,.rest]=>reverse(rest)⧺[x]}`
-**How to fix:** Use `↦`, `⊳`, or a wrapper plus accumulator helper with one final reverse
+**How to fix:** Use `map`, `filter`, `reduce`, or a wrapper plus accumulator helper with one final reverse
 
 ### SIGIL-CANON-RECURSION-ALL-CLONE
 **Description:** Exact recursive all clone detected.
@@ -255,13 +255,13 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **Description:** Exact recursive map clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled map"
 **Example:** `λdouble(xs:[Int])=>[Int] match xs{[]=>[]|[x,.rest]=>[x*2]⧺double(rest)}`
-**How to fix:** Use `xs↦f`
+**How to fix:** Use `xs map f`
 
 ### SIGIL-CANON-RECURSION-FILTER-CLONE
 **Description:** Exact recursive filter clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled filter"
 **Example:** `λevens(xs:[Int])=>[Int] match xs{[]=>[]|[x,.rest]=>match isEven(x){true=>[x]⧺evens(rest)|false=>evens(rest)}}`
-**How to fix:** Use `xs⊳pred`
+**How to fix:** Use `xs filter pred`
 
 ### SIGIL-CANON-RECURSION-FIND-CLONE
 **Description:** Exact recursive find clone detected.
@@ -285,7 +285,7 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **Description:** Exact recursive fold clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled fold"
 **Example:** `λsum(xs:[Int])=>Int match xs{[]=>0|[x,.rest]=>x+sum(rest)}`
-**How to fix:** Use `⊕` or `stdlib::list.fold`
+**How to fix:** Use `xs reduce fn from init` or `stdlib::list.fold`
 
 ### SIGIL-CANON-BRANCHING-SELF-RECURSION
 **Description:** Non-canonical sibling self-calls over the same directly reduced parameter.
@@ -297,7 +297,7 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-TRAVERSAL-FILTER-COUNT
 **Description:** Filter followed by length is a non-canonical counting shape.
 **Message:** "filter followed by length is not canonical"
-**Example:** `#(xs⊳pred)`
+**Example:** `#(xs filter pred)`
 **How to fix:** Use `stdlib::list.countIf(pred,xs)`
 
 ### SIGIL-CANON-MATCH-BOOLEAN

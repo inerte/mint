@@ -118,15 +118,15 @@ Sigil treats the list-processing surface as canonical:
 - use `stdlib::list.all` for universal checks
 - use `stdlib::list.any` for existential checks
 - use `stdlib::list.countIf` for predicate counting
-- use `↦` for projection
-- use `⊳` for filtering
+- use `map` for projection
+- use `filter` for filtering
 - use `stdlib::list.find` for first-match search
 - use `stdlib::list.flatMap` for flattening projection
-- use `⊕` or `stdlib::list.fold` for reduction
+- use `reduce ... from ...` or `stdlib::list.fold` for reduction
 - use `stdlib::list.reverse` for reversal
 
 The validator rejects exact recursive clones of `all`, `any`, `map`, `filter`,
-`find`, `flatMap`, `fold`, and `reverse`, rejects `#(xs⊳pred)` in favor of
+`find`, `flatMap`, `fold`, and `reverse`, rejects `#(xs filter pred)` in favor of
 `stdlib::list.countIf`, and rejects recursive result-building of the form
 `self(rest)⧺rhs`. These are narrow AST-shape rules, not a general complexity
 prover.

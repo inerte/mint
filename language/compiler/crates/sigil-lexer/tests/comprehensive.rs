@@ -4,7 +4,7 @@ use sigil_lexer::{tokenize, LexError, TokenType};
 
 #[test]
 fn test_all_unicode_operators() {
-    let source = "λ => match :: and or ¬ ≤ ≥ ≠ ↦ ⊳ ⊕ ⧺";
+    let source = "λ => match :: and or ¬ ≤ ≥ ≠ ↦ ⧺";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::LAMBDA);
@@ -18,9 +18,20 @@ fn test_all_unicode_operators() {
     assert_eq!(tokens[8].token_type, TokenType::GreaterEq);
     assert_eq!(tokens[9].token_type, TokenType::NotEqual);
     assert_eq!(tokens[10].token_type, TokenType::MAP);
-    assert_eq!(tokens[11].token_type, TokenType::FILTER);
-    assert_eq!(tokens[12].token_type, TokenType::FOLD);
-    assert_eq!(tokens[13].token_type, TokenType::ListAppend);
+    assert_eq!(tokens[11].token_type, TokenType::ListAppend);
+}
+
+#[test]
+fn test_removed_list_operator_glyphs_are_rejected() {
+    match tokenize("λf(xs:[Int])=>[Int]=xs⊳keep") {
+        Err(LexError::UnexpectedChar { ch, .. }) => assert_eq!(ch, '⊳'),
+        other => panic!("Expected unexpected-char error for ⊳, got {:?}", other),
+    }
+
+    match tokenize("λf(xs:[Int])=>Int=xs⊕sum⊕0") {
+        Err(LexError::UnexpectedChar { ch, .. }) => assert_eq!(ch, '⊕'),
+        other => panic!("Expected unexpected-char error for ⊕, got {:?}", other),
+    }
 }
 
 #[test]

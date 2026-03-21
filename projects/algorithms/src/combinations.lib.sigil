@@ -4,6 +4,6 @@
   0=>[[]]⧺acc|
   _=>match xs{
     []=>acc|
-    [head,.tail]=>(combinationsInto([],k-1,tail)↦(λ(choice:[Int])=>[Int]=[head]⧺choice):[[Int]])⧺combinationsInto(acc,k,tail)
+    [head,.tail]=>(combinationsInto([],k-1,tail) map (λ(choice:[Int])=>[Int]=[head]⧺choice):[[Int]])⧺combinationsInto(acc,k,tail)
   }
 }

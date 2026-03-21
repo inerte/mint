@@ -163,9 +163,9 @@ Compact canonical syntax for model-facing efficiency:
 - `::` for namespace paths without colliding with field access
 - `match` for pattern match (common keyword with strong model priors)
 - `Int` for integers, `Float` for reals, `Bool` for bool, `String` for string
-- `↦` for map (1 char vs 4)
-- `⊳` for filter (1 char vs 7)
-- `⊕` for fold/reduce (1 char vs 7)
+- `map` for list projection
+- `filter` for list filtering
+- `reduce` for list reduction
 - `∈` for iteration "in"
 - `Never` for None/empty
 - `true` for true, `false` for false
@@ -230,18 +230,18 @@ It does not use Hindley-Milner let-polymorphism for local bindings.
 ```sigil module
 i stdlib::numeric
 
-λdoubled()=>[Int]=[1,2,3,4,5]↦(λ(x:Int)=>Int=x*2)
+λdoubled()=>[Int]=[1,2,3,4,5] map (λ(x:Int)=>Int=x*2)
 
-λevens()=>[Int]=[1,2,3,4,5]⊳stdlib::numeric.isEven
+λevens()=>[Int]=[1,2,3,4,5] filter stdlib::numeric.isEven
 
-λtotal()=>Int=[1,2,3,4,5]⊕(λ(acc:Int,x:Int)=>Int=acc+x)⊕0
+λtotal()=>Int=[1,2,3,4,5] reduce (λ(acc:Int,x:Int)=>Int=acc+x) from 0
 ```
 
 ### Composed List Operations
 ```sigil module
 t User={active:Bool,name:String}
 
-λactiveNames(users:[User])=>[String]=users⊳(λ(user:User)=>Bool=user.active)↦(λ(user:User)=>String=user.name)
+λactiveNames(users:[User])=>[String]=users filter (λ(user:User)=>Bool=user.active) map (λ(user:User)=>String=user.name)
 ```
 
 ## Token Efficiency Comparison
@@ -315,7 +315,7 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test
 - ✅ Project structure
 - ✅ Lexer/Parser implementation
 - ✅ TypeScript code generator
-- ✅ Built-in list operations (↦ ⊳ ⊕)
+- ✅ Built-in list operations (`map` `filter` `reduce`)
 - ✅ Canonical form enforcement (refined - blocks accumulator patterns, allows legitimate multi-param)
 - ✅ Parameter classification via static analysis (structural, query, accumulator)
 - ✅ Comprehensive test suite (18 tests)
@@ -325,7 +325,7 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test
   - Bidirectional synthesis (⇒) and checking (⇐) modes
   - Mandatory type annotations on all function signatures
   - Pattern matching with exhaustiveness checking
-  - List operations (↦, ⊳, ⊕) as language constructs
+  - List operations (`map`, `filter`, `reduce`) as language constructs
   - Better error messages with precise source locations
 - ✅ Mutability checker (Immutable by default) - ✓ COMPLETED (2026-02-23)
   - Explicit `mut` keyword for mutable parameters

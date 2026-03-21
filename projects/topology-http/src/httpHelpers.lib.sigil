@@ -13,6 +13,6 @@ i stdlib::string
   _=>path
 }
 
-λrouteSummary(routes:[String])=>String=stdlib::string.unlines(routes⊳publicRoute)
+λrouteSummary(routes:[String])=>String=stdlib::string.unlines(routes filter publicRoute)
 
 λserverHeaders(extra:{String↦String})=>{String↦String}=core::map.merge({"content-type"↦"text/plain; charset=utf-8"},extra)

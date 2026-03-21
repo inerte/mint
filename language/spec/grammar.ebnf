@@ -70,6 +70,7 @@ Expr = LetExpr
      | LambdaExpr
      | ConcurrentExpr
      | WithMockExpr
+     | ListOpExpr
      | BinaryExpr ;
 
 LetExpr = "l" , Pattern , "=" , Expr , ";" , Expr ;
@@ -88,6 +89,10 @@ SpawnStep = "spawn" , Expr ;
 SpawnEachStep = "spawnEach" , Expr , Expr ;
 
 WithMockExpr = "withMock" , "(" , Expr , "," , Expr , ")" , BlockExpr ;
+
+ListOpExpr = Expr , "map" , Expr
+           | Expr , "filter" , Expr
+           | Expr , "reduce" , Expr , "from" , Expr ;
 
 MatchExpr = "match" , Expr , "{" , MatchArm , { "|" , MatchArm } , "}" ;
 MatchArm = Pattern , "=>" , Expr ;
@@ -120,7 +125,7 @@ BinaryExpr = Expr , BinaryOp , Expr ;
 BinaryOp = "+" | "-" | "*" | "/" | "%" | "^"
          | "=" | "≠" | "<" | ">" | "≤" | "≥"
          | "and" | "or"
-         | "↦" | "⊳" | "⊕" | "⧺" ;
+         | "⧺" ;
 
 Literal = IntegerLiteral
         | FloatLiteral

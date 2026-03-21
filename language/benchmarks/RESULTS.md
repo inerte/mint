@@ -23,7 +23,7 @@ Sigil demonstrates **11.2% average token reduction** compared to TypeScript acro
 | | | | | |
 | **AVERAGE** | **49.3** | **54.6** | **1.115** | **+11.2%** |
 
-**Note:** sumList is an outlier where TypeScript's `.reduce()` is more compact than Sigil's `⊕` operator syntax.
+**Note:** sumList is an outlier where TypeScript's `.reduce()` is more compact than Sigil's explicit reduction surface.
 
 ## Key Insights
 
@@ -42,13 +42,13 @@ Map/filter operations show modest gains:
 - mapDouble: **+11.3%** (53 vs 59 tokens)
 - filterEven: **+9.8%** (61 vs 67 tokens)
 
-Sigil's `↦` and `⊳` operators are compact but not dramatically better than `.map()` and `.filter()`.
+Sigil's `map` and `filter` surface is compact but not dramatically better than `.map()` and `.filter()`.
 
 ### 3. Built-in Reduce Is Less Efficient
 
 **sumList: -9.1%** (55 vs 50 tokens)
 
-Sigil's fold syntax `xs⊕(λ(a:Int,x:Int)=>Int=a+x)⊕0` is more verbose than TypeScript's `.reduce((a, x) => a + x, 0)` because:
+Sigil's reduction syntax `xs reduce (λ(a:Int,x:Int)=>Int=a+x) from 0` is more verbose than TypeScript's `.reduce((a, x) => a + x, 0)` because:
 - Lambda requires full type annotations: `λ(a:Int,x:Int)=>Int`
 - TypeScript infers lambda types from context
 
@@ -110,7 +110,7 @@ TypeScript: function fib(n: number): number {
 ### sumList (Fold/Reduce)
 
 ```
-Sigil:       λsum(xs:[Int])=>Int=xs⊕(λ(a:Int,x:Int)=>Int=a+x)⊕0
+Sigil:       λsum(xs:[Int])=>Int=xs reduce (λ(a:Int,x:Int)=>Int=a+x) from 0
 TypeScript: function sum(xs: number[]): number {
               return xs.reduce((a, x) => a + x, 0);
             }
@@ -206,7 +206,7 @@ All implementations use:
 ### Trade-offs
 
 1. **Explicit types** - Mandatory annotations help training quality but add tokens in some cases
-2. **Fold syntax** - More verbose than `.reduce()` but more explicit
+2. **Reduction syntax** - More verbose than `.reduce()` but more explicit
 3. **Learning curve** - Unicode symbols take time to learn
 
 ### Next Steps

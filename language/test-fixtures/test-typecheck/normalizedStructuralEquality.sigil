@@ -4,4 +4,4 @@ t Todo={done:Bool,id:Int,text:String}
 
 λmain()=>Unit=()
 
-λtest()=>[Todo]=[{done:false,id:1,text:"one"}]↦keep
+λtest()=>[Todo]=[{done:false,id:1,text:"one"}] map keep

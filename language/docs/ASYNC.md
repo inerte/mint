@@ -19,8 +19,8 @@ values. Ordinary expression structure is not a concurrency surface.
 
 - sibling expressions are not an implicit fanout boundary
 - list operators do not lower through broad `Promise.all`
-- pure `↦` and `⊳` remain canonical list transforms
-- `⊕` remains ordered reduction
+- pure `map` and `filter` remain canonical list transforms
+- `reduce ... from ...` remains ordered reduction
 
 So Sigil hides promise plumbing, but it does not treat ordinary expression
 structure as permission to widen work.
@@ -117,7 +117,7 @@ Real batch workflows need more than width:
 - best-effort collection
 - selective stop on systemic failures
 
-Those are properties of an execution region, not properties of `↦` itself.
+Those are properties of an execution region, not properties of `map` itself.
 
 So Sigil has:
 

@@ -11,11 +11,11 @@ i stdlib::numeric
 
 λincremented(tree:IntTree)=>IntTree match tree{
   Empty()=>Empty()|
-  Node(children,value)=>Node(children↦incremented,value+1)
+  Node(children,value)=>Node(children map incremented,value+1)
 }
 
-λpositiveValues(tree:IntTree)=>[Int]=flatten(tree)⊳stdlib::numeric.isPositive
+λpositiveValues(tree:IntTree)=>[Int]=flatten(tree) filter stdlib::numeric.isPositive
 
 λpreorder(tree:IntTree)=>[Int]=flatten(tree)
 
-λsumValues(tree:IntTree)=>Int=flatten(tree)⊕(λ(acc:Int,value:Int)=>Int=acc+value)⊕0
+λsumValues(tree:IntTree)=>Int=flatten(tree) reduce (λ(acc:Int,value:Int)=>Int=acc+value) from 0

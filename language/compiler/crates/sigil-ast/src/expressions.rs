@@ -463,7 +463,7 @@ pub enum PipelineOperator {
     ComposeBwd,
 }
 
-/// Map operation: list ↦ fn
+/// Map operation: list map fn
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MapExpr {
@@ -473,7 +473,7 @@ pub struct MapExpr {
     pub location: SourceLocation,
 }
 
-/// Filter operation: list ⊳ predicate
+/// Filter operation: list filter predicate
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FilterExpr {
@@ -482,7 +482,7 @@ pub struct FilterExpr {
     pub location: SourceLocation,
 }
 
-/// Fold operation: list ⊕ fn init
+/// Fold operation: list reduce fn from init
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FoldExpr {

@@ -23,7 +23,7 @@ i stdlib::list
 
 λkWayMergeCount(remaining:Int,runs:[[Int]])=>[Int] match remaining{
   0=>[]|
-  _=>match runs⊳nonEmpty{
+  _=>match runs filter nonEmpty{
     []=>[]|
     active=>{
       l minHead=(smallestHead(active):Int);
@@ -34,11 +34,11 @@ i stdlib::list
 
 λnonEmpty(xs:[Int])=>Bool=#xs>0
 
-λsmallestHead(runs:[[Int]])=>Int match stdlib::list.min(runs↦head){
+λsmallestHead(runs:[[Int]])=>Int match stdlib::list.min(runs map head){
   Some(value)=>value|
   None()=>0
 }
 
 λtail(xs:[Int])=>[Int]=stdlib::list.drop(1,xs)
 
-λtotalValues(runs:[[Int]])=>Int=runs↦(λ(run:[Int])=>Int=#run)⊕(λ(acc:Int,count:Int)=>Int=acc+count)⊕0
+λtotalValues(runs:[[Int]])=>Int=runs map (λ(run:[Int])=>Int=#run) reduce (λ(acc:Int,count:Int)=>Int=acc+count) from 0

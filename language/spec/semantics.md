@@ -169,9 +169,9 @@ Concatenation is expressed with `⧺`, not by implicit flattening.
 
 Pure list operators remain canonical value transforms:
 
-- `↦`
-- `⊳`
-- `⊕`
+- `map`
+- `filter`
+- `reduce ... from ...`
 
 They are not the concurrency surface.
 
@@ -222,18 +222,18 @@ The validator rejects exact recursive clones of:
 It also rejects:
 
 - recursive result-building of the form `self(rest)⧺rhs`
-- filter then length of the form `#(xs⊳pred)`
+- filter then length of the form `#(xs filter pred)`
 
 The required replacements are:
 
 - `stdlib::list.all`
 - `stdlib::list.any`
 - `stdlib::list.countIf`
-- `↦`
-- `⊳`
+- `map`
+- `filter`
 - `stdlib::list.find`
 - `stdlib::list.flatMap`
-- `⊕` / `stdlib::list.fold`
+- `reduce ... from ...` / `stdlib::list.fold`
 - `stdlib::list.reverse`
 
 These are exact-shape canonicality rules, not general semantic equivalence or

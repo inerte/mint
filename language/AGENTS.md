@@ -112,8 +112,8 @@ Current constructor and list invariants:
 - for safe integer list lookup/end access, prefer `stdlib::list.nth` and `stdlib::list.last`
 - Sigil keeps one promise-shaped runtime model, but broad implicit fanout is no longer the concurrency story
 - explicit widening uses named `concurrent` regions with alphabetical config fields: `concurrency`, `jitterMs`, `stopOn`, `windowMs`
-- ordinary `↦` and `⊳` are pure list transforms, not concurrency controls
-- `↦` and `⊳` require pure callbacks; `⊕` is the ordered reduction form
+- ordinary `map` and `filter` are pure list transforms, not concurrency controls
+- `map` and `filter` require pure callbacks; `reduce ... from ...` is the ordered reduction form
 - `!Async` is not a valid effect annotation
 - Sigil supports explicit parametric polymorphism on top-level declarations
 - do not describe Sigil as using Hindley-Milner let-polymorphism
@@ -146,7 +146,7 @@ Current constructor and list invariants:
   - tests are environments; prefer `config/test.lib.sigil` over ad hoc runtime rewiring
   - inline single-use pure locals; keep bindings only for reuse, effects, destructuring, or syntax-required staging
   - do not hand-roll recursive list plumbing when Sigil already has a canonical surface
-  - use `↦` for projection, `⊳` for filtering, `⊕` / `stdlib::list.fold` for reduction, `stdlib::list.reverse` for reversal, `stdlib::list.any` / `stdlib::list.all` / `stdlib::list.find` for existential, universal, and first-match search, `stdlib::list.flatMap` for flattening projection, and `stdlib::list.countIf` for predicate counting
+  - use `map` for projection, `filter` for filtering, `reduce ... from ...` / `stdlib::list.fold` for reduction, `stdlib::list.reverse` for reversal, `stdlib::list.any` / `stdlib::list.all` / `stdlib::list.find` for existential, universal, and first-match search, `stdlib::list.flatMap` for flattening projection, and `stdlib::list.countIf` for predicate counting
   - do not build list results by appending to the recursive result (`self(rest)⧺rhs`); use a canonical operator or a wrapper plus accumulator helper with one final reverse
 
 ### 3) Keep user-facing errors actionable

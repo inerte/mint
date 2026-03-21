@@ -12,8 +12,8 @@ i stdlib::list
 λcomponentMembers(frontier:[Int],graph:src::graphTypes.Graph,seen:[Int])=>[Int] match frontier{
   []=>seen|
   _=>{
-    l nextSeen=(frontier⊕addUnique⊕seen:[Int]);
-    componentMembers((uniqueInts((stdlib::list.flatMap(λ(vertex:Int)=>[Int]=src::graphHelpers.neighborsOf(graph,vertex),frontier):[Int])⊳(λ(vertex:Int)=>Bool=¬stdlib::list.contains(vertex,nextSeen))):[Int]),graph,nextSeen)
+    l nextSeen=(frontier reduce addUnique from seen:[Int]);
+    componentMembers((uniqueInts((stdlib::list.flatMap(λ(vertex:Int)=>[Int]=src::graphHelpers.neighborsOf(graph,vertex),frontier):[Int]) filter (λ(vertex:Int)=>Bool=¬stdlib::list.contains(vertex,nextSeen))):[Int]),graph,nextSeen)
   }
 }
 
@@ -21,10 +21,10 @@ i stdlib::list
   []=>acc|
   [vertex,.tail]=>{
     l component=(componentMembers([vertex],graph,[]):[Int]);
-    componentsFrom(acc⧺[component],graph,(tail⊳(λ(candidate:Int)=>Bool=¬stdlib::list.contains(candidate,component)):[Int]))
+    componentsFrom(acc⧺[component],graph,(tail filter (λ(candidate:Int)=>Bool=¬stdlib::list.contains(candidate,component)):[Int]))
   }
 }
 
 λconnectedComponents(graph:src::graphTypes.Graph)=>[[Int]]=componentsFrom([],graph,src::graphHelpers.vertices(graph))
 
-λuniqueInts(xs:[Int])=>[Int]=xs⊕addUnique⊕[]
+λuniqueInts(xs:[Int])=>[Int]=xs reduce addUnique from []

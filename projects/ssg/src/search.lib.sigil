@@ -12,6 +12,6 @@ i stdlib::string
 
 λpageValue(page:src::types.SitePage)=>stdlib::json.JsonValue=stdlib::json.JsonObject({"description"↦stdlib::json.JsonString(page.meta.description),"section"↦stdlib::json.JsonString(src::content.sectionNameLowercase(page.section)),"sourcePath"↦stdlib::json.JsonString(page.sourcePath),"text"↦stdlib::json.JsonString(pageText(page)),"title"↦stdlib::json.JsonString(page.meta.title),"url"↦stdlib::json.JsonString(src::content.canonicalRoute(page))})
 
-λpagesValue(pages:[src::types.SitePage])=>stdlib::json.JsonValue=stdlib::json.JsonArray(pages↦pageValue)
+λpagesValue(pages:[src::types.SitePage])=>stdlib::json.JsonValue=stdlib::json.JsonArray(pages map pageValue)
 
 λsearchIndexJson(data:src::types.SiteData)=>String=stdlib::json.stringify(pagesValue(allPages(data)))

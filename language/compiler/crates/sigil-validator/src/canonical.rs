@@ -3865,7 +3865,7 @@ mod tests {
 
     #[test]
     fn test_filter_then_count_rejected() {
-        let source = r#"λcountEven(xs:[Int])=>Int=#(xs⊳(λ(x:Int)=>Bool=x%2=0))
+        let source = r#"λcountEven(xs:[Int])=>Int=#(xs filter (λ(x:Int)=>Bool=x%2=0))
 
 λmain()=>Int=countEven([1,2,3,4])
 "#;
@@ -3881,7 +3881,7 @@ mod tests {
 
     #[test]
     fn test_canonical_map_operator_allowed() {
-        let source = r#"λdouble(xs:[Int])=>[Int]=xs↦(λ(x:Int)=>Int=x*2)
+        let source = r#"λdouble(xs:[Int])=>[Int]=xs map (λ(x:Int)=>Int=x*2)
 
 λmain()=>[Int]=double([1,2,3])
 "#;

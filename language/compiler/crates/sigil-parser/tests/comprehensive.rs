@@ -1027,6 +1027,23 @@ fn test_complex_nested_expression() {
     assert_eq!(program.declarations.len(), 1);
 }
 
+#[test]
+fn test_list_operations_parse_with_word_forms() {
+    let source = "λf(xs:[Int])=>Int=xs filter keep reduce sum from 0";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Function(f) => match &f.body {
+            Expr::Fold(fold) => {
+                assert!(matches!(&fold.list, Expr::Filter(_)));
+            }
+            other => panic!("Expected reduce expression, got {:?}", other),
+        },
+        _ => panic!("Expected function"),
+    }
+}
+
 // ============================================================================
 // COMPLEX PATTERN REJECTION TESTS
 // ============================================================================

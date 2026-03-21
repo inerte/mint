@@ -845,8 +845,8 @@ impl Parser {
         loop {
             let start = expr.location().start;
 
-            if self.match_token(TokenType::MAP) {
-                // [1,2,3] ↦ λx=>x*2
+            if self.match_identifier("map") {
+                // [1,2,3] map λx=>x*2
                 let func = self.logical()?;
                 let end = self.previous().location.end;
                 expr = Expr::Map(Box::new(MapExpr {
@@ -854,8 +854,8 @@ impl Parser {
                     func,
                     location: SourceLocation::new(start, end),
                 }));
-            } else if self.match_token(TokenType::FILTER) {
-                // [1,2,3] ⊳ λx=>x>1
+            } else if self.match_identifier("filter") {
+                // [1,2,3] filter λx=>x>1
                 let predicate = self.logical()?;
                 let end = self.previous().location.end;
                 expr = Expr::Filter(Box::new(FilterExpr {
@@ -863,10 +863,10 @@ impl Parser {
                     predicate,
                     location: SourceLocation::new(start, end),
                 }));
-            } else if self.match_token(TokenType::FOLD) {
-                // [1,2,3] ⊕ λ(acc,x)=>acc+x ⊕ 0
+            } else if self.match_identifier("reduce") {
+                // [1,2,3] reduce λ(acc,x)=>acc+x from 0
                 let func = self.logical()?;
-                self.consume(TokenType::FOLD, "Expected \"⊕\" before initial value")?;
+                self.consume_identifier("from", "Expected \"from\" before reduction initial value")?;
                 let init = self.logical()?;
                 let end = self.previous().location.end;
                 expr = Expr::Fold(Box::new(FoldExpr {
@@ -1964,6 +1964,15 @@ impl Parser {
         }
     }
 
+    fn match_identifier(&mut self, value: &str) -> bool {
+        if self.check_identifier(value) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
     fn advance(&mut self) -> Token {
         if !self.is_at_end() {
             self.current += 1;
@@ -1998,6 +2007,14 @@ impl Parser {
 
     fn consume(&mut self, token_type: TokenType, message: &str) -> Result<Token, ParseError> {
         if self.check(token_type) {
+            Ok(self.advance())
+        } else {
+            Err(self.error(message))
+        }
+    }
+
+    fn consume_identifier(&mut self, value: &str, message: &str) -> Result<Token, ParseError> {
+        if self.check_identifier(value) {
             Ok(self.advance())
         } else {
             Err(self.error(message))

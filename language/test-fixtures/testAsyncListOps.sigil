@@ -4,6 +4,6 @@ i stdlib::numeric
 
 λmain()=>Int=processList([1,2,3,4,5])
 
-λprocessList(xs:[Int])=>Int=xs↦double⊳stdlib::numeric.isEven⊕sum⊕0
+λprocessList(xs:[Int])=>Int=xs map double filter stdlib::numeric.isEven reduce sum from 0
 
 λsum(acc:Int,x:Int)=>Int=acc+x

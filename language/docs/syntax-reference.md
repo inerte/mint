@@ -331,9 +331,9 @@ t User={id:Int,name:String}
 
 Sigil includes canonical list operators:
 
-- `↦` map
-- `⊳` filter
-- `⊕` ordered reduction
+- `map` projection
+- `filter` filtering
+- `reduce ... from ...` ordered reduction
 - `⧺` concatenation
 
 Examples:
@@ -341,14 +341,14 @@ Examples:
 ```sigil module
 λconcatenated()=>[Int]=[1,2]⧺[3,4]
 
-λdoubled()=>[Int]=[1,2,3]↦(λ(x:Int)=>Int=x*2)
+λdoubled()=>[Int]=[1,2,3] map (λ(x:Int)=>Int=x*2)
 
-λfiltered()=>[Int]=[1,2,3]⊳(λ(x:Int)=>Bool=x>1)
+λfiltered()=>[Int]=[1,2,3] filter (λ(x:Int)=>Bool=x>1)
 
-λsummed()=>Int=[1,2,3]⊕(λ(acc:Int,x:Int)=>Int=acc+x)⊕0
+λsummed()=>Int=[1,2,3] reduce (λ(acc:Int,x:Int)=>Int=acc+x) from 0
 ```
 
-`↦` and `⊳` require pure callbacks.
+`map` and `filter` require pure callbacks.
 
 ## Concurrent Regions
 
@@ -383,19 +383,19 @@ Rules:
 - `spawnEach` requires a list and an effectful function returning `Result[T,E]`
 - regions return `[ConcurrentOutcome[T,E]]`
 
-`windowMs` and `jitterMs` belong to the region policy, not to `↦` or `⊳`.
+`windowMs` and `jitterMs` belong to the region policy, not to `map` or `filter`.
 
 Sigil also treats these operators as the canonical surface for common list
 plumbing:
 
 - do not hand-write recursive `all` clones; use `stdlib::list.all`
 - do not hand-write recursive `any` clones; use `stdlib::list.any`
-- do not count with `#(xs⊳pred)`; use `stdlib::list.countIf`
-- do not hand-write recursive `map` clones when `↦` fits
-- do not hand-write recursive `filter` clones when `⊳` fits
+- do not count with `#(xs filter pred)`; use `stdlib::list.countIf`
+- do not hand-write recursive `map` clones when `map` fits
+- do not hand-write recursive `filter` clones when `filter` fits
 - do not hand-write recursive `find` clones; use `stdlib::list.find`
 - do not hand-write recursive `flatMap` clones; use `stdlib::list.flatMap`
-- do not hand-write recursive `fold` clones when `⊕` fits
+- do not hand-write recursive `fold` clones when `reduce ... from ...` fits
 - do not hand-write recursive `reverse` clones; use `stdlib::list.reverse`
 - do not build recursive list results with `self(rest)⧺rhs`
 

@@ -77,7 +77,7 @@ i stdlib::string
   false=>stdlib::string.trim(result.stdout)
 }
 
-λreadLines(filePath:String)=>[String]=(stdlib::string.lines(stdlib::file.readText(filePath)):[String])⊳nonEmpty
+λreadLines(filePath:String)=>[String]=(stdlib::string.lines(stdlib::file.readText(filePath)):[String]) filter nonEmpty
 
 λrun()=>!IO Result[[src::types.Issue],String] match src::docsDrift.gitTopLevel(){
   Ok(root)=>{

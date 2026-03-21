@@ -98,6 +98,6 @@ i stdlib::string
 
 λmodulePathFromStdlibFile(filePath:String)=>String="stdlib::"++moduleNameFromStdlibFile(filePath)
 
-λqualifyExports(exports:[String],modulePath:String)=>[String]=exports↦(λ(name:String)=>String=modulePath++"."++name)
+λqualifyExports(exports:[String],modulePath:String)=>[String]=exports map (λ(name:String)=>String=modulePath++"."++name)
 
 λtokenName(token:String)=>String=dropUntilBoundary("",stdlib::string.substring(#token-8,token,8))

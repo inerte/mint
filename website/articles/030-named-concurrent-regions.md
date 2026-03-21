@@ -24,7 +24,7 @@ engineering controls:
 - selective stop on systemic failures
 - stable ordered results
 
-Those are not properties of `↦`. They are properties of an execution region.
+Those are not properties of `map`. They are properties of an execution region.
 
 ## The Surface
 
@@ -115,9 +115,9 @@ This change does not introduce a second family of `map` helpers.
 
 Sigil still keeps:
 
-- `↦` for pure projection
-- `⊳` for pure filtering
-- `⊕` for ordered reduction
+- `map` for pure projection
+- `filter` for pure filtering
+- `reduce ... from ...` for ordered reduction
 
 Those operators are canonical value transforms, not the concurrency surface.
 

@@ -2505,7 +2505,7 @@ fn synthesize_map(
 
     if !matches!(list_type, InferenceType::List(_)) {
         return Err(TypeError::new(
-            format!("Map (↦) requires a list, got {}", format_type(&list_type)),
+            format!("map requires a list, got {}", format_type(&list_type)),
             Some(map_expr.location),
         ));
     }
@@ -2514,7 +2514,7 @@ fn synthesize_map(
 
     if !matches!(fn_type, InferenceType::Function(_)) {
         return Err(TypeError::new(
-            format!("Map (↦) requires a function, got {}", format_type(&fn_type)),
+            format!("map requires a function, got {}", format_type(&fn_type)),
             Some(map_expr.location),
         ));
     }
@@ -2522,7 +2522,7 @@ fn synthesize_map(
     if let (InferenceType::List(ref list), InferenceType::Function(ref func)) = (&list_type, &fn_type) {
         if func.effects.as_ref().is_some_and(|effects| !effects.is_empty()) {
             return Err(TypeError::new(
-                "Map (↦) callback must be pure. Sigil treats ↦ as a canonical data-parallel operator, so effectful callbacks are not allowed.".to_string(),
+                "map callback must be pure. Sigil treats map as a canonical data-parallel operator, so effectful callbacks are not allowed.".to_string(),
                 Some(map_expr.location),
             ));
         }
@@ -2530,7 +2530,7 @@ fn synthesize_map(
         // Function should take 1 parameter
         if func.params.len() != 1 {
             return Err(TypeError::new(
-                format!("Map (↦) function should take 1 parameter, got {}", func.params.len()),
+                format!("map function should take 1 parameter, got {}", func.params.len()),
                 Some(map_expr.location),
             ));
         }
@@ -2540,7 +2540,7 @@ fn synthesize_map(
         if !types_equal(&normalized_param, &normalized_elem) {
             return Err(TypeError::new(
                 format!(
-                    "Map (↦) function parameter type {} doesn't match list element type {}",
+                    "map function parameter type {} doesn't match list element type {}",
                     format_type(&normalized_param),
                     format_type(&normalized_elem)
                 ),
@@ -2565,7 +2565,7 @@ fn synthesize_filter(
 
     if !matches!(list_type, InferenceType::List(_)) {
         return Err(TypeError::new(
-            format!("Filter (⊳) requires a list, got {}", format_type(&list_type)),
+            format!("filter requires a list, got {}", format_type(&list_type)),
             Some(filter_expr.location),
         ));
     }
@@ -2574,7 +2574,7 @@ fn synthesize_filter(
 
     if !matches!(predicate_type, InferenceType::Function(_)) {
         return Err(TypeError::new(
-            format!("Filter (⊳) requires a predicate function, got {}", format_type(&predicate_type)),
+            format!("filter requires a predicate function, got {}", format_type(&predicate_type)),
             Some(filter_expr.location),
         ));
     }
@@ -2584,7 +2584,7 @@ fn synthesize_filter(
     if let (InferenceType::List(ref list), InferenceType::Function(ref pred)) = (&list_type, &predicate_type) {
         if pred.effects.as_ref().is_some_and(|effects| !effects.is_empty()) {
             return Err(TypeError::new(
-                "Filter (⊳) predicate must be pure. Sigil treats ⊳ as a canonical data-parallel operator, so effectful callbacks are not allowed.".to_string(),
+                "filter predicate must be pure. Sigil treats filter as a canonical data-parallel operator, so effectful callbacks are not allowed.".to_string(),
                 Some(filter_expr.location),
             ));
         }
@@ -2592,7 +2592,7 @@ fn synthesize_filter(
         // Predicate should be T => Bool
         if pred.params.len() != 1 {
             return Err(TypeError::new(
-                format!("Filter (⊳) predicate should take 1 parameter, got {}", pred.params.len()),
+                format!("filter predicate should take 1 parameter, got {}", pred.params.len()),
                 Some(filter_expr.location),
             ));
         }
@@ -2601,7 +2601,7 @@ fn synthesize_filter(
         if !types_equal(&normalized_param, &normalized_elem) {
             return Err(TypeError::new(
                 format!(
-                    "Filter (⊳) predicate parameter type {} doesn't match list element type {}",
+                    "filter predicate parameter type {} doesn't match list element type {}",
                     format_type(&normalized_param),
                     format_type(&normalized_elem)
                 ),
@@ -2612,7 +2612,7 @@ fn synthesize_filter(
         let (normalized_return, normalized_bool) = canonical_pair(env, &pred.return_type, &bool_type);
         if !types_equal(&normalized_return, &normalized_bool) {
             return Err(TypeError::new(
-                format!("Filter (⊳) predicate must return Bool, got {}", format_type(&normalized_return)),
+                format!("filter predicate must return Bool, got {}", format_type(&normalized_return)),
                 Some(filter_expr.location),
             ));
         }
@@ -2632,7 +2632,7 @@ fn synthesize_fold(
 
     if !matches!(list_type, InferenceType::List(_)) {
         return Err(TypeError::new(
-            format!("Fold (⊕) requires a list, got {}", format_type(&list_type)),
+            format!("reduce requires a list, got {}", format_type(&list_type)),
             Some(fold_expr.location),
         ));
     }
@@ -2641,7 +2641,7 @@ fn synthesize_fold(
 
     if !matches!(fn_type, InferenceType::Function(_)) {
         return Err(TypeError::new(
-            format!("Fold (⊕) requires a function, got {}", format_type(&fn_type)),
+            format!("reduce requires a function, got {}", format_type(&fn_type)),
             Some(fold_expr.location),
         ));
     }
@@ -2652,7 +2652,7 @@ fn synthesize_fold(
         // Function should be (Acc, T) => Acc
         if func.params.len() != 2 {
             return Err(TypeError::new(
-                format!("Fold (⊕) function should take 2 parameters, got {}", func.params.len()),
+                format!("reduce function should take 2 parameters, got {}", func.params.len()),
                 Some(fold_expr.location),
             ));
         }
@@ -2662,7 +2662,7 @@ fn synthesize_fold(
         if !types_equal(&normalized_acc_param, &normalized_init) {
             return Err(TypeError::new(
                 format!(
-                    "Fold (⊕) function first parameter type {} doesn't match initial value type {}",
+                    "reduce function first parameter type {} doesn't match initial value type {}",
                     format_type(&normalized_acc_param),
                     format_type(&normalized_init)
                 ),
@@ -2674,7 +2674,7 @@ fn synthesize_fold(
         if !types_equal(&normalized_elem_param, &normalized_elem) {
             return Err(TypeError::new(
                 format!(
-                    "Fold (⊕) function second parameter type {} doesn't match list element type {}",
+                    "reduce function second parameter type {} doesn't match list element type {}",
                     format_type(&normalized_elem_param),
                     format_type(&normalized_elem)
                 ),
@@ -2686,7 +2686,7 @@ fn synthesize_fold(
         if !types_equal(&normalized_return, &normalized_init) {
             return Err(TypeError::new(
                 format!(
-                    "Fold (⊕) function return type {} doesn't match accumulator type {}",
+                    "reduce function return type {} doesn't match accumulator type {}",
                     format_type(&normalized_return),
                     format_type(&normalized_init)
                 ),
@@ -3687,7 +3687,7 @@ mod tests {
 
     #[test]
     fn test_map_normalizes_named_product_type() {
-        let source = "t Todo={done:Bool,id:Int,text:String}\nλkeep(todo:Todo)=>Todo=todo\nλmain()=>[Todo]=[{done:false,id:1,text:\"a\"}]↦keep";
+        let source = "t Todo={done:Bool,id:Int,text:String}\nλkeep(todo:Todo)=>Todo=todo\nλmain()=>[Todo]=[{done:false,id:1,text:\"a\"}] map keep";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3697,24 +3697,24 @@ mod tests {
 
     #[test]
     fn test_map_rejects_effectful_callback() {
-        let source = "λdouble(x:Int)=>!IO Int=x*2\nλmain()=>[Int]=[1,2,3]↦double";
+        let source = "λdouble(x:Int)=>!IO Int=x*2\nλmain()=>[Int]=[1,2,3] map double";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
         let result = type_check(&program, source, TypeCheckOptions::default());
         assert!(result.is_err());
-        assert!(result.unwrap_err().message.contains("Map (↦) callback must be pure"));
+        assert!(result.unwrap_err().message.contains("map callback must be pure"));
     }
 
     #[test]
     fn test_filter_rejects_effectful_callback() {
-        let source = "λkeep(x:Int)=>!IO Bool=x>0\nλmain()=>[Int]=[1,2,3]⊳keep";
+        let source = "λkeep(x:Int)=>!IO Bool=x>0\nλmain()=>[Int]=[1,2,3] filter keep";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
         let result = type_check(&program, source, TypeCheckOptions::default());
         assert!(result.is_err());
-        assert!(result.unwrap_err().message.contains("Filter (⊳) predicate must be pure"));
+        assert!(result.unwrap_err().message.contains("filter predicate must be pure"));
     }
 
     #[test]

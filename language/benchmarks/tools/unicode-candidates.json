@@ -205,43 +205,13 @@
   },
   "MAP": {
     "symbol": "↦",
-    "category": "list_operator",
+    "category": "core_map_syntax",
     "candidates": [
       {
-        "replacement": "map",
-        "commonalityScore": 0.95,
-        "semanticFit": "high",
-        "reason": "Very common higher-order function name across mainstream and FP languages."
-      }
-    ]
-  },
-  "FILTER": {
-    "symbol": "⊳",
-    "category": "list_operator",
-    "candidates": [
-      {
-        "replacement": "filter",
-        "commonalityScore": 0.95,
-        "semanticFit": "high",
-        "reason": "Very common higher-order function name across mainstream and FP languages."
-      }
-    ]
-  },
-  "FOLD": {
-    "symbol": "⊕",
-    "category": "list_operator",
-    "candidates": [
-      {
-        "replacement": "fold",
+        "replacement": "->",
         "commonalityScore": 0.85,
         "semanticFit": "high",
-        "reason": "Common higher-order function name in FP and compiler-adjacent ecosystems."
-      },
-      {
-        "replacement": "reduce",
-        "commonalityScore": 0.95,
-        "semanticFit": "medium",
-        "reason": "Extremely common in JavaScript and data tooling, though slightly less precise than fold."
+        "reason": "Common ASCII arrow-like separator that can stand in for the core map arrow in type and literal syntax."
       }
     ]
   }

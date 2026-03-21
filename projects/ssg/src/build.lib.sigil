@@ -79,7 +79,7 @@ i stdlib::time
   copyAssetFiles(assetNames,assetSourceDir,assetTargetDir)
 }
 
-λfilterMarkdownFiles(files:[String])=>[String]=files⊳(λ(file:String)=>Bool=stdlib::string.endsWith(file,".md"))
+λfilterMarkdownFiles(files:[String])=>[String]=files filter (λ(file:String)=>Bool=stdlib::string.endsWith(file,".md"))
 
 λlistDir(path:String)=>!IO [String]=stdlib::file.listDir(path)
 
@@ -147,7 +147,7 @@ i stdlib::time
   stdlib::file.makeDirs(outputDir)
 }
 
-λremoveIntroPage(pages:[src::types.SitePage])=>[src::types.SitePage]=pages⊳(λ(page:src::types.SitePage)=>Bool=page.sourcePath≠"website/articles/README.md")
+λremoveIntroPage(pages:[src::types.SitePage])=>[src::types.SitePage]=pages filter (λ(page:src::types.SitePage)=>Bool=page.sourcePath≠"website/articles/README.md")
 
 λrenderPages(aliasRoutes:[src::types.AliasRoute],basePath:String,pages:[src::types.SitePage])=>[src::types.SitePage] match pages{
   []=>[]|

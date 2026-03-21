@@ -470,8 +470,6 @@ impl Lexer {
             '≥' => self.add_token(tokens, TokenType::GreaterEq, "≥", start),
             '¬' => self.add_token(tokens, TokenType::NOT, "¬", start),
             '↦' => self.add_token(tokens, TokenType::MAP, "↦", start),
-            '⊳' => self.add_token(tokens, TokenType::FILTER, "⊳", start),
-            '⊕' => self.add_token(tokens, TokenType::FOLD, "⊕", start),
             '⧺' => self.add_token(tokens, TokenType::ListAppend, "⧺", start),
 
             // Unicode keywords

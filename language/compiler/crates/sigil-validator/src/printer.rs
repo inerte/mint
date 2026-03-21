@@ -428,17 +428,17 @@ impl Printer {
                 )
             }
             Expr::Map(map) => format!(
-                "{}↦{}",
+                "{} map {}",
                 self.wrap_expr(&map.list, indent, precedence(expr)),
                 self.wrap_expr(&map.func, indent, precedence(expr).saturating_add(1))
             ),
             Expr::Filter(filter) => format!(
-                "{}⊳{}",
+                "{} filter {}",
                 self.wrap_expr(&filter.list, indent, precedence(expr)),
                 self.wrap_expr(&filter.predicate, indent, precedence(expr).saturating_add(1))
             ),
             Expr::Fold(fold) => format!(
-                "{}⊕{}⊕{}",
+                "{} reduce {} from {}",
                 self.wrap_expr(&fold.list, indent, precedence(expr)),
                 self.wrap_expr(&fold.func, indent, precedence(expr).saturating_add(1)),
                 self.wrap_expr(&fold.init, indent, precedence(expr).saturating_add(1))

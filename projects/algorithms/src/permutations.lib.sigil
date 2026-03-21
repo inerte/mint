@@ -9,9 +9,9 @@ i stdlib::list
 
 λpermutationsFromSelections(choices:[Selection])=>[[Int]]=stdlib::list.flatMap(λ(choice:Selection)=>[[Int]]=prependAll(choice.chosen,permutations(choice.rest)),choices)
 
-λprependAll(item:Int,xss:[[Int]])=>[[Int]]=xss↦(λ(head:[Int])=>[Int]=[item]⧺head)
+λprependAll(item:Int,xss:[[Int]])=>[[Int]]=xss map (λ(head:[Int])=>[Int]=[item]⧺head)
 
-λprependChoice(choices:[Selection],prefix:Int)=>[Selection]=choices↦(λ(choice:Selection)=>Selection={chosen:choice.chosen,rest:[prefix]⧺choice.rest})
+λprependChoice(choices:[Selection],prefix:Int)=>[Selection]=choices map (λ(choice:Selection)=>Selection={chosen:choice.chosen,rest:[prefix]⧺choice.rest})
 
 λselections(xs:[Int])=>[Selection] match xs{
   []=>[]|

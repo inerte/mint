@@ -17,7 +17,7 @@ The validator now rejects these exact recursive shapes:
 - recursive append-to-result of the form `self(rest)⧺rhs`
 - hand-rolled `all` clones
 - hand-rolled `any` clones
-- filter followed by length of the form `#(xs⊳pred)`
+- filter followed by length of the form `#(xs filter pred)`
 - hand-rolled `map` clones
 - hand-rolled `filter` clones
 - hand-rolled `find` clones
@@ -30,11 +30,11 @@ The required replacements are:
 - `stdlib::list.all` for universal checks
 - `stdlib::list.any` for existential checks
 - `stdlib::list.countIf` for predicate counting
-- `↦` for projection
-- `⊳` for filtering
+- `map` for projection
+- `filter` for filtering
 - `stdlib::list.find` for first-match search
 - `stdlib::list.flatMap` for flattening projection
-- `⊕` or `stdlib::list.fold` for reduction
+- `reduce ... from ...` or `stdlib::list.fold` for reduction
 - `stdlib::list.reverse` for reversal
 
 This is not a general optimizer and not a semantic equivalence engine. The
@@ -149,7 +149,7 @@ Rejected:
 Required:
 
 ```sigil module
-λdouble(xs:[Int])=>[Int]=xs↦(λ(x:Int)=>Int=x*2)
+λdouble(xs:[Int])=>[Int]=xs map (λ(x:Int)=>Int=x*2)
 ```
 
 ### Count
@@ -157,7 +157,7 @@ Required:
 Rejected:
 
 ```sigil invalid-module
-λcountEven(xs:[Int])=>Int=#(xs⊳isEven)
+λcountEven(xs:[Int])=>Int=#(xs filter isEven)
 ```
 
 ```json
@@ -211,7 +211,7 @@ Rejected:
 Required:
 
 ```sigil module
-λevens(xs:[Int])=>[Int]=xs⊳isEven
+λevens(xs:[Int])=>[Int]=xs filter isEven
 
 λisEven(x:Int)=>Bool=x%2=0
 ```
@@ -342,7 +342,7 @@ Rejected:
 Required:
 
 ```sigil module
-λsum(xs:[Int])=>Int=xs⊕(λ(acc:Int,x:Int)=>Int=acc+x)⊕0
+λsum(xs:[Int])=>Int=xs reduce (λ(acc:Int,x:Int)=>Int=acc+x) from 0
 ```
 
 ## Performance Angle

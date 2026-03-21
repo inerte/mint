@@ -29,7 +29,7 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-CANON-RECURSION-APPEND-RESULT: Recursive function '{function_name}' appends to the recursive result.\n\nSigil rejects recursive result-building of the form self(rest)⧺rhs.\nThis shape is non-canonical and usually rebuilds lists inefficiently.\n\nUse ↦, ⊳, or a wrapper plus accumulator helper with one final reverse.")]
+    #[error("SIGIL-CANON-RECURSION-APPEND-RESULT: Recursive function '{function_name}' appends to the recursive result.\n\nSigil rejects recursive result-building of the form self(rest)⧺rhs.\nThis shape is non-canonical and usually rebuilds lists inefficiently.\n\nUse map, filter, reduce, or a wrapper plus accumulator helper with one final reverse.")]
     RecursiveAppendResult {
         function_name: String,
         location: SourceLocation,
@@ -47,13 +47,13 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-CANON-RECURSION-MAP-CLONE: Recursive function '{function_name}' is a hand-rolled map.\n\nSigil rejects exact recursive map clones and requires the canonical operator.\n\nUse xs↦f instead of custom recursive list projection.")]
+    #[error("SIGIL-CANON-RECURSION-MAP-CLONE: Recursive function '{function_name}' is a hand-rolled map.\n\nSigil rejects exact recursive map clones and requires the canonical operator.\n\nUse xs map f instead of custom recursive list projection.")]
     RecursiveMapClone {
         function_name: String,
         location: SourceLocation,
     },
 
-    #[error("SIGIL-CANON-RECURSION-FILTER-CLONE: Recursive function '{function_name}' is a hand-rolled filter.\n\nSigil rejects exact recursive filter clones and requires the canonical operator.\n\nUse xs⊳pred instead of custom recursive list filtering.")]
+    #[error("SIGIL-CANON-RECURSION-FILTER-CLONE: Recursive function '{function_name}' is a hand-rolled filter.\n\nSigil rejects exact recursive filter clones and requires the canonical operator.\n\nUse xs filter pred instead of custom recursive list filtering.")]
     RecursiveFilterClone {
         function_name: String,
         location: SourceLocation,
@@ -77,7 +77,7 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-CANON-RECURSION-FOLD-CLONE: Recursive function '{function_name}' is a hand-rolled fold.\n\nSigil rejects exact recursive list-reduction clones and requires the canonical reduction surface.\n\nUse ⊕ or stdlib::list.fold instead of custom recursive reduction.")]
+    #[error("SIGIL-CANON-RECURSION-FOLD-CLONE: Recursive function '{function_name}' is a hand-rolled fold.\n\nSigil rejects exact recursive list-reduction clones and requires the canonical reduction surface.\n\nUse xs reduce fn from init or stdlib::list.fold instead of custom recursive reduction.")]
     RecursiveFoldClone {
         function_name: String,
         location: SourceLocation,
@@ -89,7 +89,7 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-CANON-TRAVERSAL-FILTER-COUNT: Expression uses filter then length for counting.\n\nSigil rejects the exact shape #(xs⊳pred) when a canonical one-pass counting path exists.\n\nUse stdlib::list.countIf(pred,xs) instead.")]
+    #[error("SIGIL-CANON-TRAVERSAL-FILTER-COUNT: Expression uses filter then length for counting.\n\nSigil rejects the exact shape #(xs filter pred) when a canonical one-pass counting path exists.\n\nUse stdlib::list.countIf(pred,xs) instead.")]
     FilterThenCount {
         location: SourceLocation,
     },
@@ -571,7 +571,7 @@ impl From<ValidationError> for Diagnostic {
                     format!("Recursive function '{}' appends to the recursive result", function_name),
                 )
                 .with_location(source_location_to_span(get_file(), location))
-                .with_details("guidance", "Use ↦, ⊳, or a wrapper plus accumulator helper with one final reverse.")
+                .with_details("guidance", "Use map, filter, reduce, or a wrapper plus accumulator helper with one final reverse.")
             }
 
             ValidationError::RecursiveAllClone { function_name, location } => {
@@ -601,7 +601,7 @@ impl From<ValidationError> for Diagnostic {
                     format!("Recursive function '{}' is a hand-rolled map", function_name),
                 )
                 .with_location(source_location_to_span(get_file(), location))
-                .with_details("guidance", "Use xs↦f instead of custom recursive list projection.")
+                .with_details("guidance", "Use xs map f instead of custom recursive list projection.")
             }
 
             ValidationError::RecursiveFilterClone { function_name, location } => {
@@ -611,7 +611,7 @@ impl From<ValidationError> for Diagnostic {
                     format!("Recursive function '{}' is a hand-rolled filter", function_name),
                 )
                 .with_location(source_location_to_span(get_file(), location))
-                .with_details("guidance", "Use xs⊳pred instead of custom recursive list filtering.")
+                .with_details("guidance", "Use xs filter pred instead of custom recursive list filtering.")
             }
 
             ValidationError::RecursiveFindClone { function_name, location } => {
@@ -651,7 +651,7 @@ impl From<ValidationError> for Diagnostic {
                     format!("Recursive function '{}' is a hand-rolled fold", function_name),
                 )
                 .with_location(source_location_to_span(get_file(), location))
-                .with_details("guidance", "Use ⊕ or stdlib::list.fold instead of custom recursive reduction.")
+                .with_details("guidance", "Use xs reduce fn from init or stdlib::list.fold instead of custom recursive reduction.")
             }
 
             ValidationError::BranchingSelfRecursion { function_name, location } => {
@@ -674,7 +674,7 @@ impl From<ValidationError> for Diagnostic {
                     "filter followed by length is not canonical".to_string(),
                 )
                 .with_location(source_location_to_span(get_file(), location))
-                .with_details("guidance", "Use stdlib::list.countIf(pred,xs) instead of #(xs⊳pred).")
+                .with_details("guidance", "Use stdlib::list.countIf(pred,xs) instead of #(xs filter pred).")
             }
 
             ValidationError::RecordTypeFieldOrder { type_name, field_name, prev_field, position: _, expected_order, location } => {

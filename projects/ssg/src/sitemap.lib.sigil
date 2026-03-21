@@ -8,7 +8,7 @@ i stdlib::string
 
 λallPages(data:src::types.SiteData)=>[src::types.SitePage]=[data.home,data.articlesIntro]⧺data.articles⧺data.docs⧺data.spec⧺data.standalone
 
-λpageEntries(config:src::types.SiteBuildConfig,pages:[src::types.SitePage])=>String=stdlib::string.join("",pages↦(λ(page:src::types.SitePage)=>String=pageEntry(config,page)))
+λpageEntries(config:src::types.SiteBuildConfig,pages:[src::types.SitePage])=>String=stdlib::string.join("",pages map (λ(page:src::types.SitePage)=>String=pageEntry(config,page)))
 
 λpageEntry(config:src::types.SiteBuildConfig,page:src::types.SitePage)=>String="<url><loc>"++absoluteUrl(config,page)++"</loc>"++pageLastMod(page)++"</url>"
 

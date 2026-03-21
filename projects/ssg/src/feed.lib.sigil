@@ -13,7 +13,7 @@ i stdlib::string
   false=>""
 }
 
-λarticleEntries(config:src::types.SiteBuildConfig,pages:[src::types.SitePage])=>String=stdlib::string.join("",pages↦(λ(page:src::types.SitePage)=>String=articleEntry(config,page)))
+λarticleEntries(config:src::types.SiteBuildConfig,pages:[src::types.SitePage])=>String=stdlib::string.join("",pages map (λ(page:src::types.SitePage)=>String=articleEntry(config,page)))
 
 λarticleEntry(config:src::types.SiteBuildConfig,page:src::types.SitePage)=>String="<entry><id>"++escapeXml(absolutePageUrl(config,page))++"</id><title>"++escapeXml(page.meta.title)++"</title><link href=\""++escapeXml(absolutePageUrl(config,page))++"\"/>"++articleUpdated(page)++articleSummary(page)++articleAuthor(page)++"</entry>"
 

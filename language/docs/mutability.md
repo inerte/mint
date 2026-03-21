@@ -12,7 +12,7 @@ Sigil uses **immutable by default** with explicit `mut` annotations for mutabili
 
 **Purpose:** The `mut` keyword is primarily for **FFI type safety** - marking JavaScript functions that mutate their arguments. This prevents accidental aliasing bugs when calling JavaScript code.
 
-**Note:** Sigil itself has NO mutating operations. All list operations (↦, ⊳, ⊕) are immutable. This preserves canonical forms - there's exactly ONE way to write each algorithm.
+**Note:** Sigil itself has NO mutating operations. All list operations (`map`, `filter`, `reduce ... from ...`) are immutable. This preserves canonical forms - there's exactly ONE way to write each algorithm.
 
 ## Rules
 
@@ -21,7 +21,7 @@ Sigil uses **immutable by default** with explicit `mut` annotations for mutabili
 All values are immutable unless marked `mut`:
 
 ```text
-λsum(list:[Int])=>Int=list⊕(λ(a:Int,x:Int)=>Int=a+x)⊕0
+λsum(list:[Int])=>Int=list reduce (λ(a:Int,x:Int)=>Int=a+x) from 0
 ⟦ list cannot be modified ⟧
 ```
 
@@ -57,7 +57,7 @@ e Array
 λsortJS(arr:mut [Int])=>Unit=Array.sort(arr)  ⟦ JS Array.sort mutates ⟧
 
 ⟦ Pure Sigil code uses immutable operations ⟧
-λsorted(list:[Int])=>[Int]=list↦λ(x)=>x  ⟦ Returns new sorted list ⟧
+λsorted(list:[Int])=>[Int]=list map λ(x)=>x  ⟦ Returns new sorted list ⟧
 ```
 
 ## Examples
@@ -66,7 +66,7 @@ e Array
 
 ```text
 ⟦ Immutable list operations (canonical form) ⟧
-λdouble(list:[Int])=>[Int]=list↦λ(x:Int)=>Int=x*2
+λdouble(list:[Int])=>[Int]=list map λ(x:Int)=>Int=x*2
 
 ⟦ FFI with mutation ⟧
 e Array
@@ -74,8 +74,8 @@ e Array
 
 ⟦ Multiple immutable uses (OK) ⟧
 λprocess(data:[Int])=>Int match {
-  let sum=data⊕λ(a,x)=>a+x⊕0
-  let len=data⊕λ(a,_)=>a+1⊕0
+  let sum=data reduce λ(a,x)=>a+x from 0
+  let len=data reduce λ(a,_)=>a+1 from 0
   sum/len
 }
 ```
@@ -220,7 +220,7 @@ Mutability Error: Cannot create alias of mutable value 'x'
 ```
 Mutability Error: Cannot mutate immutable parameter 'list'
 
-  5 | λprocess(list:[Int])=>Unit=list↦!λ(x)=>x*2
+  5 | λprocess(list:[Int])=>Unit=list map! λ(x)=>x*2
                          ^^^^^^^^^^^^^^^^
 ```
 
@@ -239,10 +239,10 @@ This helps prevent accidental side effects and documents function behavior clear
 
 ### NOT Planned: Mutating Operations
 
-Sigil will **not** have mutating list operations like `↦!` or `⊳!`.
+Sigil will **not** have mutating list operations like `map!` or `filter!`.
 
 **Reason:** Violates canonical forms. Having both mutable and immutable versions creates ambiguity:
-- `list↦fn` vs `list↦!fn` - which should LLMs choose?
+- `list map fn` vs `list map! fn` - which should LLMs choose?
 
 Sigil enforces **ONE way** to write each algorithm. All list operations are immutable.
 
@@ -273,7 +273,7 @@ e console
 }
 
 ⟦ Pure Sigil sorting returns new list ⟧
-λsorted(list:[Int])=>[Int]=list↦λ(x)=>x
+λsorted(list:[Int])=>[Int]=list map λ(x)=>x
 ```
 
 ## Summary

@@ -60,7 +60,10 @@ pub enum Expr {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LiteralExpr {
     #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_literal_value"))]
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_literal_value"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_literal_value")
+    )]
     pub value: LiteralValue,
     #[cfg_attr(feature = "serde", serde(rename = "literalType"))]
     pub literal_type: LiteralType,
@@ -201,9 +204,9 @@ pub struct IdentifierExpr {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LambdaExpr {
     pub params: Vec<Param>,
-    pub effects: Vec<String>,     // Effect annotations: ['IO', 'Network', 'Error', 'Mut']
+    pub effects: Vec<String>, // Effect annotations: ['IO', 'Network', 'Error', 'Mut']
     #[cfg_attr(feature = "serde", serde(rename = "returnType"))]
-    pub return_type: Type,         // Mandatory (canonical form)
+    pub return_type: Type, // Mandatory (canonical form)
     pub body: Expr,
     pub location: SourceLocation,
 }
@@ -347,7 +350,7 @@ pub struct MatchExpr {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MatchArm {
     pub pattern: Pattern,
-    pub guard: Option<Expr>,  // Optional pattern guard: when boolean_expr
+    pub guard: Option<Expr>, // Optional pattern guard: when boolean_expr
     pub body: Expr,
     pub location: SourceLocation,
 }
@@ -493,13 +496,14 @@ pub struct FoldExpr {
     pub location: SourceLocation,
 }
 
-/// Concurrent region: concurrent name({config}){spawn ...}
+/// Concurrent region: concurrent name@width:{policy}{spawn ...}
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConcurrentExpr {
-    pub config: RecordExpr,
     pub name: String,
+    pub policy: Option<RecordExpr>,
     pub steps: Vec<ConcurrentStep>,
+    pub width: Expr,
     pub location: SourceLocation,
 }
 
@@ -532,8 +536,8 @@ pub struct SpawnEachStep {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MemberAccessExpr {
-    pub namespace: Vec<String>,    // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs::promises)
-    pub member: String,             // 'readFile' or 'get'
+    pub namespace: Vec<String>, // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs::promises)
+    pub member: String,         // 'readFile' or 'get'
     pub location: SourceLocation,
 }
 
@@ -560,14 +564,11 @@ pub struct TypeAscriptionExpr {
 #[cfg(all(test, feature = "serde"))]
 mod tests {
     use super::*;
-    use crate::{Type, PrimitiveType, PrimitiveName};
+    use crate::{PrimitiveName, PrimitiveType, Type};
     use sigil_lexer::{Position, SourceLocation};
 
     fn test_loc() -> SourceLocation {
-        SourceLocation::new(
-            Position::new(1, 1, 0),
-            Position::new(1, 10, 10),
-        )
+        SourceLocation::new(Position::new(1, 1, 0), Position::new(1, 10, 10))
     }
 
     fn int_type() -> Type {
@@ -683,8 +684,14 @@ mod tests {
         };
 
         let json = serde_json::to_value(&lambda).unwrap();
-        assert!(json.get("returnType").is_some(), "Field should be 'returnType' not 'return_type'");
-        assert!(json.get("return_type").is_none(), "Field should not be 'return_type'");
+        assert!(
+            json.get("returnType").is_some(),
+            "Field should be 'returnType' not 'return_type'"
+        );
+        assert!(
+            json.get("return_type").is_none(),
+            "Field should not be 'return_type'"
+        );
 
         let if_expr = IfExpr {
             condition: Expr::Literal(LiteralExpr {
@@ -706,8 +713,14 @@ mod tests {
         };
 
         let json = serde_json::to_value(&if_expr).unwrap();
-        assert!(json.get("thenBranch").is_some(), "Field should be 'thenBranch' not 'then_branch'");
-        assert!(json.get("elseBranch").is_some(), "Field should be 'elseBranch' not 'else_branch'");
+        assert!(
+            json.get("thenBranch").is_some(),
+            "Field should be 'thenBranch' not 'then_branch'"
+        );
+        assert!(
+            json.get("elseBranch").is_some(),
+            "Field should be 'elseBranch' not 'else_branch'"
+        );
     }
 
     #[test]

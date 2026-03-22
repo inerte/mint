@@ -7,11 +7,10 @@ slug: named-concurrent-regions
 
 # Named Concurrent Regions in Sigil
 
-Sigil now uses explicit named concurrent regions for batch concurrency.
+Sigil uses explicit named concurrent regions for batch concurrency.
 
-This replaces the older broad default-fanout direction. The language still
-keeps one promise-shaped runtime model, but widening work is now explicit,
-bounded, and policy-driven.
+The language keeps one promise-shaped runtime model, but widening work is
+explicit, bounded, and policy-driven.
 
 ## The Problem
 
@@ -28,14 +27,14 @@ Those are not properties of `map`. They are properties of an execution region.
 
 ## The Surface
 
-Sigil now has one canonical concurrency surface:
+Sigil has one canonical concurrency surface:
 
 ```sigil module
 λisSystemic(err:String)=>Bool=err="NETWORK"
 
 λprocessUrl(url:String)=>!IO Result[Int,String]=Ok(#url)
 
-λrun(urls:[String])=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:5,jitterMs:Some({max:25,min:1}),stopOn:isSystemic,windowMs:Some(1000)}){
+λrun(urls:[String])=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5:{jitterMs:Some({max:25,min:1}),stopOn:isSystemic,windowMs:Some(1000)}{
   spawnEach urls processUrl
 }
 ```
@@ -43,16 +42,24 @@ Sigil now has one canonical concurrency surface:
 Important points:
 
 - the region is named
-- the config is an exact record literal
-- config fields are alphabetical
+- width is required after `@`
+- policy is optional and exact when present
+- policy fields are alphabetical
 - the body is spawn-only
 
-Current config fields are:
+Current policy fields are:
 
-- `concurrency`
 - `jitterMs`
 - `stopOn`
 - `windowMs`
+
+Minimal form:
+
+```sigil module
+λrun(urls:[String])=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5{
+  spawnEach urls processUrl
+}
+```
 
 ## Why It Is a Region
 
@@ -121,18 +128,12 @@ Sigil still keeps:
 
 Those operators are canonical value transforms, not the concurrency surface.
 
-## What Changed in the Backend
+## Runtime Model
 
-Two things changed together:
-
-1. ordinary expression composition no longer lowers through broad implicit
-   overlap
-2. named concurrent regions now own explicit bounded scheduling
-
-That gives the runtime one clearer story:
+The runtime keeps one clear story:
 
 - normal code is promise-shaped, but not silently widened
-- concurrent batching happens only inside `concurrent name(config){...}`
+- concurrent batching happens only inside `concurrent name@width{...}`
 
 ## Why This Is Better
 

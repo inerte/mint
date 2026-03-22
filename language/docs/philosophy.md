@@ -190,7 +190,7 @@ e fs::promises
 
 Both use the same source form. Ordinary composition stays uniform, but explicit
 batch concurrency now lives in named regions like
-`concurrent urlAudit({concurrency:5,...}){...}`.
+`concurrent urlAudit@5:{windowMs:Some(1000)}{...}`.
 
 **Benefits:**
 - **Canonical forms preserved** - ONE way to write functions

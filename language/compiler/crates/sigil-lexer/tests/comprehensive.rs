@@ -65,7 +65,7 @@ fn test_all_keywords() {
 
 #[test]
 fn test_all_delimiters() {
-    let source = "( ) [ ] { } , : . ; | _ ..";
+    let source = "( ) [ ] { } , : . ; @ | _ ..";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::LPAREN);
@@ -78,9 +78,10 @@ fn test_all_delimiters() {
     assert_eq!(tokens[7].token_type, TokenType::COLON);
     assert_eq!(tokens[8].token_type, TokenType::DOT);
     assert_eq!(tokens[9].token_type, TokenType::SEMICOLON);
-    assert_eq!(tokens[10].token_type, TokenType::PipeSep);
-    assert_eq!(tokens[11].token_type, TokenType::UNDERSCORE);
-    assert_eq!(tokens[12].token_type, TokenType::DOTDOT);
+    assert_eq!(tokens[10].token_type, TokenType::AT);
+    assert_eq!(tokens[11].token_type, TokenType::PipeSep);
+    assert_eq!(tokens[12].token_type, TokenType::UNDERSCORE);
+    assert_eq!(tokens[13].token_type, TokenType::DOTDOT);
 }
 
 #[test]

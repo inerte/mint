@@ -576,11 +576,17 @@ impl Printer {
     }
 
     fn concurrent_text(&self, concurrent: &ConcurrentExpr, indent: usize) -> String {
-        let mut out = format!(
-            "concurrent {}({}){{",
-            concurrent.name,
-            self.record_text(&concurrent.config, indent)
-        );
+        let width = if self.concurrent_width_can_be_bare(&concurrent.width) {
+            self.expr(&concurrent.width, indent, 0)
+        } else {
+            format!("({})", self.expr(&concurrent.width, indent, 0))
+        };
+        let mut out = format!("concurrent {}@{}", concurrent.name, width);
+        if let Some(policy) = self.concurrent_policy_for_print(concurrent) {
+            out.push(':');
+            out.push_str(&self.record_text(&policy, indent));
+        }
+        out.push('{');
         for step in &concurrent.steps {
             out.push('\n');
             out.push_str(&INDENT.repeat(indent + 1));
@@ -601,6 +607,77 @@ impl Printer {
         out.push_str(&INDENT.repeat(indent));
         out.push('}');
         out
+    }
+
+    fn concurrent_policy_for_print(&self, concurrent: &ConcurrentExpr) -> Option<RecordExpr> {
+        let policy = concurrent.policy.as_ref()?;
+        let fields = policy
+            .fields
+            .iter()
+            .filter(|field| match field.name.as_str() {
+                "jitterMs" | "windowMs" => !self.is_none_expr(&field.value),
+                "stopOn" => !self.is_default_stop_on_expr(&field.value),
+                _ => true,
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if fields.is_empty() {
+            None
+        } else {
+            Some(RecordExpr {
+                fields,
+                location: policy.location,
+            })
+        }
+    }
+
+    fn concurrent_width_can_be_bare(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Identifier(_) | Expr::MemberAccess(_) => true,
+            Expr::Literal(literal) => matches!(literal.value, LiteralValue::Int(_)),
+            Expr::Application(application) => self.concurrent_width_can_be_bare(&application.func),
+            Expr::FieldAccess(access) => self.concurrent_width_can_be_bare(&access.object),
+            Expr::Index(index) => self.concurrent_width_can_be_bare(&index.object),
+            _ => false,
+        }
+    }
+
+    fn is_none_expr(&self, expr: &Expr) -> bool {
+        matches!(
+            expr,
+            Expr::Application(application)
+                if matches!(&application.func, Expr::Identifier(id) if id.name == "None")
+                    && application.args.is_empty()
+        )
+    }
+
+    fn is_default_stop_on_expr(&self, expr: &Expr) -> bool {
+        let Expr::Lambda(lambda) = expr else {
+            return false;
+        };
+
+        if !lambda.effects.is_empty() || lambda.params.len() != 1 {
+            return false;
+        }
+
+        if !matches!(
+            lambda.return_type,
+            Type::Primitive(PrimitiveType {
+                name: PrimitiveName::Bool,
+                ..
+            })
+        ) {
+            return false;
+        }
+
+        matches!(
+            &lambda.body,
+            Expr::Literal(LiteralExpr {
+                value: LiteralValue::Bool(false),
+                ..
+            })
+        )
     }
 
     fn record_text(&self, record: &RecordExpr, indent: usize) -> String {

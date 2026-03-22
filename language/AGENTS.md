@@ -110,8 +110,9 @@ Current constructor and list invariants:
 - if a canonical helper exists in `stdlib`, prefer it over project-local reimplementation
 - in first-party Sigil code outside `language/stdlib/`, do not locally redefine canonical stdlib helpers; use qualified calls like `stdlib::list.sum` and `stdlib::numeric.max`
 - for safe integer list lookup/end access, prefer `stdlib::list.nth` and `stdlib::list.last`
-- Sigil keeps one promise-shaped runtime model, but broad implicit fanout is no longer the concurrency story
-- explicit widening uses named `concurrent` regions with alphabetical config fields: `concurrency`, `jitterMs`, `stopOn`, `windowMs`
+- Sigil keeps one promise-shaped runtime model, and explicit widening uses named `concurrent` regions
+- the canonical concurrent-region surface is `concurrent name@width{...}` or `concurrent name@width:{jitterMs:...,stopOn:...,windowMs:...}{...}`
+- only `width` is required; omitted policy defaults to no jitter, no early stop, and no windowing
 - ordinary `map` and `filter` are pure list transforms, not concurrency controls
 - `map` and `filter` require pure callbacks; `reduce ... from ...` is the ordered reduction form
 - `!Async` is not a valid effect annotation

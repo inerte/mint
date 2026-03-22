@@ -2515,10 +2515,28 @@ impl TypeScriptGenerator {
         &mut self,
         concurrent: &TypedConcurrentExpr,
     ) -> Result<String, CodegenError> {
-        let concurrency = self.generate_expression(&concurrent.config.concurrency)?;
-        let jitter_ms = self.generate_expression(&concurrent.config.jitter_ms)?;
-        let stop_on = self.generate_expression(&concurrent.config.stop_on)?;
-        let window_ms = self.generate_expression(&concurrent.config.window_ms)?;
+        let width = self.generate_expression(&concurrent.config.width)?;
+        let jitter_ms = concurrent
+            .config
+            .jitter_ms
+            .as_ref()
+            .map(|expr| self.generate_expression(expr))
+            .transpose()?
+            .unwrap_or_else(|| self.js_ready("{ __tag: \"None\", __fields: [] }"));
+        let stop_on = concurrent
+            .config
+            .stop_on
+            .as_ref()
+            .map(|expr| self.generate_expression(expr))
+            .transpose()?
+            .unwrap_or_else(|| self.js_ready("(__sigil_error) => false"));
+        let window_ms = concurrent
+            .config
+            .window_ms
+            .as_ref()
+            .map(|expr| self.generate_expression(expr))
+            .transpose()?
+            .unwrap_or_else(|| self.js_ready("{ __tag: \"None\", __fields: [] }"));
 
         let mut body_lines = Vec::new();
         body_lines.push("const __sigil_tasks = [];".to_string());
@@ -2555,7 +2573,7 @@ impl TypeScriptGenerator {
 
         Ok(format!(
             "(async () => {{\n  const [__sigil_concurrency, __sigil_jitterMs, __sigil_stopOn, __sigil_windowMs] = await {};\n{}\n  return __sigil_concurrent_region({}, {{ concurrency: __sigil_concurrency, jitterMs: __sigil_jitterMs, stopOn: __sigil_stopOn, windowMs: __sigil_windowMs }}, __sigil_tasks);\n}})()",
-            self.js_all(&[concurrency, jitter_ms, stop_on, window_ms]),
+            self.js_all(&[width, jitter_ms, stop_on, window_ms]),
             body,
             serde_json::to_string(&concurrent.name).unwrap()
         ))
@@ -2924,7 +2942,7 @@ mod tests {
 
     #[test]
     fn test_generate_concurrent_region_uses_scheduler_helper() {
-        let source = "t ConcurrentOutcome[T,E]=Aborted()|Failure(E)|Success(T)\nt Option[T]=Some(T)|None()\nt Result[T,E]=Ok(T)|Err(E)\nλmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:2,jitterMs:None(),stopOn:stopOn,windowMs:None()}){spawnEach [1,2] process}\nλprocess(value:Int)=>!IO Result[Int,String]=Ok(value)\nλstopOn(err:String)=>Bool=false";
+        let source = "t ConcurrentOutcome[T,E]=Aborted()|Failure(E)|Success(T)\nt Option[T]=Some(T)|None()\nt Result[T,E]=Ok(T)|Err(E)\nλmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@2{spawnEach [1,2] process}\nλprocess(value:Int)=>!IO Result[Int,String]=Ok(value)";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());

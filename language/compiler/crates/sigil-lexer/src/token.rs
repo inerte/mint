@@ -222,6 +222,9 @@ pub enum TokenType {
     #[token("..")]
     DOTDOT,
 
+    #[token("@")]
+    AT,
+
     #[token("|")]
     PipeSep,
 

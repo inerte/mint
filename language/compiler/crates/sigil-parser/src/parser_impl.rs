@@ -1022,10 +1022,11 @@ impl Parser {
     }
 
     fn postfix(&mut self) -> Result<Expr, ParseError> {
-        let mut expr = self.primary()?;
+        let expr = self.primary()?;
+        self.extend_postfix(expr)
+    }
 
-        // Due to complexity, I'll implement a simplified postfix that handles
-        // field access, index, and application
+    fn extend_postfix(&mut self, mut expr: Expr) -> Result<Expr, ParseError> {
         loop {
             // Typed record construction: TypeName{field:value, ...}
             // Only for UPPERCASE identifiers (type names)
@@ -1247,7 +1248,7 @@ impl Parser {
             return self.match_expression();
         }
 
-        // Concurrent expression: concurrent name({config}){spawn ...}
+        // Concurrent expression: concurrent name@width:{policy}{spawn ...}
         if self.match_token(TokenType::Concurrent) {
             return self.concurrent_expression();
         }
@@ -1425,24 +1426,23 @@ impl Parser {
             .consume(TokenType::IDENTIFIER, "Expected concurrent region name")?
             .value
             .clone();
-        self.consume(
-            TokenType::LPAREN,
-            "Expected \"(\" before concurrent region config",
-        )?;
-        self.consume(
-            TokenType::LBRACE,
-            "Expected record literal config for concurrent region",
-        )?;
-        let config = self.record_expression()?;
-        let Expr::Record(config) = config else {
-            return Err(self.error(
-                "Concurrent region config must be a record literal (canonical form: concurrent name({concurrency:...,jitterMs:...,stopOn:...,windowMs:...}){...})",
-            ));
+        self.consume(TokenType::AT, "Expected \"@\" before concurrent region width")?;
+        let width = self.concurrent_width_expression()?;
+        let policy = if self.match_token(TokenType::COLON) {
+            self.consume(
+                TokenType::LBRACE,
+                "Expected record literal after \":\" in concurrent region policy",
+            )?;
+            let policy = self.record_expression()?;
+            let Expr::Record(policy) = policy else {
+                return Err(self.error(
+                    "Concurrent region policy must be a record literal (canonical form: concurrent name@width:{jitterMs:...,stopOn:...,windowMs:...}{...})",
+                ));
+            };
+            Some(policy)
+        } else {
+            None
         };
-        self.consume(
-            TokenType::RPAREN,
-            "Expected \")\" after concurrent region config",
-        )?;
         self.consume(
             TokenType::LBRACE,
             "Expected \"{\" before concurrent region body",
@@ -1478,11 +1478,34 @@ impl Parser {
         self.consume(TokenType::RBRACE, "Expected \"}\" after concurrent region body")?;
         let end = self.previous();
         Ok(Expr::Concurrent(Box::new(ConcurrentExpr {
-            config,
             name,
+            policy,
             steps,
+            width,
             location: self.make_location(start.location.start, end.location.end),
         })))
+    }
+
+    fn concurrent_width_expression(&mut self) -> Result<Expr, ParseError> {
+        if self.match_token(TokenType::LPAREN) {
+            let width = self.expression()?;
+            self.consume(
+                TokenType::RPAREN,
+                "Expected \")\" after parenthesized concurrent region width",
+            )?;
+            return Ok(width);
+        }
+
+        let width = self.primary()?;
+        let width = self.extend_postfix(width)?;
+
+        if !self.check(TokenType::COLON) && !self.check(TokenType::LBRACE) {
+            return Err(self.error(
+                "Complex concurrent region width expressions must be parenthesized (canonical form: concurrent name@(expr){...})",
+            ));
+        }
+
+        Ok(width)
     }
 
     fn list_expression(&mut self) -> Result<Expr, ParseError> {
@@ -2124,7 +2147,7 @@ mod tests {
 
     #[test]
     fn test_concurrent_region_parse() {
-        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:1,jitterMs:None(),stopOn:stopOn,windowMs:None()}){spawnEach [1,2] process}\nλprocess(value:Int)=>!IO Result[Int,String]=Ok(value)\nλstopOn(err:String)=>Bool=false";
+        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@getLimit():{stopOn:shouldStop}{spawnEach [1,2] process}\nλgetLimit()=>Int=1\nλprocess(value:Int)=>!IO Result[Int,String]=Ok(value)\nλshouldStop(err:String)=>Bool=false";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
         let Declaration::Function(function) = &program.declarations[0] else {
@@ -2136,5 +2159,14 @@ mod tests {
         assert_eq!(concurrent.name, "urlAudit");
         assert_eq!(concurrent.steps.len(), 1);
         assert!(matches!(concurrent.steps[0], ConcurrentStep::SpawnEach(_)));
+        assert!(concurrent.policy.is_some());
+    }
+
+    #[test]
+    fn test_legacy_concurrent_region_syntax_rejected() {
+        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:1}){spawnEach [1,2] process}\nλprocess(value:Int)=>!IO Result[Int,String]=Ok(value)";
+        let tokens = tokenize(source).unwrap();
+        let result = parse(tokens, "test.sigil");
+        assert!(result.is_err());
     }
 }

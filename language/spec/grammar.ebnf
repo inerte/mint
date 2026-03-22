@@ -78,10 +78,10 @@ LetExpr = "l" , Pattern , "=" , Expr , ";" , Expr ;
 LambdaExpr = "λ" , "(" , [ ParamList ] , ")" , "=>" , [ Effects ] , Type , LambdaBody ;
 LambdaBody = "=" , Expr | MatchExpr ;
 
-ConcurrentExpr = "concurrent" , Identifier , "(" , ConcurrentConfig , ")" , "{" , ConcurrentStep , { ConcurrentStep } , "}" ;
-ConcurrentConfig = "{" , ConcurrentConfigField , { "," , ConcurrentConfigField } , "}" ;
-ConcurrentConfigField = "concurrency" , ":" , Expr
-                      | "jitterMs" , ":" , Expr
+ConcurrentExpr = "concurrent" , Identifier , "@" , ConcurrentWidth , [ ":" , ConcurrentPolicy ] , "{" , ConcurrentStep , { ConcurrentStep } , "}" ;
+ConcurrentWidth = Expr ;
+ConcurrentPolicy = "{" , ConcurrentPolicyField , { "," , ConcurrentPolicyField } , "}" ;
+ConcurrentPolicyField = "jitterMs" , ":" , Expr
                       | "stopOn" , ":" , Expr
                       | "windowMs" , ":" , Expr ;
 ConcurrentStep = SpawnStep | SpawnEachStep ;

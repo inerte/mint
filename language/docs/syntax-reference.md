@@ -355,7 +355,7 @@ Examples:
 Sigil uses one explicit concurrency surface:
 
 ```sigil module
-λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:5,jitterMs:Some({max:25,min:1}),stopOn:shouldStop,windowMs:Some(1000)}){
+λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5:{jitterMs:Some({max:25,min:1}),stopOn:shouldStop,windowMs:Some(1000)}{
   spawn one()
   spawnEach [1,2,3] process
 }
@@ -369,10 +369,10 @@ Sigil uses one explicit concurrency surface:
 
 Rules:
 
-- regions are named: `concurrent name(config){...}`
-- config must be a record literal
-- config fields are canonical alphabetical order:
-  - `concurrency`
+- regions are named: `concurrent name@width{...}`
+- width is required after `@`
+- optional policy attaches as `:{...}`
+- policy fields are canonical alphabetical order:
   - `jitterMs`
   - `stopOn`
   - `windowMs`
@@ -382,6 +382,8 @@ Rules:
 - `spawn` requires an effectful computation returning `Result[T,E]`
 - `spawnEach` requires a list and an effectful function returning `Result[T,E]`
 - regions return `[ConcurrentOutcome[T,E]]`
+
+Omitted policy defaults to no jitter, no early stop, and no windowing.
 
 `windowMs` and `jitterMs` belong to the region policy, not to `map` or `filter`.
 

@@ -557,8 +557,11 @@ fn validate_expr_layout(expr: &Expr, source: &str, errors: &mut Vec<ValidationEr
             validate_expr_layout(&fold.init, source, errors);
         }
         Expr::Concurrent(concurrent) => {
-            for field in &concurrent.config.fields {
-                validate_expr_layout(&field.value, source, errors);
+            validate_expr_layout(&concurrent.width, source, errors);
+            if let Some(policy) = &concurrent.policy {
+                for field in &policy.fields {
+                    validate_expr_layout(&field.value, source, errors);
+                }
             }
             for step in &concurrent.steps {
                 match step {
@@ -833,10 +836,16 @@ fn collect_single_use_pure_bindings(expr: &TypedExpr, errors: &mut Vec<Validatio
             collect_single_use_pure_bindings(&pipeline.right, errors);
         }
         TypedExprKind::Concurrent(concurrent) => {
-            collect_single_use_pure_bindings(&concurrent.config.concurrency, errors);
-            collect_single_use_pure_bindings(&concurrent.config.jitter_ms, errors);
-            collect_single_use_pure_bindings(&concurrent.config.stop_on, errors);
-            collect_single_use_pure_bindings(&concurrent.config.window_ms, errors);
+            collect_single_use_pure_bindings(&concurrent.config.width, errors);
+            if let Some(jitter_ms) = &concurrent.config.jitter_ms {
+                collect_single_use_pure_bindings(jitter_ms, errors);
+            }
+            if let Some(stop_on) = &concurrent.config.stop_on {
+                collect_single_use_pure_bindings(stop_on, errors);
+            }
+            if let Some(window_ms) = &concurrent.config.window_ms {
+                collect_single_use_pure_bindings(window_ms, errors);
+            }
             for step in &concurrent.steps {
                 match step {
                     TypedConcurrentStep::Spawn(spawn) => collect_single_use_pure_bindings(&spawn.expr, errors),
@@ -959,10 +968,25 @@ fn count_identifier_uses(expr: &TypedExpr, name: &str) -> usize {
             count_identifier_uses(&pipeline.left, name) + count_identifier_uses(&pipeline.right, name)
         }
         TypedExprKind::Concurrent(concurrent) => {
-            count_identifier_uses(&concurrent.config.concurrency, name)
-                + count_identifier_uses(&concurrent.config.jitter_ms, name)
-                + count_identifier_uses(&concurrent.config.stop_on, name)
-                + count_identifier_uses(&concurrent.config.window_ms, name)
+            count_identifier_uses(&concurrent.config.width, name)
+                + concurrent
+                    .config
+                    .jitter_ms
+                    .as_ref()
+                    .map(|expr| count_identifier_uses(expr, name))
+                    .unwrap_or(0)
+                + concurrent
+                    .config
+                    .stop_on
+                    .as_ref()
+                    .map(|expr| count_identifier_uses(expr, name))
+                    .unwrap_or(0)
+                + concurrent
+                    .config
+                    .window_ms
+                    .as_ref()
+                    .map(|expr| count_identifier_uses(expr, name))
+                    .unwrap_or(0)
                 + concurrent
                     .steps
                     .iter()
@@ -1262,11 +1286,14 @@ fn validate_expr_record_fields(expr: &Expr, errors: &mut Vec<ValidationError>) {
             validate_expr_record_fields(&fold.init, errors);
         }
         Expr::Concurrent(concurrent) => {
-            if let Err(e) = validate_record_literal_field_ordering(&concurrent.config.fields, concurrent.config.location) {
-                errors.extend(e);
-            }
-            for field in &concurrent.config.fields {
-                validate_expr_record_fields(&field.value, errors);
+            validate_expr_record_fields(&concurrent.width, errors);
+            if let Some(policy) = &concurrent.policy {
+                if let Err(e) = validate_record_literal_field_ordering(&policy.fields, policy.location) {
+                    errors.extend(e);
+                }
+                for field in &policy.fields {
+                    validate_expr_record_fields(&field.value, errors);
+                }
             }
             for step in &concurrent.steps {
                 match step {
@@ -1558,8 +1585,11 @@ fn validate_expr_no_shadowing(expr: &Expr, scopes: &mut Vec<ScopeFrame>, errors:
             validate_expr_no_shadowing(&fold.init, scopes, errors);
         }
         Expr::Concurrent(concurrent) => {
-            for field in &concurrent.config.fields {
-                validate_expr_no_shadowing(&field.value, scopes, errors);
+            validate_expr_no_shadowing(&concurrent.width, scopes, errors);
+            if let Some(policy) = &concurrent.policy {
+                for field in &policy.fields {
+                    validate_expr_no_shadowing(&field.value, scopes, errors);
+                }
             }
             for step in &concurrent.steps {
                 match step {
@@ -2159,15 +2189,18 @@ fn validate_identifier_forms_in_expr(expr: &Expr, errors: &mut Vec<ValidationErr
                     location: concurrent.location,
                 });
             }
-            for field in &concurrent.config.fields {
-                if !is_lower_camel_case(&field.name) {
-                    errors.push(ValidationError::RecordFieldForm {
-                        found: field.name.clone(),
-                        suggestion: suggestion_suffix(&field.name, to_lower_camel_case(&field.name)),
-                        location: field.location,
-                    });
+            validate_identifier_forms_in_expr(&concurrent.width, errors);
+            if let Some(policy) = &concurrent.policy {
+                for field in &policy.fields {
+                    if !is_lower_camel_case(&field.name) {
+                        errors.push(ValidationError::RecordFieldForm {
+                            found: field.name.clone(),
+                            suggestion: suggestion_suffix(&field.name, to_lower_camel_case(&field.name)),
+                            location: field.location,
+                        });
+                    }
+                    validate_identifier_forms_in_expr(&field.value, errors);
                 }
-                validate_identifier_forms_in_expr(&field.value, errors);
             }
             for step in &concurrent.steps {
                 match step {
@@ -2650,8 +2683,11 @@ fn collect_with_mock_outside_tests_in_test_expr(
             collect_with_mock_outside_tests_in_test_expr(&type_ascription.expr, in_test_body, errors);
         }
         Expr::Concurrent(concurrent) => {
-            for field in &concurrent.config.fields {
-                collect_with_mock_outside_tests_in_test_expr(&field.value, in_test_body, errors);
+            collect_with_mock_outside_tests_in_test_expr(&concurrent.width, in_test_body, errors);
+            if let Some(policy) = &concurrent.policy {
+                for field in &policy.fields {
+                    collect_with_mock_outside_tests_in_test_expr(&field.value, in_test_body, errors);
+                }
             }
             for step in &concurrent.steps {
                 match step {
@@ -3463,8 +3499,11 @@ fn collect_filter_then_count_in_expr(expr: &Expr, errors: &mut Vec<ValidationErr
             collect_filter_then_count_in_expr(&fold.init, errors);
         }
         Expr::Concurrent(concurrent) => {
-            for field in &concurrent.config.fields {
-                collect_filter_then_count_in_expr(&field.value, errors);
+            collect_filter_then_count_in_expr(&concurrent.width, errors);
+            if let Some(policy) = &concurrent.policy {
+                for field in &policy.fields {
+                    collect_filter_then_count_in_expr(&field.value, errors);
+                }
             }
             for step in &concurrent.steps {
                 match step {
@@ -3616,7 +3655,7 @@ mod tests {
 
     #[test]
     fn test_concurrent_config_fields_must_be_alphabetical() {
-        let source = r#"λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({windowMs:None(),concurrency:1,jitterMs:None(),stopOn:stopOn}){
+        let source = r#"λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@1:{windowMs:None(),jitterMs:None(),stopOn:stopOn}{
   spawn one()
 }
 
@@ -3632,6 +3671,25 @@ mod tests {
         assert!(result.unwrap_err().iter().any(|error| matches!(
             error,
             ValidationError::RecordLiteralFieldOrder { .. }
+        )));
+    }
+
+    #[test]
+    fn test_concurrent_default_policy_fields_must_be_omitted() {
+        let source = r#"λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@1:{jitterMs:None(),windowMs:None()}{
+  spawn one()
+}
+
+λone()=>!IO Result[Int,String]=Ok(1)
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = validate_canonical_form(&program, Some("test.sigil"), Some(source));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|error| matches!(
+            error,
+            ValidationError::SourceForm { .. }
         )));
     }
 

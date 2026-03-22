@@ -40,7 +40,7 @@ Examples of strict consumers include:
 Sigil widens work only through named concurrent regions:
 
 ```text
-concurrent regionName(config){
+concurrent regionName@width:{policy}{
   spawn expr
   spawnEach list fn
 }
@@ -49,13 +49,14 @@ concurrent regionName(config){
 Current region invariants:
 
 - the region is named
-- the config is an exact record literal
-- record fields are canonical alphabetical order
+- width is required after `@`
+- optional policy is an exact record literal
+- policy fields are canonical alphabetical order when present
 - the body is spawn-only
 
-Current config surface:
+Current region surface:
 
-- `concurrency:Int`
+- width after `@`: `Int`
 - `jitterMs:Option[{max:Int,min:Int}]`
 - `stopOn: λ(E)=>Bool`
 - `windowMs:Option[Int]`
@@ -106,12 +107,18 @@ already-started backend operations.
 
 `windowMs` means:
 
-- no more than `concurrency` child starts in any `windowMs` window
+- no more than `width` child starts in any `windowMs` window
 
 `jitterMs` means:
 
 - each child start may be delayed by a randomized value inside the configured
   range
+
+Defaults when policy is omitted:
+
+- `jitterMs = None()`
+- `stopOn` is a pure function that always returns `false`
+- `windowMs = None()`
 
 These controls apply only inside the named region that declares them.
 

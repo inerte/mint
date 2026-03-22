@@ -30,9 +30,9 @@ structure as permission to widen work.
 Sigil uses one concurrency surface:
 
 ```sigil module
-λisTransportFailure(err:String)=>Bool=false
+λisTransportFailure(err:String)=>Bool=err="NETWORK"
 
-λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:5,jitterMs:Some({max:25,min:1}),stopOn:isTransportFailure,windowMs:Some(1000)}){
+λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5:{jitterMs:Some({max:25,min:1}),stopOn:isTransportFailure,windowMs:Some(1000)}{
   spawnEach urls processUrl
 }
 
@@ -41,10 +41,11 @@ Sigil uses one concurrency surface:
 
 Region rules:
 
-- regions are named: `concurrent regionName(config){ ... }`
-- config is an exact record literal
-- config fields are alphabetical:
-  - `concurrency`
+- regions are named: `concurrent regionName@width{ ... }`
+- width is required after `@`
+- width may be a literal, identifier, postfix chain, or a parenthesized expression
+- optional policy attaches as `:{...}`
+- policy fields are alphabetical when present:
   - `jitterMs`
   - `stopOn`
   - `windowMs`
@@ -54,24 +55,35 @@ Region rules:
 
 ## Region Policy
 
-The region config surface is:
+The region surface is:
 
-- `concurrency:Int`
+- width after `@`: `Int`
 - `jitterMs:Option[{max:Int,min:Int}]`
 - `stopOn: λ(E)=>Bool`
 - `windowMs:Option[Int]`
 
 Semantics:
 
-- `concurrency` is the maximum number of live child tasks
-- `windowMs` means no more than `concurrency` child starts in any `windowMs`
+- width is the maximum number of live child tasks
+- `windowMs` means no more than `width` child starts in any `windowMs`
   window
 - `jitterMs` adds a randomized start delay per child
 - `stopOn` is evaluated on child failures and decides whether the region should
   stop scheduling new work
 
-`stopOn` is explicit because Sigil does not assume one default error policy for
-all programs.
+Defaults:
+
+- omitted `jitterMs` behaves like `None()`
+- omitted `stopOn` never stops early
+- omitted `windowMs` behaves like `None()`
+
+Canonical code omits default-valued policy entirely, so the smallest region is:
+
+```sigil module
+λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5{
+  spawnEach urls processUrl
+}
+```
 
 ## Child Result Shape
 

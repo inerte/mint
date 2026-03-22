@@ -721,8 +721,11 @@ fn validate_expr_surface_types(expr: &Expr) -> Result<(), TypeError> {
             validate_expr_surface_types(&fold_expr.init)
         }
         Expr::Concurrent(concurrent_expr) => {
-            for field in &concurrent_expr.config.fields {
-                validate_expr_surface_types(&field.value)?;
+            validate_expr_surface_types(&concurrent_expr.width)?;
+            if let Some(policy) = &concurrent_expr.policy {
+                for field in &policy.fields {
+                    validate_expr_surface_types(&field.value)?;
+                }
             }
             for step in &concurrent_expr.steps {
                 match step {
@@ -950,21 +953,24 @@ fn concurrent_jitter_record_type() -> InferenceType {
     })
 }
 
-fn concurrent_config_fields<'a>(
-    config: &'a sigil_ast::RecordExpr,
+fn concurrent_policy_fields<'a>(
+    policy: Option<&'a sigil_ast::RecordExpr>,
     location: sigil_ast::SourceLocation,
-) -> Result<(&'a Expr, &'a Expr, &'a Expr, &'a Expr), TypeError> {
-    let mut concurrency = None;
+) -> Result<(Option<&'a Expr>, Option<&'a Expr>, Option<&'a Expr>), TypeError> {
     let mut jitter_ms = None;
     let mut stop_on = None;
     let mut window_ms = None;
     let mut seen = HashSet::new();
 
-    for field in &config.fields {
+    let Some(policy) = policy else {
+        return Ok((None, None, None));
+    };
+
+    for field in &policy.fields {
         if !seen.insert(field.name.clone()) {
             return Err(TypeError::new(
                 format!(
-                    "Concurrent region config field '{}' is duplicated",
+                    "Concurrent region policy field '{}' is duplicated",
                     field.name
                 ),
                 Some(field.location),
@@ -972,14 +978,13 @@ fn concurrent_config_fields<'a>(
         }
 
         match field.name.as_str() {
-            "concurrency" => concurrency = Some(&field.value),
             "jitterMs" => jitter_ms = Some(&field.value),
             "stopOn" => stop_on = Some(&field.value),
             "windowMs" => window_ms = Some(&field.value),
             _ => {
                 return Err(TypeError::new(
                     format!(
-                        "Unknown concurrent region config field '{}'. Use exactly concurrency, jitterMs, stopOn, and windowMs.",
+                        "Unknown concurrent region policy field '{}'. Use exactly jitterMs, stopOn, and windowMs.",
                         field.name
                     ),
                     Some(field.location),
@@ -988,32 +993,14 @@ fn concurrent_config_fields<'a>(
         }
     }
 
-    let Some(concurrency) = concurrency else {
+    if policy.fields.is_empty() {
         return Err(TypeError::new(
-            "Concurrent region config must include field 'concurrency'".to_string(),
+            "Concurrent region policy record must not be empty".to_string(),
             Some(location),
         ));
-    };
-    let Some(jitter_ms) = jitter_ms else {
-        return Err(TypeError::new(
-            "Concurrent region config must include field 'jitterMs'".to_string(),
-            Some(location),
-        ));
-    };
-    let Some(stop_on) = stop_on else {
-        return Err(TypeError::new(
-            "Concurrent region config must include field 'stopOn'".to_string(),
-            Some(location),
-        ));
-    };
-    let Some(window_ms) = window_ms else {
-        return Err(TypeError::new(
-            "Concurrent region config must include field 'windowMs'".to_string(),
-            Some(location),
-        ));
-    };
+    }
 
-    Ok((concurrency, jitter_ms, stop_on, window_ms))
+    Ok((jitter_ms, stop_on, window_ms))
 }
 
 fn result_type_parts(
@@ -1498,22 +1485,39 @@ fn build_typed_concurrent(
     concurrent_expr: &sigil_ast::ConcurrentExpr,
     typ: InferenceType,
 ) -> Result<TypedExpr, TypeError> {
-    let (concurrency_expr, jitter_ms_expr, stop_on_expr, window_ms_expr) =
-        concurrent_config_fields(&concurrent_expr.config, concurrent_expr.location)?;
-
     let config = TypedConcurrentConfig {
-        concurrency: Box::new(build_typed_expr(env, concurrency_expr)?),
-        jitter_ms: Box::new(build_typed_expr(env, jitter_ms_expr)?),
-        stop_on: Box::new(build_typed_expr(env, stop_on_expr)?),
-        window_ms: Box::new(build_typed_expr(env, window_ms_expr)?),
+        jitter_ms: concurrent_expr
+            .policy
+            .as_ref()
+            .and_then(|policy| policy.fields.iter().find(|field| field.name == "jitterMs"))
+            .map(|field| build_typed_expr(env, &field.value).map(Box::new))
+            .transpose()?,
+        stop_on: concurrent_expr
+            .policy
+            .as_ref()
+            .and_then(|policy| policy.fields.iter().find(|field| field.name == "stopOn"))
+            .map(|field| build_typed_expr(env, &field.value).map(Box::new))
+            .transpose()?,
+        width: Box::new(build_typed_expr(env, &concurrent_expr.width)?),
+        window_ms: concurrent_expr
+            .policy
+            .as_ref()
+            .and_then(|policy| policy.fields.iter().find(|field| field.name == "windowMs"))
+            .map(|field| build_typed_expr(env, &field.value).map(Box::new))
+            .transpose()?,
     };
 
-    let mut effects = merge_effects([
-        config.concurrency.effects.clone(),
-        config.jitter_ms.effects.clone(),
-        config.stop_on.effects.clone(),
-        config.window_ms.effects.clone(),
-    ]);
+    let mut effect_sets = vec![config.width.effects.clone()];
+    if let Some(jitter_ms) = &config.jitter_ms {
+        effect_sets.push(jitter_ms.effects.clone());
+    }
+    if let Some(stop_on) = &config.stop_on {
+        effect_sets.push(stop_on.effects.clone());
+    }
+    if let Some(window_ms) = &config.window_ms {
+        effect_sets.push(window_ms.effects.clone());
+    }
+    let mut effects = merge_effects(effect_sets);
     effects.insert("IO".to_string());
 
     let mut steps = Vec::new();
@@ -2705,12 +2709,16 @@ fn synthesize_concurrent(
     env: &TypeEnvironment,
     concurrent_expr: &sigil_ast::ConcurrentExpr,
 ) -> Result<InferenceType, TypeError> {
-    let (concurrency_expr, jitter_ms_expr, stop_on_expr, window_ms_expr) =
-        concurrent_config_fields(&concurrent_expr.config, concurrent_expr.location)?;
+    let (jitter_ms_expr, stop_on_expr, window_ms_expr) =
+        concurrent_policy_fields(concurrent_expr.policy.as_ref(), concurrent_expr.location)?;
 
-    check(env, concurrency_expr, &int_type())?;
-    check(env, jitter_ms_expr, &option_type(concurrent_jitter_record_type()))?;
-    check(env, window_ms_expr, &option_type(int_type()))?;
+    check(env, &concurrent_expr.width, &int_type())?;
+    if let Some(jitter_ms_expr) = jitter_ms_expr {
+        check(env, jitter_ms_expr, &option_type(concurrent_jitter_record_type()))?;
+    }
+    if let Some(window_ms_expr) = window_ms_expr {
+        check(env, window_ms_expr, &option_type(int_type()))?;
+    }
 
     if concurrent_expr.steps.is_empty() {
         return Err(TypeError::new(
@@ -2869,53 +2877,55 @@ fn synthesize_concurrent(
 
     let success_type = common_success_type.unwrap();
     let error_type = common_error_type.unwrap();
-    let stop_on_type = env.normalize_type(&synthesize(env, stop_on_expr)?);
-    let InferenceType::Function(stop_on_fn) = stop_on_type else {
-        return Err(TypeError::new(
-            format!(
-                "Concurrent region stopOn must be a pure function, got {}",
-                format_type(&synthesize(env, stop_on_expr)?)
-            ),
-            Some(concurrent_expr.location),
-        ));
-    };
+    if let Some(stop_on_expr) = stop_on_expr {
+        let stop_on_type = env.normalize_type(&synthesize(env, stop_on_expr)?);
+        let InferenceType::Function(stop_on_fn) = stop_on_type else {
+            return Err(TypeError::new(
+                format!(
+                    "Concurrent region stopOn must be a pure function, got {}",
+                    format_type(&synthesize(env, stop_on_expr)?)
+                ),
+                Some(concurrent_expr.location),
+            ));
+        };
 
-    if stop_on_fn.effects.as_ref().is_some_and(|effects| !effects.is_empty()) {
-        return Err(TypeError::new(
-            "Concurrent region stopOn must be pure".to_string(),
-            Some(concurrent_expr.location),
-        ));
-    }
+        if stop_on_fn.effects.as_ref().is_some_and(|effects| !effects.is_empty()) {
+            return Err(TypeError::new(
+                "Concurrent region stopOn must be pure".to_string(),
+                Some(concurrent_expr.location),
+            ));
+        }
 
-    if stop_on_fn.params.len() != 1 {
-        return Err(TypeError::new(
-            format!(
-                "Concurrent region stopOn must take 1 parameter, got {}",
-                stop_on_fn.params.len()
-            ),
-            Some(concurrent_expr.location),
-        ));
-    }
+        if stop_on_fn.params.len() != 1 {
+            return Err(TypeError::new(
+                format!(
+                    "Concurrent region stopOn must take 1 parameter, got {}",
+                    stop_on_fn.params.len()
+                ),
+                Some(concurrent_expr.location),
+            ));
+        }
 
-    if !same_type(env, &stop_on_fn.params[0], &error_type) {
-        return Err(TypeError::new(
-            format!(
-                "Concurrent region stopOn parameter type {} doesn't match child error type {}",
-                format_type(&stop_on_fn.params[0]),
-                format_type(&error_type)
-            ),
-            Some(concurrent_expr.location),
-        ));
-    }
+        if !same_type(env, &stop_on_fn.params[0], &error_type) {
+            return Err(TypeError::new(
+                format!(
+                    "Concurrent region stopOn parameter type {} doesn't match child error type {}",
+                    format_type(&stop_on_fn.params[0]),
+                    format_type(&error_type)
+                ),
+                Some(concurrent_expr.location),
+            ));
+        }
 
-    if !same_type(env, &stop_on_fn.return_type, &bool_type()) {
-        return Err(TypeError::new(
-            format!(
-                "Concurrent region stopOn must return Bool, got {}",
-                format_type(&stop_on_fn.return_type)
-            ),
-            Some(concurrent_expr.location),
-        ));
+        if !same_type(env, &stop_on_fn.return_type, &bool_type()) {
+            return Err(TypeError::new(
+                format!(
+                    "Concurrent region stopOn must return Bool, got {}",
+                    format_type(&stop_on_fn.return_type)
+                ),
+                Some(concurrent_expr.location),
+            ));
+        }
     }
 
     Ok(InferenceType::List(Box::new(crate::types::TList {
@@ -4339,7 +4349,7 @@ mod tests {
 
     #[test]
     fn test_concurrent_region_typechecks() {
-        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:1,jitterMs:None(),stopOn:stopOn,windowMs:None()}){spawnEach [1,2] process}\nλprocess(value:Int)=>!IO Result[Int,String]=Ok(value)\nλstopOn(err:String)=>Bool=false";
+        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@1{spawnEach [1,2] process}\nλprocess(value:Int)=>!IO Result[Int,String]=Ok(value)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -4349,7 +4359,7 @@ mod tests {
 
     #[test]
     fn test_concurrent_spawn_rejects_pure_result() {
-        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:1,jitterMs:None(),stopOn:stopOn,windowMs:None()}){spawn Ok(1)}\nλstopOn(err:String)=>Bool=false";
+        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@1{spawn Ok(1)}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -4363,7 +4373,7 @@ mod tests {
 
     #[test]
     fn test_concurrent_stop_on_must_match_error_type() {
-        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:1,jitterMs:None(),stopOn:stopOn,windowMs:None()}){spawn one()}\nλone()=>!IO Result[Int,String]=Ok(1)\nλstopOn(err:Int)=>Bool=false";
+        let source = "λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@1:{stopOn:stopOn}{spawn one()}\nλone()=>!IO Result[Int,String]=Ok(1)\nλstopOn(err:Int)=>Bool=false";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 

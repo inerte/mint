@@ -1,7 +1,5 @@
-λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit({concurrency:1,jitterMs:None(),stopOn:stopOn,windowMs:None()}){
+λmain()=>!IO [ConcurrentOutcome[Int,String]]=concurrent urlAudit@1{
   spawnEach [1,2,3] process
 }
 
 λprocess(value:Int)=>!IO Result[Int,String]=Ok(value)
-
-λstopOn(err:String)=>Bool=false

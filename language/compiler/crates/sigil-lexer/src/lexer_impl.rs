@@ -412,6 +412,7 @@ impl Lexer {
             ',' => self.add_token(tokens, TokenType::COMMA, ",", start),
             '_' => self.add_token(tokens, TokenType::UNDERSCORE, "_", start),
             '!' => self.add_token(tokens, TokenType::BANG, "!", start),
+            '@' => self.add_token(tokens, TokenType::AT, "@", start),
             '&' => self.add_token(tokens, TokenType::AMPERSAND, "&", start),
             '#' => self.add_token(tokens, TokenType::HASH, "#", start),
             '/' => self.add_token(tokens, TokenType::SLASH, "/", start),

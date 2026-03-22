@@ -281,10 +281,10 @@ pub struct TypedConcurrentExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypedConcurrentConfig {
-    pub concurrency: Box<TypedExpr>,
-    pub jitter_ms: Box<TypedExpr>,
-    pub stop_on: Box<TypedExpr>,
-    pub window_ms: Box<TypedExpr>,
+    pub jitter_ms: Option<Box<TypedExpr>>,
+    pub stop_on: Option<Box<TypedExpr>>,
+    pub width: Box<TypedExpr>,
+    pub window_ms: Option<Box<TypedExpr>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -493,13 +493,14 @@ pub struct FoldExpr {
     pub location: SourceLocation,
 }
 
-/// Concurrent region: concurrent name({config}){spawn ...}
+/// Concurrent region: concurrent name@width:{policy}{spawn ...}
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConcurrentExpr {
-    pub config: RecordExpr,
     pub name: String,
+    pub policy: Option<RecordExpr>,
     pub steps: Vec<ConcurrentStep>,
+    pub width: Expr,
     pub location: SourceLocation,
 }
 

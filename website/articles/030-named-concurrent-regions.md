@@ -63,13 +63,13 @@ Minimal form:
 ```sigil module
 i stdlib::time
 
-λrun(urls:[String])=>!Timer [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5{
-  spawnEach urls processUrl
-}
-
 λprocessUrl(url:String)=>!Timer Result[Int,String]={
   l _=(stdlib::time.sleepMs(0):Unit);
   Ok(#url)
+}
+
+λrun(urls:[String])=>!Timer [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5{
+  spawnEach urls processUrl
 }
 ```
 

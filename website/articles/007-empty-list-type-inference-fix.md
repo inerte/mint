@@ -20,7 +20,7 @@ Consider a function like this:
 ```sigil exprs
 λtail(xs:[Int])=>[Int] match xs{
   []=>[]|
-  [x,.xs]=>xs
+  [x,.rest]=>rest
 }
 ```
 

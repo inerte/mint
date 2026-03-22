@@ -14,16 +14,15 @@ rule is small, but it removes a common form of stylistic variation.
 
 Consider these two forms:
 
-```sigil exprs
-λformulaText(checksums:Checksums,version:String)=>String={
-  l repo=(releaseRepo():String);
-  src::formula.formula({checksums:checksums,repo:repo,version:version})
+```sigil invalid-expr
+λformulaText(repo:String,version:String)=>String={
+  l text=(repo++":"++version:String);
+  "["++text++"]"
 }
 ```
 
 ```sigil exprs
-λformulaText(checksums:Checksums,version:String)=>String=
-  src::formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
+λformulaText(repo:String,version:String)=>String="["++(repo++":"++version)++"]"
 ```
 
 They mean the same thing. The only difference is whether the program introduces

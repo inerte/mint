@@ -16,7 +16,7 @@ i stdlib::process
 
 i stdlib::string
 
-λbatchSize()=>Int=8
+λbatchSize()=>Int=32
 
 λcommand(args:[String],root:String)=>stdlib::process.Command=stdlib::process.withCwd(stdlib::process.command([stdlib::path.join(root,"language/compiler/target/debug/sigil"),"run"]⧺args),stdlib::path.join(root,"projects/docsDriftAudit"))
 

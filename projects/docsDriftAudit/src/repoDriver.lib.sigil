@@ -144,17 +144,15 @@ i stdlib::string
   }
 }
 
-λrunStdlibExports(paths:[String],root:String)=>!AuditIo Result[[String],String]=runStdlibExportsInner([],paths,root)
-
-λrunStdlibExportsInner(acc:[String],paths:[String],root:String)=>!AuditIo Result[[String],String] match paths{
-  []=>Ok(acc)|
-  [head,.tail]=>{
+λrunStdlibExports(paths:[String],root:String)=>!AuditIo Result[[String],String] match #paths=0{
+  true=>Ok([])|
+  false=>{
     l exportsPath=(outputPath("exports.txt",root):String);
     l _=(stdlib::file.writeText("",exportsPath):Unit);
-    l result=(stdlib::process.run(command(["src/exportsMain.sigil","--",head,exportsPath],root)):stdlib::process.ProcessResult);
+    l result=(stdlib::process.run(command(["src/exportsBatchMain.sigil","--",exportsPath]⧺paths,root)):stdlib::process.ProcessResult);
     match result.code=0{
-      true=>runStdlibExportsInner(mergeUnique(acc,readLines(exportsPath)),tail,root)|
-      false=>Err("stdlib export extraction failed for "++head++": "++processOutput(result))
+      true=>Ok(readLines(exportsPath))|
+      false=>Err("stdlib export extraction failed: "++processOutput(result))
     }
   }
 }

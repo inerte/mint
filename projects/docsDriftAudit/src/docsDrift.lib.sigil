@@ -440,6 +440,19 @@ i stdlib::string
   Err(message)=>Err(message)
 }
 
+λrunStdlibExportsForPaths(paths:[String])=>!AuditIo Result[[String],String] match gitTopLevel(){
+  Ok(root)=>Ok(runStdlibExportsForPathsInner([],paths,root))|
+  Err(message)=>Err(message)
+}
+
+λrunStdlibExportsForPathsInner(acc:[String],paths:[String],root:String)=>!Fs [String] match paths{
+  []=>acc|
+  [head,.tail]=>{
+    l exports=(src::coverage.documentedRefsForSnippet("stdlib::"++stdlib::string.substring(#stdlib::path.basename(head)-10,stdlib::path.basename(head),0),stdlib::file.readText(stdlib::path.join(root,head))):[String]);
+    runStdlibExportsForPathsInner(mergeUnique(acc,exports),tail,root)
+  }
+}
+
 λrunUncoveredDocumentedIssues(coverageRefs:[String],documentedRefs:[String],issues:[src::types.Issue])=>[src::types.Issue] match documentedRefs{
   []=>issues|
   [head,.tail]=>match stdlib::list.contains(head,coverageRefs){

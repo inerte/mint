@@ -1,19 +1,22 @@
 //! Command implementations for CLI
 
-use crate::module_graph::{load_project_effect_catalog_for, ModuleGraph, ModuleGraphError, LoadedModule};
+use crate::module_graph::{
+    load_project_effect_catalog_for, LoadedModule, ModuleGraph, ModuleGraphError,
+};
 use crate::project::{get_project_config, ProjectConfigError};
-use rayon::prelude::*;
+use rayon::{prelude::*, ThreadPoolBuilder};
+use serde_json::json;
 use sigil_ast::{Declaration, Program, Type, TypeDef};
-use sigil_diagnostics::codes;
 use sigil_codegen::{CodegenOptions, TypeScriptGenerator};
+use sigil_diagnostics::codes;
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
-use sigil_typechecker::{type_check, TypeError, TypeCheckOptions, TypeInfo, TypeScheme};
-use sigil_typechecker::types::{InferenceType, TConstructor, TFunction, TList, TMap, TRecord, TTuple};
+use sigil_typechecker::types::{
+    InferenceType, TConstructor, TFunction, TList, TMap, TRecord, TTuple,
+};
+use sigil_typechecker::{type_check, TypeCheckOptions, TypeError, TypeInfo, TypeScheme};
 use sigil_validator::{
-    validate_canonical_form_with_options,
-    validate_typed_canonical_form,
-    ValidationError,
+    validate_canonical_form_with_options, validate_typed_canonical_form, ValidationError,
     ValidationOptions,
 };
 use std::collections::HashMap;
@@ -21,8 +24,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Instant;
-use serde_json::json;
 use thiserror::Error;
+
+const TEST_WORKER_STACK_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Error, Debug)]
 pub enum CliError {
@@ -76,7 +80,13 @@ fn format_validation_errors(errors: &[ValidationError]) -> String {
 }
 
 /// Output a JSON error message matching the Sigil CLI format
-fn output_json_error(command: &str, phase: &str, error_code: &str, message: &str, details: serde_json::Value) {
+fn output_json_error(
+    command: &str,
+    phase: &str,
+    error_code: &str,
+    message: &str,
+    details: serde_json::Value,
+) {
     let output = json!({
         "formatVersion": 1,
         "command": command,
@@ -99,7 +109,9 @@ pub fn lex_command(file: &Path) -> Result<(), CliError> {
 
     // Tokenize
     let mut lexer = Lexer::new(&source);
-    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{}", e)))?;
+    let tokens = lexer
+        .tokenize()
+        .map_err(|e| CliError::Lexer(format!("{}", e)))?;
 
     let output = serde_json::json!({
         "formatVersion": 1,
@@ -142,12 +154,16 @@ pub fn parse_command(file: &Path) -> Result<(), CliError> {
 
     // Tokenize
     let mut lexer = Lexer::new(&source);
-    let tokens = lexer.tokenize().map_err(|e| CliError::Lexer(format!("{}", e)))?;
+    let tokens = lexer
+        .tokenize()
+        .map_err(|e| CliError::Lexer(format!("{}", e)))?;
     let token_count = tokens.len(); // Store token count for JSON output
 
     // Parse
     let mut parser = Parser::new(tokens, &filename);
-    let ast = parser.parse().map_err(|e| CliError::Parser(format!("{}", e)))?;
+    let ast = parser
+        .parse()
+        .map_err(|e| CliError::Parser(format!("{}", e)))?;
 
     let effect_catalog = load_project_effect_catalog_for(file)?;
 
@@ -158,7 +174,9 @@ pub fn parse_command(file: &Path) -> Result<(), CliError> {
         Some(&source),
         ValidationOptions { effect_catalog },
     )
-        .map_err(|errors: Vec<ValidationError>| CliError::Validation(format_validation_errors(&errors)))?;
+    .map_err(|errors: Vec<ValidationError>| {
+        CliError::Validation(format_validation_errors(&errors))
+    })?;
 
     let ast_json = serde_json::to_value(&ast).unwrap_or_else(|e| {
         eprintln!("Warning: AST serialization failed: {}", e);
@@ -206,7 +224,7 @@ pub fn compile_command(
                     json!({
                         "file": file.to_string_lossy(),
                         "errors": errors.iter().map(|e| e.to_string()).collect::<Vec<_>>()
-                    })
+                    }),
                 );
             }
             return Err(ModuleGraphError::Validation(errors).into());
@@ -277,7 +295,10 @@ pub fn compile_command(
         module_outputs.insert(module_id.clone(), output_path);
 
         // Track for dependents
-        compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes.clone());
+        compiled_schemes.insert(
+            module_id.clone(),
+            typecheck_result.declaration_schemes.clone(),
+        );
         compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
         type_registries.insert(
             module_id.clone(),
@@ -289,11 +310,13 @@ pub fn compile_command(
     let entry_output = output_files.last().unwrap();
     let entry_module = graph.modules.get(graph.topo_order.last().unwrap()).unwrap();
 
-    let all_modules: Vec<serde_json::Value> = graph.topo_order
+    let all_modules: Vec<serde_json::Value> = graph
+        .topo_order
         .iter()
         .map(|module_id| {
             let module = &graph.modules[module_id];
-            let output_file = module_outputs.get(module_id)
+            let output_file = module_outputs
+                .get(module_id)
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_default();
 
@@ -336,7 +359,11 @@ pub fn compile_command(
 }
 
 /// Run command: compile and execute a Sigil file
-pub fn run_command(file: &Path, selected_env: Option<&str>, args: &[String]) -> Result<(), CliError> {
+pub fn run_command(
+    file: &Path,
+    selected_env: Option<&str>,
+    args: &[String],
+) -> Result<(), CliError> {
     let graph = ModuleGraph::build(file)?;
     let compiled = compile_module_graph(graph, None)?;
     let entry_output_path = compiled.entry_output_path;
@@ -386,7 +413,9 @@ if (result !== undefined) {{
         .output()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                CliError::Runtime("pnpm not found. Please install pnpm to run Sigil programs.".to_string())
+                CliError::Runtime(
+                    "pnpm not found. Please install pnpm to run Sigil programs.".to_string(),
+                )
             } else {
                 CliError::Runtime(format!("Failed to execute: {}", e))
             }
@@ -415,7 +444,10 @@ if (result !== undefined) {{
             }
         });
         println!("{}", serde_json::to_string(&output_json).unwrap());
-        return Err(CliError::Runtime(format!("Process exited with code {}", exit_code)));
+        return Err(CliError::Runtime(format!(
+            "Process exited with code {}",
+            exit_code
+        )));
     }
 
     let output_json = serde_json::json!({
@@ -476,17 +508,28 @@ pub fn test_command(
     // Collect all .sigil files in test directory
     let test_files = collect_sigil_files(path)?;
 
-    // Run test files in parallel
-    let results: Vec<_> = test_files
-        .par_iter()
-        .map(|test_file| {
-            compile_and_run_tests(test_file, selected_env, match_filter)
-                .map_err(|e| {
-                    eprintln!("Error running tests in {}: {}", test_file.display(), e);
-                    e
-                })
+    let run_test_file = |test_file: &PathBuf| {
+        compile_and_run_tests(test_file, selected_env, match_filter).map_err(|e| {
+            eprintln!("Error running tests in {}: {}", test_file.display(), e);
+            e
         })
-        .collect();
+    };
+
+    let results: Vec<_> = if test_files.len() <= 1 {
+        test_files.iter().map(run_test_file).collect()
+    } else {
+        // The SSG integration suite overflows Rayon’s default worker stack on Linux.
+        // Use an explicit pool so `sigil test <dir>` is stable in CI without env hacks.
+        let thread_pool = ThreadPoolBuilder::new()
+            .thread_name(|index| format!("sigil-test-{index}"))
+            .stack_size(TEST_WORKER_STACK_BYTES)
+            .build()
+            .map_err(|err| {
+                CliError::Runtime(format!("Failed to configure test worker pool: {}", err))
+            })?;
+
+        thread_pool.install(|| test_files.par_iter().map(run_test_file).collect())
+    };
 
     // Aggregate results from all files
     let mut all_results = Vec::new();
@@ -503,7 +546,8 @@ pub fn test_command(
 
     // Sort results by file, then line, then column
     all_results.sort_by(|a, b| {
-        a.file.cmp(&b.file)
+        a.file
+            .cmp(&b.file)
             .then_with(|| a.location.line.cmp(&b.location.line))
             .then_with(|| a.location.column.cmp(&b.location.column))
     });
@@ -544,11 +588,11 @@ pub fn validate_command(path: &Path, env: &str) -> Result<(), CliError> {
     let project_root = get_project_config(path)?
         .map(|project| project.root)
         .ok_or_else(|| {
-        CliError::Validation(format!(
-            "{}: no Sigil project found while validating topology",
-            codes::topology::MISSING_MODULE
-        ))
-    })?;
+            CliError::Validation(format!(
+                "{}: no Sigil project found while validating topology",
+                codes::topology::MISSING_MODULE
+            ))
+        })?;
 
     if !topology_source_path(&project_root).exists() {
         return Err(CliError::Validation(format!(
@@ -683,11 +727,12 @@ fn compile_module_graph(
         validate_typed_canonical_form(&typecheck_result.typed_program)
             .map_err(|errors| CliError::Validation(format_validation_errors(&errors)))?;
 
-        let output_path = if module_id == graph.topo_order.last().unwrap() && output_override.is_some() {
-            output_override.unwrap().to_path_buf()
-        } else {
-            get_module_output_path(module)
-        };
+        let output_path =
+            if module_id == graph.topo_order.last().unwrap() && output_override.is_some() {
+                output_override.unwrap().to_path_buf()
+            } else {
+                get_module_output_path(module)
+            };
 
         let codegen_options = CodegenOptions {
             source_file: Some(module.file_path.to_string_lossy().to_string()),
@@ -709,7 +754,10 @@ fn compile_module_graph(
             entry_output_path = output_path;
         }
 
-        compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes.clone());
+        compiled_schemes.insert(
+            module_id.clone(),
+            typecheck_result.declaration_schemes.clone(),
+        );
         compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
         type_registries.insert(
             module_id.clone(),
@@ -725,7 +773,9 @@ fn topology_source_path(project_root: &Path) -> PathBuf {
 }
 
 fn config_source_path(project_root: &Path, env_name: &str) -> PathBuf {
-    project_root.join("config").join(format!("{}.lib.sigil", env_name))
+    project_root
+        .join("config")
+        .join(format!("{}.lib.sigil", env_name))
 }
 
 fn compile_topology_module(project_root: &Path) -> Result<CompiledGraphOutputs, CliError> {
@@ -741,7 +791,10 @@ fn compile_topology_module(project_root: &Path) -> Result<CompiledGraphOutputs, 
     compile_module_graph(graph, None)
 }
 
-fn compile_config_module(project_root: &Path, env_name: &str) -> Result<CompiledGraphOutputs, CliError> {
+fn compile_config_module(
+    project_root: &Path,
+    env_name: &str,
+) -> Result<CompiledGraphOutputs, CliError> {
     let config_source = config_source_path(project_root, env_name);
     if !config_source.exists() {
         return Err(CliError::Validation(format!(
@@ -971,10 +1024,7 @@ fn project_root_and_topology(path: &Path) -> Result<Option<(PathBuf, bool)>, Pro
     Ok(Some((project.root, topology_present)))
 }
 
-fn runner_prelude(
-    path: &Path,
-    selected_env: Option<&str>,
-) -> Result<Option<String>, CliError> {
+fn runner_prelude(path: &Path, selected_env: Option<&str>) -> Result<Option<String>, CliError> {
     let Some((project_root, topology_present)) = project_root_and_topology(path)? else {
         return Ok(None);
     };
@@ -1126,10 +1176,7 @@ console.log(JSON.stringify({{ results, discovered: tests.length, selected: selec
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(CliError::Runtime(format!(
-            "Test runner failed: {}",
-            stderr
-        )));
+        return Err(CliError::Runtime(format!("Test runner failed: {}", stderr)));
     }
 
     // Parse test results
@@ -1187,7 +1234,10 @@ fn build_imported_namespaces(
                 // Build namespace type from exported functions/consts
                 let mut fields = HashMap::new();
                 for (name, typ) in types {
-                    fields.insert(name.clone(), qualify_inference_type_in_context(typ, &module_id));
+                    fields.insert(
+                        name.clone(),
+                        qualify_inference_type_in_context(typ, &module_id),
+                    );
                 }
 
                 imported.insert(
@@ -1207,7 +1257,16 @@ fn build_imported_namespaces(
 fn is_core_prelude_name(name: &str) -> bool {
     matches!(
         name,
-        "ConcurrentOutcome" | "Option" | "Result" | "Aborted" | "Failure" | "Success" | "Some" | "None" | "Ok" | "Err"
+        "ConcurrentOutcome"
+            | "Option"
+            | "Result"
+            | "Aborted"
+            | "Failure"
+            | "Success"
+            | "Some"
+            | "None"
+            | "Ok"
+            | "Err"
     )
 }
 
@@ -1347,8 +1406,8 @@ fn qualify_inference_type_for_module(
     module_id: &str,
     typ: &sigil_typechecker::InferenceType,
 ) -> sigil_typechecker::InferenceType {
-    use sigil_typechecker::InferenceType;
     use sigil_typechecker::types::{TConstructor, TFunction, TList, TRecord, TTuple, TVar};
+    use sigil_typechecker::InferenceType;
 
     match typ {
         InferenceType::Primitive(_) | InferenceType::Any => typ.clone(),
@@ -1515,7 +1574,9 @@ fn qualify_type_in_context(
                 .map(|ty| qualify_type_in_context(ty, module_id, local_type_registry, type_params))
                 .collect();
 
-            if local_type_registry.contains_key(&constructor.name) && !type_params.contains(&constructor.name) {
+            if local_type_registry.contains_key(&constructor.name)
+                && !type_params.contains(&constructor.name)
+            {
                 Type::Qualified(sigil_ast::QualifiedType {
                     module_path: module_id.split("::").map(|s| s.to_string()).collect(),
                     type_name: constructor.name.clone(),
@@ -1575,7 +1636,9 @@ fn qualify_type_def(
                     types: variant
                         .types
                         .iter()
-                        .map(|ty| qualify_type_in_context(ty, module_id, local_type_registry, type_params))
+                        .map(|ty| {
+                            qualify_type_in_context(ty, module_id, local_type_registry, type_params)
+                        })
                         .collect(),
                     location: variant.location,
                 })
@@ -1646,12 +1709,16 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
     if let Some(project) = module.project.clone() {
         // Use project's output directory
         let path_str = module.id.replace("::", "/");
-        return project.root.join(&project.layout.out).join(format!("{}.ts", path_str));
+        return project
+            .root
+            .join(&project.layout.out)
+            .join(format!("{}.ts", path_str));
     }
 
     // For non-project files, use repo root's .local/
     // Find repo root by walking up from source file
-    let abs_source = fs::canonicalize(&module.file_path).unwrap_or_else(|_| module.file_path.clone());
+    let abs_source =
+        fs::canonicalize(&module.file_path).unwrap_or_else(|_| module.file_path.clone());
     let mut repo_root = abs_source.parent().unwrap().to_path_buf();
 
     // Walk up to find .git directory (repo root marker)
@@ -1666,8 +1733,7 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
     }
 
     // Calculate relative path from repo root to source file
-    let rel_source = abs_source.strip_prefix(&repo_root)
-        .unwrap_or(&abs_source);
+    let rel_source = abs_source.strip_prefix(&repo_root).unwrap_or(&abs_source);
 
     // Build output path: <repo_root>/.local/<rel_path>.ts
     let mut output = repo_root.join(".local");

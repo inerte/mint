@@ -241,7 +241,7 @@ fn test_type_declaration_valid() {
 
 #[test]
 fn test_import_valid() {
-    let source = "i stdlib::list";
+    let source = "i stdlib::list\nλsize(xs:[Int])=>Int=stdlib::list.length(xs)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 

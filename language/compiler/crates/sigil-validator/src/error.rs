@@ -354,6 +354,31 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
+    #[error("SIGIL-CANON-UNUSED-IMPORT: Import '{import_path}' is never used\n\nSigil rejects dead imports.\nRemove the import or use it.")]
+    UnusedImport {
+        import_path: String,
+        location: SourceLocation,
+    },
+
+    #[error("SIGIL-CANON-UNUSED-EXTERN: Extern '{extern_path}' is never used\n\nSigil rejects dead extern declarations.\nRemove the extern or use it.")]
+    UnusedExtern {
+        extern_path: String,
+        location: SourceLocation,
+    },
+
+    #[error("SIGIL-CANON-UNUSED-BINDING: Binding '{binding_name}' is never used\n\nNamed bindings must contribute meaning.\nUse '_' when discarding a value only for its effects, otherwise inline or delete it.")]
+    UnusedBinding {
+        binding_name: String,
+        location: SourceLocation,
+    },
+
+    #[error("SIGIL-CANON-UNUSED-DECLARATION: Unused executable {decl_kind} '{decl_name}'\n\n.sigil files export nothing, so dead top-level declarations are non-canonical.\nRemove the {decl_kind} or make main/tests reach it.")]
+    UnusedDeclaration {
+        decl_kind: String,
+        decl_name: String,
+        location: SourceLocation,
+    },
+
     #[error("SIGIL-CANON-MATCH-BOOLEAN: Cannot pattern match on boolean expression\n\nUse if-expression instead: (condition)=>thenBranch|elseBranch")]
     MatchBoolean { location: SourceLocation },
 
@@ -526,6 +551,10 @@ impl ValidationError {
             ValidationError::ExternMemberOrder { location, .. } => *location,
             ValidationError::LetUntyped { location, .. } => *location,
             ValidationError::SingleUsePureBinding { location, .. } => *location,
+            ValidationError::UnusedImport { location, .. } => *location,
+            ValidationError::UnusedExtern { location, .. } => *location,
+            ValidationError::UnusedBinding { location, .. } => *location,
+            ValidationError::UnusedDeclaration { location, .. } => *location,
             ValidationError::MatchBoolean { location } => *location,
             ValidationError::MatchTupleBoolean { location } => *location,
             ValidationError::DeclCategoryOrder { location, .. } => *location,
@@ -593,6 +622,57 @@ impl From<ValidationError> for Diagnostic {
                     "Bindings exist for reuse, effects, destructuring, or syntax-required staging.",
                 )
             }
+
+            ValidationError::UnusedImport {
+                import_path,
+                location,
+            } => Diagnostic::new(
+                codes::canonical::UNUSED_IMPORT,
+                SigilPhase::Canonical,
+                format!("Import '{}' is never used", import_path),
+            )
+            .with_location(source_location_to_span(get_file(), location))
+            .with_details("guidance", "Remove the import or use it."),
+
+            ValidationError::UnusedExtern {
+                extern_path,
+                location,
+            } => Diagnostic::new(
+                codes::canonical::UNUSED_EXTERN,
+                SigilPhase::Canonical,
+                format!("Extern '{}' is never used", extern_path),
+            )
+            .with_location(source_location_to_span(get_file(), location))
+            .with_details("guidance", "Remove the extern or use it."),
+
+            ValidationError::UnusedBinding {
+                binding_name,
+                location,
+            } => Diagnostic::new(
+                codes::canonical::UNUSED_BINDING,
+                SigilPhase::Canonical,
+                format!("Binding '{}' is never used", binding_name),
+            )
+            .with_location(source_location_to_span(get_file(), location))
+            .with_details(
+                "guidance",
+                "Use '_' when discarding a value only for its effects, otherwise inline or delete it.",
+            ),
+
+            ValidationError::UnusedDeclaration {
+                decl_kind,
+                decl_name,
+                location,
+            } => Diagnostic::new(
+                codes::canonical::UNUSED_DECLARATION,
+                SigilPhase::Canonical,
+                format!("Unused executable {} '{}'", decl_kind, decl_name),
+            )
+            .with_location(source_location_to_span(get_file(), location))
+            .with_details(
+                "guidance",
+                "Remove the declaration or make main/tests reach it.",
+            ),
 
             ValidationError::RecursiveAppendResult { function_name, location } => {
                 Diagnostic::new(

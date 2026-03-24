@@ -795,6 +795,11 @@ pub fn validate_canonical_form_with_options(
     // Rule 10: Naming forms - lowerCamelCase / UpperCamelCase only
     validate_naming_forms(program, &mut errors);
 
+    // Rule 11: No dead imports/externs/declarations
+    if let Err(e) = validate_no_unused_items(program, file_path) {
+        errors.extend(e);
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {
@@ -803,18 +808,25 @@ pub fn validate_canonical_form_with_options(
 }
 
 /// Validate canonical rules that require typed purity/effect information.
-pub fn validate_typed_canonical_form(program: &TypedProgram) -> Result<(), Vec<ValidationError>> {
+pub fn validate_typed_canonical_form(
+    program: &TypedProgram,
+    file_path: Option<&str>,
+) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
+    let _ = file_path;
 
     for declaration in &program.declarations {
         match declaration {
             TypedDeclaration::Function(function) => {
+                collect_unused_named_bindings(&function.body, &mut errors);
                 collect_single_use_pure_bindings(&function.body, &mut errors);
             }
             TypedDeclaration::Const(const_decl) => {
+                collect_unused_named_bindings(&const_decl.value, &mut errors);
                 collect_single_use_pure_bindings(&const_decl.value, &mut errors);
             }
             TypedDeclaration::Test(test_decl) => {
+                collect_unused_named_bindings(&test_decl.body, &mut errors);
                 collect_single_use_pure_bindings(&test_decl.body, &mut errors);
             }
             TypedDeclaration::Type(_)
@@ -827,6 +839,141 @@ pub fn validate_typed_canonical_form(program: &TypedProgram) -> Result<(), Vec<V
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+fn collect_unused_named_bindings(expr: &TypedExpr, errors: &mut Vec<ValidationError>) {
+    match &expr.kind {
+        TypedExprKind::Let(let_expr) => {
+            for binding_name in pattern_binding_frame(&let_expr.pattern) {
+                if count_identifier_uses(&let_expr.body, &binding_name) == 0 {
+                    errors.push(ValidationError::UnusedBinding {
+                        binding_name,
+                        location: expr.location,
+                    });
+                }
+            }
+
+            collect_unused_named_bindings(&let_expr.value, errors);
+            collect_unused_named_bindings(&let_expr.body, errors);
+        }
+        TypedExprKind::Lambda(lambda) => {
+            collect_unused_named_bindings(&lambda.body, errors);
+        }
+        TypedExprKind::Call(call) => {
+            collect_unused_named_bindings(&call.func, errors);
+            for arg in &call.args {
+                collect_unused_named_bindings(arg, errors);
+            }
+        }
+        TypedExprKind::ConstructorCall(call) => {
+            for arg in &call.args {
+                collect_unused_named_bindings(arg, errors);
+            }
+        }
+        TypedExprKind::ExternCall(call) => {
+            for arg in &call.args {
+                collect_unused_named_bindings(arg, errors);
+            }
+        }
+        TypedExprKind::MethodCall(call) => {
+            collect_unused_named_bindings(&call.receiver, errors);
+            for arg in &call.args {
+                collect_unused_named_bindings(arg, errors);
+            }
+        }
+        TypedExprKind::Binary(binary) => {
+            collect_unused_named_bindings(&binary.left, errors);
+            collect_unused_named_bindings(&binary.right, errors);
+        }
+        TypedExprKind::Unary(unary) => collect_unused_named_bindings(&unary.operand, errors),
+        TypedExprKind::Match(match_expr) => {
+            collect_unused_named_bindings(&match_expr.scrutinee, errors);
+            for arm in &match_expr.arms {
+                if let Some(guard) = &arm.guard {
+                    collect_unused_named_bindings(guard, errors);
+                }
+                collect_unused_named_bindings(&arm.body, errors);
+            }
+        }
+        TypedExprKind::If(if_expr) => {
+            collect_unused_named_bindings(&if_expr.condition, errors);
+            collect_unused_named_bindings(&if_expr.then_branch, errors);
+            if let Some(else_branch) = &if_expr.else_branch {
+                collect_unused_named_bindings(else_branch, errors);
+            }
+        }
+        TypedExprKind::List(list) => {
+            for element in &list.elements {
+                collect_unused_named_bindings(element, errors);
+            }
+        }
+        TypedExprKind::Tuple(tuple) => {
+            for element in &tuple.elements {
+                collect_unused_named_bindings(element, errors);
+            }
+        }
+        TypedExprKind::Record(record) => {
+            for field in &record.fields {
+                collect_unused_named_bindings(&field.value, errors);
+            }
+        }
+        TypedExprKind::MapLiteral(map) => {
+            for entry in &map.entries {
+                collect_unused_named_bindings(&entry.key, errors);
+                collect_unused_named_bindings(&entry.value, errors);
+            }
+        }
+        TypedExprKind::FieldAccess(access) => {
+            collect_unused_named_bindings(&access.object, errors);
+        }
+        TypedExprKind::Index(index) => {
+            collect_unused_named_bindings(&index.object, errors);
+            collect_unused_named_bindings(&index.index, errors);
+        }
+        TypedExprKind::Map(map_expr) => {
+            collect_unused_named_bindings(&map_expr.list, errors);
+            collect_unused_named_bindings(&map_expr.func, errors);
+        }
+        TypedExprKind::Filter(filter) => {
+            collect_unused_named_bindings(&filter.list, errors);
+            collect_unused_named_bindings(&filter.predicate, errors);
+        }
+        TypedExprKind::Fold(fold) => {
+            collect_unused_named_bindings(&fold.list, errors);
+            collect_unused_named_bindings(&fold.func, errors);
+            collect_unused_named_bindings(&fold.init, errors);
+        }
+        TypedExprKind::Pipeline(pipeline) => {
+            collect_unused_named_bindings(&pipeline.left, errors);
+            collect_unused_named_bindings(&pipeline.right, errors);
+        }
+        TypedExprKind::Concurrent(concurrent) => {
+            collect_unused_named_bindings(&concurrent.config.width, errors);
+            if let Some(jitter_ms) = &concurrent.config.jitter_ms {
+                collect_unused_named_bindings(jitter_ms, errors);
+            }
+            if let Some(stop_on) = &concurrent.config.stop_on {
+                collect_unused_named_bindings(stop_on, errors);
+            }
+            if let Some(window_ms) = &concurrent.config.window_ms {
+                collect_unused_named_bindings(window_ms, errors);
+            }
+            for step in &concurrent.steps {
+                match step {
+                    TypedConcurrentStep::Spawn(spawn) => {
+                        collect_unused_named_bindings(&spawn.expr, errors)
+                    }
+                    TypedConcurrentStep::SpawnEach(spawn_each) => {
+                        collect_unused_named_bindings(&spawn_each.list, errors);
+                        collect_unused_named_bindings(&spawn_each.func, errors);
+                    }
+                }
+            }
+        }
+        TypedExprKind::Literal(_)
+        | TypedExprKind::Identifier(_)
+        | TypedExprKind::NamespaceMember { .. } => {}
     }
 }
 
@@ -2027,6 +2174,1255 @@ fn validate_effect_declaration_placement(
     } else {
         Err(errors)
     }
+}
+
+#[derive(Debug, Clone, Default)]
+struct UsageSummary {
+    imports: HashSet<String>,
+    externs: HashSet<String>,
+    value_refs: HashSet<String>,
+    type_refs: HashSet<String>,
+    effect_refs: HashSet<String>,
+}
+
+impl UsageSummary {
+    fn merge_from(&mut self, other: &UsageSummary) {
+        self.imports.extend(other.imports.iter().cloned());
+        self.externs.extend(other.externs.iter().cloned());
+        self.value_refs.extend(other.value_refs.iter().cloned());
+        self.type_refs.extend(other.type_refs.iter().cloned());
+        self.effect_refs.extend(other.effect_refs.iter().cloned());
+    }
+}
+
+#[derive(Debug, Clone)]
+struct NamedUsage {
+    kind: &'static str,
+    location: SourceLocation,
+    summary: UsageSummary,
+}
+
+fn validate_no_unused_items(
+    program: &Program,
+    file_path: Option<&str>,
+) -> Result<(), Vec<ValidationError>> {
+    let mut errors = Vec::new();
+
+    let is_lib_file = file_path.is_some_and(|path| path.ends_with(".lib.sigil"));
+
+    let import_paths: HashSet<String> = program
+        .declarations
+        .iter()
+        .filter_map(|decl| match decl {
+            Declaration::Import(import_decl) => Some(import_decl.module_path.join("::")),
+            _ => None,
+        })
+        .collect();
+    let extern_paths: HashSet<String> = program
+        .declarations
+        .iter()
+        .filter_map(|decl| match decl {
+            Declaration::Extern(extern_decl) => Some(extern_decl.module_path.join("::")),
+            _ => None,
+        })
+        .collect();
+    let top_level_values: HashSet<String> = program
+        .declarations
+        .iter()
+        .filter_map(|decl| match decl {
+            Declaration::Function(function_decl) => Some(function_decl.name.clone()),
+            Declaration::Const(const_decl) => Some(const_decl.name.clone()),
+            _ => None,
+        })
+        .collect();
+    let top_level_types: HashSet<String> = program
+        .declarations
+        .iter()
+        .filter_map(|decl| match decl {
+            Declaration::Type(type_decl) => Some(type_decl.name.clone()),
+            _ => None,
+        })
+        .collect();
+    let top_level_effects: HashSet<String> = program
+        .declarations
+        .iter()
+        .filter_map(|decl| match decl {
+            Declaration::Effect(effect_decl) => Some(effect_decl.name.clone()),
+            _ => None,
+        })
+        .collect();
+    let constructor_to_type: HashMap<String, String> = program
+        .declarations
+        .iter()
+        .filter_map(|decl| match decl {
+            Declaration::Type(type_decl) => match &type_decl.definition {
+                TypeDef::Sum(sum_type) => Some(
+                    sum_type
+                        .variants
+                        .iter()
+                        .map(|variant| (variant.name.clone(), type_decl.name.clone()))
+                        .collect::<Vec<_>>(),
+                ),
+                _ => None,
+            },
+            _ => None,
+        })
+        .flatten()
+        .collect();
+
+    let mut imports = Vec::new();
+    let mut externs = HashMap::new();
+    let mut values = HashMap::new();
+    let mut types = HashMap::new();
+    let mut effects = HashMap::new();
+    let mut tests = Vec::new();
+
+    for decl in &program.declarations {
+        match decl {
+            Declaration::Import(import_decl) => {
+                imports.push((import_decl.module_path.join("::"), import_decl.location));
+            }
+            Declaration::Extern(extern_decl) => {
+                let path = extern_decl.module_path.join("::");
+                externs.insert(
+                    path,
+                    NamedUsage {
+                        kind: "extern",
+                        location: extern_decl.location,
+                        summary: collect_extern_usage_summary(
+                            extern_decl,
+                            &top_level_types,
+                            &top_level_effects,
+                        ),
+                    },
+                );
+            }
+            Declaration::Function(function_decl) => {
+                values.insert(
+                    function_decl.name.clone(),
+                    NamedUsage {
+                        kind: "function",
+                        location: function_decl.location,
+                        summary: collect_function_usage_summary(
+                            function_decl,
+                            &top_level_values,
+                            &top_level_types,
+                            &top_level_effects,
+                            &constructor_to_type,
+                            &import_paths,
+                            &extern_paths,
+                        ),
+                    },
+                );
+            }
+            Declaration::Const(const_decl) => {
+                values.insert(
+                    const_decl.name.clone(),
+                    NamedUsage {
+                        kind: "const",
+                        location: const_decl.location,
+                        summary: collect_const_usage_summary(
+                            const_decl,
+                            &[],
+                            &top_level_values,
+                            &top_level_types,
+                            &top_level_effects,
+                            &constructor_to_type,
+                            &import_paths,
+                            &extern_paths,
+                        ),
+                    },
+                );
+            }
+            Declaration::Type(type_decl) => {
+                types.insert(
+                    type_decl.name.clone(),
+                    NamedUsage {
+                        kind: "type",
+                        location: type_decl.location,
+                        summary: collect_type_decl_usage_summary(
+                            type_decl,
+                            &top_level_types,
+                            &top_level_effects,
+                            &import_paths,
+                        ),
+                    },
+                );
+            }
+            Declaration::Effect(effect_decl) => {
+                effects.insert(
+                    effect_decl.name.clone(),
+                    NamedUsage {
+                        kind: "effect",
+                        location: effect_decl.location,
+                        summary: collect_effect_decl_usage_summary(effect_decl, &top_level_effects),
+                    },
+                );
+            }
+            Declaration::Test(test_decl) => {
+                tests.push(collect_test_usage_summary(
+                    test_decl,
+                    &top_level_values,
+                    &top_level_types,
+                    &top_level_effects,
+                    &constructor_to_type,
+                    &import_paths,
+                    &extern_paths,
+                ));
+            }
+        }
+    }
+
+    let reachability = if is_lib_file {
+        collect_library_usage(&values, &types, &effects, &externs, &tests)
+    } else {
+        collect_executable_usage(&values, &types, &externs, &tests)
+    };
+
+    for (import_path, location) in imports {
+        if !reachability.imports.contains(&import_path) {
+            errors.push(ValidationError::UnusedImport {
+                import_path,
+                location,
+            });
+        }
+    }
+
+    for (extern_path, extern_usage) in &externs {
+        if !reachability.externs.contains(extern_path) {
+            errors.push(ValidationError::UnusedExtern {
+                extern_path: extern_path.clone(),
+                location: extern_usage.location,
+            });
+        }
+    }
+
+    if !is_lib_file {
+        for (name, value_usage) in &values {
+            if name != "main" && !reachability.values.contains(name) {
+                errors.push(ValidationError::UnusedDeclaration {
+                    decl_kind: value_usage.kind.to_string(),
+                    decl_name: name.clone(),
+                    location: value_usage.location,
+                });
+            }
+        }
+
+        for (name, type_usage) in &types {
+            if !reachability.types.contains(name) {
+                errors.push(ValidationError::UnusedDeclaration {
+                    decl_kind: type_usage.kind.to_string(),
+                    decl_name: name.clone(),
+                    location: type_usage.location,
+                });
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct Reachability {
+    imports: HashSet<String>,
+    externs: HashSet<String>,
+    values: HashSet<String>,
+    types: HashSet<String>,
+}
+
+fn collect_library_usage(
+    values: &HashMap<String, NamedUsage>,
+    types: &HashMap<String, NamedUsage>,
+    effects: &HashMap<String, NamedUsage>,
+    externs: &HashMap<String, NamedUsage>,
+    tests: &[UsageSummary],
+) -> Reachability {
+    let mut aggregate = UsageSummary::default();
+    for usage in values.values() {
+        aggregate.merge_from(&usage.summary);
+    }
+    for usage in types.values() {
+        aggregate.merge_from(&usage.summary);
+    }
+    for usage in effects.values() {
+        aggregate.merge_from(&usage.summary);
+    }
+    for test in tests {
+        aggregate.merge_from(test);
+    }
+
+    let mut reachability = Reachability {
+        imports: aggregate.imports.clone(),
+        externs: aggregate.externs.clone(),
+        values: values.keys().cloned().collect(),
+        types: types.keys().cloned().collect(),
+    };
+
+    accumulate_extern_usage(&mut aggregate, externs);
+    reachability.imports = aggregate.imports;
+    reachability.externs = aggregate.externs;
+    reachability
+}
+
+fn collect_executable_usage(
+    values: &HashMap<String, NamedUsage>,
+    types: &HashMap<String, NamedUsage>,
+    externs: &HashMap<String, NamedUsage>,
+    tests: &[UsageSummary],
+) -> Reachability {
+    let mut aggregate = UsageSummary::default();
+    let mut reachable_values = HashSet::new();
+    let mut pending_values = Vec::new();
+
+    if let Some(main_usage) = values.get("main") {
+        reachable_values.insert("main".to_string());
+        pending_values.push("main".to_string());
+        aggregate.merge_from(&main_usage.summary);
+    }
+
+    for test in tests {
+        aggregate.merge_from(test);
+        for name in &test.value_refs {
+            if values.contains_key(name) && reachable_values.insert(name.clone()) {
+                pending_values.push(name.clone());
+            }
+        }
+    }
+
+    while let Some(name) = pending_values.pop() {
+        if let Some(usage) = values.get(&name) {
+            aggregate.merge_from(&usage.summary);
+            for dependency in &usage.summary.value_refs {
+                if values.contains_key(dependency) && reachable_values.insert(dependency.clone()) {
+                    pending_values.push(dependency.clone());
+                }
+            }
+        }
+    }
+
+    accumulate_extern_usage(&mut aggregate, externs);
+
+    let mut reachable_types = HashSet::new();
+    let mut pending_types = Vec::new();
+    for type_name in &aggregate.type_refs {
+        if types.contains_key(type_name) && reachable_types.insert(type_name.clone()) {
+            pending_types.push(type_name.clone());
+        }
+    }
+    while let Some(name) = pending_types.pop() {
+        if let Some(usage) = types.get(&name) {
+            aggregate.merge_from(&usage.summary);
+            for dependency in &usage.summary.type_refs {
+                if types.contains_key(dependency) && reachable_types.insert(dependency.clone()) {
+                    pending_types.push(dependency.clone());
+                }
+            }
+        }
+    }
+
+    Reachability {
+        imports: aggregate.imports,
+        externs: aggregate.externs,
+        values: reachable_values,
+        types: reachable_types,
+    }
+}
+
+fn accumulate_extern_usage(aggregate: &mut UsageSummary, externs: &HashMap<String, NamedUsage>) {
+    let mut pending = aggregate.externs.iter().cloned().collect::<Vec<_>>();
+    let mut seen = aggregate.externs.clone();
+
+    while let Some(path) = pending.pop() {
+        if let Some(usage) = externs.get(&path) {
+            aggregate.imports.extend(usage.summary.imports.iter().cloned());
+            aggregate.type_refs.extend(usage.summary.type_refs.iter().cloned());
+            aggregate.effect_refs.extend(usage.summary.effect_refs.iter().cloned());
+            for dependency in &usage.summary.externs {
+                if seen.insert(dependency.clone()) {
+                    aggregate.externs.insert(dependency.clone());
+                    pending.push(dependency.clone());
+                }
+            }
+        }
+    }
+}
+
+fn collect_function_usage_summary(
+    function_decl: &FunctionDecl,
+    top_level_values: &HashSet<String>,
+    top_level_types: &HashSet<String>,
+    top_level_effects: &HashSet<String>,
+    constructor_to_type: &HashMap<String, String>,
+    import_paths: &HashSet<String>,
+    extern_paths: &HashSet<String>,
+) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    for param in &function_decl.params {
+        if let Some(type_annotation) = &param.type_annotation {
+            collect_type_usage(type_annotation, &mut summary, top_level_types, top_level_effects);
+        }
+    }
+    if let Some(return_type) = &function_decl.return_type {
+        collect_type_usage(return_type, &mut summary, top_level_types, top_level_effects);
+    }
+    collect_effect_usage(&function_decl.effects, &mut summary, top_level_effects);
+    let mut scopes = vec![function_decl
+        .params
+        .iter()
+        .map(|param| param.name.clone())
+        .collect::<HashSet<_>>()];
+    collect_expr_usage(
+        &function_decl.body,
+        &mut scopes,
+        &mut summary,
+        top_level_values,
+        top_level_types,
+        top_level_effects,
+        constructor_to_type,
+        import_paths,
+        extern_paths,
+    );
+    summary
+}
+
+fn collect_const_usage_summary(
+    const_decl: &ConstDecl,
+    initial_scopes: &[HashSet<String>],
+    top_level_values: &HashSet<String>,
+    top_level_types: &HashSet<String>,
+    top_level_effects: &HashSet<String>,
+    constructor_to_type: &HashMap<String, String>,
+    import_paths: &HashSet<String>,
+    extern_paths: &HashSet<String>,
+) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    if let Some(type_annotation) = &const_decl.type_annotation {
+        collect_type_usage(type_annotation, &mut summary, top_level_types, top_level_effects);
+    }
+    let mut scopes = initial_scopes.to_vec();
+    collect_expr_usage(
+        &const_decl.value,
+        &mut scopes,
+        &mut summary,
+        top_level_values,
+        top_level_types,
+        top_level_effects,
+        constructor_to_type,
+        import_paths,
+        extern_paths,
+    );
+    summary
+}
+
+fn collect_test_usage_summary(
+    test_decl: &TestDecl,
+    top_level_values: &HashSet<String>,
+    top_level_types: &HashSet<String>,
+    top_level_effects: &HashSet<String>,
+    constructor_to_type: &HashMap<String, String>,
+    import_paths: &HashSet<String>,
+    extern_paths: &HashSet<String>,
+) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    collect_effect_usage(&test_decl.effects, &mut summary, top_level_effects);
+
+    let mut world_scope = HashSet::new();
+    for binding in &test_decl.world_bindings {
+        let scope_frames = vec![world_scope.clone()];
+        summary.merge_from(&collect_const_usage_summary(
+            binding,
+            &scope_frames,
+            top_level_values,
+            top_level_types,
+            top_level_effects,
+            constructor_to_type,
+            import_paths,
+            extern_paths,
+        ));
+        world_scope.insert(binding.name.clone());
+    }
+
+    let mut scopes = vec![world_scope];
+    collect_expr_usage(
+        &test_decl.body,
+        &mut scopes,
+        &mut summary,
+        top_level_values,
+        top_level_types,
+        top_level_effects,
+        constructor_to_type,
+        import_paths,
+        extern_paths,
+    );
+    summary
+}
+
+fn collect_type_decl_usage_summary(
+    type_decl: &TypeDecl,
+    top_level_types: &HashSet<String>,
+    top_level_effects: &HashSet<String>,
+    import_paths: &HashSet<String>,
+) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    match &type_decl.definition {
+        TypeDef::Sum(sum_type) => {
+            for variant in &sum_type.variants {
+                for typ in &variant.types {
+                    collect_type_usage(typ, &mut summary, top_level_types, top_level_effects);
+                }
+            }
+        }
+        TypeDef::Product(product_type) => {
+            for field in &product_type.fields {
+                collect_type_usage(&field.field_type, &mut summary, top_level_types, top_level_effects);
+            }
+        }
+        TypeDef::Alias(alias) => {
+            collect_type_usage(&alias.aliased_type, &mut summary, top_level_types, top_level_effects);
+        }
+    }
+    summary.imports.retain(|path| import_paths.contains(path));
+    summary
+}
+
+fn collect_effect_decl_usage_summary(
+    effect_decl: &EffectDecl,
+    top_level_effects: &HashSet<String>,
+) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    collect_effect_usage(&effect_decl.effects, &mut summary, top_level_effects);
+    summary
+}
+
+fn collect_extern_usage_summary(
+    extern_decl: &ExternDecl,
+    top_level_types: &HashSet<String>,
+    top_level_effects: &HashSet<String>,
+) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    if let Some(members) = &extern_decl.members {
+        for member in members {
+            collect_type_usage(&member.member_type, &mut summary, top_level_types, top_level_effects);
+        }
+    }
+    summary
+}
+
+fn collect_effect_usage(
+    effects: &[String],
+    summary: &mut UsageSummary,
+    top_level_effects: &HashSet<String>,
+) {
+    for effect in effects {
+        if top_level_effects.contains(effect) {
+            summary.effect_refs.insert(effect.clone());
+        }
+    }
+}
+
+fn collect_type_usage(
+    typ: &Type,
+    summary: &mut UsageSummary,
+    top_level_types: &HashSet<String>,
+    top_level_effects: &HashSet<String>,
+) {
+    match typ {
+        Type::Primitive(_) => {}
+        Type::Variable(variable) => {
+            if top_level_types.contains(&variable.name) {
+                summary.type_refs.insert(variable.name.clone());
+            }
+        }
+        Type::List(list_type) => {
+            collect_type_usage(&list_type.element_type, summary, top_level_types, top_level_effects);
+        }
+        Type::Map(map_type) => {
+            collect_type_usage(&map_type.key_type, summary, top_level_types, top_level_effects);
+            collect_type_usage(
+                &map_type.value_type,
+                summary,
+                top_level_types,
+                top_level_effects,
+            );
+        }
+        Type::Function(function_type) => {
+            for param_type in &function_type.param_types {
+                collect_type_usage(param_type, summary, top_level_types, top_level_effects);
+            }
+            collect_effect_usage(&function_type.effects, summary, top_level_effects);
+            collect_type_usage(
+                &function_type.return_type,
+                summary,
+                top_level_types,
+                top_level_effects,
+            );
+        }
+        Type::Constructor(constructor) => {
+            if top_level_types.contains(&constructor.name) {
+                summary.type_refs.insert(constructor.name.clone());
+            }
+            for type_arg in &constructor.type_args {
+                collect_type_usage(type_arg, summary, top_level_types, top_level_effects);
+            }
+        }
+        Type::Tuple(tuple_type) => {
+            for nested in &tuple_type.types {
+                collect_type_usage(nested, summary, top_level_types, top_level_effects);
+            }
+        }
+        Type::Qualified(qualified) => {
+            summary.imports.insert(qualified.module_path.join("::"));
+            for type_arg in &qualified.type_args {
+                collect_type_usage(type_arg, summary, top_level_types, top_level_effects);
+            }
+        }
+    }
+}
+
+fn collect_expr_usage(
+    expr: &Expr,
+    scopes: &mut Vec<HashSet<String>>,
+    summary: &mut UsageSummary,
+    top_level_values: &HashSet<String>,
+    top_level_types: &HashSet<String>,
+    top_level_effects: &HashSet<String>,
+    constructor_to_type: &HashMap<String, String>,
+    import_paths: &HashSet<String>,
+    extern_paths: &HashSet<String>,
+) {
+    match expr {
+        Expr::Literal(_) => {}
+        Expr::Identifier(identifier) => {
+            if !is_locally_bound(&identifier.name, scopes) {
+                if top_level_values.contains(&identifier.name) {
+                    summary.value_refs.insert(identifier.name.clone());
+                }
+                if let Some(type_name) = constructor_to_type.get(&identifier.name) {
+                    summary.type_refs.insert(type_name.clone());
+                }
+            }
+        }
+        Expr::Lambda(lambda) => {
+            for param in &lambda.params {
+                if let Some(type_annotation) = &param.type_annotation {
+                    collect_type_usage(type_annotation, summary, top_level_types, top_level_effects);
+                }
+            }
+            collect_effect_usage(&lambda.effects, summary, top_level_effects);
+            collect_type_usage(&lambda.return_type, summary, top_level_types, top_level_effects);
+            let mut child_scopes = scopes.clone();
+            child_scopes.push(
+                lambda
+                    .params
+                    .iter()
+                    .map(|param| param.name.clone())
+                    .collect::<HashSet<_>>(),
+            );
+            collect_expr_usage(
+                &lambda.body,
+                &mut child_scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::Application(application) => {
+            collect_expr_usage(
+                &application.func,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            for arg in &application.args {
+                collect_expr_usage(
+                    arg,
+                    scopes,
+                    summary,
+                    top_level_values,
+                    top_level_types,
+                    top_level_effects,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+            }
+        }
+        Expr::Binary(binary) => {
+            collect_expr_usage(
+                &binary.left,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_expr_usage(
+                &binary.right,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::Unary(unary) => {
+            collect_expr_usage(
+                &unary.operand,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::Match(match_expr) => {
+            collect_expr_usage(
+                &match_expr.scrutinee,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            for arm in &match_expr.arms {
+                collect_pattern_usage(
+                    &arm.pattern,
+                    summary,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+                let mut child_scopes = scopes.clone();
+                child_scopes.push(pattern_binding_frame(&arm.pattern));
+                if let Some(guard) = &arm.guard {
+                    collect_expr_usage(
+                        guard,
+                        &mut child_scopes,
+                        summary,
+                        top_level_values,
+                        top_level_types,
+                        top_level_effects,
+                        constructor_to_type,
+                        import_paths,
+                        extern_paths,
+                    );
+                }
+                collect_expr_usage(
+                    &arm.body,
+                    &mut child_scopes,
+                    summary,
+                    top_level_values,
+                    top_level_types,
+                    top_level_effects,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+            }
+        }
+        Expr::Let(let_expr) => {
+            collect_expr_usage(
+                &let_expr.value,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_pattern_usage(
+                &let_expr.pattern,
+                summary,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            let mut child_scopes = scopes.clone();
+            child_scopes.push(pattern_binding_frame(&let_expr.pattern));
+            collect_expr_usage(
+                &let_expr.body,
+                &mut child_scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::If(if_expr) => {
+            collect_expr_usage(
+                &if_expr.condition,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_expr_usage(
+                &if_expr.then_branch,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            if let Some(else_branch) = &if_expr.else_branch {
+                collect_expr_usage(
+                    else_branch,
+                    scopes,
+                    summary,
+                    top_level_values,
+                    top_level_types,
+                    top_level_effects,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+            }
+        }
+        Expr::List(list_expr) => {
+            for element in &list_expr.elements {
+                collect_expr_usage(
+                    element,
+                    scopes,
+                    summary,
+                    top_level_values,
+                    top_level_types,
+                    top_level_effects,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+            }
+        }
+        Expr::Record(record_expr) => {
+            for field in &record_expr.fields {
+                collect_expr_usage(
+                    &field.value,
+                    scopes,
+                    summary,
+                    top_level_values,
+                    top_level_types,
+                    top_level_effects,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+            }
+        }
+        Expr::MapLiteral(map_expr) => {
+            for entry in &map_expr.entries {
+                collect_expr_usage(
+                    &entry.key,
+                    scopes,
+                    summary,
+                    top_level_values,
+                    top_level_types,
+                    top_level_effects,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+                collect_expr_usage(
+                    &entry.value,
+                    scopes,
+                    summary,
+                    top_level_values,
+                    top_level_types,
+                    top_level_effects,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+            }
+        }
+        Expr::Tuple(tuple_expr) => {
+            for element in &tuple_expr.elements {
+                collect_expr_usage(
+                    element,
+                    scopes,
+                    summary,
+                    top_level_values,
+                    top_level_types,
+                    top_level_effects,
+                    constructor_to_type,
+                    import_paths,
+                    extern_paths,
+                );
+            }
+        }
+        Expr::FieldAccess(field_access) => {
+            collect_expr_usage(
+                &field_access.object,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            if let Expr::Identifier(identifier) = &field_access.object {
+                if !is_locally_bound(&identifier.name, scopes)
+                    && extern_paths.contains(&identifier.name)
+                {
+                    summary.externs.insert(identifier.name.clone());
+                }
+            }
+        }
+        Expr::Index(index_expr) => {
+            collect_expr_usage(
+                &index_expr.object,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_expr_usage(
+                &index_expr.index,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::Pipeline(pipeline) => {
+            collect_expr_usage(
+                &pipeline.left,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_expr_usage(
+                &pipeline.right,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::Map(map_expr) => {
+            collect_expr_usage(
+                &map_expr.list,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_expr_usage(
+                &map_expr.func,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::Filter(filter_expr) => {
+            collect_expr_usage(
+                &filter_expr.list,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_expr_usage(
+                &filter_expr.predicate,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::Fold(fold_expr) => {
+            collect_expr_usage(
+                &fold_expr.list,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_expr_usage(
+                &fold_expr.func,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_expr_usage(
+                &fold_expr.init,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+        }
+        Expr::Concurrent(concurrent_expr) => {
+            collect_expr_usage(
+                &concurrent_expr.width,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            if let Some(policy) = &concurrent_expr.policy {
+                for field in &policy.fields {
+                    collect_expr_usage(
+                        &field.value,
+                        scopes,
+                        summary,
+                        top_level_values,
+                        top_level_types,
+                        top_level_effects,
+                        constructor_to_type,
+                        import_paths,
+                        extern_paths,
+                    );
+                }
+            }
+            for step in &concurrent_expr.steps {
+                match step {
+                    ConcurrentStep::Spawn(spawn_step) => collect_expr_usage(
+                        &spawn_step.expr,
+                        scopes,
+                        summary,
+                        top_level_values,
+                        top_level_types,
+                        top_level_effects,
+                        constructor_to_type,
+                        import_paths,
+                        extern_paths,
+                    ),
+                    ConcurrentStep::SpawnEach(spawn_each) => {
+                        collect_expr_usage(
+                            &spawn_each.list,
+                            scopes,
+                            summary,
+                            top_level_values,
+                            top_level_types,
+                            top_level_effects,
+                            constructor_to_type,
+                            import_paths,
+                            extern_paths,
+                        );
+                        collect_expr_usage(
+                            &spawn_each.func,
+                            scopes,
+                            summary,
+                            top_level_values,
+                            top_level_types,
+                            top_level_effects,
+                            constructor_to_type,
+                            import_paths,
+                            extern_paths,
+                        );
+                    }
+                }
+            }
+        }
+        Expr::MemberAccess(member_access) => {
+            let namespace = member_access.namespace.join("::");
+            if import_paths.contains(&namespace) {
+                summary.imports.insert(namespace);
+            } else if extern_paths.contains(&namespace) {
+                summary.externs.insert(namespace);
+            }
+        }
+        Expr::TypeAscription(type_ascription) => {
+            collect_expr_usage(
+                &type_ascription.expr,
+                scopes,
+                summary,
+                top_level_values,
+                top_level_types,
+                top_level_effects,
+                constructor_to_type,
+                import_paths,
+                extern_paths,
+            );
+            collect_type_usage(
+                &type_ascription.ascribed_type,
+                summary,
+                top_level_types,
+                top_level_effects,
+            );
+        }
+    }
+}
+
+fn collect_pattern_usage(
+    pattern: &Pattern,
+    summary: &mut UsageSummary,
+    constructor_to_type: &HashMap<String, String>,
+    import_paths: &HashSet<String>,
+    extern_paths: &HashSet<String>,
+) {
+    match pattern {
+        Pattern::Literal(_) | Pattern::Identifier(_) | Pattern::Wildcard(_) => {}
+        Pattern::Constructor(constructor_pattern) => {
+            if !constructor_pattern.module_path.is_empty() {
+                let namespace = constructor_pattern.module_path.join("::");
+                if import_paths.contains(&namespace) {
+                    summary.imports.insert(namespace);
+                } else if extern_paths.contains(&namespace) {
+                    summary.externs.insert(namespace);
+                }
+            } else if let Some(type_name) = constructor_to_type.get(&constructor_pattern.name) {
+                summary.type_refs.insert(type_name.clone());
+            }
+            for nested in &constructor_pattern.patterns {
+                collect_pattern_usage(nested, summary, constructor_to_type, import_paths, extern_paths);
+            }
+        }
+        Pattern::List(list_pattern) => {
+            for nested in &list_pattern.patterns {
+                collect_pattern_usage(nested, summary, constructor_to_type, import_paths, extern_paths);
+            }
+        }
+        Pattern::Record(record_pattern) => {
+            for field in &record_pattern.fields {
+                if let Some(nested) = &field.pattern {
+                    collect_pattern_usage(nested, summary, constructor_to_type, import_paths, extern_paths);
+                }
+            }
+        }
+        Pattern::Tuple(tuple_pattern) => {
+            for nested in &tuple_pattern.patterns {
+                collect_pattern_usage(nested, summary, constructor_to_type, import_paths, extern_paths);
+            }
+        }
+    }
+}
+
+fn pattern_binding_frame(pattern: &Pattern) -> HashSet<String> {
+    let mut names = HashSet::new();
+    collect_pattern_binding_names(pattern, &mut names);
+    names
+}
+
+fn collect_pattern_binding_names(pattern: &Pattern, names: &mut HashSet<String>) {
+    match pattern {
+        Pattern::Identifier(identifier_pattern) => {
+            names.insert(identifier_pattern.name.clone());
+        }
+        Pattern::Wildcard(_) | Pattern::Literal(_) => {}
+        Pattern::Constructor(constructor_pattern) => {
+            for nested in &constructor_pattern.patterns {
+                collect_pattern_binding_names(nested, names);
+            }
+        }
+        Pattern::List(list_pattern) => {
+            for nested in &list_pattern.patterns {
+                collect_pattern_binding_names(nested, names);
+            }
+            if let Some(rest_name) = &list_pattern.rest {
+                names.insert(rest_name.clone());
+            }
+        }
+        Pattern::Record(record_pattern) => {
+            for field in &record_pattern.fields {
+                match &field.pattern {
+                    Some(nested) => collect_pattern_binding_names(nested, names),
+                    None => {
+                        names.insert(field.name.clone());
+                    }
+                }
+            }
+        }
+        Pattern::Tuple(tuple_pattern) => {
+            for nested in &tuple_pattern.patterns {
+                collect_pattern_binding_names(nested, names);
+            }
+        }
+    }
+}
+
+fn is_locally_bound(name: &str, scopes: &[HashSet<String>]) -> bool {
+    scopes.iter().rev().any(|scope| scope.contains(name))
 }
 
 /// Validate filename format - lowerCamelCase only
@@ -3806,12 +5202,12 @@ mod tests {
     fn test_simple_recursion_allowed() {
         // TODO: Parser bug - match expressions with scrutinee (match n{...}) don't work yet
         // For now, test with a simple recursive function without pattern matching
-        let source = r#"λfactorial(n:Int)=>Int=factorial(n-1)"#;
+        let source = "λfactorial(n:Int)=>Int=factorial(n-1)\n";
         let tokens = tokenize(source).unwrap();
-        let program = parse(tokens, "test.sigil").unwrap();
+        let program = parse(tokens, "test.lib.sigil").unwrap();
 
         // Should pass - simple recursion is allowed
-        assert!(validate_canonical_form(&program, None, None).is_ok());
+        assert!(validate_canonical_form(&program, Some("test.lib.sigil"), Some(source)).is_ok());
     }
 
     #[test]
@@ -3827,7 +5223,7 @@ mod tests {
         let program = parse(tokens, "test.sigil").unwrap();
         let typed = type_check(&program, source, None).unwrap();
 
-        let result = validate_typed_canonical_form(&typed.typed_program);
+        let result = validate_typed_canonical_form(&typed.typed_program, Some("test.sigil"));
         assert!(result.is_err());
         let errors = result.unwrap_err();
         assert!(matches!(
@@ -3849,7 +5245,7 @@ mod tests {
         let program = parse(tokens, "test.sigil").unwrap();
         let typed = type_check(&program, source, None).unwrap();
 
-        assert!(validate_typed_canonical_form(&typed.typed_program).is_ok());
+        assert!(validate_typed_canonical_form(&typed.typed_program, Some("test.sigil")).is_ok());
     }
 
     #[test]
@@ -3867,7 +5263,70 @@ mod tests {
         let program = parse(tokens, "test.sigil").unwrap();
         let typed = type_check(&program, source, None).unwrap();
 
-        assert!(validate_typed_canonical_form(&typed.typed_program).is_ok());
+        assert!(validate_typed_canonical_form(&typed.typed_program, Some("test.sigil")).is_ok());
+    }
+
+    #[test]
+    fn test_unused_named_binding_rejected() {
+        let source = r#"λmain()=>Unit={
+  l unused=("x":String);
+  ()
+}
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+        let typed = type_check(&program, source, None).unwrap();
+
+        let result = validate_typed_canonical_form(&typed.typed_program, Some("test.sigil"));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|error| matches!(error, ValidationError::UnusedBinding { binding_name, .. } if binding_name == "unused")));
+    }
+
+    #[test]
+    fn test_unused_import_rejected() {
+        let source = r#"i stdlib::string
+
+λmain()=>Unit=()
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = validate_canonical_form(&program, Some("test.sigil"), Some(source));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|error| matches!(error, ValidationError::UnusedImport { import_path, .. } if import_path == "stdlib::string")));
+    }
+
+    #[test]
+    fn test_unused_executable_function_rejected() {
+        let source = r#"λhelper()=>Int=1
+
+λmain()=>Unit=()
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = validate_canonical_form(&program, Some("test.sigil"), Some(source));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|error| matches!(error, ValidationError::UnusedDeclaration { decl_kind, decl_name, .. } if decl_kind == "function" && decl_name == "helper")));
+    }
+
+    #[test]
+    fn test_unused_library_export_allowed() {
+        let source = r#"λhelper()=>Int=1
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helper.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helper.lib.sigil"), Some(source)).is_ok());
     }
 
     #[test]

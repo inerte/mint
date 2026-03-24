@@ -148,7 +148,10 @@ Current constructor and list invariants:
   - topology-aware application code must use `src::topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
   - `process.env` belongs only in `config/*.lib.sigil`, never in ordinary application code
   - tests run in explicit worlds; prefer `config/<env>.lib.sigil` baseline worlds plus test-local `world { ... }` derivation over ad hoc rewiring
+  - unused imports and unused extern declarations are non-canonical
   - inline single-use pure locals; keep bindings only for reuse, effects, destructuring, or syntax-required staging
+  - reject dead named bindings; use `l _=(...)` when sequencing effects without keeping a reusable local
+  - `.sigil` files must keep top-level functions, consts, and types reachable from `main` or tests; `.lib.sigil` files may still expose API that is unused locally
   - do not hand-roll recursive list plumbing when Sigil already has a canonical surface
   - use `map` for projection, `filter` for filtering, `reduce ... from ...` / `stdlib::list.fold` for reduction, `stdlib::list.reverse` for reversal, `stdlib::list.any` / `stdlib::list.all` / `stdlib::list.find` for existential, universal, and first-match search, `stdlib::list.flatMap` for flattening projection, and `stdlib::list.countIf` for predicate counting
   - do not build list results by appending to the recursive result (`self(rest)⧺rhs`); use a canonical operator or a wrapper plus accumulator helper with one final reverse

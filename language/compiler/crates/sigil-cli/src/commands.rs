@@ -265,7 +265,10 @@ pub fn compile_command(
         )
         .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
 
-        validate_typed_canonical_form(&typecheck_result.typed_program)
+        validate_typed_canonical_form(
+            &typecheck_result.typed_program,
+            Some(module.file_path.to_string_lossy().as_ref()),
+        )
             .map_err(|errors| CliError::Validation(format_validation_errors(&errors)))?;
 
         // Determine output path
@@ -808,7 +811,10 @@ fn compile_module_graph(
         )
         .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
 
-        validate_typed_canonical_form(&typecheck_result.typed_program)
+        validate_typed_canonical_form(
+            &typecheck_result.typed_program,
+            Some(module.file_path.to_string_lossy().as_ref()),
+        )
             .map_err(|errors| CliError::Validation(format_validation_errors(&errors)))?;
 
         coverage_targets.extend(collect_module_coverage_targets(

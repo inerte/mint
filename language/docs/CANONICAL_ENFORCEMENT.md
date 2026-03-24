@@ -58,18 +58,26 @@ alone, such as:
 - declaration ordering
 - file-purpose rules
 - test location rules
+- no dead imports or extern declarations
+- no dead top-level declarations in executable `.sigil` files
 - no-shadowing
 - record field ordering
 - exact recursive list-plumbing bans where Sigil already has a canonical surface
-- typed canonical restrictions like single-use pure binding inlining
+- typed canonical restrictions like dead-binding rejection and single-use pure binding inlining
 
 ### Typed Canonical Validation
 
 After type checking, the validator enforces typed canonical rules.
 
-Current important example:
+Current important examples:
 
+- named local bindings used zero times are rejected
 - pure single-use local bindings must be inlined
+
+Executable note:
+
+- `.sigil` files must keep top-level helper functions, consts, and types reachable from `main` or tests
+- `.lib.sigil` files are still allowed to expose public API that is unused locally
 
 Current list-processing examples:
 

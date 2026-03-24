@@ -162,8 +162,10 @@ value in scope:
 Canonical note:
 
 - runtime semantics include local bindings as expressions
+- source-level canonical validation may reject zero-use named locals
 - source-level canonical validation may reject some pure single-use locals
   earlier and require the already-inlined form
+- use `l _=(...)` when the binding exists only to sequence effects
 
 ## Pattern Matching
 

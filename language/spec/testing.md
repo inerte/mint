@@ -1,7 +1,7 @@
 # Sigil Testing Specification
 
-Version: 1.1.0
-Last Updated: 2026-03-23
+Version: 1.1.1
+Last Updated: 2026-03-24
 
 ## Overview
 

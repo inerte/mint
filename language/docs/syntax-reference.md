@@ -75,6 +75,9 @@ There is no `export` keyword in current Sigil. Visibility is file-based:
 
 - top-level declarations in `.lib.sigil` files are importable
 - `.sigil` files are executable-oriented
+- top-level functions, consts, and types in `.sigil` files must be reachable
+  from `main` or tests
+- `.lib.sigil` files may still expose declarations that are unused locally
 
 ## Function Declarations
 
@@ -238,10 +241,15 @@ stdlib::list.last(items)
 Canonical import roots include:
 
 - `core::...`
+- `config::...`
 - `src::...`
 - `stdlib::...`
+- `test::...`
+- `world::...`
 
 There are no selective imports and no import aliases.
+
+Unused imports are non-canonical.
 
 ## Externs
 
@@ -252,6 +260,8 @@ e console:{log:λ(String)=>!Log Unit}
 
 e axios:{get:λ(String)=>!Http String}
 ```
+
+Unused extern declarations are non-canonical.
 
 ## Local Bindings
 
@@ -266,7 +276,16 @@ Local bindings use `l` inside expressions:
 
 Local names must not shadow names from the same or any enclosing lexical scope.
 
+Named local bindings used zero times are non-canonical.
+
 Pure local bindings used exactly once are non-canonical and must be inlined.
+
+When a binding exists only to sequence effects, use the wildcard pattern:
+
+```sigil expr
+l _=(stdlib::io.println("x"):Unit);
+next
+```
 
 ## Pattern Matching
 

@@ -165,6 +165,24 @@ Current mechanical rule:
 The current validator does not perform a separate “substitution legality”
 analysis. This document describes the implementation as it exists today.
 
+## No Dead Surface
+
+Sigil also rejects dead names where the compiler can determine they serve no
+purpose.
+
+Current enforced rules:
+
+- imports must be used
+- extern declarations must be used
+- named local bindings used zero times are rejected
+- executable `.sigil` files reject top-level functions, consts, and types that
+  are not reachable from `main` or tests
+
+Library note:
+
+- `.lib.sigil` files may still expose top-level declarations that are unused in
+  the defining file, because the file surface is the module API
+
 ## Canonical List Processing
 
 Sigil now rejects a small set of exact recursive list-plumbing clones when the
@@ -321,8 +339,8 @@ Sigil does not attempt general complexity proofs or general exponential-recursio
 Canonical validation happens in two stages:
 
 1. after parsing, for syntax- and structure-level canonical rules
-2. after typechecking, for typed canonical rules such as single-use pure
-   bindings
+2. after typechecking, for typed canonical rules such as dead-binding rejection
+   and single-use pure bindings
 
 The overall pipeline is:
 

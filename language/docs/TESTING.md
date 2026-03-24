@@ -106,6 +106,11 @@ Canonical split:
 - `test::observe` is raw test-world inspection
 - `test::check` is ergonomic Bool helpers for tests
 
+Canonical note:
+
+- if a world entry exists only as shared baseline behavior, keep it in
+  `config/<env>.lib.sigil.world` instead of restating it in every test
+
 Example:
 
 ```sigil program language/test-fixtures/tests/testWorld.sigil

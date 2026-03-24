@@ -323,7 +323,6 @@ fn expr_location(expr: &Expr) -> SourceLocation {
         Expr::Fold(expr) => expr.location,
         Expr::Concurrent(expr) => expr.location,
         Expr::MemberAccess(expr) => expr.location,
-        Expr::WithMock(expr) => expr.location,
         Expr::TypeAscription(expr) => expr.location,
     }
 }
@@ -659,7 +658,6 @@ fn validate_expr_layout(expr: &Expr, source: &str, errors: &mut Vec<ValidationEr
                 }
             }
         }
-        Expr::WithMock(with_mock) => validate_expr_layout(&with_mock.body, source, errors),
         Expr::TypeAscription(ascription) => validate_expr_layout(&ascription.expr, source, errors),
         Expr::Literal(_) | Expr::Identifier(_) | Expr::MemberAccess(_) => {}
     }
@@ -766,11 +764,6 @@ pub fn validate_canonical_form_with_options(
 
     // Rule 5: Declaration ordering - canonical alphabetical order
     if let Err(e) = validate_declaration_ordering(program) {
-        errors.extend(e);
-    }
-
-    // Rule 5b: withMock is only valid inside test declaration bodies
-    if let Err(e) = validate_with_mock_placement(program) {
         errors.extend(e);
     }
 
@@ -969,9 +962,6 @@ fn collect_single_use_pure_bindings(expr: &TypedExpr, errors: &mut Vec<Validatio
                 }
             }
         }
-        TypedExprKind::WithMock(with_mock) => {
-            collect_single_use_pure_bindings(&with_mock.body, errors);
-        }
         TypedExprKind::Literal(_)
         | TypedExprKind::Identifier(_)
         | TypedExprKind::NamespaceMember { .. } => {}
@@ -1117,7 +1107,6 @@ fn count_identifier_uses(expr: &TypedExpr, name: &str) -> usize {
                     })
                     .sum::<usize>()
         }
-        TypedExprKind::WithMock(with_mock) => count_identifier_uses(&with_mock.body, name),
     }
 }
 
@@ -1448,11 +1437,6 @@ fn validate_expr_record_fields(expr: &Expr, errors: &mut Vec<ValidationError>) {
                 }
             }
         }
-        Expr::WithMock(with_mock) => {
-            validate_expr_record_fields(&with_mock.target, errors);
-            validate_expr_record_fields(&with_mock.replacement, errors);
-            validate_expr_record_fields(&with_mock.body, errors);
-        }
         Expr::TypeAscription(type_ascription) => {
             validate_expr_record_fields(&type_ascription.expr, errors)
         }
@@ -1767,11 +1751,6 @@ fn validate_expr_no_shadowing(
                     }
                 }
             }
-        }
-        Expr::WithMock(with_mock) => {
-            validate_expr_no_shadowing(&with_mock.target, scopes, errors);
-            validate_expr_no_shadowing(&with_mock.replacement, scopes, errors);
-            validate_expr_no_shadowing(&with_mock.body, scopes, errors);
         }
         Expr::TypeAscription(type_ascription) => {
             validate_expr_no_shadowing(&type_ascription.expr, scopes, errors)
@@ -2518,11 +2497,6 @@ fn validate_identifier_forms_in_expr(expr: &Expr, errors: &mut Vec<ValidationErr
                 }
             }
         }
-        Expr::WithMock(with_mock) => {
-            validate_identifier_forms_in_expr(&with_mock.target, errors);
-            validate_identifier_forms_in_expr(&with_mock.replacement, errors);
-            validate_identifier_forms_in_expr(&with_mock.body, errors);
-        }
         Expr::TypeAscription(type_ascription) => {
             validate_identifier_forms_in_expr(&type_ascription.expr, errors);
             validate_identifier_forms_in_type(&type_ascription.ascribed_type, errors);
@@ -2739,6 +2713,7 @@ fn validate_test_location(program: &Program, file_path: &str) -> Result<(), Vec<
     Ok(())
 }
 
+
 /// Validate recursive functions don't use accumulator parameters
 fn validate_recursive_functions(program: &Program) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
@@ -2845,198 +2820,6 @@ fn validate_recursive_functions(program: &Program) -> Result<(), Vec<ValidationE
     }
 }
 
-fn validate_with_mock_placement(program: &Program) -> Result<(), Vec<ValidationError>> {
-    let mut errors = Vec::new();
-
-    for declaration in &program.declarations {
-        match declaration {
-            Declaration::Function(function) => {
-                collect_with_mock_outside_tests(&function.body, &mut errors);
-            }
-            Declaration::Const(const_decl) => {
-                collect_with_mock_outside_tests(&const_decl.value, &mut errors);
-            }
-            Declaration::Test(test_decl) => {
-                collect_with_mock_outside_tests_in_test_expr(&test_decl.body, true, &mut errors);
-            }
-            Declaration::Type(_)
-            | Declaration::Effect(_)
-            | Declaration::Import(_)
-            | Declaration::Extern(_) => {}
-        }
-    }
-
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors)
-    }
-}
-
-fn collect_with_mock_outside_tests(expr: &Expr, errors: &mut Vec<ValidationError>) {
-    collect_with_mock_outside_tests_in_test_expr(expr, false, errors);
-}
-
-fn collect_with_mock_outside_tests_in_test_expr(
-    expr: &Expr,
-    in_test_body: bool,
-    errors: &mut Vec<ValidationError>,
-) {
-    match expr {
-        Expr::Literal(_) | Expr::Identifier(_) => {}
-        Expr::Lambda(lambda) => {
-            collect_with_mock_outside_tests_in_test_expr(&lambda.body, false, errors);
-        }
-        Expr::Application(app) => {
-            collect_with_mock_outside_tests_in_test_expr(&app.func, in_test_body, errors);
-            for arg in &app.args {
-                collect_with_mock_outside_tests_in_test_expr(arg, in_test_body, errors);
-            }
-        }
-        Expr::Binary(binary) => {
-            collect_with_mock_outside_tests_in_test_expr(&binary.left, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(&binary.right, in_test_body, errors);
-        }
-        Expr::Unary(unary) => {
-            collect_with_mock_outside_tests_in_test_expr(&unary.operand, in_test_body, errors);
-        }
-        Expr::Match(match_expr) => {
-            collect_with_mock_outside_tests_in_test_expr(
-                &match_expr.scrutinee,
-                in_test_body,
-                errors,
-            );
-            for arm in &match_expr.arms {
-                collect_with_mock_outside_tests_in_test_expr(&arm.body, in_test_body, errors);
-                if let Some(guard) = &arm.guard {
-                    collect_with_mock_outside_tests_in_test_expr(guard, in_test_body, errors);
-                }
-            }
-        }
-        Expr::Let(let_expr) => {
-            collect_with_mock_outside_tests_in_test_expr(&let_expr.value, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(&let_expr.body, in_test_body, errors);
-        }
-        Expr::If(if_expr) => {
-            collect_with_mock_outside_tests_in_test_expr(&if_expr.condition, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(
-                &if_expr.then_branch,
-                in_test_body,
-                errors,
-            );
-            if let Some(else_branch) = &if_expr.else_branch {
-                collect_with_mock_outside_tests_in_test_expr(else_branch, in_test_body, errors);
-            }
-        }
-        Expr::List(list) => {
-            for element in &list.elements {
-                collect_with_mock_outside_tests_in_test_expr(element, in_test_body, errors);
-            }
-        }
-        Expr::Tuple(tuple) => {
-            for element in &tuple.elements {
-                collect_with_mock_outside_tests_in_test_expr(element, in_test_body, errors);
-            }
-        }
-        Expr::Record(record) => {
-            for field in &record.fields {
-                collect_with_mock_outside_tests_in_test_expr(&field.value, in_test_body, errors);
-            }
-        }
-        Expr::MapLiteral(map) => {
-            for entry in &map.entries {
-                collect_with_mock_outside_tests_in_test_expr(&entry.key, in_test_body, errors);
-                collect_with_mock_outside_tests_in_test_expr(&entry.value, in_test_body, errors);
-            }
-        }
-        Expr::FieldAccess(field_access) => {
-            collect_with_mock_outside_tests_in_test_expr(
-                &field_access.object,
-                in_test_body,
-                errors,
-            );
-        }
-        Expr::Index(index) => {
-            collect_with_mock_outside_tests_in_test_expr(&index.object, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(&index.index, in_test_body, errors);
-        }
-        Expr::Map(map_expr) => {
-            collect_with_mock_outside_tests_in_test_expr(&map_expr.list, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(&map_expr.func, in_test_body, errors);
-        }
-        Expr::Filter(filter) => {
-            collect_with_mock_outside_tests_in_test_expr(&filter.list, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(&filter.predicate, in_test_body, errors);
-        }
-        Expr::Fold(fold) => {
-            collect_with_mock_outside_tests_in_test_expr(&fold.list, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(&fold.func, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(&fold.init, in_test_body, errors);
-        }
-        Expr::Pipeline(pipeline) => {
-            collect_with_mock_outside_tests_in_test_expr(&pipeline.left, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(&pipeline.right, in_test_body, errors);
-        }
-        Expr::TypeAscription(type_ascription) => {
-            collect_with_mock_outside_tests_in_test_expr(
-                &type_ascription.expr,
-                in_test_body,
-                errors,
-            );
-        }
-        Expr::Concurrent(concurrent) => {
-            collect_with_mock_outside_tests_in_test_expr(&concurrent.width, in_test_body, errors);
-            if let Some(policy) = &concurrent.policy {
-                for field in &policy.fields {
-                    collect_with_mock_outside_tests_in_test_expr(
-                        &field.value,
-                        in_test_body,
-                        errors,
-                    );
-                }
-            }
-            for step in &concurrent.steps {
-                match step {
-                    ConcurrentStep::Spawn(spawn) => {
-                        collect_with_mock_outside_tests_in_test_expr(
-                            &spawn.expr,
-                            in_test_body,
-                            errors,
-                        );
-                    }
-                    ConcurrentStep::SpawnEach(spawn_each) => {
-                        collect_with_mock_outside_tests_in_test_expr(
-                            &spawn_each.list,
-                            in_test_body,
-                            errors,
-                        );
-                        collect_with_mock_outside_tests_in_test_expr(
-                            &spawn_each.func,
-                            in_test_body,
-                            errors,
-                        );
-                    }
-                }
-            }
-        }
-        Expr::MemberAccess(_) => {}
-        Expr::WithMock(with_mock) => {
-            if !in_test_body {
-                errors.push(ValidationError::WithMockTestOnly {
-                    location: with_mock.location,
-                });
-            }
-            collect_with_mock_outside_tests_in_test_expr(&with_mock.target, in_test_body, errors);
-            collect_with_mock_outside_tests_in_test_expr(
-                &with_mock.replacement,
-                in_test_body,
-                errors,
-            );
-            collect_with_mock_outside_tests_in_test_expr(&with_mock.body, in_test_body, errors);
-        }
-    }
-}
-
 /// Check if an expression contains a recursive call to the given function
 fn is_recursive(expr: &Expr, function_name: &str) -> bool {
     match expr {
@@ -3123,12 +2906,6 @@ fn is_recursive(expr: &Expr, function_name: &str) -> bool {
         }
 
         Expr::MemberAccess(_) => false,
-
-        Expr::WithMock(w) => {
-            is_recursive(&w.target, function_name)
-                || is_recursive(&w.replacement, function_name)
-                || is_recursive(&w.body, function_name)
-        }
 
         Expr::Concurrent(concurrent) => concurrent.steps.iter().any(|step| match step {
             ConcurrentStep::Spawn(spawn) => is_recursive(&spawn.expr, function_name),
@@ -3405,11 +3182,6 @@ fn contains_recursive_append_result(expr: &Expr, function_name: &str) -> bool {
                     || contains_recursive_append_result(&spawn_each.func, function_name)
             }
         }),
-        Expr::WithMock(with_mock) => {
-            contains_recursive_append_result(&with_mock.target, function_name)
-                || contains_recursive_append_result(&with_mock.replacement, function_name)
-                || contains_recursive_append_result(&with_mock.body, function_name)
-        }
         Expr::TypeAscription(type_ascription) => {
             contains_recursive_append_result(&type_ascription.expr, function_name)
         }
@@ -3723,11 +3495,6 @@ fn count_self_calls(expr: &Expr, function_name: &str) -> usize {
                 }
             })
             .sum(),
-        Expr::WithMock(with_mock) => {
-            count_self_calls(&with_mock.target, function_name)
-                + count_self_calls(&with_mock.replacement, function_name)
-                + count_self_calls(&with_mock.body, function_name)
-        }
         Expr::TypeAscription(type_ascription) => {
             count_self_calls(&type_ascription.expr, function_name)
         }
@@ -3817,11 +3584,6 @@ fn expr_contains_identifier(expr: &Expr, name: &str) -> bool {
                     || expr_contains_identifier(&spawn_each.func, name)
             }
         }),
-        Expr::WithMock(with_mock) => {
-            expr_contains_identifier(&with_mock.target, name)
-                || expr_contains_identifier(&with_mock.replacement, name)
-                || expr_contains_identifier(&with_mock.body, name)
-        }
         Expr::TypeAscription(type_ascription) => {
             expr_contains_identifier(&type_ascription.expr, name)
         }
@@ -3996,11 +3758,6 @@ fn collect_filter_then_count_in_expr(expr: &Expr, errors: &mut Vec<ValidationErr
                     }
                 }
             }
-        }
-        Expr::WithMock(with_mock) => {
-            collect_filter_then_count_in_expr(&with_mock.target, errors);
-            collect_filter_then_count_in_expr(&with_mock.replacement, errors);
-            collect_filter_then_count_in_expr(&with_mock.body, errors);
         }
         Expr::TypeAscription(type_ascription) => {
             collect_filter_then_count_in_expr(&type_ascription.expr, errors)

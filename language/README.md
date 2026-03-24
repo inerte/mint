@@ -65,7 +65,10 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test -
 - Tests must live under `./tests`
 - Test bodies return `Bool`
 - Effectful tests declare effects explicitly
-- Scoped mocking is built-in via `withMock(...) { ... }` inside test bodies
+- `config/<env>.lib.sigil` exports the baseline `world`
+- Tests may derive that world locally with `world { ... }`
+- `test::observe` and `test::check` inspect the active test world
+- `sigil test` enforces project `src/*.lib.sigil` surface coverage
 - Test files run in parallel by default (JSON results are output in stable order)
 
 See `docs/TESTING.md`.
@@ -91,7 +94,7 @@ Exports are determined by file extension:
 
 No `export` keyword exists - the file extension declares the intent.
 
-- Only `src/...`, `core/...`, and `stdlib/...` are valid Sigil import roots
+- Only `src/...`, `config/...`, `core/...`, `stdlib/...`, `world/...`, and `test/...` are valid Sigil import roots
 - Import cycles are compile errors
 - FFI (`e module::path`) remains trust-mode and link-time validated
 

@@ -2,6 +2,8 @@ i src::todoJson
 
 i src::todoDomain
 
+i stdlib::json
+
 λmain()=>Unit=()
 
 test "todo json decode rejects invalid payload" {
@@ -13,6 +15,20 @@ test "todo json decode rejects invalid payload" {
 
 test "todo json decode rejects missing fields" {
   match src::todoJson.decodeState("{\"todos\":[]}"){
+    Ok(_)=>false|
+    Err(_)=>true
+  }
+}
+
+test "todo json decode next todo id rejects non numeric string" {
+  match src::todoJson.decodeNextTodoId((stdlib::json.JsonString("oops"):stdlib::json.JsonValue)){
+    Ok(_)=>false|
+    Err(_)=>true
+  }
+}
+
+test "todo json decode todo rejects missing text field" {
+  match src::todoJson.decodeTodo((stdlib::json.JsonObject({"done"↦stdlib::json.JsonBool(false),"id"↦stdlib::json.JsonString("1")}):stdlib::json.JsonValue)){
     Ok(_)=>false|
     Err(_)=>true
   }

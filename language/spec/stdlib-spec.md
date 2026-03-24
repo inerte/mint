@@ -486,7 +486,12 @@ t TcpServiceDependency=TcpServiceDependency(String)
 
 ### stdlib::config
 
-Canonical binding layer for topology-backed environment config.
+Low-level helper layer for topology-backed environment config data.
+
+Canonical project environment files now export `world` values built through
+`world::runtime`, `world::http`, and `world::tcp`. `stdlib::config` remains
+available inside config modules for binding-shaped helper values, but it is no
+longer the exported environment ABI.
 
 ```sigil decl stdlib::config
 t BindingValue=EnvVar(String)|Literal(String)

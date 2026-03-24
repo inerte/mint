@@ -10,6 +10,13 @@ slug: topology-is-runtime-truth
 Sigil uses topology files to declare a project's external runtime dependencies.
 That is not the same job as configuration, deployment, or orchestration.
 
+## Update: Worlds
+
+As of 2026-03-23, `config/<env>.lib.sigil` no longer exports raw dependency
+bindings. It exports `world`, which includes both topology-backed dependency
+resolution and the runtime interpretation of primitive effects. The newer
+`worlds-not-mocks` article explains that revised model.
+
 ## The Split
 
 Topology answers:
@@ -43,7 +50,7 @@ then topology stops being the runtime source of truth.
 Sigil now pushes runtime structure into explicit project files:
 
 - `src/topology.lib.sigil` declares dependency handles and environments
-- `config/<env>.lib.sigil` binds those handles for each environment
+- `config/<env>.lib.sigil` constructs one environment's world around those handles
 - ordinary application code uses topology handles instead of raw endpoints
 
 This makes runtime structure visible to the compiler rather than leaving it
@@ -52,6 +59,6 @@ spread across configuration conventions and application code.
 ## Result
 
 Topology becomes the authoritative declaration of runtime dependencies, config
-materializes one environment's bindings, and application code is forced through
-the typed handles that connect the two. That is a clearer and more machine-readable
-runtime model than ambient configuration alone.
+materializes one environment's world, and application code is forced through
+the typed handles that connect the two. That is a clearer and more
+machine-readable runtime model than ambient configuration alone.

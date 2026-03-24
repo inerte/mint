@@ -12,6 +12,13 @@ Sigil draws a strict line between topology and configuration.
 - topology says what the program depends on
 - config says how one environment binds those dependencies
 
+## Update: Config Now Exports Worlds
+
+As of 2026-03-23, the canonical config surface is `c world=(...:world::runtime.World)`.
+That makes config responsible for the whole runtime world of one environment,
+not just raw HTTP/TCP bindings. The newer `worlds-not-mocks` article covers the
+expanded model and the testing implications.
+
 ## Why the Split Matters
 
 When those concerns are mixed together, runtime structure becomes difficult to
@@ -24,9 +31,9 @@ Sigil treats that as a structural weakness, not a mere style issue.
 
 ## The Rule
 
-Topology files declare logical dependencies and environments. Configuration files
-bind those dependencies for a specific environment. Application code refers to
-declared handles, not raw endpoints.
+Topology files declare logical dependencies and environments. Configuration
+files build the world for one specific environment around those declared
+dependencies. Application code refers to declared handles, not raw endpoints.
 
 The compiler reinforces that split by restricting ambient environment access to
 config modules and by requiring explicit `--env` selection for topology-aware

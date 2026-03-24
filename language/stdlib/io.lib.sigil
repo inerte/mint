@@ -1,13 +1,9 @@
-e console
+λdebug(msg:String)=>!Log Unit=()
 
-e process
+λeprintln(msg:String)=>!Log Unit=()
 
-λdebug(msg:String)=>!Log Unit=console.debug(msg)
+λprint(msg:String)=>!Log Unit=()
 
-λeprintln(msg:String)=>!Log Unit=console.error(msg)
+λprintln(msg:String)=>!Log Unit=()
 
-λprint(msg:String)=>!Log Unit=process.stdout.write(msg)
-
-λprintln(msg:String)=>!Log Unit=console.log(msg)
-
-λwarn(msg:String)=>!Log Unit=console.warn(msg)
+λwarn(msg:String)=>!Log Unit=()

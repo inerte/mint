@@ -69,30 +69,69 @@ test "writes log" =>!Log  {
 }
 ```
 
-## Mocking
+Tests may also derive a local world:
 
-Sigil includes built-in lexical mocking.
+```sigil program language/test-fixtures/tests/testWorld.sigil
+i stdlib::io
 
-Allowed targets:
+i test::check::log
 
-- extern members
-- any Sigil function
-
-Placement rule:
-
-- `withMock(...)` is only valid directly inside `test` declaration bodies
-
-Example:
-
-```sigil program language/test-fixtures/tests/mocking.sigil
-λfetchUser(id:Int)=>String="real"
+i world::log
 
 λmain()=>Unit=()
 
-test "fallback on API failure" {
-  withMock(fetchUser,λ(id:Int)=>String="ERR"){fetchUser(1)="ERR"}
+test "worlds capture logs" =>!Log world {
+  c log=(world::log.capture():world::log.LogEntry)
+} {
+  stdlib::io.println("captured")=() and
+  test::check::log.contains("captured")
 }
 ```
+
+## Worlds, Observation, and Coverage
+
+Sigil no longer treats tests as code plus ad hoc mocks.
+
+Instead:
+
+- `config/<env>.lib.sigil` exports the baseline `world`
+- each `test` may derive that world locally with `world { ... }`
+- `world::...` builds world entries for `Clock`, `Fs`, `Http`, `Log`, `Process`, `Tcp`, and `Timer`
+- `test::observe::...` exposes raw traces from the active test world
+- `test::check::...` exposes Bool-returning helpers over those traces
+
+Canonical split:
+
+- `world::` is compiler-owned runtime world construction
+- `test::observe` is raw test-world inspection
+- `test::check` is ergonomic Bool helpers for tests
+
+Example:
+
+```sigil program language/test-fixtures/tests/testWorld.sigil
+i stdlib::io
+
+i test::check::log
+
+i world::log
+
+λmain()=>Unit=()
+
+test "captured log contains line" =>!Log world {
+  c log=(world::log.capture():world::log.LogEntry)
+} {
+  stdlib::io.println("captured")=() and
+  test::check::log.contains("captured")
+}
+```
+
+`sigil test` also enforces project-surface coverage for project source modules:
+
+- every project `src/*.lib.sigil` function must be executed by the suite
+- sum-returning project functions must observe each relevant output variant
+- missing surface coverage is reported as ordinary failing test results
+- this coverage gate applies to suite-style runs such as `sigil test` or `sigil test path/to/tests/`
+- focused single-file runs such as `sigil test path/to/tests/file.sigil` skip the project-wide coverage gate
 
 ## CLI
 
@@ -112,7 +151,7 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test -
 
 ```
 
-For topology-aware projects, `--env <name>` is required.
+For runtime-world projects, `--env <name>` is required.
 
 For process-heavy harness code, prefer:
 - `stdlib::process` for child processes
@@ -145,6 +184,7 @@ Current aggregated test output does not include:
 
 - `declaredEffects`
 - structured `assertion` metadata
+- raw per-test coverage traces
 
 Formal references:
 

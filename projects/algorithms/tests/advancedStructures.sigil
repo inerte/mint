@@ -28,6 +28,14 @@ test "tree preorder flattens node before children" {
   src::treeTraversals.preorder(sampleTree())=[1,2,-4,3]
 }
 
+test "tree incremented adds one everywhere" {
+  src::treeTraversals.incremented(sampleTree())=src::treeTraversals.Node([src::treeTraversals.Node([src::treeTraversals.Node([],-3)],3),src::treeTraversals.Node([],4)],2)
+}
+
+test "tree incremented preserves empty tree" {
+  src::treeTraversals.incremented(src::treeTraversals.Empty())=src::treeTraversals.Empty()
+}
+
 test "tree positive values filters negatives after flattening" {
   src::treeTraversals.positiveValues(sampleTree())=[1,2,3]
 }

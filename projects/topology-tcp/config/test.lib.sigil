@@ -1,5 +1,19 @@
 i src::topology
 
-i stdlib::config
+i world::clock
 
-c bindings=(stdlib::config.bindings([],[stdlib::config.bindTcp(src::topology.eventStream,"127.0.0.1",45120)]):stdlib::config.Bindings)
+i world::fs
+
+i world::log
+
+i world::process
+
+i world::http
+
+i world::runtime
+
+i world::tcp
+
+i world::timer
+
+c world=(world::runtime.world(world::clock.systemClock(),world::fs.real(),[],world::log.capture(),world::process.deny(),[world::tcp.proxy(src::topology.eventStream,"127.0.0.1",45120)],world::timer.virtual()):world::runtime.World)

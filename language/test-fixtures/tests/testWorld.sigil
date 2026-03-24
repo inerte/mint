@@ -1,0 +1,20 @@
+i stdlib::io
+
+i test::check::log
+
+i world::log
+
+λmain()=>Unit=()
+
+test "test worlds capture logs" =>!Log world {
+  c log=(world::log.capture():world::log.LogEntry)
+} {
+  l _=(stdlib::io.println("temporary"):Unit);
+  test::check::log.contains("temporary")
+}
+
+test "test worlds start fresh" =>!Log world {
+  c log=(world::log.capture():world::log.LogEntry)
+} {
+  ¬test::check::log.contains("temporary")
+}

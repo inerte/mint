@@ -1,0 +1,3 @@
+i test::observe::time
+
+λis(expected:String)=>Bool=test::observe::time.currentIso()=expected

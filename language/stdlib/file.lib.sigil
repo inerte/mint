@@ -1,27 +1,19 @@
-e fs
+λappendText(content:String,path:String)=>!Fs Unit=()
 
-e fs::promises
+λexists(path:String)=>!Fs Bool=false
 
-e os
+λlistDir(path:String)=>!Fs [String]=[]
 
-i stdlib::path
+λmakeDir(path:String)=>!Fs Unit=()
 
-λappendText(content:String,path:String)=>!Fs Unit=fs::promises.appendFile(path,content,"utf8")
+λmakeDirs(path:String)=>!Fs Unit=()
 
-λexists(path:String)=>!Fs Bool=fs.existsSync(path)
+λmakeTempDir(prefix:String)=>!Fs String=""
 
-λlistDir(path:String)=>!Fs [String]=fs::promises.readdir(path)
+λreadText(path:String)=>!Fs String=""
 
-λmakeDir(path:String)=>!Fs Unit=fs::promises.mkdir(path,{recursive:false})
+λremove(path:String)=>!Fs Unit=()
 
-λmakeDirs(path:String)=>!Fs Unit=fs::promises.mkdir(path,{recursive:true})
+λremoveTree(path:String)=>!Fs Unit=()
 
-λmakeTempDir(prefix:String)=>!Fs String=fs::promises.mkdtemp(stdlib::path.join(os.tmpdir(),prefix))
-
-λreadText(path:String)=>!Fs String=fs::promises.readFile(path,"utf8")
-
-λremove(path:String)=>!Fs Unit=fs::promises.unlink(path)
-
-λremoveTree(path:String)=>!Fs Unit=fs::promises.rm(path,{force:true,recursive:true})
-
-λwriteText(content:String,path:String)=>!Fs Unit=fs::promises.writeFile(path,content,"utf8")
+λwriteText(content:String,path:String)=>!Fs Unit=()

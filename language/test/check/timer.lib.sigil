@@ -1,0 +1,3 @@
+i test::observe::timer
+
+λsleptNTimes(count:Int)=>Bool=test::observe::timer.sleepCount()=count

@@ -1,0 +1,13 @@
+t ProcessEntry=DenyProcess()|FixtureProcess([ProcessRule])|RealProcess()
+
+t ProcessRule={argv:[String],cwd:Option[String],result:stdlib::process.ProcessResult}
+
+i stdlib::process
+
+λdeny()=>ProcessEntry=DenyProcess()
+
+λfixture(rules:[ProcessRule])=>ProcessEntry=FixtureProcess(rules)
+
+λreal()=>ProcessEntry=RealProcess()
+
+λrule(argv:[String],cwd:Option[String],result:stdlib::process.ProcessResult)=>ProcessRule={argv:argv,cwd:cwd,result:result}

@@ -1,0 +1,7 @@
+t FsEntry=DenyFs()|RealFs()|SandboxFs(String)
+
+λdeny()=>FsEntry=DenyFs()
+
+λreal()=>FsEntry=RealFs()
+
+λsandbox(root:String)=>FsEntry=SandboxFs(root)

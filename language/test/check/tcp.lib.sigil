@@ -1,0 +1,16 @@
+i stdlib::topology
+
+i test::observe::tcp
+
+i world::tcp
+
+λcalled(entry:world::tcp.TcpEntry)=>Bool=test::observe::tcp.callCount(entry)>0
+
+λcalledNTimes(count:Int,entry:world::tcp.TcpEntry)=>Bool=test::observe::tcp.callCount(entry)=count
+
+λcalledOnce(entry:world::tcp.TcpEntry)=>Bool=calledNTimes(1,entry)
+
+λlastRequestIs(entry:world::tcp.TcpEntry,expected:String)=>Bool match test::observe::tcp.lastRequest(entry){
+  Some(actual)=>actual=expected|
+  None()=>false
+}

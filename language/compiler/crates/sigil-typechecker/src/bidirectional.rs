@@ -20,7 +20,7 @@ use crate::typed_ir::{
     TypedMapEntryExpr, TypedMapExpr, TypedMapLiteralExpr, TypedMatchArm, TypedMatchExpr,
     TypedMethodCallExpr, TypedPipelineExpr, TypedProgram, TypedRecordExpr, TypedRecordField,
     TypedSpawnEachStep, TypedSpawnStep, TypedTestDecl, TypedTupleExpr, TypedTypeDecl,
-    TypedUnaryExpr, TypedWithMockExpr, WithMockTarget,
+    TypedUnaryExpr,
 };
 use crate::types::{
     apply_subst, ast_type_to_inference_type_with_params, types_equal, unify, EffectSet,
@@ -798,11 +798,6 @@ fn validate_expr_surface_types(expr: &Expr) -> Result<(), TypeError> {
             Ok(())
         }
         Expr::MemberAccess(_) => Ok(()),
-        Expr::WithMock(with_mock) => {
-            validate_expr_surface_types(&with_mock.target)?;
-            validate_expr_surface_types(&with_mock.replacement)?;
-            validate_expr_surface_types(&with_mock.body)
-        }
         Expr::TypeAscription(type_asc) => {
             validate_expr_surface_types(&type_asc.expr)?;
             validate_surface_type(&type_asc.ascribed_type)
@@ -1202,9 +1197,26 @@ fn build_typed_test_decl(
     env: &TypeEnvironment,
     test_decl: &sigil_ast::TestDecl,
 ) -> Result<TypedTestDecl, TypeError> {
-    let body = build_typed_expr(env, &test_decl.body)?;
+    let mut body_env = env.clone();
+    let mut world_bindings = Vec::new();
+
+    for binding in &test_decl.world_bindings {
+        let typed_binding = build_typed_const_decl(&body_env, binding)?;
+        if !typed_binding.value.effects.is_empty() {
+            return Err(TypeError::new(
+                "test world bindings must be pure".to_string(),
+                Some(binding.location),
+            ));
+        }
+        let mut new_bindings = HashMap::new();
+        new_bindings.insert(typed_binding.name.clone(), typed_binding.typ.clone());
+        body_env = body_env.extend(Some(new_bindings));
+        world_bindings.push(typed_binding);
+    }
+
+    let body = build_typed_expr(&body_env, &test_decl.body)?;
     declared_effects_cover_actual(
-        env,
+        &body_env,
         &test_decl.effects,
         &body.effects,
         test_decl.location,
@@ -1222,6 +1234,7 @@ fn build_typed_test_decl(
                 "test signature",
             )?)
         },
+        world_bindings,
         body,
         location: test_decl.location,
     })
@@ -1595,40 +1608,6 @@ fn build_typed_expr(env: &TypeEnvironment, expr: &Expr) -> Result<TypedExpr, Typ
                 pipeline.location,
             ))
         }
-        Expr::WithMock(with_mock) => {
-            let replacement = build_typed_expr(env, &with_mock.replacement)?;
-            let body = build_typed_expr(env, &with_mock.body)?;
-            let target = match &with_mock.target {
-                Expr::Identifier(id) => WithMockTarget::LocalFunction(id.name.clone()),
-                Expr::MemberAccess(member_access) => WithMockTarget::ExternMember {
-                    namespace: member_access.namespace.clone(),
-                    member: member_access.member.clone(),
-                    mock_key: format!(
-                        "extern:{}.{}",
-                        member_access.namespace.join("/"),
-                        member_access.member
-                    ),
-                },
-                _ => {
-                    return Err(TypeError::new(
-                        "withMock target must be an identifier or imported member access"
-                            .to_string(),
-                        Some(with_mock.location),
-                    ))
-                }
-            };
-            Ok(typed_expr(
-                TypedExprKind::WithMock(TypedWithMockExpr {
-                    target,
-                    replacement: Box::new(replacement.clone()),
-                    body: Box::new(body.clone()),
-                }),
-                typ,
-                merge_effects([replacement.effects, body.effects]),
-                StrictnessClass::Deferred,
-                with_mock.location,
-            ))
-        }
         Expr::TypeAscription(type_asc) => {
             let ascribed_type =
                 ast_type_to_inference_type_resolved(env, None, &type_asc.ascribed_type)?;
@@ -1906,8 +1885,6 @@ fn synthesize(env: &TypeEnvironment, expr: &Expr) -> Result<InferenceType, TypeE
         Expr::Fold(fold_expr) => synthesize_fold(env, fold_expr),
 
         Expr::Concurrent(concurrent_expr) => synthesize_concurrent(env, concurrent_expr),
-
-        Expr::WithMock(with_mock) => synthesize_with_mock(env, with_mock),
 
         Expr::Pipeline(pipeline) => synthesize_pipeline(env, pipeline),
 
@@ -2211,7 +2188,7 @@ fn validate_topology_application(
         if restricted && !is_canonical_config_source(env) {
             return Err(TypeError::new(
                 format!(
-                    "{}: config bindings must live in config/*.lib.sigil",
+                    "{}: config helper constructors must live in config/*.lib.sigil",
                     codes::topology::CONSTRUCTOR_LOCATION
                 ),
                 Some(app.location),
@@ -3159,53 +3136,6 @@ fn synthesize_concurrent(
     Ok(InferenceType::List(Box::new(crate::types::TList {
         element_type: concurrent_outcome_type(success_type, error_type),
     })))
-}
-
-fn synthesize_with_mock(
-    env: &TypeEnvironment,
-    with_mock: &sigil_ast::WithMockExpr,
-) -> Result<InferenceType, TypeError> {
-    // Check target/replacement compatibility.
-    // Canonical placement rules are enforced earlier by validation.
-    let target_type = synthesize(env, &with_mock.target)?;
-    let replacement_type = synthesize(env, &with_mock.replacement)?;
-
-    // Replacement must be a function
-    if !matches!(
-        replacement_type,
-        InferenceType::Function(_) | InferenceType::Any
-    ) {
-        return Err(TypeError::new(
-            format!(
-                "withMock replacement must be a function, got {}",
-                format_type(&replacement_type)
-            ),
-            Some(with_mock.location),
-        ));
-    }
-
-    // If both are functions, check they match
-    if let (InferenceType::Function(_), InferenceType::Function(_)) =
-        (&target_type, &replacement_type)
-    {
-        let (normalized_target, normalized_replacement) =
-            canonical_pair(env, &target_type, &replacement_type);
-        if !types_equal(&normalized_target, &normalized_replacement) {
-            return Err(TypeError::new(
-                format!(
-                    "withMock replacement type {} does not match target type {}",
-                    format_type(&normalized_replacement),
-                    format_type(&normalized_target)
-                ),
-                Some(with_mock.location),
-            ));
-        }
-    }
-
-    // TODO: Full target-kind validation beyond simple type compatibility.
-
-    // Return type is the body type
-    synthesize(env, &with_mock.body)
 }
 
 fn synthesize_pipeline(

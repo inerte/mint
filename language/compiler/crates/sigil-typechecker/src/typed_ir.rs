@@ -61,6 +61,7 @@ pub struct TypedConstDecl {
 pub struct TypedTestDecl {
     pub description: String,
     pub effects: Option<EffectSet>,
+    pub world_bindings: Vec<TypedConstDecl>,
     pub body: TypedExpr,
     pub location: SourceLocation,
 }
@@ -127,7 +128,6 @@ pub enum TypedExprKind {
     Fold(TypedFoldExpr),
     Concurrent(TypedConcurrentExpr),
     Pipeline(TypedPipelineExpr),
-    WithMock(TypedWithMockExpr),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -311,21 +311,4 @@ pub struct TypedPipelineExpr {
     pub left: Box<TypedExpr>,
     pub operator: PipelineOperator,
     pub right: Box<TypedExpr>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum WithMockTarget {
-    LocalFunction(String),
-    ExternMember {
-        namespace: Vec<String>,
-        member: String,
-        mock_key: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TypedWithMockExpr {
-    pub target: WithMockTarget,
-    pub replacement: Box<TypedExpr>,
-    pub body: Box<TypedExpr>,
 }

@@ -1,0 +1,5 @@
+λexists(path:String)=>Bool=false
+
+λlistDir(path:String)=>[String]=[]
+
+λreadText(path:String)=>String=""

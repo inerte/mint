@@ -629,17 +629,41 @@ impl Parser {
             Vec::new()
         };
 
-        self.consume(TokenType::LBRACE, "Expected \"{\"")?;
+        let world_bindings = if self.match_identifier("world") {
+            self.parse_test_world_bindings()?
+        } else {
+            Vec::new()
+        };
+
+        self.consume(TokenType::LBRACE, "Expected \"{\" before test body")?;
         let body = self.expression()?;
-        self.consume(TokenType::RBRACE, "Expected \"}\"")?;
+        self.consume(TokenType::RBRACE, "Expected \"}\" after test body")?;
 
         let end = self.previous();
         Ok(Declaration::Test(TestDecl {
             description,
             effects,
+            world_bindings,
             body,
             location: self.make_location(start.location.start, end.location.end),
         }))
+    }
+
+    fn parse_test_world_bindings(&mut self) -> Result<Vec<ConstDecl>, ParseError> {
+        self.consume(TokenType::LBRACE, "Expected \"{\" after world")?;
+        let mut bindings = Vec::new();
+
+        while !self.check(TokenType::RBRACE) {
+            self.consume(TokenType::CONST, "Expected world binding declaration starting with \"c\"")?;
+            let decl = self.const_declaration()?;
+            match decl {
+                Declaration::Const(const_decl) => bindings.push(const_decl),
+                _ => unreachable!("const_declaration must return Declaration::Const"),
+            }
+        }
+
+        self.consume(TokenType::RBRACE, "Expected \"}\" after world bindings")?;
+        Ok(bindings)
     }
 
     // ========================================================================
@@ -1381,11 +1405,6 @@ impl Parser {
             }
         }
 
-        // withMock expression
-        if self.match_token(TokenType::WithMock) {
-            return self.with_mock_expression();
-        }
-
         Err(self.error("Expected expression"))
     }
 
@@ -1716,26 +1735,6 @@ impl Parser {
         let expr = self.expression()?;
         self.consume(TokenType::RBRACE, "Expected \"}\"")?;
         Ok(expr)
-    }
-
-    fn with_mock_expression(&mut self) -> Result<Expr, ParseError> {
-        let start = self.previous();
-        self.consume(TokenType::LPAREN, "Expected \"(\" after withMock")?;
-        let target = self.expression()?;
-        self.consume(TokenType::COMMA, "Expected \",\" after mock target")?;
-        let replacement = self.expression()?;
-        self.consume(TokenType::RPAREN, "Expected \")\" after mock replacement")?;
-        self.consume(TokenType::LBRACE, "Expected \"{\" before withMock body")?;
-        let body = self.expression()?;
-        self.consume(TokenType::RBRACE, "Expected \"}\" after withMock body")?;
-
-        let end = self.previous();
-        Ok(Expr::WithMock(Box::new(WithMockExpr {
-            target,
-            replacement,
-            body,
-            location: self.make_location(start.location.start, end.location.end),
-        })))
     }
 
     // ========================================================================
@@ -2221,7 +2220,6 @@ impl HasLocation for Expr {
             Expr::Fold(e) => e.location,
             Expr::Concurrent(e) => e.location,
             Expr::MemberAccess(e) => e.location,
-            Expr::WithMock(e) => e.location,
             Expr::TypeAscription(e) => e.location,
         }
     }

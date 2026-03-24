@@ -1,0 +1,5 @@
+i stdlib::list
+
+i test::observe::log
+
+λcontains(message:String)=>Bool=stdlib::list.any(λ(entry:String)=>Bool=entry=message,test::observe::log.entries())

@@ -231,20 +231,6 @@ fn test_function_declaration_valid() {
 }
 
 #[test]
-fn test_with_mock_outside_test_body_is_invalid() {
-    let source = "λfetch()=>String=\"real\"\nλhelper()=>String=withMock(fetch, λ()=>String=\"fake\") { fetch() }\n";
-    let tokens = tokenize(source).unwrap();
-    let program = parse(tokens, "tests/testWithMock.sigil").unwrap();
-
-    let result = validate_canonical_form(&program, Some("tests/testWithMock.sigil"), Some(source));
-    assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .iter()
-        .any(|error| matches!(error, ValidationError::WithMockTestOnly { .. })));
-}
-
-#[test]
 fn test_type_declaration_valid() {
     let source = "t Result[T,E]=Ok(T)|Err(E)";
     let tokens = tokenize(source).unwrap();

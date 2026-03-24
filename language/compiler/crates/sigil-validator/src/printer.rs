@@ -119,6 +119,23 @@ impl Printer {
         if !test_decl.effects.is_empty() {
             self.push(" =>");
             self.effects(&test_decl.effects, None);
+            if self.out.ends_with(' ') {
+                self.out.pop();
+            }
+        }
+        if !test_decl.world_bindings.is_empty() {
+            self.push(" world {");
+            for binding in &test_decl.world_bindings {
+                self.newline();
+                self.indent(indent + 1);
+                self.push("c ");
+                self.push(&binding.name);
+                self.push("=");
+                self.push(&self.const_value(binding));
+            }
+            self.newline();
+            self.indent(indent);
+            self.push("}");
         }
         self.push(" {");
         self.block_body(&test_decl.body, indent + 1);
@@ -518,7 +535,6 @@ impl Printer {
             Expr::MemberAccess(member) => {
                 format!("{}.{}", member.namespace.join("::"), member.member)
             }
-            Expr::WithMock(with_mock) => self.with_mock_text(with_mock, indent),
             Expr::TypeAscription(ascription) => {
                 format!(
                     "({}:{})",
@@ -634,25 +650,6 @@ impl Printer {
         out.push_str(&self.expr(body, indent + 1, 0));
         out.push('\n');
         out.push_str(&INDENT.repeat(indent));
-        out.push('}');
-        out
-    }
-
-    fn with_mock_text(&self, with_mock: &WithMockExpr, indent: usize) -> String {
-        let mut out = format!(
-            "withMock({},{}){{",
-            self.expr(&with_mock.target, indent, 0),
-            self.expr(&with_mock.replacement, indent, 0)
-        );
-        match &with_mock.body {
-            Expr::Let(let_expr) => {
-                let inner = self.let_text(let_expr, indent);
-                out.push_str(&inner);
-            }
-            body => {
-                out.push_str(&self.expr(body, indent, 0));
-            }
-        }
         out.push('}');
         out
     }
@@ -863,7 +860,6 @@ fn precedence(expr: &Expr) -> u8 {
         Expr::Let(_)
         | Expr::Match(_)
         | Expr::If(_)
-        | Expr::WithMock(_)
         | Expr::Lambda(_)
         | Expr::Concurrent(_) => 1,
         Expr::Pipeline(_) | Expr::Map(_) | Expr::Filter(_) | Expr::Fold(_) => 2,

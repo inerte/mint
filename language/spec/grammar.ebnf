@@ -60,7 +60,8 @@ FunctionBody = "=" , Expr | MatchExpr ;
 ParamList = Param , { "," , Param } ;
 Param = Identifier , ":" , Type ;
 
-TestDecl = "test" , StringLiteral , [ "=>" , Effects ] , BlockExpr ;
+TestDecl = "test" , StringLiteral , [ "=>" , Effects ] , [ TestWorldClause ] , BlockExpr ;
+TestWorldClause = "world" , "{" , { ConstDecl } , "}" ;
 
 Effects = Effect , { Effect } ;
 Effect = "!" , UpperIdentifier ;
@@ -69,7 +70,6 @@ Expr = LetExpr
      | MatchExpr
      | LambdaExpr
      | ConcurrentExpr
-     | WithMockExpr
      | ListOpExpr
      | BinaryExpr ;
 
@@ -87,8 +87,6 @@ ConcurrentPolicyField = "jitterMs" , ":" , Expr
 ConcurrentStep = SpawnStep | SpawnEachStep ;
 SpawnStep = "spawn" , Expr ;
 SpawnEachStep = "spawnEach" , Expr , Expr ;
-
-WithMockExpr = "withMock" , "(" , Expr , "," , Expr , ")" , BlockExpr ;
 
 ListOpExpr = Expr , "map" , Expr
            | Expr , "filter" , Expr

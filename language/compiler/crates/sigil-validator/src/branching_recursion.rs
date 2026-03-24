@@ -127,11 +127,6 @@ fn has_direct_branching_shape(expr: &Expr, function_name: &str) -> bool {
                     || has_direct_branching_shape(&spawn_each.func, function_name)
             }
         }),
-        Expr::WithMock(with_mock) => {
-            has_direct_branching_shape(&with_mock.target, function_name)
-                || has_direct_branching_shape(&with_mock.replacement, function_name)
-                || has_direct_branching_shape(&with_mock.body, function_name)
-        }
         Expr::TypeAscription(type_ascription) => {
             has_direct_branching_shape(&type_ascription.expr, function_name)
         }
@@ -234,11 +229,6 @@ fn contains_nested_branching_shape(expr: &Expr, function_name: &str) -> bool {
             }
         }),
         Expr::Lambda(lambda) => contains_nested_branching_shape(&lambda.body, function_name),
-        Expr::WithMock(with_mock) => {
-            contains_nested_branching_shape(&with_mock.target, function_name)
-                || contains_nested_branching_shape(&with_mock.replacement, function_name)
-                || contains_nested_branching_shape(&with_mock.body, function_name)
-        }
         Expr::TypeAscription(type_ascription) => {
             contains_nested_branching_shape(&type_ascription.expr, function_name)
         }

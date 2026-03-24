@@ -7,7 +7,7 @@
 //! - Ordinary function calls compose without eager `await`
 //! - Pattern matching compiles to if/else chains with `__match` variables
 //! - Sum type constructors compile to objects with __tag and __fields
-//! - Mock runtime helpers emitted at top of file
+//! - Runtime helpers emitted at top of file
 
 use sigil_ast::{
     BinaryOperator, ExternDecl, ImportDecl, LiteralExpr, LiteralValue, Pattern,
@@ -19,11 +19,802 @@ use sigil_typechecker::typed_ir::{
     TypedExternCallExpr, TypedFieldAccessExpr, TypedFilterExpr, TypedFoldExpr, TypedFunctionDecl,
     TypedIfExpr, TypedIndexExpr, TypedLambdaExpr, TypedLetExpr, TypedListExpr, TypedMapExpr,
     TypedMapLiteralExpr, TypedMatchExpr, TypedMethodCallExpr, TypedPipelineExpr, TypedProgram,
-    TypedRecordExpr, TypedTestDecl, TypedTupleExpr, TypedUnaryExpr, TypedWithMockExpr,
-    WithMockTarget,
+    TypedRecordExpr, TypedTestDecl, TypedTupleExpr, TypedUnaryExpr,
 };
 use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
+
+const WORLD_RUNTIME_HELPERS: &str = r#"function __sigil_world_error(message) {
+  throw new Error(String(message));
+}
+function __sigil_world_clone(value) {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+function __sigil_world_host_template() {
+  return {
+    clock: { kind: 'system' },
+    fs: { kind: 'real' },
+    http: Object.create(null),
+    log: { kind: 'stdout' },
+    process: { kind: 'real' },
+    tcp: Object.create(null),
+    timer: { kind: 'real' }
+  };
+}
+function __sigil_world_collect_topology(topologyExports) {
+  const envs = new Set();
+  const http = new Set();
+  const tcp = new Set();
+  if (!topologyExports || typeof topologyExports !== 'object') {
+    return { envs, http, tcp };
+  }
+  for (const value of Object.values(topologyExports)) {
+    if (value?.__tag === 'Environment') {
+      envs.add(String(value.__fields?.[0] ?? ''));
+    } else if (value?.__tag === 'HttpServiceDependency') {
+      http.add(String(value.__fields?.[0] ?? ''));
+    } else if (value?.__tag === 'TcpServiceDependency') {
+      tcp.add(String(value.__fields?.[0] ?? ''));
+    }
+  }
+  return { envs, http, tcp };
+}
+function __sigil_world_parse_clock(value) {
+  if (value?.__tag === 'SystemClock') {
+    return { kind: 'system' };
+  }
+  if (value?.__tag === 'FixedClock') {
+    const iso = String(value.__fields?.[0] ?? '');
+    const millis = Date.parse(iso);
+    if (!iso || Number.isNaN(millis)) {
+      __sigil_world_error(`invalid fixed clock ISO timestamp '${iso}'`);
+    }
+    return { kind: 'fixed', iso, millis };
+  }
+  __sigil_world_error('world.clock must be world::clock.ClockEntry');
+}
+function __sigil_world_parse_fs(value) {
+  if (value?.__tag === 'DenyFs') return { kind: 'deny' };
+  if (value?.__tag === 'RealFs') return { kind: 'real' };
+  if (value?.__tag === 'SandboxFs') {
+    const root = String(value.__fields?.[0] ?? '');
+    if (!root) {
+      __sigil_world_error('sandbox fs root must be a non-empty string');
+    }
+    return { kind: 'sandbox', root };
+  }
+  __sigil_world_error('world.fs must be world::fs.FsEntry');
+}
+function __sigil_world_parse_log(value) {
+  if (value?.__tag === 'CaptureLog') return { kind: 'capture' };
+  if (value?.__tag === 'StdoutLog') return { kind: 'stdout' };
+  __sigil_world_error('world.log must be world::log.LogEntry');
+}
+function __sigil_world_parse_process(value) {
+  if (value?.__tag === 'DenyProcess') return { kind: 'deny' };
+  if (value?.__tag === 'FixtureProcess') {
+    return {
+      kind: 'fixture',
+      rules: (value.__fields?.[0] ?? []).map((rule) => ({
+        argv: Array.isArray(rule?.argv) ? rule.argv.map((item) => String(item)) : [],
+        cwd: rule?.cwd?.__tag === 'Some' ? String(rule.cwd.__fields?.[0] ?? '') : null,
+        result: {
+          code: Number(rule?.result?.code ?? -1),
+          stderr: String(rule?.result?.stderr ?? ''),
+          stdout: String(rule?.result?.stdout ?? '')
+        }
+      }))
+    };
+  }
+  if (value?.__tag === 'RealProcess') return { kind: 'real' };
+  __sigil_world_error('world.process must be world::process.ProcessEntry');
+}
+function __sigil_world_parse_timer(value) {
+  if (value?.__tag === 'RealTimer') return { kind: 'real', nowMs: null };
+  if (value?.__tag === 'VirtualTimer') return { kind: 'virtual', nowMs: null };
+  __sigil_world_error('world.timer must be world::timer.TimerEntry');
+}
+function __sigil_world_parse_http_rule(rule) {
+  const bodyMatch = rule?.bodyMatch;
+  let parsedBodyMatch;
+  if (bodyMatch?.__tag === 'AnyRequest') {
+    parsedBodyMatch = { kind: 'any' };
+  } else if (bodyMatch?.__tag === 'BodyContains') {
+    parsedBodyMatch = { kind: 'contains', fragment: String(bodyMatch.__fields?.[0] ?? '') };
+  } else {
+    __sigil_world_error('invalid world::http.HttpRule bodyMatch');
+  }
+  const response = rule?.response;
+  let parsedResponse;
+  if (response?.__tag === 'Timeout') {
+    parsedResponse = { kind: 'timeout' };
+  } else if (response?.__tag === 'Respond') {
+    const value = response.__fields?.[0] ?? {};
+    parsedResponse = { kind: 'respond', body: String(value.body ?? ''), status: Number(value.status ?? 0) };
+  } else {
+    __sigil_world_error('invalid world::http.HttpRule response');
+  }
+  return {
+    bodyMatch: parsedBodyMatch,
+    method: String(rule?.method ?? 'GET').toUpperCase(),
+    path: String(rule?.path ?? '/'),
+    response: parsedResponse
+  };
+}
+function __sigil_world_parse_http_entry(value) {
+  if (value?.__tag !== 'HttpEntry') {
+    __sigil_world_error('HTTP world overrides must be world::http.HttpEntry');
+  }
+  const entry = value.__fields?.[0] ?? {};
+  const dependencyName = String(entry.dependencyName ?? '');
+  if (!dependencyName) {
+    __sigil_world_error('HTTP world entries must name a dependency');
+  }
+  const mode = entry.mode;
+  if (mode?.__tag === 'Deny') {
+    return { dependencyName, kind: 'deny' };
+  }
+  if (mode?.__tag === 'Proxy') {
+    const baseUrl = String(mode.__fields?.[0] ?? '');
+    if (!baseUrl) {
+      __sigil_world_error(`HTTP dependency '${dependencyName}' requires a non-empty base URL`);
+    }
+    return { dependencyName, kind: 'proxy', baseUrl };
+  }
+  if (mode?.__tag === 'Fixture') {
+    return {
+      dependencyName,
+      kind: 'fixture',
+      rules: (mode.__fields?.[0] ?? []).map(__sigil_world_parse_http_rule)
+    };
+  }
+  __sigil_world_error(`invalid HTTP world mode for dependency '${dependencyName}'`);
+}
+function __sigil_world_parse_tcp_rule(rule) {
+  const response = rule?.response;
+  let parsedResponse;
+  if (response?.__tag === 'Timeout') {
+    parsedResponse = { kind: 'timeout' };
+  } else if (response?.__tag === 'Respond') {
+    parsedResponse = { kind: 'respond', body: String(response.__fields?.[0] ?? '') };
+  } else {
+    __sigil_world_error('invalid world::tcp.TcpRule response');
+  }
+  return {
+    request: String(rule?.request ?? ''),
+    response: parsedResponse
+  };
+}
+function __sigil_world_parse_tcp_entry(value) {
+  if (value?.__tag !== 'TcpEntry') {
+    __sigil_world_error('TCP world overrides must be world::tcp.TcpEntry');
+  }
+  const entry = value.__fields?.[0] ?? {};
+  const dependencyName = String(entry.dependencyName ?? '');
+  if (!dependencyName) {
+    __sigil_world_error('TCP world entries must name a dependency');
+  }
+  const mode = entry.mode;
+  if (mode?.__tag === 'Deny') {
+    return { dependencyName, kind: 'deny' };
+  }
+  if (mode?.__tag === 'Proxy') {
+    const target = mode.__fields?.[0] ?? {};
+    const host = String(target.host ?? '');
+    const port = Number(target.port ?? 0);
+    if (!host || !Number.isInteger(port) || port <= 0 || port > 65535) {
+      __sigil_world_error(`TCP dependency '${dependencyName}' requires a valid host and port`);
+    }
+    return { dependencyName, kind: 'proxy', host, port };
+  }
+  if (mode?.__tag === 'Fixture') {
+    return {
+      dependencyName,
+      kind: 'fixture',
+      rules: (mode.__fields?.[0] ?? []).map(__sigil_world_parse_tcp_rule)
+    };
+  }
+  __sigil_world_error(`invalid TCP world mode for dependency '${dependencyName}'`);
+}
+function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
+  if (!worldValue || typeof worldValue !== 'object') {
+    __sigil_world_error("config module must export a 'world' value");
+  }
+  const topology = __sigil_world_collect_topology(topologyExports);
+  if (envName && topology.envs.size > 0 && !topology.envs.has(envName)) {
+    __sigil_world_error(`environment '${envName}' not declared in src/topology.lib.sigil`);
+  }
+  const template = __sigil_world_host_template();
+  template.clock = __sigil_world_parse_clock(worldValue.clock);
+  template.fs = __sigil_world_parse_fs(worldValue.fs);
+  template.log = __sigil_world_parse_log(worldValue.log);
+  template.process = __sigil_world_parse_process(worldValue.process);
+  template.timer = __sigil_world_parse_timer(worldValue.timer);
+  template.http = Object.create(null);
+  for (const value of worldValue.http ?? []) {
+    const entry = __sigil_world_parse_http_entry(value);
+    template.http[entry.dependencyName] = entry;
+  }
+  template.tcp = Object.create(null);
+  for (const value of worldValue.tcp ?? []) {
+    const entry = __sigil_world_parse_tcp_entry(value);
+    template.tcp[entry.dependencyName] = entry;
+  }
+  if (topology.http.size > 0) {
+    for (const name of topology.http) {
+      if (!(name in template.http)) {
+        __sigil_world_error(`missing HTTP world entry for '${name}' in environment '${envName ?? '<unknown>'}'`);
+      }
+    }
+    for (const name of Object.keys(template.http)) {
+      if (!topology.http.has(name)) {
+        __sigil_world_error(`HTTP world entry references undeclared dependency '${name}'`);
+      }
+    }
+  }
+  if (topology.tcp.size > 0) {
+    for (const name of topology.tcp) {
+      if (!(name in template.tcp)) {
+        __sigil_world_error(`missing TCP world entry for '${name}' in environment '${envName ?? '<unknown>'}'`);
+      }
+    }
+    for (const name of Object.keys(template.tcp)) {
+      if (!topology.tcp.has(name)) {
+        __sigil_world_error(`TCP world entry references undeclared dependency '${name}'`);
+      }
+    }
+  }
+  return template;
+}
+function __sigil_world_base_template() {
+  if (globalThis.__sigil_world_template_cache) {
+    return globalThis.__sigil_world_template_cache;
+  }
+  const template = globalThis.__sigil_world_value
+    ? __sigil_world_prepare_template(
+        globalThis.__sigil_world_value,
+        globalThis.__sigil_topology_exports ?? null,
+        globalThis.__sigil_world_env_name ?? null
+      )
+    : __sigil_world_host_template();
+  globalThis.__sigil_world_template_cache = template;
+  return template;
+}
+function __sigil_world_fresh(template) {
+  const world = __sigil_world_clone(template);
+  world.traces = {
+    http: Object.create(null),
+    log: [],
+    process: [],
+    tcp: Object.create(null),
+    timer: { sleeps: [] }
+  };
+  if (world.timer.kind === 'virtual') {
+    world.timer.nowMs = world.clock.kind === 'fixed' ? world.clock.millis : Date.now();
+  }
+  return world;
+}
+function __sigil_world_apply_overrides(world, overrides) {
+  for (const value of overrides ?? []) {
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+    switch (value.__tag) {
+      case 'SystemClock':
+      case 'FixedClock':
+        world.clock = __sigil_world_parse_clock(value);
+        if (world.timer.kind === 'virtual') {
+          world.timer.nowMs = world.clock.kind === 'fixed' ? world.clock.millis : Date.now();
+        }
+        break;
+      case 'DenyFs':
+      case 'RealFs':
+      case 'SandboxFs':
+        world.fs = __sigil_world_parse_fs(value);
+        break;
+      case 'CaptureLog':
+      case 'StdoutLog':
+        world.log = __sigil_world_parse_log(value);
+        break;
+      case 'DenyProcess':
+      case 'FixtureProcess':
+      case 'RealProcess':
+        world.process = __sigil_world_parse_process(value);
+        break;
+      case 'RealTimer':
+      case 'VirtualTimer':
+        world.timer = __sigil_world_parse_timer(value);
+        if (world.timer.kind === 'virtual') {
+          world.timer.nowMs = world.clock.kind === 'fixed' ? world.clock.millis : Date.now();
+        }
+        break;
+      case 'HttpEntry': {
+        const entry = __sigil_world_parse_http_entry(value);
+        world.http[entry.dependencyName] = entry;
+        break;
+      }
+      case 'TcpEntry': {
+        const entry = __sigil_world_parse_tcp_entry(value);
+        world.tcp[entry.dependencyName] = entry;
+        break;
+      }
+      default:
+        __sigil_world_error(`invalid test world override '${String(value.__tag)}'`);
+    }
+  }
+  return world;
+}
+function __sigil_current_world() {
+  if (!globalThis.__sigil_world_current) {
+    globalThis.__sigil_world_current = __sigil_world_fresh(__sigil_world_base_template());
+  }
+  return globalThis.__sigil_world_current;
+}
+async function __sigil_with_world(world, body) {
+  const previous = globalThis.__sigil_world_current;
+  globalThis.__sigil_world_current = world;
+  try {
+    return await body();
+  } finally {
+    globalThis.__sigil_world_current = previous;
+  }
+}
+async function __sigil_run_test_world(overrides, body) {
+  const world = __sigil_world_fresh(__sigil_world_base_template());
+  __sigil_world_apply_overrides(world, overrides);
+  return await __sigil_with_world(world, body);
+}
+function __sigil_record_coverage_call(moduleId, functionName) {
+  const state = globalThis.__sigil_coverage_current;
+  if (!state) {
+    return;
+  }
+  const key = `${String(moduleId)}::${String(functionName)}`;
+  state.calls[key] = Number(state.calls[key] ?? 0) + 1;
+}
+function __sigil_record_coverage_variant(moduleId, functionName, value) {
+  const state = globalThis.__sigil_coverage_current;
+  if (!state || !value || typeof value !== 'object' || typeof value.__tag !== 'string') {
+    return;
+  }
+  const key = `${String(moduleId)}::${String(functionName)}`;
+  if (!Array.isArray(state.variants[key])) {
+    state.variants[key] = [];
+  }
+  const tag = String(value.__tag);
+  if (!state.variants[key].includes(tag)) {
+    state.variants[key].push(tag);
+  }
+}
+function __sigil_record_coverage_result(moduleId, functionName, result) {
+  if (result && typeof result.then === 'function') {
+    return result.then((value) => {
+      __sigil_record_coverage_variant(moduleId, functionName, value);
+      return value;
+    });
+  }
+  __sigil_record_coverage_variant(moduleId, functionName, result);
+  return result;
+}
+function __sigil_world_now_ms(world) {
+  if (world.clock.kind === 'fixed') {
+    return Number(world.clock.millis);
+  }
+  if (world.timer.kind === 'virtual' && Number.isFinite(world.timer.nowMs)) {
+    return Number(world.timer.nowMs);
+  }
+  return Date.now();
+}
+function __sigil_world_http_entry_name(entry) {
+  if (entry?.__tag !== 'HttpEntry') {
+    __sigil_world_error('test HTTP helpers require world::http.HttpEntry');
+  }
+  return String(entry.__fields?.[0]?.dependencyName ?? '');
+}
+function __sigil_world_tcp_entry_name(entry) {
+  if (entry?.__tag !== 'TcpEntry') {
+    __sigil_world_error('test TCP helpers require world::tcp.TcpEntry');
+  }
+  return String(entry.__fields?.[0]?.dependencyName ?? '');
+}
+function __sigil_world_http_trace(world, dependencyName, request) {
+  if (!world.traces.http[dependencyName]) {
+    world.traces.http[dependencyName] = [];
+  }
+  world.traces.http[dependencyName].push(request);
+}
+function __sigil_world_tcp_trace(world, dependencyName, request) {
+  if (!world.traces.tcp[dependencyName]) {
+    world.traces.tcp[dependencyName] = [];
+  }
+  world.traces.tcp[dependencyName].push(String(request));
+}
+function __sigil_world_log_trace(world, message) {
+  world.traces.log.push(String(message));
+}
+function __sigil_world_process_trace(world, command) {
+  world.traces.process.push({ command });
+}
+function __sigil_world_process_matches(rule, command) {
+  const argv = Array.isArray(command?.argv) ? command.argv.map((item) => String(item)) : [];
+  if (argv.length !== rule.argv.length) {
+    return false;
+  }
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] !== rule.argv[i]) {
+      return false;
+    }
+  }
+  const cwd = command?.cwd?.__tag === 'Some' ? String(command.cwd.__fields?.[0] ?? '') : null;
+  return cwd === rule.cwd;
+}
+function __sigil_world_process_fixture_result(world, command) {
+  for (const rule of world.process.rules ?? []) {
+    if (__sigil_world_process_matches(rule, command)) {
+      return __sigil_world_clone(rule.result);
+    }
+  }
+  const argv = Array.isArray(command?.argv) ? command.argv.map((item) => String(item)) : [];
+  return {
+    code: -1,
+    stderr: `no process fixture matched command '${argv.join(" ")}'`,
+    stdout: ''
+  };
+}
+function __sigil_world_timer_trace(world, ms) {
+  world.traces.timer.sleeps.push(Number(ms));
+}
+async function __sigil_world_file_resolved_path(pathValue) {
+  const path = await import('node:path');
+  const world = __sigil_current_world();
+  const raw = String(pathValue ?? '');
+  if (world.fs.kind === 'deny') {
+    __sigil_world_error('Fs is denied by the current world');
+  }
+  if (world.fs.kind === 'real') {
+    return raw;
+  }
+  const relative = raw.startsWith('/') ? raw.slice(1) : raw;
+  return path.resolve(String(world.fs.root), relative);
+}
+async function __sigil_world_file_appendText(content, pathValue) {
+  const fs = await import('node:fs/promises');
+  await fs.appendFile(await __sigil_world_file_resolved_path(pathValue), String(content), 'utf8');
+  return null;
+}
+async function __sigil_world_file_exists(pathValue) {
+  const fs = await import('node:fs/promises');
+  try {
+    await fs.access(await __sigil_world_file_resolved_path(pathValue));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+async function __sigil_world_file_listDir(pathValue) {
+  const fs = await import('node:fs/promises');
+  return await fs.readdir(await __sigil_world_file_resolved_path(pathValue));
+}
+async function __sigil_world_file_makeDir(pathValue) {
+  const fs = await import('node:fs/promises');
+  await fs.mkdir(await __sigil_world_file_resolved_path(pathValue), { recursive: false });
+  return null;
+}
+async function __sigil_world_file_makeDirs(pathValue) {
+  const fs = await import('node:fs/promises');
+  await fs.mkdir(await __sigil_world_file_resolved_path(pathValue), { recursive: true });
+  return null;
+}
+async function __sigil_world_file_makeTempDir(prefix) {
+  const fs = await import('node:fs/promises');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const world = __sigil_current_world();
+  const base = world.fs.kind === 'sandbox'
+    ? path.resolve(String(world.fs.root))
+    : os.tmpdir();
+  if (world.fs.kind === 'sandbox') {
+    await fs.mkdir(base, { recursive: true });
+  }
+  return await fs.mkdtemp(path.join(base, String(prefix)));
+}
+async function __sigil_world_file_readText(pathValue) {
+  const fs = await import('node:fs/promises');
+  return await fs.readFile(await __sigil_world_file_resolved_path(pathValue), 'utf8');
+}
+async function __sigil_world_file_remove(pathValue) {
+  const fs = await import('node:fs/promises');
+  await fs.unlink(await __sigil_world_file_resolved_path(pathValue));
+  return null;
+}
+async function __sigil_world_file_removeTree(pathValue) {
+  const fs = await import('node:fs/promises');
+  await fs.rm(await __sigil_world_file_resolved_path(pathValue), { force: true, recursive: true });
+  return null;
+}
+async function __sigil_world_file_writeText(content, pathValue) {
+  const fs = await import('node:fs/promises');
+  await fs.writeFile(await __sigil_world_file_resolved_path(pathValue), String(content), 'utf8');
+  return null;
+}
+function __sigil_world_log_debug(message) {
+  const world = __sigil_current_world();
+  const text = String(message);
+  __sigil_world_log_trace(world, text);
+  if (world.log.kind === 'stdout') {
+    console.debug(text);
+  }
+  return null;
+}
+function __sigil_world_log_eprintln(message) {
+  const world = __sigil_current_world();
+  const text = String(message);
+  __sigil_world_log_trace(world, text);
+  if (world.log.kind === 'stdout') {
+    console.error(text);
+  }
+  return null;
+}
+function __sigil_world_log_print(message) {
+  const world = __sigil_current_world();
+  const text = String(message);
+  __sigil_world_log_trace(world, text);
+  if (world.log.kind === 'stdout') {
+    process.stdout.write(text);
+  }
+  return null;
+}
+function __sigil_world_log_println(message) {
+  const world = __sigil_current_world();
+  const text = String(message);
+  __sigil_world_log_trace(world, text);
+  if (world.log.kind === 'stdout') {
+    console.log(text);
+  }
+  return null;
+}
+function __sigil_world_log_warn(message) {
+  const world = __sigil_current_world();
+  const text = String(message);
+  __sigil_world_log_trace(world, text);
+  if (world.log.kind === 'stdout') {
+    console.warn(text);
+  }
+  return null;
+}
+function __sigil_world_time_now_instant() {
+  return { epochMillis: __sigil_world_now_ms(__sigil_current_world()) };
+}
+async function __sigil_world_timer_sleep(ms) {
+  const world = __sigil_current_world();
+  const delay = Math.max(0, Number(ms));
+  __sigil_world_timer_trace(world, delay);
+  if (world.timer.kind === 'virtual') {
+    world.timer.nowMs = (Number.isFinite(world.timer.nowMs) ? world.timer.nowMs : Date.now()) + delay;
+    if (world.clock.kind === 'fixed') {
+      world.clock.millis = world.timer.nowMs;
+    }
+    return null;
+  }
+  return await __sigil_sleep(delay);
+}
+async function __sigil_world_process_argv() {
+  return process.argv.slice(2);
+}
+async function __sigil_world_process_exit(code) {
+  const world = __sigil_current_world();
+  if (world.process.kind === 'deny') {
+    __sigil_world_process_trace(world, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
+    return null;
+  }
+  if (world.process.kind === 'fixture') {
+    __sigil_world_process_trace(world, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
+    return null;
+  }
+  process.exit(Number(code));
+  return null;
+}
+async function __sigil_world_process_spawn(command) {
+  const world = __sigil_current_world();
+  __sigil_world_process_trace(world, command);
+  if (world.process.kind === 'deny') {
+    return { pid: -1 };
+  }
+  if (world.process.kind === 'fixture') {
+    return { pid: -1, __sigil_fixture_result: __sigil_world_process_fixture_result(world, command) };
+  }
+  return await __sigil_process_spawn(command);
+}
+async function __sigil_world_process_wait(processHandle) {
+  const world = __sigil_current_world();
+  if (world.process.kind === 'deny') {
+    return __sigil_process_result(-1, 'process denied by current world', '');
+  }
+  if (world.process.kind === 'fixture') {
+    return __sigil_world_clone(
+      processHandle?.__sigil_fixture_result ?? {
+        code: -1,
+        stderr: 'missing process fixture result',
+        stdout: ''
+      }
+    );
+  }
+  return await __sigil_process_wait(processHandle);
+}
+async function __sigil_world_process_run(command) {
+  const handle = await __sigil_world_process_spawn(command);
+  return await __sigil_world_process_wait(handle);
+}
+async function __sigil_world_process_kill(processHandle) {
+  const world = __sigil_current_world();
+  if (world.process.kind === 'deny') {
+    return null;
+  }
+  if (world.process.kind === 'fixture') {
+    return null;
+  }
+  return await __sigil_process_kill(processHandle);
+}
+async function __sigil_world_http_request(request) {
+  const world = __sigil_current_world();
+  const dependencyName = String(request?.dependency?.__fields?.[0] ?? '');
+  const entry = world.http[dependencyName];
+  if (!entry) {
+    return { __tag: 'Err', __fields: [__sigil_http_error('Topology', `missing HTTP world entry for '${dependencyName}'`)] };
+  }
+  __sigil_world_http_trace(world, dependencyName, request);
+  if (entry.kind === 'deny') {
+    return { __tag: 'Err', __fields: [__sigil_http_error('Topology', `HTTP dependency '${dependencyName}' is denied by the current world`)] };
+  }
+  if (entry.kind === 'fixture') {
+    const method = __sigil_http_method_to_string(request?.method);
+    const path = String(request?.path ?? '/');
+    const body = request?.body?.__tag === 'Some' ? String(request.body.__fields[0]) : '';
+    const rule = entry.rules.find((candidate) =>
+      candidate.method === method &&
+      candidate.path === path &&
+      (candidate.bodyMatch.kind === 'any' || body.includes(candidate.bodyMatch.fragment))
+    );
+    if (!rule) {
+      return { __tag: 'Err', __fields: [__sigil_http_error('Network', `no HTTP fixture matched ${method} ${path} for '${dependencyName}'`)] };
+    }
+    if (rule.response.kind === 'timeout') {
+      return { __tag: 'Err', __fields: [__sigil_http_error('Timeout', `HTTP fixture timed out for '${dependencyName}'`)] };
+    }
+    return {
+      __tag: 'Ok',
+      __fields: [{
+        body: rule.response.body,
+        headers: __sigil_map_empty(),
+        status: rule.response.status,
+        url: `fixture://${dependencyName}${path}`
+      }]
+    };
+  }
+  try {
+    const parsed = new URL(String(request?.path ?? '/'), entry.baseUrl);
+    const init = { headers: __sigil_http_headers_to_js(request?.headers), method: __sigil_http_method_to_string(request?.method) };
+    if (request?.body?.__tag === 'Some') {
+      init.body = request.body.__fields[0];
+    }
+    const response = await fetch(parsed, init);
+    const body = await response.text();
+    return { __tag: 'Ok', __fields: [{ body, headers: __sigil_http_headers_from_web(response.headers), status: response.status, url: response.url }] };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { __tag: 'Err', __fields: [__sigil_http_error(message.includes('Invalid URL') ? 'InvalidUrl' : 'Network', message)] };
+  }
+}
+async function __sigil_world_tcp_request(request) {
+  const world = __sigil_current_world();
+  const dependencyName = String(request?.dependency?.__fields?.[0] ?? '');
+  const entry = world.tcp[dependencyName];
+  if (!entry) {
+    return { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', `missing TCP world entry for '${dependencyName}'`)] };
+  }
+  __sigil_world_tcp_trace(world, dependencyName, request?.message ?? '');
+  if (entry.kind === 'deny') {
+    return { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', `TCP dependency '${dependencyName}' is denied by the current world`)] };
+  }
+  if (entry.kind === 'fixture') {
+    const message = String(request?.message ?? '');
+    const rule = entry.rules.find((candidate) => candidate.request === message);
+    if (!rule) {
+      return { __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', `no TCP fixture matched '${message}' for '${dependencyName}'`)] };
+    }
+    if (rule.response.kind === 'timeout') {
+      return { __tag: 'Err', __fields: [__sigil_tcp_error('Timeout', `TCP fixture timed out for '${dependencyName}'`)] };
+    }
+    return { __tag: 'Ok', __fields: [{ message: rule.response.body }] };
+  }
+  const { Socket } = await import('node:net');
+  return await new Promise((resolve) => {
+    const socket = new Socket();
+    let settled = false;
+    let received = '';
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setEncoding('utf8');
+    socket.setTimeout(5000);
+    socket.once('connect', () => {
+      socket.write(`${String(request?.message ?? '')}\n`);
+    });
+    socket.on('data', (chunk) => {
+      received += String(chunk);
+      const line = __sigil_tcp_first_line(received);
+      if (line !== null) {
+        finish({ __tag: 'Ok', __fields: [{ message: line }] });
+      }
+    });
+    socket.once('timeout', () => {
+      finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Timeout', 'TCP request timed out')] });
+    });
+    socket.once('error', (error) => {
+      finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Connection', error instanceof Error ? error.message : String(error))] });
+    });
+    socket.once('close', () => {
+      if (!settled) {
+        finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', 'TCP response closed before a newline-delimited message was received')] });
+      }
+    });
+    socket.connect(entry.port, entry.host);
+  });
+}
+function __sigil_test_http_requests(entry) {
+  const world = __sigil_current_world();
+  return (world.traces.http[__sigil_world_http_entry_name(entry)] ?? []).slice();
+}
+function __sigil_test_http_last_request(entry) {
+  const requests = __sigil_test_http_requests(entry);
+  return requests.length === 0 ? { __tag: 'None', __fields: [] } : { __tag: 'Some', __fields: [requests[requests.length - 1]] };
+}
+function __sigil_test_http_last_path(entry) {
+  const last = __sigil_test_http_last_request(entry);
+  return last.__tag === 'Some' ? { __tag: 'Some', __fields: [String(last.__fields[0]?.path ?? '/')] } : { __tag: 'None', __fields: [] };
+}
+function __sigil_test_tcp_requests(entry) {
+  const world = __sigil_current_world();
+  return (world.traces.tcp[__sigil_world_tcp_entry_name(entry)] ?? []).slice();
+}
+function __sigil_test_tcp_last_request(entry) {
+  const requests = __sigil_test_tcp_requests(entry);
+  return requests.length === 0 ? { __tag: 'None', __fields: [] } : { __tag: 'Some', __fields: [requests[requests.length - 1]] };
+}
+async function __sigil_test_file_exists(pathValue) {
+  return await __sigil_world_file_exists(pathValue);
+}
+async function __sigil_test_file_list_dir(pathValue) {
+  return await __sigil_world_file_listDir(pathValue);
+}
+async function __sigil_test_file_read_text(pathValue) {
+  return await __sigil_world_file_readText(pathValue);
+}
+function __sigil_test_log_entries() {
+  return __sigil_current_world().traces.log.slice();
+}
+function __sigil_test_process_call_count() {
+  return __sigil_current_world().traces.process.length;
+}
+function __sigil_test_process_commands() {
+  return __sigil_current_world().traces.process.map((entry) => entry.command);
+}
+function __sigil_test_current_iso() {
+  return new Date(__sigil_world_now_ms(__sigil_current_world())).toISOString();
+}
+function __sigil_test_timer_sleep_count() {
+  return __sigil_current_world().traces.timer.sleeps.length;
+}
+function __sigil_test_timer_last_sleep_ms() {
+  const sleeps = __sigil_current_world().traces.timer.sleeps;
+  return sleeps.length === 0 ? { __tag: 'None', __fields: [] } : { __tag: 'Some', __fields: [sleeps[sleeps.length - 1]] };
+}"#;
 
 #[derive(Debug, Error)]
 pub enum CodegenError {
@@ -32,6 +823,7 @@ pub enum CodegenError {
 }
 
 pub struct CodegenOptions {
+    pub module_id: Option<String>,
     pub source_file: Option<String>,
     pub output_file: Option<String>,
 }
@@ -39,6 +831,7 @@ pub struct CodegenOptions {
 impl Default for CodegenOptions {
     fn default() -> Self {
         Self {
+            module_id: None,
             source_file: None,
             output_file: None,
         }
@@ -47,6 +840,7 @@ impl Default for CodegenOptions {
 
 pub struct TypeScriptGenerator {
     indent: usize,
+    module_id: Option<String>,
     output: Vec<String>,
     source_file: Option<String>,
     output_file: Option<String>,
@@ -57,6 +851,7 @@ impl TypeScriptGenerator {
     pub fn new(options: CodegenOptions) -> Self {
         Self {
             indent: 0,
+            module_id: options.module_id,
             output: Vec::new(),
             source_file: options.source_file,
             output_file: options.output_file,
@@ -79,8 +874,8 @@ impl TypeScriptGenerator {
         self.output.clear();
         self.indent = 0;
         self.test_meta_entries.clear();
-        // Emit mock runtime helpers first
-        self.emit_mock_runtime_helpers();
+        // Emit runtime helpers first
+        self.emit_runtime_helpers();
 
         // Implicit core prelude constructors are available unqualified in every
         // module except the prelude module itself, so runtime code needs the same
@@ -146,6 +941,12 @@ impl TypeScriptGenerator {
         self.output.push(format!("{}{}\n", indentation, line));
     }
 
+    fn emit_block(&mut self, block: &str) {
+        for line in block.lines() {
+            self.emit(line);
+        }
+    }
+
     fn js_ready(&self, expr: &str) -> String {
         format!("__sigil_ready({})", expr)
     }
@@ -161,8 +962,7 @@ impl TypeScriptGenerator {
         )
     }
 
-    fn emit_mock_runtime_helpers(&mut self) {
-        self.emit("const __sigil_mocks = new Map();");
+    fn emit_runtime_helpers(&mut self) {
         self.emit("function __sigil_ready(value) {");
         self.emit("  return Promise.resolve(value);");
         self.emit("}");
@@ -179,6 +979,7 @@ impl TypeScriptGenerator {
         self.emit("function __sigil_option_value(option) {");
         self.emit("  return option && option.__tag === 'Some' ? option.__fields[0] : null;");
         self.emit("}");
+        self.emit_block(WORLD_RUNTIME_HELPERS);
         self.emit("async function __sigil_map_list(items, fn) {");
         self.emit("  const results = [];");
         self.emit("  for (const item of items) {");
@@ -546,68 +1347,6 @@ impl TypeScriptGenerator {
         self.emit("    default: return 'GET';");
         self.emit("  }");
         self.emit("}");
-        self.emit("function __sigil_topology_dependency_name(dep, expectedTag) {");
-        self.emit("  if (!dep || typeof dep !== 'object' || dep.__tag !== expectedTag) {");
-        self.emit("    throw new Error(`expected ${expectedTag} dependency handle`);");
-        self.emit("  }");
-        self.emit("  const name = Array.isArray(dep.__fields) ? dep.__fields[0] : null;");
-        self.emit("  if (typeof name !== 'string' || name.length === 0) {");
-        self.emit("    throw new Error(`invalid ${expectedTag} dependency handle`);");
-        self.emit("  }");
-        self.emit("  return name;");
-        self.emit("}");
-        self.emit("function __sigil_topology_http_base_url(dep) {");
-        self.emit("  const name = __sigil_topology_dependency_name(dep, 'HttpServiceDependency');");
-        self.emit("  const bindings = globalThis.__sigil_topology_bindings?.http;");
-        self.emit("  const baseUrl = bindings ? bindings[name] : undefined;");
-        self.emit("  if (typeof baseUrl !== 'string' || baseUrl.length === 0) {");
-        self.emit("    throw new Error(`missing HTTP topology binding for '${name}'`);");
-        self.emit("  }");
-        self.emit("  return baseUrl;");
-        self.emit("}");
-        self.emit("function __sigil_topology_http_url(dep, path) {");
-        self.emit("  const baseUrl = __sigil_topology_http_base_url(dep);");
-        self.emit("  const relativePath = String(path ?? '/');");
-        self.emit("  return new URL(relativePath, baseUrl).toString();");
-        self.emit("}");
-        self.emit("function __sigil_topology_tcp_target(dep) {");
-        self.emit("  const name = __sigil_topology_dependency_name(dep, 'TcpServiceDependency');");
-        self.emit("  const bindings = globalThis.__sigil_topology_bindings?.tcp;");
-        self.emit("  const target = bindings ? bindings[name] : undefined;");
-        self.emit(
-            "  if (!target || typeof target.host !== 'string' || !Number.isInteger(target.port)) {",
-        );
-        self.emit("    throw new Error(`missing TCP topology binding for '${name}'`);");
-        self.emit("  }");
-        self.emit("  return target;");
-        self.emit("}");
-        self.emit("async function __sigil_http_request(request) {");
-        self.emit("  try {");
-        self.emit("    const parsed = new URL(__sigil_topology_http_url(request.dependency, request.path));");
-        self.emit("    const init = { headers: __sigil_http_headers_to_js(request.headers), method: __sigil_http_method_to_string(request.method) };");
-        self.emit(
-            "    if (request.body?.__tag === 'Some') { init.body = request.body.__fields[0]; }",
-        );
-        self.emit("    const response = await fetch(parsed, init);");
-        self.emit("    const body = await response.text();");
-        self.emit("    return { __tag: 'Ok', __fields: [{ body, headers: __sigil_http_headers_from_web(response.headers), status: response.status, url: response.url }] };");
-        self.emit("  } catch (error) {");
-        self.emit("    const message = error instanceof Error ? error.message : String(error);");
-        self.emit("    if (message.includes('topology binding') || message.includes('dependency handle')) {");
-        self.emit(
-            "      return { __tag: 'Err', __fields: [__sigil_http_error('Topology', message)] };",
-        );
-        self.emit("    }");
-        self.emit("    if (message.includes('Invalid URL')) {");
-        self.emit(
-            "      return { __tag: 'Err', __fields: [__sigil_http_error('InvalidUrl', message)] };",
-        );
-        self.emit("    }");
-        self.emit(
-            "    return { __tag: 'Err', __fields: [__sigil_http_error('Network', message)] };",
-        );
-        self.emit("  }");
-        self.emit("}");
         self.emit("function __sigil_http_request_path(url) {");
         self.emit("  try {");
         self.emit("    const parsed = new URL(String(url ?? '/'), 'http://127.0.0.1');");
@@ -657,56 +1396,6 @@ impl TypeScriptGenerator {
         self.emit("function __sigil_tcp_first_line(buffer) {");
         self.emit("  const index = buffer.indexOf('\\n');");
         self.emit("  return index === -1 ? null : buffer.slice(0, index).replace(/\\r$/, '');");
-        self.emit("}");
-        self.emit("async function __sigil_tcp_request(request) {");
-        self.emit("  let target;");
-        self.emit("  try {");
-        self.emit("    target = __sigil_topology_tcp_target(request?.dependency);");
-        self.emit("  } catch (error) {");
-        self.emit("    const message = error instanceof Error ? error.message : String(error);");
-        self.emit(
-            "    return { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', message)] };",
-        );
-        self.emit("  }");
-        self.emit("  if (!__sigil_tcp_is_valid_host(target?.host) || !__sigil_tcp_is_valid_port(target?.port)) {");
-        self.emit("    return { __tag: 'Err', __fields: [__sigil_tcp_error('InvalidAddress', 'TCP requests require a valid host and port')] };");
-        self.emit("  }");
-        self.emit("  const { Socket } = await import('node:net');");
-        self.emit("  return await new Promise((resolve) => {");
-        self.emit("    const socket = new Socket();");
-        self.emit("    let settled = false;");
-        self.emit("    let received = '';");
-        self.emit("    const finish = (value) => {");
-        self.emit("      if (settled) return;");
-        self.emit("      settled = true;");
-        self.emit("      socket.destroy();");
-        self.emit("      resolve(value);");
-        self.emit("    };");
-        self.emit("    socket.setEncoding('utf8');");
-        self.emit("    socket.setTimeout(5000);");
-        self.emit("    socket.once('connect', () => {");
-        self.emit("      socket.write(`${String(request.message)}\\n`);");
-        self.emit("    });");
-        self.emit("    socket.on('data', (chunk) => {");
-        self.emit("      received += String(chunk);");
-        self.emit("      const line = __sigil_tcp_first_line(received);");
-        self.emit("      if (line !== null) {");
-        self.emit("        finish({ __tag: 'Ok', __fields: [{ message: line }] });");
-        self.emit("      }");
-        self.emit("    });");
-        self.emit("    socket.once('timeout', () => {");
-        self.emit("      finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Timeout', 'TCP request timed out')] });");
-        self.emit("    });");
-        self.emit("    socket.once('error', (error) => {");
-        self.emit("      finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Connection', error instanceof Error ? error.message : String(error))] });");
-        self.emit("    });");
-        self.emit("    socket.once('close', () => {");
-        self.emit("      if (!settled) {");
-        self.emit("        finish({ __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', 'TCP response closed before a newline-delimited message was received')] });");
-        self.emit("      }");
-        self.emit("    });");
-        self.emit("    socket.connect(target.port, target.host);");
-        self.emit("  });");
         self.emit("}");
         self.emit("async function __sigil_tcp_serve(handler, port) {");
         self.emit("  const { createServer } = await import('node:net');");
@@ -834,28 +1523,8 @@ impl TypeScriptGenerator {
         self.emit("  if (ok) { return { ok: true }; }");
         self.emit("  return { ok: false, failure: { kind: 'comparison_mismatch', message: 'Comparison test failed', operator: op, actual: __sigil_preview(actual), expected: __sigil_preview(expected), diffHint: __sigil_diff_hint(actual, expected) } };");
         self.emit("}");
-        self.emit("function __sigil_call(key, actualFn, args = []) {");
-        self.emit("  const mockFn = __sigil_mocks.get(key);");
-        self.emit("  const fn = mockFn ?? actualFn;");
-        self.emit("  return Promise.resolve().then(() => fn(...args));");
-        self.emit("}");
-        self.emit("async function __sigil_with_mock(key, mockFn, body) {");
-        self.emit("  const had = __sigil_mocks.has(key);");
-        self.emit("  const prev = __sigil_mocks.get(key);");
-        self.emit("  __sigil_mocks.set(key, mockFn);");
-        self.emit("  try {");
-        self.emit("    return await body();");
-        self.emit("  } finally {");
-        self.emit(
-            "    if (had) { __sigil_mocks.set(key, prev); } else { __sigil_mocks.delete(key); }",
-        );
-        self.emit("  }");
-        self.emit("}");
-        self.emit("async function __sigil_with_mock_extern(key, actualFn, mockFn, body) {");
-        self.emit("  if (typeof actualFn !== 'function') { throw new Error('withMock extern target is not callable'); }");
-        self.emit("  if (typeof mockFn !== 'function') { throw new Error('withMock replacement must be callable'); }");
-        self.emit("  if (actualFn.length !== mockFn.length) { throw new Error(`withMock extern arity mismatch for ${key}: expected ${actualFn.length}, got ${mockFn.length}`); }");
-        self.emit("  return await __sigil_with_mock(key, mockFn, body);");
+        self.emit("function __sigil_call(_key, actualFn, args = []) {");
+        self.emit("  return Promise.resolve().then(() => actualFn(...args));");
         self.emit("}");
     }
 
@@ -877,6 +1546,15 @@ impl TypeScriptGenerator {
             .is_some_and(|path| path.ends_with("language/core/map.lib.sigil"))
         {
             if self.generate_core_map_function(func)? {
+                return Ok(());
+            }
+        }
+        if self
+            .source_file
+            .as_deref()
+            .is_some_and(|path| path.ends_with("language/stdlib/string.lib.sigil"))
+        {
+            if self.generate_stdlib_string_function(func)? {
                 return Ok(());
             }
         }
@@ -939,12 +1617,25 @@ impl TypeScriptGenerator {
         } else {
             "function"
         };
+        let coverage_module_id = self
+            .module_id
+            .as_deref()
+            .unwrap_or("<unknown>")
+            .replace('\"', "\\\"");
+        let coverage_function_name = func.name.replace('\"', "\\\"");
 
         self.emit(&format!("{} {}({}) {{", fn_keyword, func_name, params_str));
         self.indent += 1;
 
+        self.emit(&format!(
+            "__sigil_record_coverage_call(\"{}\", \"{}\");",
+            coverage_module_id, coverage_function_name
+        ));
         let body_code = self.generate_expression(&func.body)?;
-        self.emit(&format!("return {};", body_code));
+        self.emit(&format!(
+            "return __sigil_record_coverage_result(\"{}\", \"{}\", {});",
+            coverage_module_id, coverage_function_name, body_code
+        ));
 
         self.indent -= 1;
         self.emit("}");
@@ -1050,6 +1741,105 @@ impl TypeScriptGenerator {
         Ok(true)
     }
 
+    fn generate_stdlib_string_function(
+        &mut self,
+        func: &TypedFunctionDecl,
+    ) -> Result<bool, CodegenError> {
+        let params: Vec<String> = func
+            .params
+            .iter()
+            .map(|p| sanitize_js_identifier(&p.name))
+            .collect();
+        let params_str = params.join(", ");
+        let fn_keyword = if self.should_export_from_lib() {
+            "export function"
+        } else {
+            "function"
+        };
+
+        let body = match (func.name.as_str(), params.as_slice()) {
+            ("charAt", [idx, s]) => Some(format!(
+                "{}.then(([__index, __string]) => __sigil_ready(__string.charAt(__index)))",
+                self.js_all(&[self.js_ready(idx), self.js_ready(s)])
+            )),
+            ("endsWith", [s, suffix]) => Some(format!(
+                "{}.then(([__string, __suffix]) => __string.endsWith(__suffix))",
+                self.js_all(&[self.js_ready(s), self.js_ready(suffix)])
+            )),
+            ("indexOf", [s, search]) => Some(format!(
+                "{}.then(([__string, __needle]) => __string.indexOf(__needle))",
+                self.js_all(&[self.js_ready(s), self.js_ready(search)])
+            )),
+            ("intToString", [n]) => Some(format!("{}.then((__value) => String(__value))", self.js_ready(n))),
+            ("isDigit", [s]) => Some(format!(
+                "{}.then((__value) => /^[0-9]$/.test(__value))",
+                self.js_ready(s)
+            )),
+            ("join", [separator, strings]) => Some(format!(
+                "{}.then(([__separator, __items]) => __items.join(__separator))",
+                self.js_all(&[self.js_ready(separator), self.js_ready(strings)])
+            )),
+            ("replaceAll", [pattern, replacement, s]) => Some(format!(
+                "{}.then(([__search, __replacement, __string]) => __string.replaceAll(__search, __replacement))",
+                self.js_all(&[
+                    self.js_ready(pattern),
+                    self.js_ready(replacement),
+                    self.js_ready(s),
+                ])
+            )),
+            ("reverse", [s]) => Some(format!(
+                "{}.then((__value) => __sigil_ready(__value.split(\"\").reverse().join(\"\")))",
+                self.js_ready(s)
+            )),
+            ("split", [delimiter, s]) => Some(format!(
+                "{}.then(([__separator, __string]) => __string.split(__separator))",
+                self.js_all(&[self.js_ready(delimiter), self.js_ready(s)])
+            )),
+            ("startsWith", [prefix, s]) => Some(format!(
+                "{}.then(([__prefix, __string]) => __string.startsWith(__prefix))",
+                self.js_all(&[self.js_ready(prefix), self.js_ready(s)])
+            )),
+            ("substring", [end, s, start]) => Some(format!(
+                "{}.then(([__end, __string, __start]) => __sigil_ready(__string.substring(__start, __end)))",
+                self.js_all(&[self.js_ready(end), self.js_ready(s), self.js_ready(start)])
+            )),
+            ("toLower", [s]) => Some(format!("{}.then((__value) => __value.toLowerCase())", self.js_ready(s))),
+            ("toUpper", [s]) => Some(format!("{}.then((__value) => __value.toUpperCase())", self.js_ready(s))),
+            ("trim", [s]) => Some(format!("{}.then((__value) => __value.trim())", self.js_ready(s))),
+            _ => None,
+        };
+
+        let Some(body) = body else {
+            return Ok(false);
+        };
+
+        let coverage_module_id = self
+            .module_id
+            .as_deref()
+            .unwrap_or("<unknown>")
+            .replace('\"', "\\\"");
+        let coverage_function_name = func.name.replace('\"', "\\\"");
+
+        self.emit(&format!(
+            "{} {}({}) {{",
+            fn_keyword,
+            sanitize_js_identifier(&func.name),
+            params_str
+        ));
+        self.indent += 1;
+        self.emit(&format!(
+            "__sigil_record_coverage_call(\"{}\", \"{}\");",
+            coverage_module_id, coverage_function_name
+        ));
+        self.emit(&format!(
+            "return __sigil_record_coverage_result(\"{}\", \"{}\", {});",
+            coverage_module_id, coverage_function_name, body
+        ));
+        self.indent -= 1;
+        self.emit("}");
+        Ok(true)
+    }
+
     fn generate_stdlib_http_client_function(
         &mut self,
         func: &TypedFunctionDecl,
@@ -1078,7 +1868,7 @@ impl TypeScriptGenerator {
         ));
         self.indent += 1;
         self.emit(&format!(
-            "return {}.then((__request) => __sigil_http_request(__request));",
+            "return {}.then((__request) => __sigil_world_http_request(__request));",
             self.js_ready(&params[0])
         ));
         self.indent -= 1;
@@ -1150,7 +1940,7 @@ impl TypeScriptGenerator {
         ));
         self.indent += 1;
         self.emit(&format!(
-            "return {}.then((__request) => __sigil_tcp_request(__request));",
+            "return {}.then((__request) => __sigil_world_tcp_request(__request));",
             self.js_ready(&params[0])
         ));
         self.indent -= 1;
@@ -1343,8 +2133,19 @@ impl TypeScriptGenerator {
         // Generate test function
         self.emit(&format!("async function __test_{}() {{", test_name));
         self.indent += 1;
+        let mut world_binding_names = Vec::new();
+        for binding in &test.world_bindings {
+            let binding_name = sanitize_js_identifier(&binding.name);
+            let binding_value = self.generate_expression(&binding.value)?;
+            self.emit(&format!("const {} = await {};", binding_name, binding_value));
+            world_binding_names.push(binding_name);
+        }
         let body = self.generate_expression(&test.body)?;
-        self.emit(&format!("return {};", body));
+        self.emit(&format!(
+            "return await __sigil_run_test_world([{}], async () => {});",
+            world_binding_names.join(", "),
+            body
+        ));
         self.indent -= 1;
         self.emit("}");
 
@@ -1394,7 +2195,6 @@ impl TypeScriptGenerator {
             TypedExprKind::Fold(fold) => self.generate_fold(fold),
             TypedExprKind::Concurrent(concurrent) => self.generate_concurrent(concurrent),
             TypedExprKind::Pipeline(pipeline) => self.generate_pipeline(pipeline),
-            TypedExprKind::WithMock(with_mock) => self.generate_with_mock(with_mock),
         }
     }
 
@@ -1478,6 +2278,9 @@ impl TypeScriptGenerator {
                 if module == "stdlib/json" {
                     return self.generate_json_intrinsic(member, args);
                 }
+                if module == "stdlib/file" {
+                    return self.generate_file_intrinsic(member, args);
+                }
                 if module == "stdlib/httpClient" {
                     return self.generate_http_client_intrinsic(member, args);
                 }
@@ -1490,8 +2293,14 @@ impl TypeScriptGenerator {
                 if module == "stdlib/tcpServer" {
                     return self.generate_tcp_server_intrinsic(member, args);
                 }
+                if module.starts_with("test/observe/") {
+                    return self.generate_test_observe_intrinsic(&module, member, args);
+                }
                 if module == "stdlib/time" {
                     return self.generate_time_intrinsic(member, args);
+                }
+                if module == "stdlib/io" {
+                    return self.generate_io_intrinsic(member, args);
                 }
                 if module == "stdlib/process" {
                     return self.generate_process_intrinsic(member, args);
@@ -1518,6 +2327,13 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/json.lib.sigil"))
                 {
                     return self.generate_json_intrinsic(&name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/file.lib.sigil"))
+                {
+                    return self.generate_file_intrinsic(&name.name, args);
                 }
                 if self
                     .source_file
@@ -1557,9 +2373,37 @@ impl TypeScriptGenerator {
                 if self
                     .source_file
                     .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/io.lib.sigil"))
+                {
+                    return self.generate_io_intrinsic(&name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/process.lib.sigil"))
                 {
                     return self.generate_process_intrinsic(&name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.contains("/language/test/observe/"))
+                {
+                    let module = self
+                        .source_file
+                        .as_deref()
+                        .unwrap()
+                        .split("language/")
+                        .nth(1)
+                        .unwrap()
+                        .trim_end_matches(".lib.sigil")
+                        .replace(".sigil", "")
+                        .replace('/', "::");
+                    return self.generate_test_observe_intrinsic(
+                        &module.replace("::", "/"),
+                        &name.name,
+                        args,
+                    );
                 }
                 if self
                     .source_file
@@ -1802,6 +2646,170 @@ impl TypeScriptGenerator {
         }
     }
 
+    fn generate_file_intrinsic(
+        &mut self,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+
+        match member {
+            "appendText" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__content, __path]) => __sigil_world_file_appendText(__content, __path))",
+                self.js_all(&generated_args)
+            ))),
+            "exists" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__path) => __sigil_world_file_exists(__path))",
+                generated_args[0]
+            ))),
+            "listDir" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__path) => __sigil_world_file_listDir(__path))",
+                generated_args[0]
+            ))),
+            "makeDir" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__path) => __sigil_world_file_makeDir(__path))",
+                generated_args[0]
+            ))),
+            "makeDirs" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__path) => __sigil_world_file_makeDirs(__path))",
+                generated_args[0]
+            ))),
+            "makeTempDir" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__prefix) => __sigil_world_file_makeTempDir(__prefix))",
+                generated_args[0]
+            ))),
+            "readText" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__path) => __sigil_world_file_readText(__path))",
+                generated_args[0]
+            ))),
+            "remove" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__path) => __sigil_world_file_remove(__path))",
+                generated_args[0]
+            ))),
+            "removeTree" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__path) => __sigil_world_file_removeTree(__path))",
+                generated_args[0]
+            ))),
+            "writeText" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__content, __path]) => __sigil_world_file_writeText(__content, __path))",
+                self.js_all(&generated_args)
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn generate_io_intrinsic(
+        &mut self,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+
+        match member {
+            "debug" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__message) => __sigil_world_log_debug(__message))",
+                generated_args[0]
+            ))),
+            "eprintln" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__message) => __sigil_world_log_eprintln(__message))",
+                generated_args[0]
+            ))),
+            "print" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__message) => __sigil_world_log_print(__message))",
+                generated_args[0]
+            ))),
+            "println" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__message) => __sigil_world_log_println(__message))",
+                generated_args[0]
+            ))),
+            "warn" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__message) => __sigil_world_log_warn(__message))",
+                generated_args[0]
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn generate_test_observe_intrinsic(
+        &mut self,
+        module: &str,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+
+        match (module, member, generated_args.len()) {
+            ("test/observe/file", "exists", 1) => Ok(Some(format!(
+                "{}.then((__path) => __sigil_test_file_exists(__path))",
+                generated_args[0]
+            ))),
+            ("test/observe/file", "listDir", 1) => Ok(Some(format!(
+                "{}.then((__path) => __sigil_test_file_list_dir(__path))",
+                generated_args[0]
+            ))),
+            ("test/observe/file", "readText", 1) => Ok(Some(format!(
+                "{}.then((__path) => __sigil_test_file_read_text(__path))",
+                generated_args[0]
+            ))),
+            ("test/observe/http", "callCount", 1) => Ok(Some(format!(
+                "{}.then((__entry) => __sigil_test_http_requests(__entry).length)",
+                generated_args[0]
+            ))),
+            ("test/observe/http", "lastPath", 1) => Ok(Some(format!(
+                "{}.then((__entry) => __sigil_test_http_last_path(__entry))",
+                generated_args[0]
+            ))),
+            ("test/observe/http", "lastRequest", 1) => Ok(Some(format!(
+                "{}.then((__entry) => __sigil_test_http_last_request(__entry))",
+                generated_args[0]
+            ))),
+            ("test/observe/http", "requests", 1) => Ok(Some(format!(
+                "{}.then((__entry) => __sigil_test_http_requests(__entry))",
+                generated_args[0]
+            ))),
+            ("test/observe/log", "entries", 0) => {
+                Ok(Some("__sigil_ready(__sigil_test_log_entries())".to_string()))
+            }
+            ("test/observe/process", "callCount", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_process_call_count())".to_string(),
+            )),
+            ("test/observe/process", "commands", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_process_commands())".to_string(),
+            )),
+            ("test/observe/tcp", "callCount", 1) => Ok(Some(format!(
+                "{}.then((__entry) => __sigil_test_tcp_requests(__entry).length)",
+                generated_args[0]
+            ))),
+            ("test/observe/tcp", "lastRequest", 1) => Ok(Some(format!(
+                "{}.then((__entry) => __sigil_test_tcp_last_request(__entry))",
+                generated_args[0]
+            ))),
+            ("test/observe/tcp", "requests", 1) => Ok(Some(format!(
+                "{}.then((__entry) => __sigil_test_tcp_requests(__entry))",
+                generated_args[0]
+            ))),
+            ("test/observe/time", "currentIso", 0) => {
+                Ok(Some("__sigil_ready(__sigil_test_current_iso())".to_string()))
+            }
+            ("test/observe/timer", "lastSleepMs", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_timer_last_sleep_ms())".to_string(),
+            )),
+            ("test/observe/timer", "sleepCount", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_timer_sleep_count())".to_string(),
+            )),
+            _ => Ok(None),
+        }
+    }
+
     fn generate_time_intrinsic(
         &mut self,
         member: &str,
@@ -1833,13 +2841,15 @@ impl TypeScriptGenerator {
                 "{}.then(([__left, __right]) => __left.epochMillis < __right.epochMillis)",
                 self.js_all(&generated_args)
             ))),
-            "now" if generated_args.is_empty() => Ok(Some("__sigil_ready(__sigil_time_now_instant())".to_string())),
+            "now" if generated_args.is_empty() => Ok(Some(
+                "__sigil_ready(__sigil_world_time_now_instant())".to_string(),
+            )),
             "parseIso" if generated_args.len() == 1 => Ok(Some(format!(
                 "{}.then((__input) => __sigil_time_parse_iso_result(__input))",
                 generated_args[0]
             ))),
             "sleepMs" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__ms) => new Promise((resolve) => setTimeout(() => resolve(null), Math.max(0, Number(__ms)))))",
+                "{}.then((__ms) => __sigil_world_timer_sleep(__ms))",
                 generated_args[0]
             ))),
             "toEpochMillis" if generated_args.len() == 1 => Ok(Some(format!(
@@ -1861,25 +2871,27 @@ impl TypeScriptGenerator {
             .collect::<Result<Vec<_>, CodegenError>>()?;
 
         match member {
-            "argv" if generated_args.is_empty() => Ok(Some("__sigil_process_argv()".to_string())),
+            "argv" if generated_args.is_empty() => {
+                Ok(Some("__sigil_world_process_argv()".to_string()))
+            }
             "kill" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__process) => __sigil_process_kill(__process))",
+                "{}.then((__process) => __sigil_world_process_kill(__process))",
                 generated_args[0]
             ))),
             "run" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__command) => __sigil_process_run(__command))",
+                "{}.then((__command) => __sigil_world_process_run(__command))",
                 generated_args[0]
             ))),
             "exit" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__code) => __sigil_process_exit(__code))",
+                "{}.then((__code) => __sigil_world_process_exit(__code))",
                 generated_args[0]
             ))),
             "start" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__command) => __sigil_process_spawn(__command))",
+                "{}.then((__command) => __sigil_world_process_spawn(__command))",
                 generated_args[0]
             ))),
             "wait" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__process) => __sigil_process_wait(__process))",
+                "{}.then((__process) => __sigil_world_process_wait(__process))",
                 generated_args[0]
             ))),
             _ => Ok(None),
@@ -1898,7 +2910,7 @@ impl TypeScriptGenerator {
 
         match member {
             "request" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__request) => __sigil_http_request(__request))",
+                "{}.then((__request) => __sigil_world_http_request(__request))",
                 generated_args[0]
             ))),
             _ => Ok(None),
@@ -1963,7 +2975,7 @@ impl TypeScriptGenerator {
 
         match member {
             "request" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__request) => __sigil_tcp_request(__request))",
+                "{}.then((__request) => __sigil_world_tcp_request(__request))",
                 generated_args[0]
             ))),
             _ => Ok(None),
@@ -2071,6 +3083,30 @@ impl TypeScriptGenerator {
                 return Ok(intrinsic);
             }
         }
+        if call.namespace.join("/") == "stdlib/file" {
+            if let Some(intrinsic) = self.generate_file_intrinsic(&call.member, &call.args)? {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/") == "stdlib/io" {
+            if let Some(intrinsic) = self.generate_io_intrinsic(&call.member, &call.args)? {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/") == "stdlib/httpClient" {
+            if let Some(intrinsic) =
+                self.generate_http_client_intrinsic(&call.member, &call.args)?
+            {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/") == "stdlib/tcpClient" {
+            if let Some(intrinsic) =
+                self.generate_tcp_client_intrinsic(&call.member, &call.args)?
+            {
+                return Ok(intrinsic);
+            }
+        }
         if call.namespace.join("/") == "stdlib/time" {
             if let Some(intrinsic) = self.generate_time_intrinsic(&call.member, &call.args)? {
                 return Ok(intrinsic);
@@ -2088,6 +3124,13 @@ impl TypeScriptGenerator {
         }
         if call.namespace.join("/") == "stdlib/url" {
             if let Some(intrinsic) = self.generate_url_intrinsic(&call.member, &call.args)? {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/").starts_with("test/observe/") {
+            if let Some(intrinsic) =
+                self.generate_test_observe_intrinsic(&call.namespace.join("/"), &call.member, &call.args)?
+            {
                 return Ok(intrinsic);
             }
         }
@@ -2628,34 +3671,6 @@ impl TypeScriptGenerator {
         }
     }
 
-    fn generate_with_mock(
-        &mut self,
-        with_mock: &TypedWithMockExpr,
-    ) -> Result<String, CodegenError> {
-        let replacement = self.generate_expression(&with_mock.replacement)?;
-        let body = self.generate_expression(&with_mock.body)?;
-        match &with_mock.target {
-            WithMockTarget::LocalFunction(name) => Ok(format!(
-                "__sigil_with_mock('{}', {}, async () => {})",
-                name, replacement, body
-            )),
-            WithMockTarget::ExternMember {
-                namespace,
-                member,
-                mock_key,
-            } => {
-                let func_ref = format!(
-                    "{}.{}",
-                    sanitize_js_identifier(&namespace.join("_")),
-                    sanitize_js_identifier(member)
-                );
-                Ok(format!(
-                    "__sigil_with_mock_extern('{}', {}, {}, async () => {})",
-                    mock_key, func_ref, replacement, body
-                ))
-            }
-        }
-    }
 }
 
 fn sanitize_js_identifier(raw: &str) -> String {
@@ -2839,14 +3854,14 @@ mod tests {
     }
 
     #[test]
-    fn test_regular_function_calls_route_through_mock_runtime() {
+    fn test_regular_function_calls_route_through_call_runtime() {
         let source = "λping()=>String=\"real\"\nλmain()=>String=ping()";
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions::default());
         let result = gen.generate(&program).unwrap();
 
-        assert!(result.contains("function __sigil_call(key, actualFn, args = [])"));
+        assert!(result.contains("function __sigil_call(_key, actualFn, args = [])"));
         assert!(result.contains("__sigil_call(\"ping\", ping, __sigil_args)"));
     }
 
@@ -2856,6 +3871,7 @@ mod tests {
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: None,
             source_file: Some("projects/algorithms/tests/rot13Encoder.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/tests/rot13Encoder.ts".to_string()),
         });
@@ -2870,6 +3886,7 @@ mod tests {
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: None,
             source_file: Some("language/stdlib-tests/tests/numericPredicates.sigil".to_string()),
             output_file: Some(
                 "/tmp/language/stdlib-tests/.local/tests/numericPredicates.ts".to_string(),
@@ -2934,6 +3951,7 @@ mod tests {
         let program = typed_program_for(source, "test.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: None,
             source_file: Some("projects/algorithms/src/topologicalSort.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/src/topologicalSort.ts".to_string()),
         });
@@ -2949,6 +3967,7 @@ mod tests {
         let program = typed_program_for(source, "tests/smoke.sigil");
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: None,
             source_file: Some("tests/smoke.sigil".to_string()),
             output_file: Some("/tmp/tests/smoke.ts".to_string()),
         });

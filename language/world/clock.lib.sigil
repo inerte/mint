@@ -1,0 +1,5 @@
+t ClockEntry=FixedClock(String)|SystemClock()
+
+λfixedClock(iso:String)=>ClockEntry=FixedClock(iso)
+
+λsystemClock()=>ClockEntry=SystemClock()

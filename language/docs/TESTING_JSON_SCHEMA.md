@@ -151,7 +151,7 @@ Current output does not include:
 {
   "failure": {
     "kind": "exception",
-    "message": "withMock extern arity mismatch for extern:axios.get: expected 1, got 0"
+    "message": "Fs is denied by the current world"
   }
 }
 ```

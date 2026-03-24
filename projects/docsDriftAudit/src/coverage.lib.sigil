@@ -57,14 +57,25 @@ i stdlib::string
   }
 }
 
-λfunctionNamesFromParseJson(parseJson:String)=>[String] match stdlib::regex.compile("","\"type\":\"FunctionDecl\"|\"name\":\"[A-Za-z_][A-Za-z0-9_]*\""){
-  Ok(pattern)=>functionNamesFromTokens(false,[],pattern,parseJson)|
+λfunctionNamesFromDeclMatches(names:[String],pattern:stdlib::regex.Regex,source:String)=>[String] match stdlib::regex.find(source,pattern){
+  Some(found)=>{
+    l remaining=(stdlib::string.drop(found.end,source):String);
+    match found.captures{
+      [name]=>functionNamesFromDeclMatches(insertUnique(name,names),pattern,remaining)|
+      _=>functionNamesFromDeclMatches(names,pattern,remaining)
+    }
+  }|
+  None()=>names
+}
+
+λfunctionNamesFromParseJson(parseJson:String)=>[String] match stdlib::regex.compile("","\"type\":\"FunctionDecl\",\"name\":\"([A-Za-z_][A-Za-z0-9_]*)\""){
+  Ok(pattern)=>functionNamesFromDeclMatches([],pattern,parseJson)|
   Err(_)=>[]
 }
 
 λfunctionNamesFromTokens(expectName:Bool,names:[String],pattern:stdlib::regex.Regex,source:String)=>[String] match stdlib::regex.find(source,pattern){
   Some(found)=>{
-    l remaining=(stdlib::string.substring(#source-found.end,source,found.end):String);
+    l remaining=(stdlib::string.drop(found.end,source):String);
     match found.full="\"type\":\"FunctionDecl\""{
       true=>functionNamesFromTokens(true,names,pattern,remaining)|
       false=>match expectName{
@@ -100,4 +111,4 @@ i stdlib::string
 
 λqualifyExports(exports:[String],modulePath:String)=>[String]=exports map (λ(name:String)=>String=modulePath++"."++name)
 
-λtokenName(token:String)=>String=dropUntilBoundary("",stdlib::string.substring(#token-8,token,8))
+λtokenName(token:String)=>String=dropUntilBoundary("",stdlib::string.drop(8,token))

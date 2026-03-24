@@ -451,24 +451,31 @@ test "writes log" =>!Log  {
 }
 ```
 
-## withMock
+Tests may also derive the active world locally:
 
-Sigil includes a built-in `withMock(...) { ... }` expression for tests:
+```sigil program language/test-fixtures/tests/testWorld.sigil
+i stdlib::io
 
-```sigil program language/test-fixtures/tests/withMockExample.sigil
-λfetchUser(id:Int)=>String="real"
+i test::check::log
+
+i world::log
 
 λmain()=>Unit=()
 
-test "fallback on API failure" {
-  withMock(fetchUser,λ(id:Int)=>String="ERR"){fetchUser(1)="ERR"}
+test "captured log contains line" =>!Log world {
+  c log=(world::log.capture():world::log.LogEntry)
+} {
+  stdlib::io.println("captured")=() and
+  test::check::log.contains("captured")
 }
 ```
 
 Rules:
 
-- `withMock(...)` is only valid directly inside `test` declaration bodies
-- allowed targets are any Sigil function or an extern member
+- `world { ... }` appears between the optional test effects and the body
+- world clauses are declaration-only and use `c` bindings
+- world bindings must be pure entry values from `world::...`
+- `test::observe` and `test::check` are test-only roots for reading the active test world
 
 ## Canonical References
 

@@ -55,7 +55,6 @@ pub mod canonical {
     pub const TEST_NEEDS_MAIN: &str = "SIGIL-CANON-TEST-NEEDS-MAIN";
     pub const TEST_LOCATION: &str = "SIGIL-CANON-TEST-LOCATION";
     pub const TEST_PATH: &str = "SIGIL-CANON-TEST-PATH";
-    pub const WITH_MOCK_TEST_ONLY: &str = "SIGIL-CANON-WITH-MOCK-TEST-ONLY";
 
     // Filename conventions
     pub const FILENAME_CASE: &str = "SIGIL-CANON-FILENAME-CASE";
@@ -200,7 +199,6 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     canonical::TEST_NEEDS_MAIN,
     canonical::TEST_LOCATION,
     canonical::TEST_PATH,
-    canonical::WITH_MOCK_TEST_ONLY,
     canonical::FILENAME_CASE,
     canonical::FILENAME_INVALID_CHAR,
     canonical::FILENAME_FORMAT,
@@ -303,8 +301,8 @@ mod tests {
         // Keep this in sync when adding or removing diagnostic codes.
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            102,
-            "Expected 102 error codes, found {}",
+            101,
+            "Expected 101 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

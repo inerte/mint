@@ -1,0 +1,5 @@
+t TimerEntry=RealTimer()|VirtualTimer()
+
+λreal()=>TimerEntry=RealTimer()
+
+λvirtual()=>TimerEntry=VirtualTimer()

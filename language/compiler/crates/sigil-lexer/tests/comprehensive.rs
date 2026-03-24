@@ -50,7 +50,7 @@ fn test_all_primitive_type_keywords() {
 
 #[test]
 fn test_all_keywords() {
-    let source = "i e c when l mut withMock t";
+    let source = "i e c when l mut effect t";
     let tokens = tokenize(source).unwrap();
 
     assert_eq!(tokens[0].token_type, TokenType::IMPORT);
@@ -59,7 +59,7 @@ fn test_all_keywords() {
     assert_eq!(tokens[3].token_type, TokenType::WHEN);
     assert_eq!(tokens[4].token_type, TokenType::LET);
     assert_eq!(tokens[5].token_type, TokenType::MUT);
-    assert_eq!(tokens[6].token_type, TokenType::WithMock);
+    assert_eq!(tokens[6].token_type, TokenType::Effect);
     assert_eq!(tokens[7].token_type, TokenType::TYPE);
 }
 

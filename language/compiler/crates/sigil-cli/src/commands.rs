@@ -14,12 +14,15 @@ use sigil_parser::Parser;
 use sigil_typechecker::types::{
     InferenceType, TConstructor, TFunction, TList, TMap, TRecord, TTuple,
 };
-use sigil_typechecker::{type_check, TypeCheckOptions, TypeError, TypeInfo, TypeScheme};
+use sigil_typechecker::{
+    type_check, TypeCheckOptions, TypeError, TypeInfo, TypeScheme, TypedDeclaration,
+    TypedProgram,
+};
 use sigil_validator::{
     validate_canonical_form_with_options, validate_typed_canonical_form, ValidationError,
     ValidationOptions,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -255,7 +258,7 @@ pub fn compile_command(
             Some(TypeCheckOptions {
                 effect_catalog,
                 imported_namespaces: Some(imported_namespaces),
-                imported_type_registries: Some(imported_type_regs),
+                imported_type_registries: Some(imported_type_regs.clone()),
                 imported_value_schemes: Some(imported_value_schemes),
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
             }),
@@ -276,6 +279,7 @@ pub fn compile_command(
 
         // Generate TypeScript
         let codegen_options = CodegenOptions {
+            module_id: Some(module_id.clone()),
             source_file: Some(module.file_path.to_string_lossy().to_string()),
             output_file: Some(output_path.to_string_lossy().to_string()),
         };
@@ -365,9 +369,9 @@ pub fn run_command(
     args: &[String],
 ) -> Result<(), CliError> {
     let graph = ModuleGraph::build(file)?;
+    let topology_prelude = runner_prelude(file, &graph, selected_env)?.unwrap_or_default();
     let compiled = compile_module_graph(graph, None)?;
     let entry_output_path = compiled.entry_output_path;
-    let topology_prelude = runner_prelude(file, selected_env)?.unwrap_or_default();
 
     // Create runner file
     let runner_path = entry_output_path.with_extension("run.ts");
@@ -504,6 +508,7 @@ pub fn test_command(
     }
 
     let start_time = Instant::now();
+    let enforce_project_coverage = match_filter.is_none() && !path.is_file();
 
     // Collect all .sigil files in test directory
     let test_files = collect_sigil_files(path)?;
@@ -533,6 +538,9 @@ pub fn test_command(
 
     // Aggregate results from all files
     let mut all_results = Vec::new();
+    let mut observed_calls = HashSet::new();
+    let mut observed_variants: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut coverage_targets = HashMap::new();
     let mut discovered = 0;
     let mut selected = 0;
 
@@ -540,7 +548,64 @@ pub fn test_command(
         if let Ok(test_result) = result {
             discovered += test_result.discovered;
             selected += test_result.selected;
+            observed_calls.extend(test_result.coverage_observation.calls);
+            for (key, tags) in test_result.coverage_observation.variants {
+                observed_variants.entry(key).or_default().extend(tags);
+            }
+            for target in test_result.coverage_targets {
+                coverage_targets.entry(target.id.clone()).or_insert(target);
+            }
             all_results.extend(test_result.results);
+        }
+    }
+
+    if enforce_project_coverage {
+        for target in coverage_targets.into_values() {
+            if !observed_calls.contains(&target.id) {
+                all_results.push(TestResult {
+                    id: format!("{}::coverage", target.id),
+                    file: target.file.clone(),
+                    name: format!("coverage {}", target.function_name),
+                    status: "fail".to_string(),
+                    duration_ms: 0,
+                    location: target.location.clone(),
+                    failure: Some(format!(
+                        "sigil test requires '{}' to be executed by the test suite",
+                        target.id
+                    )),
+                });
+                continue;
+            }
+
+            if !target.expected_variants.is_empty() {
+                let observed = observed_variants.get(&target.id);
+                let mut missing = target
+                    .expected_variants
+                    .iter()
+                    .filter(|variant| {
+                        observed
+                            .is_none_or(|tags| !tags.contains((*variant).as_str()))
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                missing.sort();
+
+                if !missing.is_empty() {
+                    all_results.push(TestResult {
+                        id: format!("{}::coverage-variants", target.id),
+                        file: target.file.clone(),
+                        name: format!("coverage variants {}", target.function_name),
+                        status: "fail".to_string(),
+                        duration_ms: 0,
+                        location: target.location.clone(),
+                        failure: Some(format!(
+                            "sigil test requires '{}' to observe variants [{}]",
+                            target.id,
+                            missing.join(", ")
+                        )),
+                    });
+                }
+            }
         }
     }
 
@@ -602,7 +667,7 @@ pub fn validate_command(path: &Path, env: &str) -> Result<(), CliError> {
     }
 
     let _compiled = compile_topology_module(&project_root)?;
-    let prelude = build_topology_runtime_prelude(&project_root, env)?;
+    let prelude = build_world_runtime_prelude(&project_root, env, true)?;
     let runner_path = project_root.join(".local/topology.validate.run.ts");
     if let Some(parent) = runner_path.parent() {
         fs::create_dir_all(parent)?;
@@ -687,10 +752,28 @@ struct TestRunResult {
     discovered: usize,
     selected: usize,
     results: Vec<TestResult>,
+    coverage_observation: CoverageObservation,
+    coverage_targets: Vec<CoverageTarget>,
+}
+
+#[derive(Debug, Clone)]
+struct CoverageTarget {
+    id: String,
+    expected_variants: Vec<String>,
+    file: String,
+    function_name: String,
+    location: TestLocation,
+}
+
+#[derive(Debug, Clone, Default)]
+struct CoverageObservation {
+    calls: HashSet<String>,
+    variants: HashMap<String, HashSet<String>>,
 }
 
 struct CompiledGraphOutputs {
     entry_output_path: PathBuf,
+    coverage_targets: Vec<CoverageTarget>,
 }
 
 fn compile_module_graph(
@@ -699,6 +782,7 @@ fn compile_module_graph(
 ) -> Result<CompiledGraphOutputs, CliError> {
     let mut compiled_modules = HashMap::new();
     let mut compiled_schemes = HashMap::new();
+    let mut coverage_targets = Vec::new();
     let mut type_registries = HashMap::new();
     let mut module_outputs = HashMap::new();
     let mut entry_output_path = PathBuf::new();
@@ -717,7 +801,7 @@ fn compile_module_graph(
             Some(TypeCheckOptions {
                 effect_catalog,
                 imported_namespaces: Some(imported_namespaces),
-                imported_type_registries: Some(imported_type_regs),
+                imported_type_registries: Some(imported_type_regs.clone()),
                 imported_value_schemes: Some(imported_value_schemes),
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
             }),
@@ -727,6 +811,27 @@ fn compile_module_graph(
         validate_typed_canonical_form(&typecheck_result.typed_program)
             .map_err(|errors| CliError::Validation(format_validation_errors(&errors)))?;
 
+        coverage_targets.extend(collect_module_coverage_targets(
+            module,
+            &typecheck_result.typed_program,
+            &imported_type_regs,
+            &typecheck_result
+                .typed_program
+                .declarations
+                .iter()
+                .filter_map(|decl| match decl {
+                    TypedDeclaration::Type(type_decl) => Some((
+                        type_decl.ast.name.clone(),
+                        TypeInfo {
+                            type_params: type_decl.ast.type_params.clone(),
+                            definition: type_decl.ast.definition.clone(),
+                        },
+                    )),
+                    _ => None,
+                })
+                .collect(),
+        ));
+
         let output_path =
             if module_id == graph.topo_order.last().unwrap() && output_override.is_some() {
                 output_override.unwrap().to_path_buf()
@@ -735,6 +840,7 @@ fn compile_module_graph(
             };
 
         let codegen_options = CodegenOptions {
+            module_id: Some(module_id.clone()),
             source_file: Some(module.file_path.to_string_lossy().to_string()),
             output_file: Some(output_path.to_string_lossy().to_string()),
         };
@@ -765,7 +871,10 @@ fn compile_module_graph(
         );
     }
 
-    Ok(CompiledGraphOutputs { entry_output_path })
+    Ok(CompiledGraphOutputs {
+        entry_output_path,
+        coverage_targets,
+    })
 }
 
 fn topology_source_path(project_root: &Path) -> PathBuf {
@@ -809,238 +918,185 @@ fn compile_config_module(
     compile_module_graph(graph, None)
 }
 
-fn build_topology_runtime_prelude(project_root: &Path, env_name: &str) -> Result<String, CliError> {
-    let topology_outputs = compile_topology_module(project_root)?;
-    let topology_output = topology_outputs.entry_output_path;
+fn build_world_runtime_prelude(
+    project_root: &Path,
+    env_name: &str,
+    topology_present: bool,
+) -> Result<String, CliError> {
+    let topology_url = if topology_present {
+        let topology_outputs = compile_topology_module(project_root)?;
+        let topology_output = topology_outputs.entry_output_path;
+        Some(format!(
+            "file://{}",
+            fs::canonicalize(topology_output)?.display()
+        ))
+    } else {
+        None
+    };
     let config_outputs = compile_config_module(project_root, env_name)?;
     let config_output = config_outputs.entry_output_path;
-    let topology_url = format!("file://{}", fs::canonicalize(topology_output)?.display());
     let config_url = format!("file://{}", fs::canonicalize(config_output)?.display());
     let env_name_json = serde_json::to_string(env_name).unwrap();
 
     Ok(format!(
-        r#"const __sigil_topology_module = await import("{topology_url}");
-const __sigil_topology_exports = Object.fromEntries(
-  await Promise.all(
-    Object.entries(__sigil_topology_module).map(async ([key, value]) => [key, await Promise.resolve(value)])
-  )
-);
+        r#"{topology_import}
 const __sigil_config_module = await import("{config_url}");
 const __sigil_config_exports = Object.fromEntries(
   await Promise.all(
     Object.entries(__sigil_config_module).map(async ([key, value]) => [key, await Promise.resolve(value)])
   )
 );
-const __sigil_topology_env_name = {env_name_json};
+const __sigil_world_env_name = {env_name_json};
 
-function __sigil_topology_fail(code, message) {{
+function __sigil_runtime_fail(code, message) {{
   const error = new Error(`${{code}}: ${{message}}`);
   error.sigilCode = code;
   throw error;
 }}
 
-function __sigil_topology_dependency_name(dep, expectedTag) {{
-  if (!dep || typeof dep !== 'object' || dep.__tag !== expectedTag) {{
-    __sigil_topology_fail("{invalid_handle}", `expected ${{expectedTag}} handle`);
-  }}
-  const name = Array.isArray(dep.__fields) ? dep.__fields[0] : null;
-  if (typeof name !== 'string' || name.length === 0) {{
-    __sigil_topology_fail("{invalid_handle}", `invalid ${{expectedTag}} name`);
-  }}
-  return name;
-}}
-
-function __sigil_topology_environment_name(env) {{
-  if (!env || typeof env !== 'object' || env.__tag !== 'Environment') {{
-    __sigil_topology_fail("{invalid_handle}", 'expected Environment declaration');
-  }}
-  const name = Array.isArray(env.__fields) ? env.__fields[0] : null;
-  if (typeof name !== 'string' || name.length === 0) {{
-    __sigil_topology_fail("{invalid_handle}", 'invalid environment name');
-  }}
-  return name;
-}}
-
-function __sigil_topology_resolve_binding_value(bindingValue) {{
-  if (!bindingValue || typeof bindingValue !== 'object') {{
-    __sigil_topology_fail("{binding_kind}", 'invalid binding value');
-  }}
-  if (bindingValue.__tag === 'Literal') {{
-    return String(bindingValue.__fields?.[0] ?? '');
-  }}
-  if (bindingValue.__tag === 'EnvVar') {{
-    const envName = String(bindingValue.__fields?.[0] ?? '');
-    const value = process.env[envName];
-    if (typeof value !== 'string' || value.length === 0) {{
-      __sigil_topology_fail("{missing_binding}", `environment variable ${{envName}} is required`);
-    }}
-    return value;
-  }}
-  __sigil_topology_fail("{binding_kind}", 'invalid string binding value');
-}}
-
-function __sigil_topology_resolve_port(bindingValue) {{
-  if (!bindingValue || typeof bindingValue !== 'object') {{
-    __sigil_topology_fail("{binding_kind}", 'invalid port binding value');
-  }}
-  if (bindingValue.__tag === 'LiteralPort') {{
-    return Number(bindingValue.__fields?.[0] ?? 0);
-  }}
-  if (bindingValue.__tag === 'EnvVarPort') {{
-    const envName = String(bindingValue.__fields?.[0] ?? '');
-    const raw = process.env[envName];
-    const port = Number(raw);
-    if (!Number.isInteger(port) || port <= 0 || port > 65535) {{
-      __sigil_topology_fail("{missing_binding}", `environment variable ${{envName}} must resolve to a valid TCP port`);
-    }}
-    return port;
-  }}
-  __sigil_topology_fail("{binding_kind}", 'invalid TCP port binding value');
-}}
-
-function __sigil_topology_collect_dependencies(moduleExports) {{
-  const http = new Map();
-  const tcp = new Map();
-  for (const value of Object.values(moduleExports)) {{
-    if (value?.__tag === 'HttpServiceDependency') {{
-      const name = __sigil_topology_dependency_name(value, 'HttpServiceDependency');
-      if (http.has(name) || tcp.has(name)) {{
-        __sigil_topology_fail("{duplicate_dependency}", `duplicate dependency name '${{name}}'`);
-      }}
-      http.set(name, value);
-    }}
-    if (value?.__tag === 'TcpServiceDependency') {{
-      const name = __sigil_topology_dependency_name(value, 'TcpServiceDependency');
-      if (tcp.has(name) || http.has(name)) {{
-        __sigil_topology_fail("{duplicate_dependency}", `duplicate dependency name '${{name}}'`);
-      }}
-      tcp.set(name, value);
-    }}
-  }}
-  return {{ http, tcp }};
-}}
-
-function __sigil_topology_collect_environments(moduleExports) {{
+function __sigil_runtime_collect_topology(moduleExports) {{
   const envs = new Set();
-  for (const value of Object.values(moduleExports)) {{
+  const http = new Set();
+  const tcp = new Set();
+  for (const value of Object.values(moduleExports ?? {{}})) {{
     if (value?.__tag === 'Environment') {{
-      const name = __sigil_topology_environment_name(value);
-      if (envs.has(name)) {{
-        __sigil_topology_fail("{duplicate_dependency}", `duplicate environment name '${{name}}'`);
-      }}
-      envs.add(name);
+      envs.add(String(value.__fields?.[0] ?? ''));
+    }} else if (value?.__tag === 'HttpServiceDependency') {{
+      http.add(String(value.__fields?.[0] ?? ''));
+    }} else if (value?.__tag === 'TcpServiceDependency') {{
+      tcp.add(String(value.__fields?.[0] ?? ''));
     }}
   }}
-  return envs;
+  return {{ envs, http, tcp }};
 }}
 
-function __sigil_topology_read_config_bindings(configExports) {{
-  const bindings = configExports.bindings;
-  if (!bindings || typeof bindings !== 'object') {{
-    __sigil_topology_fail("{invalid_config}", "config module must export a 'bindings' value");
+function __sigil_runtime_collect_world_dependency_names(entries, expectedTag) {{
+  if (!Array.isArray(entries)) {{
+    __sigil_runtime_fail("{binding_kind}", `world ${{
+      expectedTag === 'HttpEntry' ? 'http' : 'tcp'
+    }} entries must be a list`);
   }}
-  return bindings;
-}}
-
-function __sigil_topology_build_bindings(topologyExports, configExports, envName) {{
-  const environments = __sigil_topology_collect_environments(topologyExports);
-  if (!environments.has(envName)) {{
-    __sigil_topology_fail("{env_not_found}", `environment '${{envName}}' not declared in src/topology.lib.sigil`);
-  }}
-
-  const dependencies = __sigil_topology_collect_dependencies(topologyExports);
-  const configBindings = __sigil_topology_read_config_bindings(configExports);
-  const resolved = {{ http: Object.create(null), tcp: Object.create(null) }};
   const seen = new Set();
-  for (const binding of configBindings.httpBindings ?? []) {{
-    const name = typeof binding?.dependencyName === 'string' ? binding.dependencyName : null;
-    if (!name) {{
-      __sigil_topology_fail("{binding_kind}", 'HTTP bindings must name a declared dependency');
+  for (const entry of entries) {{
+    if (!entry || typeof entry !== 'object' || entry.__tag !== expectedTag) {{
+      __sigil_runtime_fail("{binding_kind}", `world entries must be tagged as ${{expectedTag}}`);
     }}
-    if (!dependencies.http.has(name)) {{
-      __sigil_topology_fail("{invalid_handle}", `HTTP binding references undeclared dependency '${{name}}'`);
+    const dependencyName = String(entry.__fields?.[0]?.dependencyName ?? '');
+    if (!dependencyName) {{
+      __sigil_runtime_fail("{binding_kind}", 'world entries must include dependencyName');
     }}
-    if (seen.has(`http:${{name}}`) || seen.has(`tcp:${{name}}`)) {{
-      __sigil_topology_fail("{duplicate_binding}", `duplicate binding for '${{name}}' in environment '${{envName}}'`);
+    if (seen.has(dependencyName)) {{
+      __sigil_runtime_fail("{duplicate_binding}", `duplicate world entry for '${{dependencyName}}'`);
     }}
-    seen.add(`http:${{name}}`);
-    resolved.http[name] = __sigil_topology_resolve_binding_value(binding.baseUrl);
+    seen.add(dependencyName);
   }}
-
-  for (const binding of configBindings.tcpBindings ?? []) {{
-    const name = typeof binding?.dependencyName === 'string' ? binding.dependencyName : null;
-    if (!name) {{
-      __sigil_topology_fail("{binding_kind}", 'TCP bindings must name a declared dependency');
-    }}
-    if (!dependencies.tcp.has(name)) {{
-      __sigil_topology_fail("{invalid_handle}", `TCP binding references undeclared dependency '${{name}}'`);
-    }}
-    if (seen.has(`tcp:${{name}}`) || seen.has(`http:${{name}}`)) {{
-      __sigil_topology_fail("{duplicate_binding}", `duplicate binding for '${{name}}' in environment '${{envName}}'`);
-    }}
-    seen.add(`tcp:${{name}}`);
-    resolved.tcp[name] = {{
-      host: __sigil_topology_resolve_binding_value(binding.host),
-      port: __sigil_topology_resolve_port(binding.port)
-    }};
-  }}
-
-  for (const name of dependencies.http.keys()) {{
-    if (!(name in resolved.http)) {{
-      __sigil_topology_fail("{missing_binding}", `missing HTTP binding for '${{name}}' in environment '${{envName}}'`);
-    }}
-  }}
-
-  for (const name of dependencies.tcp.keys()) {{
-    if (!(name in resolved.tcp)) {{
-      __sigil_topology_fail("{missing_binding}", `missing TCP binding for '${{name}}' in environment '${{envName}}'`);
-    }}
-  }}
-
-  return resolved;
+  return seen;
 }}
 
-globalThis.__sigil_topology_env_name = __sigil_topology_env_name;
-globalThis.__sigil_topology_bindings = __sigil_topology_build_bindings(__sigil_topology_exports, __sigil_config_exports, __sigil_topology_env_name);
+function __sigil_runtime_read_world(configExports) {{
+  const world = configExports.world;
+  if (!world || typeof world !== 'object') {{
+    __sigil_runtime_fail("{invalid_config}", "config module must export a 'world' value");
+  }}
+  for (const field of ['clock', 'fs', 'http', 'log', 'process', 'tcp', 'timer']) {{
+    if (!(field in world)) {{
+      __sigil_runtime_fail("{invalid_config}", `world is missing '${{field}}'`);
+    }}
+  }}
+  return world;
+}}
+
+const __sigil_world_value = __sigil_runtime_read_world(__sigil_config_exports);
+const __sigil_topology_info = __sigil_runtime_collect_topology(globalThis.__sigil_topology_exports ?? {{}});
+if (__sigil_topology_info.envs.size > 0 && !__sigil_topology_info.envs.has(__sigil_world_env_name)) {{
+  __sigil_runtime_fail("{env_not_found}", `environment '${{__sigil_world_env_name}}' not declared in src/topology.lib.sigil`);
+}}
+const __sigil_http_world_names = __sigil_runtime_collect_world_dependency_names(__sigil_world_value.http, 'HttpEntry');
+const __sigil_tcp_world_names = __sigil_runtime_collect_world_dependency_names(__sigil_world_value.tcp, 'TcpEntry');
+for (const dependencyName of __sigil_topology_info.http) {{
+  if (!__sigil_http_world_names.has(dependencyName)) {{
+    __sigil_runtime_fail("{missing_binding}", `missing HTTP world entry for '${{dependencyName}}' in environment '${{__sigil_world_env_name}}'`);
+  }}
+}}
+for (const dependencyName of __sigil_topology_info.tcp) {{
+  if (!__sigil_tcp_world_names.has(dependencyName)) {{
+    __sigil_runtime_fail("{missing_binding}", `missing TCP world entry for '${{dependencyName}}' in environment '${{__sigil_world_env_name}}'`);
+  }}
+}}
+for (const dependencyName of __sigil_http_world_names) {{
+  if (__sigil_topology_info.http.size > 0 && !__sigil_topology_info.http.has(dependencyName)) {{
+    __sigil_runtime_fail("{invalid_handle}", `HTTP world entry references undeclared dependency '${{dependencyName}}'`);
+  }}
+}}
+for (const dependencyName of __sigil_tcp_world_names) {{
+  if (__sigil_topology_info.tcp.size > 0 && !__sigil_topology_info.tcp.has(dependencyName)) {{
+    __sigil_runtime_fail("{invalid_handle}", `TCP world entry references undeclared dependency '${{dependencyName}}'`);
+  }}
+}}
+globalThis.__sigil_world_env_name = __sigil_world_env_name;
+globalThis.__sigil_world_value = __sigil_world_value;
+globalThis.__sigil_world_template_cache = undefined;
+globalThis.__sigil_world_current = undefined;
 "#,
-        topology_url = topology_url,
+        topology_import = topology_url.map_or_else(
+            || "globalThis.__sigil_topology_exports = null;".to_string(),
+            |topology_url| {
+                format!(
+                    r#"const __sigil_topology_module = await import("{topology_url}");
+globalThis.__sigil_topology_exports = Object.fromEntries(
+  await Promise.all(
+    Object.entries(__sigil_topology_module).map(async ([key, value]) => [key, await Promise.resolve(value)])
+  )
+);"#
+                )
+            }
+        ),
         config_url = config_url,
         env_name_json = env_name_json,
         invalid_handle = codes::topology::INVALID_HANDLE,
         binding_kind = codes::topology::BINDING_KIND_MISMATCH,
         missing_binding = codes::topology::MISSING_BINDING,
-        duplicate_dependency = codes::topology::DUPLICATE_DEPENDENCY,
         duplicate_binding = codes::topology::DUPLICATE_BINDING,
         env_not_found = codes::topology::ENV_NOT_FOUND,
         invalid_config = codes::topology::INVALID_CONFIG_MODULE,
     ))
 }
 
-fn project_root_and_topology(path: &Path) -> Result<Option<(PathBuf, bool)>, ProjectConfigError> {
+fn project_root_and_runtime(
+    path: &Path,
+    graph: &ModuleGraph,
+) -> Result<Option<(PathBuf, bool, bool)>, ProjectConfigError> {
     let Some(project) = get_project_config(path)? else {
         return Ok(None);
     };
     let topology_present = topology_source_path(&project.root).exists();
-    Ok(Some((project.root, topology_present)))
+    let config_imported = graph.modules.keys().any(|module_id| module_id.starts_with("config::"));
+    Ok(Some((project.root, topology_present, config_imported)))
 }
 
-fn runner_prelude(path: &Path, selected_env: Option<&str>) -> Result<Option<String>, CliError> {
-    let Some((project_root, topology_present)) = project_root_and_topology(path)? else {
+fn runner_prelude(
+    path: &Path,
+    graph: &ModuleGraph,
+    selected_env: Option<&str>,
+) -> Result<Option<String>, CliError> {
+    let Some((project_root, topology_present, config_imported)) =
+        project_root_and_runtime(path, graph)?
+    else {
         return Ok(None);
     };
 
-    if !topology_present {
+    if !topology_present && !config_imported {
         return Ok(None);
     }
 
     let env_name = selected_env.ok_or_else(|| {
         CliError::Validation(format!(
-            "{}: topology-aware run/test/validate commands require --env <name>",
+            "{}: runtime-world projects require --env <name>",
             codes::topology::ENV_REQUIRED
         ))
     })?;
 
-    build_topology_runtime_prelude(&project_root, env_name).map(Some)
+    build_world_runtime_prelude(&project_root, env_name, topology_present).map(Some)
 }
 
 fn collect_sigil_files(dir: &Path) -> Result<Vec<PathBuf>, CliError> {
@@ -1072,10 +1128,11 @@ fn compile_and_run_tests(
     match_filter: Option<&str>,
 ) -> Result<TestRunResult, CliError> {
     let graph = ModuleGraph::build(file)?;
+    let topology_prelude = runner_prelude(file, &graph, selected_env)?;
     let compiled = compile_module_graph(graph, None)?;
-    let topology_prelude = runner_prelude(file, selected_env)?;
     run_test_module(
         &compiled.entry_output_path,
+        &compiled.coverage_targets,
         match_filter,
         &file.to_string_lossy(),
         topology_prelude.as_deref(),
@@ -1084,6 +1141,7 @@ fn compile_and_run_tests(
 
 fn run_test_module(
     ts_file: &Path,
+    coverage_targets: &[CoverageTarget],
     match_filter: Option<&str>,
     source_file: &str,
     topology_prelude: Option<&str>,
@@ -1116,6 +1174,11 @@ fn run_test_module(
         Some(m) => format!("\"{}\"", m.replace('"', "\\\"")),
         None => "null".to_string(),
     };
+    let coverage_targets_json = serde_json::to_string(&coverage_targets
+        .iter()
+        .map(|target| &target.id)
+        .collect::<Vec<_>>())
+    .unwrap();
 
     let runner_code = format!(
         r#"{topology_prelude}
@@ -1129,29 +1192,42 @@ const startSuite = Date.now();
 for (const t of selected) {{
   const start = Date.now();
   try {{
+    globalThis.__sigil_coverage_current = {{ calls: Object.create(null), variants: Object.create(null) }};
     const freshMod = await import(moduleUrl + '?sigil_test=' + encodeURIComponent(String(t.id)) + '&ts=' + Date.now() + '_' + Math.random());
     const freshTests = Array.isArray(freshMod.__sigil_tests) ? freshMod.__sigil_tests : [];
     const freshTest = freshTests.find((x) => x.id === t.id);
     if (!freshTest) {{ throw new Error('Test not found in isolated module reload: ' + String(t.id)); }}
     const value = await freshTest.fn();
+    const coverageState = globalThis.__sigil_coverage_current ?? {{ calls: {{}}, variants: {{}} }};
+    const coverage = {{
+      calls: Object.entries(coverageState.calls ?? {{}})
+        .filter(([, count]) => Number(count ?? 0) > 0)
+        .map(([key]) => key),
+      variants: Object.fromEntries(
+        Object.entries(coverageState.variants ?? {{}}).map(([key, tags]) => [key, Array.isArray(tags) ? tags : []])
+      )
+    }};
+    delete globalThis.__sigil_coverage_current;
     if (value === true) {{
-      results.push({{ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'pass', durationMs: Date.now()-start, location: t.location }});
+      results.push({{ coverage, id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'pass', durationMs: Date.now()-start, location: t.location }});
     }} else if (value && typeof value === 'object' && 'ok' in value) {{
       if (value.ok === true) {{
-        results.push({{ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'pass', durationMs: Date.now()-start, location: t.location }});
+        results.push({{ coverage, id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'pass', durationMs: Date.now()-start, location: t.location }});
       }} else {{
-        results.push({{ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'fail', durationMs: Date.now()-start, location: t.location, failure: value.failure ?? {{ kind: 'assert_false', message: 'Test body evaluated to false' }} }});
+        results.push({{ coverage, id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'fail', durationMs: Date.now()-start, location: t.location, failure: value.failure ?? {{ kind: 'assert_false', message: 'Test body evaluated to false' }} }});
       }}
     }} else {{
-      results.push({{ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'fail', durationMs: Date.now()-start, location: t.location, failure: {{ kind: 'assert_false', message: 'Test body evaluated to false' }} }});
+      results.push({{ coverage, id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'fail', durationMs: Date.now()-start, location: t.location, failure: {{ kind: 'assert_false', message: 'Test body evaluated to false' }} }});
     }}
   }} catch (e) {{
+    delete globalThis.__sigil_coverage_current;
     results.push({{ id: t.id, file: String(t.id).split('::')[0], name: t.name, status: 'error', durationMs: Date.now()-start, location: t.location, failure: {{ kind: 'exception', message: e instanceof Error ? e.message : String(e) }} }});
   }}
 }}
-console.log(JSON.stringify({{ results, discovered: tests.length, selected: selected.length, durationMs: Date.now()-startSuite }}));
+console.log(JSON.stringify({{ coverageTargets: {coverage_targets_json}, results, discovered: tests.length, selected: selected.length, durationMs: Date.now()-startSuite }}));
 "#,
         topology_prelude = topology_prelude.unwrap_or(""),
+        coverage_targets_json = coverage_targets_json,
         module_url = module_url,
         match_text_json = match_text_json
     );
@@ -1187,9 +1263,37 @@ console.log(JSON.stringify({{ results, discovered: tests.length, selected: selec
     let discovered = json["discovered"].as_u64().unwrap_or(0) as usize;
     let selected = json["selected"].as_u64().unwrap_or(0) as usize;
 
+    let mut coverage_observation = CoverageObservation::default();
+    let mut runner_coverage_targets = coverage_targets.to_vec();
+    if let Some(targets) = json["coverageTargets"].as_array() {
+        let selected_ids = targets
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<HashSet<_>>();
+        runner_coverage_targets.retain(|target| selected_ids.contains(target.id.as_str()));
+    }
+
     let mut results = Vec::new();
     if let Some(test_results) = json["results"].as_array() {
         for result in test_results {
+            if let Some(call_keys) = result["coverage"]["calls"].as_array() {
+                for key in call_keys.iter().filter_map(|value| value.as_str()) {
+                    coverage_observation.calls.insert(key.to_string());
+                }
+            }
+            if let Some(variant_map) = result["coverage"]["variants"].as_object() {
+                for (key, tags) in variant_map {
+                    let observed = coverage_observation
+                        .variants
+                        .entry(key.clone())
+                        .or_default();
+                    if let Some(tag_values) = tags.as_array() {
+                        for tag in tag_values.iter().filter_map(|value| value.as_str()) {
+                            observed.insert(tag.to_string());
+                        }
+                    }
+                }
+            }
             let test_result = TestResult {
                 id: result["id"].as_str().unwrap_or("").to_string(),
                 file: source_file.to_string(),
@@ -1210,6 +1314,8 @@ console.log(JSON.stringify({{ results, discovered: tests.length, selected: selec
         discovered,
         selected,
         results,
+        coverage_observation,
+        coverage_targets: runner_coverage_targets,
     })
 }
 
@@ -1696,6 +1802,102 @@ fn extract_type_registry(
     registry
 }
 
+fn coverage_variant_names_for_type_def(type_def: &TypeDef) -> Vec<String> {
+    match type_def {
+        TypeDef::Sum(sum) => sum.variants.iter().map(|variant| variant.name.clone()).collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn coverage_expected_variants(
+    return_type: &InferenceType,
+    local_type_registry: &HashMap<String, TypeInfo>,
+    imported_type_regs: &HashMap<String, HashMap<String, TypeInfo>>,
+) -> Vec<String> {
+    let InferenceType::Constructor(constructor) = return_type else {
+        return Vec::new();
+    };
+
+    match constructor.name.as_str() {
+        "Option" => return vec!["None".to_string(), "Some".to_string()],
+        "Result" => return vec!["Err".to_string(), "Ok".to_string()],
+        _ => {}
+    }
+
+    if let Some(info) = local_type_registry.get(&constructor.name) {
+        let variants = coverage_variant_names_for_type_def(&info.definition);
+        if !variants.is_empty() {
+            return variants;
+        }
+    }
+
+    let mut imported_matches = imported_type_regs
+        .values()
+        .filter_map(|registry| registry.get(&constructor.name))
+        .map(|info| coverage_variant_names_for_type_def(&info.definition))
+        .filter(|variants| !variants.is_empty())
+        .collect::<Vec<_>>();
+
+    if imported_matches.len() == 1 {
+        return imported_matches.pop().unwrap();
+    }
+
+    Vec::new()
+}
+
+fn collect_module_coverage_targets(
+    module: &LoadedModule,
+    typed_program: &TypedProgram,
+    imported_type_regs: &HashMap<String, HashMap<String, TypeInfo>>,
+    local_type_registry: &HashMap<String, TypeInfo>,
+) -> Vec<CoverageTarget> {
+    let Some(project) = &module.project else {
+        return Vec::new();
+    };
+
+    let normalized_path = module.file_path.to_string_lossy().replace('\\', "/");
+    let normalized_root = project.root.to_string_lossy().replace('\\', "/");
+    if !normalized_path.starts_with(&normalized_root) || !normalized_path.contains("/src/") {
+        return Vec::new();
+    }
+    if normalized_path.contains("/tests/") {
+        return Vec::new();
+    }
+
+    let is_lib_file = normalized_path.ends_with(".lib.sigil");
+    let is_exec_file = normalized_path.ends_with(".sigil") && !is_lib_file;
+    if !is_lib_file && !is_exec_file {
+        return Vec::new();
+    }
+
+    let mut targets = Vec::new();
+
+    for decl in &typed_program.declarations {
+        let TypedDeclaration::Function(function) = decl else {
+            continue;
+        };
+
+        let expected_variants = coverage_expected_variants(
+            &function.return_type,
+            local_type_registry,
+            imported_type_regs,
+        );
+        let id = format!("{}::{}", module.id, function.name);
+        targets.push(CoverageTarget {
+            id,
+            expected_variants,
+            file: normalized_path.clone(),
+            function_name: function.name.clone(),
+            location: TestLocation {
+                line: function.location.start.line,
+                column: function.location.start.column,
+            },
+        });
+    }
+
+    targets
+}
+
 /// Get output path for a compiled module
 ///
 /// Converts module ID to file path, using repo root's .local directory:
@@ -1732,6 +1934,12 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
         }
     }
 
+    if module.id.contains("::") {
+        return repo_root
+            .join(".local")
+            .join(format!("{}.ts", module.id.replace("::", "/")));
+    }
+
     // Calculate relative path from repo root to source file
     let rel_source = abs_source.strip_prefix(&repo_root).unwrap_or(&abs_source);
 
@@ -1740,8 +1948,12 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
     if let Some(parent) = rel_source.parent() {
         output = output.join(parent);
     }
-    if let Some(stem) = rel_source.file_stem() {
-        output = output.join(format!("{}.ts", stem.to_string_lossy()));
+    if let Some(file_name) = rel_source.file_name().and_then(|name| name.to_str()) {
+        let stem = file_name
+            .strip_suffix(".lib.sigil")
+            .or_else(|| file_name.strip_suffix(".sigil"))
+            .unwrap_or(file_name);
+        output = output.join(format!("{}.ts", stem));
     }
 
     output

@@ -1,0 +1,352 @@
+i src::coverage
+
+i src::docsDrift
+
+i src::fences
+
+i src::types
+
+i stdlib::file
+
+i stdlib::list
+
+i stdlib::path
+
+i stdlib::process
+
+i stdlib::regex
+
+i stdlib::string
+
+i test::check::log
+
+i world::fs
+
+i world::log
+
+i world::process
+
+λallOk(results:[Bool])=>Bool=stdlib::list.all(λ(result:Bool)=>Bool=result,results)
+
+λfenceInfo(context:Option[String],kind:String)=>src::types.FenceInfo={context:context,kind:kind}
+
+λmain()=>Unit=()
+
+λrepoRoot()=>!Process String match src::docsDrift.gitTopLevel(){
+  Err(_)=>"."|
+  Ok(root)=>root
+}
+
+λsnippet(content:String,filePath:String,info:src::types.FenceInfo,line:Int)=>src::types.Snippet={content:content,filePath:filePath,info:info,line:line}
+
+test "coverage helpers parse refs exports and identifiers" {
+  l parseJson=("{\"type\":\"FunctionDecl\",\"name\":\"trim\",\"type\":\"FunctionDecl\",\"name\":\"split\"}":String);
+  match stdlib::regex.compile("","\"type\":\"FunctionDecl\"|\"name\":\"[A-Za-z_][A-Za-z0-9_]*\""){
+    Ok(tokenPattern)=>match stdlib::regex.compile("","stdlib::[A-Za-z0-9]+\\.[a-z][A-Za-z0-9]*"){
+      Ok(refPattern)=>allOk([src::coverage.collectQualifiedRefsLine(refPattern,[],"stdlib::list.sum(xs) and stdlib::list.sum(ys)")=["stdlib::list.sum"],src::coverage.collectQualifiedRefsLines(["stdlib::string.trim(s)"],refPattern,[])=["stdlib::string.trim"],src::coverage.documentedRefsForSnippetLines(["λtrim(s:String)=>String","c ignored=1"],"stdlib::string",[])=["stdlib::string.trim"],src::coverage.collectStdlibExports("language/stdlib/string.lib.sigil",parseJson)=["stdlib::string.trim","stdlib::string.split"],src::coverage.functionNamesFromParseJson(parseJson)=["trim","split"],src::coverage.functionNamesFromTokens(false,[],tokenPattern,parseJson)=["trim","split"],src::coverage.dropUntilBoundary("","trim):String")="trim",match src::coverage.extractFunctionName("λtrim(s:String)=>String"){
+        Some(name)=>name="trim"|
+        None()=>false
+      },match src::coverage.extractFunctionName("c sample=1"){
+        Some(_)=>false|
+        None()=>true
+      },src::coverage.extractFunctionNameInner("","split(text:String)=>[String]")="split",src::coverage.insertUnique("beta",["alpha"])=["alpha","beta"],src::coverage.isIdentifierChar("Z"),¬src::coverage.isIdentifierChar("-"),src::coverage.mergeUnique(["alpha"],["beta","alpha"])=["alpha","beta"],src::coverage.moduleNameFromStdlibFile("language/stdlib/string.lib.sigil")="string",src::coverage.modulePathFromStdlibFile("language/stdlib/string.lib.sigil")="stdlib::string",src::coverage.qualifyExports(["trim"],"stdlib::string")=["stdlib::string.trim"],src::coverage.tokenName("\"name\":\"trim\"")="trim",src::docsDrift.collectQualifiedRefs("stdlib::list.sum(xs)\nstdlib::list.sum(ys)\n")=["stdlib::list.sum"],src::docsDrift.collectStdlibExports("language/stdlib/string.lib.sigil",parseJson)=["stdlib::string.trim","stdlib::string.split"],src::docsDrift.documentedRefsForSnippet("stdlib::string","λtrim(s:String)=>String\nc ignored=1")=["stdlib::string.trim"]])|
+      Err(_)=>false
+    }|
+    Err(_)=>false
+  }
+}
+
+test "docs drift helper surface normalizes snippets and issues" {
+  l command=(src::docsDrift.compilerCommand(["parse","sample.sigil"],"/repo"):stdlib::process.Command);
+  l exprSnippet=(snippet("\"hi\"\n\"bye\"","docs/test.md",fenceInfo(None(),"exprs"),1):src::types.Snippet);
+  allOk([command.argv=[stdlib::path.join("/repo","language/compiler/target/debug/sigil"),"parse","sample.sigil"],match command.cwd{
+    Some(cwd)=>cwd="/repo"|
+    None()=>false
+  },src::docsDrift.allLinesSatisfy(["alpha","beta"],λ(line:String)=>Bool=#line>0),¬src::docsDrift.allLinesSatisfy(["alpha",""],λ(line:String)=>Bool=#line>0),src::docsDrift.declSnippetIssues("docs/test.md",7,"c value=1")=[{line:7,message:"sigil decl snippets may only contain type or function signatures",path:"docs/test.md"}],src::docsDrift.declSnippetIssuesInner("docs/test.md",3,["λtrim(s:String)=>String","c invalid=1"])=[{line:3,message:"sigil decl snippets may only contain type or function signatures",path:"docs/test.md"}],src::docsDrift.defaultVirtualPath("module")="snippet.lib.sigil",src::docsDrift.hasTopLevelPrefix(["l local=1","λmain()=>Unit=()"],"λmain("),src::docsDrift.invalidFenceIssue("docs/test.md",4,"boom")={line:4,message:"boom",path:"docs/test.md"},src::docsDrift.isCheckedKind("expr"),¬src::docsDrift.isCheckedKind("unknown"),src::docsDrift.isDocAnnotationLine("⟦ doc ⟧"),src::docsDrift.isProgramLikeLines(["test \"x\" { true }"]),src::docsDrift.isTopLevelLikeLine("λtrim(s:String)=>String=s"),src::docsDrift.isTopLevelLikeLines(["λtrim(s:String)=>String=s"]),src::docsDrift.issueMessage({line:9,message:"bad",path:"docs/test.md"})="docs/test.md:9: bad",src::docsDrift.mergeIssueLists([{line:1,message:"left",path:"a.md"}],[{line:2,message:"right",path:"b.md"}])=[{line:1,message:"left",path:"a.md"},{line:2,message:"right",path:"b.md"}],src::docsDrift.mergeUnique(["alpha"],["beta","alpha"])=["alpha","beta"],src::docsDrift.normalizeSnippetContent("⟦ note ⟧\nλtrim(s:String)=>String=s\n")="λtrim(s:String)=>String=s",src::docsDrift.normalizedExprsKind(exprSnippet)="exprs",src::docsDrift.normalizedSnippetContentForKind("expr","⟦ note ⟧\n#xs\n")="#xs",src::docsDrift.normalizedSnippetLines("⟦ note ⟧\nλtrim(s:String)=>String=s\n")=["λtrim(s:String)=>String=s"],src::docsDrift.normalizedSnippetLinesInner(["⟦ note ⟧","λtrim(s:String)=>String=s"])=["λtrim(s:String)=>String=s"],src::docsDrift.ordinalPath(2,"tmp")=stdlib::path.join("tmp","snippet-2"),match src::docsDrift.parseFenceInfo("sigil expr"){
+    Ok(info)=>{
+      l parsed=(info:src::types.FenceInfo);
+      parsed.kind="expr" and (match parsed.context{
+        None()=>true|
+        Some(_)=>false
+      })
+    }|
+    Err(_)=>false
+  },match src::docsDrift.parseFenceInfo("sigil mystery"){
+    Ok(_)=>false|
+    Err(message)=>stdlib::string.indexOf(message,"unknown Sigil fence kind")≥0
+  },match src::docsDrift.parseTrackedFiles({code:0,stderr:"",stdout:"a.md\nb.md\n"}){
+    Ok(paths)=>paths=["a.md","b.md"]|
+    Err(_)=>false
+  },match src::docsDrift.parseTrackedFiles({code:1,stderr:"boom",stdout:""}){
+    Ok(_)=>false|
+    Err(message)=>message="boom"
+  },src::docsDrift.processOutput({code:1,stderr:" boom \n",stdout:"ok"})="boom",match src::docsDrift.projectRootFromVirtualPath("projects/docsDriftAudit/src/docsDrift.lib.sigil"){
+    Some(path)=>path="projects/docsDriftAudit"|
+    None()=>false
+  },match src::docsDrift.projectRootFromVirtualPath("snippet.sigil"){
+    Some(_)=>false|
+    None()=>true
+  },match src::docsDrift.projectRootFromVirtualPathUsing(None(),"/src/","projects/docsDriftAudit/src/docsDrift.lib.sigil"){
+    Some(path)=>path="projects/docsDriftAudit"|
+    None()=>false
+  },match src::docsDrift.projectRootFromVirtualPathUsing(Some("fallback"),"/src/","snippet.sigil"){
+    Some(path)=>path="fallback"|
+    None()=>false
+  },src::docsDrift.repoTempDir("/repo")=stdlib::path.join("/repo",".local/docsDriftAuditTmp"),src::docsDrift.runCoverageChecks(["stdlib::string.trim"],["stdlib::string.trim"],[],["stdlib::string.trim"],[])=[],src::docsDrift.runCoverageChecksInner(["stdlib::string.trim"],["stdlib::string.trim"],["stdlib::string.trim"],[])=[],src::docsDrift.runReferenceIssues(["stdlib::string.trim"],[],["stdlib::string.trim","stdlib::string.split"])=[{line:1,message:"reference to missing stdlib symbol 'stdlib::string.split'",path:"language/spec/stdlib-spec.md"}],src::docsDrift.runUncoveredDocumentedIssues(["stdlib::string.trim"],["stdlib::string.trim","stdlib::string.split"],[])=[{line:1,message:"documented stdlib function lacks checked example or stdlib test coverage: stdlib::string.split",path:"language/spec/stdlib-spec.md"}],src::docsDrift.snippetRefsForValidatedSnippet(snippet("stdlib::string.trim(\" hi \")","docs/test.md",fenceInfo(None(),"expr"),1))=["stdlib::string.trim"],src::docsDrift.snippetSource(snippet("#xs","docs/test.md",fenceInfo(None(),"expr"),1))="λmain()=>Unit=#xs",src::docsDrift.snippetSubcommand("module")="compile",src::docsDrift.snippetSubcommandForSnippet(exprSnippet)="parse",src::docsDrift.snippetVirtualPath(snippet("λsample()=>String=\"ok\"","docs/test.md",fenceInfo(Some("projects/docsDriftAudit/src/sample.lib.sigil"),"module"),1))="projects/docsDriftAudit/src/sample.lib.sigil",stdlib::string.indexOf(src::docsDrift.wrapExprLines(1,["\"a\"","","\"b\""],"λmain()=>Unit={","}"),"sample2")≥0])
+}
+
+test "fence helpers parse valid and invalid forms" {
+  l extracted=(src::fences.extractSnippets("docs/test.md",stdlib::string.unlines(["```sigil module src/sample.lib.sigil","λsample()=>String=\"ok\"","```"])):src::types.ExtractResult);
+  allOk([match src::fences.parseFenceInfo("sigil module src/sample.lib.sigil"){
+    Ok(info)=>{
+      l parsed=(info:src::types.FenceInfo);
+      parsed.kind="module" and (match parsed.context{
+        Some(path)=>path="src/sample.lib.sigil"|
+        None()=>false
+      })
+    }|
+    Err(_)=>false
+  },match src::fences.parseFenceInfo("sigil unknown"){
+    Ok(_)=>false|
+    Err(message)=>stdlib::string.indexOf(message,"unknown Sigil fence kind")≥0
+  },match src::fences.parseFenceKind("module src/sample.lib.sigil"){
+    Ok(info)=>{
+      l parsed=(info:src::types.FenceInfo);
+      parsed.kind="module" and (match parsed.context{
+        Some(path)=>path="src/sample.lib.sigil"|
+        None()=>false
+      })
+    }|
+    Err(_)=>false
+  },match src::fences.parseFenceKindWithContext("module","src/sample.lib.sigil"){
+    Ok(info)=>{
+      l parsed=(info:src::types.FenceInfo);
+      parsed.kind="module" and (match parsed.context{
+        Some(path)=>path="src/sample.lib.sigil"|
+        None()=>false
+      })
+    }|
+    Err(_)=>false
+  },match src::fences.parseFenceKindWithContext("expr","arg"){
+    Ok(_)=>false|
+    Err(message)=>stdlib::string.indexOf(message,"does not accept an argument")≥0
+  },match src::fences.parseFenceKindWithoutContext("expr"){
+    Ok(info)=>{
+      l parsed=(info:src::types.FenceInfo);
+      parsed.kind="expr" and (match parsed.context{
+        None()=>true|
+        Some(_)=>false
+      })
+    }|
+    Err(_)=>false
+  },match src::fences.parseFenceKindWithoutContext("mystery"){
+    Ok(_)=>false|
+    Err(message)=>stdlib::string.indexOf(message,"unknown Sigil fence kind")≥0
+  },match src::fences.parseModulePath("module","src/sample.lib.sigil"){
+    Ok(info)=>{
+      l parsed=(info:src::types.FenceInfo);
+      parsed.kind="module" and (match parsed.context{
+        Some(path)=>path="src/sample.lib.sigil"|
+        None()=>false
+      })
+    }|
+    Err(_)=>false
+  },match src::fences.parseModulePath("module","src/sample.sigil"){
+    Ok(_)=>false|
+    Err(message)=>stdlib::string.indexOf(message,"must use a .lib.sigil virtual path")≥0
+  },match src::fences.parseProgramPath("program","src/sample.lib.sigil"){
+    Ok(_)=>false|
+    Err(message)=>stdlib::string.indexOf(message,"must use a .sigil virtual path")≥0
+  },match src::fences.parseProgramPath("program","src/sample.sigil"){
+    Ok(info)=>{
+      l parsed=(info:src::types.FenceInfo);
+      parsed.kind="program" and (match parsed.context{
+        Some(path)=>path="src/sample.sigil"|
+        None()=>false
+      })
+    }|
+    Err(_)=>false
+  },src::fences.invalidFenceIssue("docs/test.md",2,"boom")={line:2,message:"boom",path:"docs/test.md"},src::fences.isFence("```"),src::fences.isSigilFence("```sigil expr"),src::fences.nonEmpty("x"),extracted.issues=[],match extracted.results{
+    [item]=>{
+      l found=(item:src::types.Snippet);
+      found.info.kind="module" and found.line=1
+    }|
+    _=>false
+  }])
+}
+
+test "markdown coverage helpers read sandbox files" =>!Fs world {
+  c fs=(world::fs.sandbox(".local/docsDriftAuditCoverage/markdownSandbox"):world::fs.FsEntry)
+} {
+  l _=(stdlib::file.makeDirs("docs"):Unit);
+  l _=(stdlib::file.makeDirs("tests"):Unit);
+  l _=(stdlib::file.writeText(stdlib::string.unlines(["```sigil decl stdlib::string","λtrim(s:String)=>String","```","","```sigil expr","stdlib::string.trim(\" hi \")","```"]),"docs/example.md"):Unit);
+  l _=(stdlib::file.writeText("λmain()=>Unit={\n  l sample=(stdlib::string.trim(\" hi \"):String);\n  ()\n}\n","tests/example.sigil"):Unit);
+  l audit=(src::docsDrift.collectMarkdownAuditRefs("docs/example.md","."):src::docsDrift.MarkdownAudit);
+  l coverageAudit=(src::docsDrift.runMarkdownCoverageAudit(["docs/example.md"],"."):src::docsDrift.MarkdownAudit);
+  l refs=(src::docsDrift.readCoverageRefs(["tests/example.sigil"],"."):[String]);
+  allOk([audit.documentedRefs=["stdlib::string.trim"],audit.issues=[],audit.snippetRefs=["stdlib::string.trim"],coverageAudit.documentedRefs=["stdlib::string.trim"],coverageAudit.issues=[],coverageAudit.snippetRefs=["stdlib::string.trim"],refs=["stdlib::string.trim"]])
+}
+
+test "path based helpers succeed on decl only markdown" =>!AuditIo {
+  l root=(repoRoot():String);
+  l path=(".local/docsDriftAuditCoverage/declOnly.md":String);
+  l tempDir=(stdlib::path.join(root,".local/docsDriftAuditCoverage/tmp-decl"):String);
+  l _=(stdlib::file.makeDirs(".local/docsDriftAuditCoverage"):Unit);
+  l _=(stdlib::file.removeTree(tempDir):Unit);
+  l _=(stdlib::file.makeDirs(tempDir):Unit);
+  l _=(stdlib::file.writeText(stdlib::string.unlines(["```sigil decl stdlib::string","λtrim(s:String)=>String","```"]),path):Unit);
+  l markdownAudit=(src::docsDrift.processMarkdownFile(false,path,root,tempDir):src::docsDrift.MarkdownAudit);
+  l refsForFile=(src::docsDrift.runRefsForFile(path):Result[src::docsDrift.MarkdownAudit,String]);
+  l refsForPaths=(src::docsDrift.runRefsForPaths([path]):Result[src::docsDrift.MarkdownAudit,String]);
+  l runCheck=(src::docsDrift.runCheckForPaths([path]):Result[[src::types.Issue],String]);
+  allOk([markdownAudit.issues=[],match refsForFile{
+    Ok(audit)=>{
+      l found=(audit:src::docsDrift.MarkdownAudit);
+      found.documentedRefs=["stdlib::string.trim"] and found.issues=[]
+    }|
+    Err(_)=>false
+  },match refsForPaths{
+    Ok(audit)=>{
+      l found=(audit:src::docsDrift.MarkdownAudit);
+      found.documentedRefs=["stdlib::string.trim"] and found.issues=[]
+    }|
+    Err(_)=>false
+  },match runCheck{
+    Ok(issues)=>issues=[]|
+    Err(_)=>false
+  }])
+}
+
+test "validate snippet compiles a module workspace" =>!AuditIo {
+  l root=(repoRoot():String);
+  l tempDir=(stdlib::path.join(root,".local/docsDriftAuditCoverage/tmp-module"):String);
+  l _=(stdlib::file.removeTree(tempDir):Unit);
+  l _=(stdlib::file.makeDirs(tempDir):Unit);
+  src::docsDrift.validateSnippet("docs/test.md",1,root,snippet("λsample()=>String=\"ok\"","docs/test.md",fenceInfo(Some("projects/docsDriftAudit/src/sample.lib.sigil"),"module"),1),tempDir).issues=[]
+}
+
+test "stdlib export helpers parse repo stdlib files" =>!AuditIo {
+  l root=(repoRoot():String);
+  l readExports=(src::docsDrift.readStdlibExports(["language/stdlib/string.lib.sigil"],root):Result[[String],String]);
+  l readExportsInner=(src::docsDrift.readStdlibExportsInner([],["language/stdlib/string.lib.sigil"],root):Result[[String],String]);
+  l readMissing=(src::docsDrift.readStdlibExports(["language/stdlib/missing.lib.sigil"],root):Result[[String],String]);
+  l fileExports=(src::docsDrift.runStdlibExportsForFile("language/stdlib/string.lib.sigil"):Result[[String],String]);
+  l pathExports=(src::docsDrift.runStdlibExportsForPaths(["language/stdlib/string.lib.sigil"]):Result[[String],String]);
+  l pathExportsInner=(src::docsDrift.runStdlibExportsForPathsInner([],["language/stdlib/string.lib.sigil"],root):[String]);
+  allOk([match readExports{
+    Ok(exports)=>stdlib::list.contains("stdlib::string.trim",exports)|
+    Err(_)=>false
+  },match readExportsInner{
+    Ok(exports)=>stdlib::list.contains("stdlib::string.trim",exports)|
+    Err(_)=>false
+  },match readMissing{
+    Ok(_)=>false|
+    Err(message)=>stdlib::string.indexOf(message,"sigil parse failed")≥0
+  },match fileExports{
+    Ok(exports)=>stdlib::list.contains("stdlib::string.trim",exports)|
+    Err(_)=>false
+  },match pathExports{
+    Ok(exports)=>stdlib::list.contains("stdlib::string.trim",exports)|
+    Err(_)=>false
+  },stdlib::list.contains("stdlib::string.trim",pathExportsInner)])
+}
+
+test "git discovery helpers return repo paths" =>!Process {
+  l markdown=(src::docsDrift.gitTrackedMarkdown():Result[[String],String]);
+  l selection=(src::docsDrift.selectedMarkdownPaths():Result[src::docsDrift.MarkdownSelection,String]);
+  l stdlibPaths=(src::docsDrift.gitTrackedStdlib():Result[[String],String]);
+  l stdlibTests=(src::docsDrift.gitTrackedStdlibTests():Result[[String],String]);
+  allOk([match markdown{
+    Ok(paths)=>#paths>0|
+    Err(_)=>false
+  },match selection{
+    Ok(found)=>{
+      l selectedPaths=(found:src::docsDrift.MarkdownSelection);
+      ¬selectedPaths.failFast and #selectedPaths.paths>0
+    }|
+    Err(_)=>false
+  },match stdlibPaths{
+    Ok(paths)=>#paths>0|
+    Err(_)=>false
+  },match stdlibTests{
+    Ok(paths)=>#paths>0|
+    Err(_)=>false
+  }])
+}
+
+test "git rev parse failure propagates through wrappers" =>!AuditIo world {
+  c process=(world::process.fixture([world::process.rule(["git","rev-parse","--show-toplevel"],None(),{code:1,stderr:"boom",stdout:""})]):world::process.ProcessEntry)
+} {
+  allOk([match src::docsDrift.gitTopLevel(){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  },match src::docsDrift.runCheck(){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  },match src::docsDrift.runCheckForPaths(["docs/test.md"]){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  },match src::docsDrift.runCoverageOnly(){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  },match src::docsDrift.runRefsForFile("docs/test.md"){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  },match src::docsDrift.runRefsForPaths(["docs/test.md"]){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  },match src::docsDrift.runRepoCheck(){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  },match src::docsDrift.runStdlibExportsForFile("language/stdlib/string.lib.sigil"){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  },match src::docsDrift.runStdlibExportsForPaths(["language/stdlib/string.lib.sigil"]){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  }])
+}
+
+test "git list failures surface from process fixtures" =>!Process world {
+  c process=(world::process.fixture([world::process.rule(["git","ls-files","*.md"],None(),{code:1,stderr:"md boom",stdout:""}),world::process.rule(["git","ls-files","language/stdlib/*.lib.sigil"],None(),{code:1,stderr:"stdlib boom",stdout:""}),world::process.rule(["git","ls-files","language/stdlib-tests/tests/*.sigil"],None(),{code:1,stderr:"tests boom",stdout:""})]):world::process.ProcessEntry)
+} {
+  allOk([match src::docsDrift.gitTrackedMarkdown(){
+    Ok(_)=>false|
+    Err(message)=>message="md boom"
+  },match src::docsDrift.selectedMarkdownPaths(){
+    Ok(_)=>false|
+    Err(message)=>message="md boom"
+  },match src::docsDrift.gitTrackedStdlib(){
+    Ok(_)=>false|
+    Err(message)=>message="stdlib boom"
+  },match src::docsDrift.gitTrackedStdlibTests(){
+    Ok(_)=>false|
+    Err(message)=>message="tests boom"
+  }])
+}
+
+test "print issues writes formatted lines to captured log" =>!Log world {
+  c log=(world::log.capture():world::log.LogEntry)
+} {
+  l _=(src::docsDrift.printIssues([{line:5,message:"bad snippet",path:"docs/test.md"}]):Unit);
+  test::check::log.contains("docs/test.md:5: bad snippet")
+}
+
+test "repo style checks succeed under a controlled world" =>!AuditIo world {
+  c process=(world::process.fixture([world::process.rule(["git","rev-parse","--show-toplevel"],None(),{code:0,stderr:"",stdout:"/Users/jnobreganetto/Documents/GitHub/ai-pl\n"}),world::process.rule(["git","ls-files","*.md"],None(),{code:0,stderr:"",stdout:".local/docsDriftAuditCoverage/runAll/sample.md\n"}),world::process.rule(["git","ls-files","language/stdlib/*.lib.sigil"],None(),{code:0,stderr:"",stdout:"language/stdlib/string.lib.sigil\n"}),world::process.rule(["git","ls-files","language/stdlib-tests/tests/*.sigil"],None(),{code:0,stderr:"",stdout:".local/docsDriftAuditCoverage/runAll/stdlibTests.sigil\n"}),world::process.rule([stdlib::path.join("/Users/jnobreganetto/Documents/GitHub/ai-pl","language/compiler/target/debug/sigil"),"parse",stdlib::path.join("/Users/jnobreganetto/Documents/GitHub/ai-pl","language/stdlib/string.lib.sigil")],Some("/Users/jnobreganetto/Documents/GitHub/ai-pl"),{code:0,stderr:"",stdout:"{\"type\":\"FunctionDecl\",\"name\":\"trim\"}"})]):world::process.ProcessEntry)
+} {
+  l _=(stdlib::file.makeDirs(".local/docsDriftAuditCoverage/runAll"):Unit);
+  l _=(stdlib::file.writeText(stdlib::string.unlines(["```sigil decl stdlib::string","λtrim(s:String)=>String","```"]),".local/docsDriftAuditCoverage/runAll/sample.md"):Unit);
+  l _=(stdlib::file.writeText("λmain()=>Unit={\n  l sample=(stdlib::string.trim(\" hi \"):String);\n  ()\n}\n",".local/docsDriftAuditCoverage/runAll/stdlibTests.sigil"):Unit);
+  match src::docsDrift.runCheck(){
+    Ok(checkIssues)=>allOk([checkIssues=[],match src::docsDrift.runCoverageOnly(){
+      Ok(coverageIssues)=>allOk([coverageIssues=[],match src::docsDrift.runRepoCheck(){
+        Ok(repoIssues)=>repoIssues=[]|
+        Err(_)=>false
+      }])|
+      Err(_)=>false
+    }])|
+    Err(_)=>false
+  }
+}

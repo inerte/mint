@@ -13,7 +13,7 @@ Topology answers:
 - which environment names exist
 
 Config answers:
-- how one named environment binds those dependencies
+- how one named environment constructs the runtime world for those dependencies
 
 ## Why Sigil Splits Topology from Config
 
@@ -24,7 +24,7 @@ Without this split, runtime truth gets blurred together:
 
 Sigil prefers one explicit model:
 - `src/topology.lib.sigil` declares dependency handles and environment names
-- `config/<env>.lib.sigil` binds every declared dependency for the selected environment
+- `config/<env>.lib.sigil` exports the selected environment's `world`
 - application code uses typed handles from `src::topology`
 - only config modules may read `process.env`
 
@@ -69,14 +69,28 @@ Those belong in config.
 
 ## Canonical Config Modules
 
-Each declared environment gets one config module:
+Each declared environment gets one config module exporting `world`:
 
 ```sigil module projects/topology-http/config/test.lib.sigil
 i src::topology
 
-i stdlib::config
+i world::clock
 
-c bindings=(stdlib::config.bindings([stdlib::config.bindHttp("http://127.0.0.1:45110",src::topology.mailerApi)],[]):stdlib::config.Bindings)
+i world::fs
+
+i world::http
+
+i world::log
+
+i world::process
+
+i world::runtime
+
+i world::tcp
+
+i world::timer
+
+c world=(world::runtime.world(world::clock.systemClock(),world::fs.real(),[world::http.proxy("http://127.0.0.1:45110",src::topology.mailerApi)],world::log.capture(),world::process.deny(),[],world::timer.virtual()):world::runtime.World)
 ```
 
 Production-style config can read env vars, but only there:
@@ -86,9 +100,23 @@ e process
 
 i src::topology
 
-i stdlib::config
+i world::clock
 
-c bindings=(stdlib::config.bindings([stdlib::config.bindHttpEnv(src::topology.mailerApi,"MAILER_API_URL")],[]):stdlib::config.Bindings)
+i world::fs
+
+i world::http
+
+i world::log
+
+i world::process
+
+i world::runtime
+
+i world::tcp
+
+i world::timer
+
+c world=(world::runtime.world(world::clock.systemClock(),world::fs.real(),[world::http.proxy((process.env.MAILER_API_URL:String),src::topology.mailerApi)],world::log.stdout(),world::process.real(),[],world::timer.real()):world::runtime.World)
 ```
 
 ## Application Code Uses Handles, Not Endpoints
@@ -145,7 +173,7 @@ If topology is present and `--env` is missing, Sigil rejects the command.
 
 Compile-time:
 - topology constructors only in `src/topology.lib.sigil`
-- config binding constructors only in `config/*.lib.sigil`
+- world HTTP/TCP entry constructors only in `config/*.lib.sigil` and test-local `world { ... }`
 - topology-aware HTTP/TCP APIs require dependency handles
 - raw endpoint usage is rejected
 - `process.env` is only allowed in `config/*.lib.sigil`
@@ -153,16 +181,17 @@ Compile-time:
 Validate-time:
 - the selected environment must be declared in topology
 - `config/<env>.lib.sigil` must exist
-- the config module must export `bindings`
-- every declared dependency must be bound exactly once
-- no extra bindings are allowed
-- binding kinds must match dependency kinds
+- the config module must export `world`
+- `world` must include every primitive effect entry
+- every declared HTTP/TCP dependency must appear exactly once in `world`
+- no undeclared dependency handles are allowed in `world`
 
 ## Tests Are Environments
 
 Tests are just another environment:
 - same logical dependency identity
-- different concrete bindings
+- different baseline world
+- optional per-test `world { ... }` derivation
 
 That keeps one runtime model for:
 - app code

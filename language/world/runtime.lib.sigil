@@ -1,0 +1,17 @@
+t World={clock:world::clock.ClockEntry,fs:world::fs.FsEntry,http:[world::http.HttpEntry],log:world::log.LogEntry,process:world::process.ProcessEntry,tcp:[world::tcp.TcpEntry],timer:world::timer.TimerEntry}
+
+i world::clock
+
+i world::fs
+
+i world::http
+
+i world::log
+
+i world::process
+
+i world::tcp
+
+i world::timer
+
+λworld(clock:world::clock.ClockEntry,fs:world::fs.FsEntry,http:[world::http.HttpEntry],log:world::log.LogEntry,process:world::process.ProcessEntry,tcp:[world::tcp.TcpEntry],timer:world::timer.TimerEntry)=>World={clock:clock,fs:fs,http:http,log:log,process:process,tcp:tcp,timer:timer}

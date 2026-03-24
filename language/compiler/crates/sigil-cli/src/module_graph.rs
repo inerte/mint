@@ -228,6 +228,8 @@ pub fn load_project_effect_catalog_for(
 fn is_sigil_import_path(module_path: &str) -> bool {
     module_path.starts_with("core::")
         || module_path.starts_with("stdlib::")
+        || module_path.starts_with("world::")
+        || module_path.starts_with("test::")
         || module_path.starts_with("src::")
         || module_path.starts_with("config::")
 }
@@ -249,6 +251,24 @@ fn file_path_to_module_id(abs_path: &Path, project: &Option<ProjectConfig>) -> O
         if let Some(relative) = path_str.split("/stdlib/").nth(1) {
             if let Some(without_ext) = strip_sigil_ext(relative) {
                 return Some(format!("stdlib::{}", without_ext.replace('/', "::")));
+            }
+        }
+    }
+
+    // Check if it's a world module
+    if path_str.contains("/world/") {
+        if let Some(relative) = path_str.split("/world/").nth(1) {
+            if let Some(without_ext) = strip_sigil_ext(relative) {
+                return Some(format!("world::{}", without_ext.replace('/', "::")));
+            }
+        }
+    }
+
+    // Check if it's a test module
+    if path_str.contains("/test/") {
+        if let Some(relative) = path_str.split("/test/").nth(1) {
+            if let Some(without_ext) = strip_sigil_ext(relative) {
+                return Some(format!("test::{}", without_ext.replace('/', "::")));
             }
         }
     }
@@ -359,7 +379,11 @@ fn resolve_sigil_import(
             file_path,
             project: Some(project.clone()),
         })
-    } else if module_id.starts_with("stdlib::") || module_id.starts_with("core::") {
+    } else if module_id.starts_with("stdlib::")
+        || module_id.starts_with("core::")
+        || module_id.starts_with("world::")
+        || module_id.starts_with("test::")
+    {
         // Language import - find language root
         let language_root = find_language_root(importer_file)?;
         let file_path = resolve_import_path(&language_root, &file_path_str)?;

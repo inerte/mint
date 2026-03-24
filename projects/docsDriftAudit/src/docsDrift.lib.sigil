@@ -153,7 +153,7 @@ i stdlib::string
 
 λisProgramLikeLines(lines:[String])=>Bool=hasTopLevelPrefix(lines,"test ") or hasTopLevelPrefix(lines,"λmain(")
 
-λisTopLevelLikeLine(line:String)=>Bool=stdlib::string.startsWith("c ",line) or stdlib::string.startsWith("e ",line) or stdlib::string.startsWith("i ",line) or stdlib::string.startsWith("mockable λ",line) or stdlib::string.startsWith("t ",line) or stdlib::string.startsWith("test ",line) or stdlib::string.startsWith("λ",line)
+λisTopLevelLikeLine(line:String)=>Bool=stdlib::string.startsWith("c ",line) or stdlib::string.startsWith("e ",line) or stdlib::string.startsWith("i ",line) or stdlib::string.startsWith("t ",line) or stdlib::string.startsWith("test ",line) or stdlib::string.startsWith("λ",line)
 
 λisTopLevelLikeLines(lines:[String])=>Bool match lines{
   []=>false|

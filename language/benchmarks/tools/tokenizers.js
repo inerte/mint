@@ -31,7 +31,7 @@ const COMMON_WORDS = new Set([
   'true',
   'unit',
   'with',
-  'withMock'
+  'world'
 ]);
 
 const ASCII_OPERATORS = new Set([

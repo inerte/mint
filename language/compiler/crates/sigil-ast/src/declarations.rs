@@ -153,6 +153,8 @@ pub struct ConstDecl {
 pub struct TestDecl {
     pub description: String,
     pub effects: Vec<String>,
+    #[cfg_attr(feature = "serde", serde(rename = "worldBindings"))]
+    pub world_bindings: Vec<ConstDecl>,
     pub body: Expr,
     pub location: SourceLocation,
 }

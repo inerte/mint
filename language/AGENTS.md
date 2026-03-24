@@ -61,7 +61,7 @@ Current canonical boolean operators:
 - `¬`
 
 Module scope is declaration-only:
-- valid top-level forms: `t`, `e`, `i`, `c`, `λ`, `mockable λ`, `test`
+- valid top-level forms: `t`, `e`, `i`, `c`, `λ`, `test`
 - never generate top-level `l`
 - use `c` for immutable module-level values
 - move setup bindings inside `main()` or another function body
@@ -147,7 +147,7 @@ Current constructor and list invariants:
   - topology-aware projects are validated against the selected `--env`, which must resolve to `config/<env>.lib.sigil`
   - topology-aware application code must use `src::topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
   - `process.env` belongs only in `config/*.lib.sigil`, never in ordinary application code
-  - tests are environments; prefer `config/test.lib.sigil` over ad hoc runtime rewiring
+  - tests run in explicit worlds; prefer `config/<env>.lib.sigil` baseline worlds plus test-local `world { ... }` derivation over ad hoc rewiring
   - inline single-use pure locals; keep bindings only for reuse, effects, destructuring, or syntax-required staging
   - do not hand-roll recursive list plumbing when Sigil already has a canonical surface
   - use `map` for projection, `filter` for filtering, `reduce ... from ...` / `stdlib::list.fold` for reduction, `stdlib::list.reverse` for reversal, `stdlib::list.any` / `stdlib::list.all` / `stdlib::list.find` for existential, universal, and first-match search, `stdlib::list.flatMap` for flattening projection, and `stdlib::list.countIf` for predicate counting
@@ -299,6 +299,10 @@ Run tests:
 cargo build --manifest-path language/compiler/Cargo.toml -p sigil-cli
 language/compiler/target/debug/sigil test projects/algorithms/tests
 ```
+
+Coverage gate behavior:
+- suite-style runs like `sigil test` or `sigil test path/to/tests/` enforce public-contract coverage and variant coverage for project source modules
+- focused single-file runs like `sigil test path/to/tests/file.sigil` skip the project-wide coverage gate so iteration stays local
 
 Create new test file:
 ```sigil program tests/myFeature.sigil

@@ -1,0 +1,7 @@
+i test::observe::process
+
+λcalled()=>Bool=test::observe::process.callCount()>0
+
+λcalledNTimes(count:Int)=>Bool=test::observe::process.callCount()=count
+
+λcalledOnce()=>Bool=calledNTimes(1)

@@ -713,7 +713,6 @@ impl Lexer {
             "l" => TokenType::LET,
             "c" => TokenType::CONST,
             "mut" => TokenType::MUT,
-            "withMock" => TokenType::WithMock,
             "when" => TokenType::WHEN,
             "effect" => TokenType::Effect,
             "match" => TokenType::MATCH,

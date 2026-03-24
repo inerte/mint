@@ -1,0 +1,5 @@
+t LogEntry=CaptureLog()|StdoutLog()
+
+λcapture()=>LogEntry=CaptureLog()
+
+λstdout()=>LogEntry=StdoutLog()

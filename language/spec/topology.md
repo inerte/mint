@@ -6,7 +6,7 @@ Sigil topology defines the canonical representation of external runtime
 dependencies for topology-aware projects.
 
 Topology is declaration only.
-Concrete environment bindings live in config modules.
+Concrete environment worlds live in config modules.
 
 ## Canonical Files
 
@@ -22,7 +22,7 @@ config/<env>.lib.sigil
 - declared environment names
 
 `config/<env>.lib.sigil` is the canonical source of truth for:
-- concrete bindings for one selected environment
+- one selected environment's runtime world
 
 ## Topology Surface
 
@@ -38,20 +38,12 @@ t TcpServiceDependency=TcpServiceDependency(String)
 λtcpService(name:String)=>TcpServiceDependency
 ```
 
-`stdlib::config` defines:
+`world::runtime` and world entry roots define the canonical env surface:
 
-```sigil decl stdlib::config
-t BindingValue=EnvVar(String)|Literal(String)
-t Bindings={httpBindings:[HttpBinding],tcpBindings:[TcpBinding]}
-t HttpBinding={baseUrl:BindingValue,dependencyName:String}
-t PortBindingValue=EnvVarPort(String)|LiteralPort(Int)
-t TcpBinding={dependencyName:String,host:BindingValue,port:PortBindingValue}
+```sigil decl world::runtime
+t World={clock:world::clock.ClockEntry,fs:world::fs.FsEntry,http:[world::http.HttpEntry],log:world::log.LogEntry,process:world::process.ProcessEntry,tcp:[world::tcp.TcpEntry],timer:world::timer.TimerEntry}
 
-λbindHttp(baseUrl:String,dependency:stdlib::topology.HttpServiceDependency)=>HttpBinding
-λbindHttpEnv(dependency:stdlib::topology.HttpServiceDependency,envVar:String)=>HttpBinding
-λbindTcp(dependency:stdlib::topology.TcpServiceDependency,host:String,port:Int)=>TcpBinding
-λbindTcpEnv(dependency:stdlib::topology.TcpServiceDependency,hostEnvVar:String,portEnvVar:String)=>TcpBinding
-λbindings(httpBindings:[HttpBinding],tcpBindings:[TcpBinding])=>Bindings
+λworld(clock:world::clock.ClockEntry,fs:world::fs.FsEntry,http:[world::http.HttpEntry],log:world::log.LogEntry,process:world::process.ProcessEntry,tcp:[world::tcp.TcpEntry],timer:world::timer.TimerEntry)=>World
 ```
 
 ## Compile-Time Rules
@@ -63,14 +55,12 @@ Calls to these constructors are only valid in `src/topology.lib.sigil`:
 - `stdlib::topology.tcpService`
 - `stdlib::topology.environment`
 
-### Config binding location
+### World entry location
 
-Calls to these constructors are only valid in `config/*.lib.sigil`:
-- `stdlib::config.bindHttp`
-- `stdlib::config.bindHttpEnv`
-- `stdlib::config.bindTcp`
-- `stdlib::config.bindTcpEnv`
-- `stdlib::config.bindings`
+Calls to `world::http.*` and `world::tcp.*` entry constructors are only valid in:
+
+- `config/*.lib.sigil`
+- test-local `world { ... }` clauses
 
 ### Ambient env access
 
@@ -101,10 +91,10 @@ For selected environment `<env>`:
 - `src/topology.lib.sigil` must exist
 - `<env>` must be declared in topology
 - `config/<env>.lib.sigil` must exist
-- `config/<env>.lib.sigil` must export `bindings`
-- every declared dependency must be bound exactly once
-- no undeclared dependencies may be bound
-- binding kinds must match dependency kinds
+- `config/<env>.lib.sigil` must export `world`
+- `world` must provide all primitive effect entries
+- every declared dependency must appear exactly once in `world`
+- no undeclared dependencies may appear in `world`
 - dependency names must be unique in topology
 
 ## Execution Model

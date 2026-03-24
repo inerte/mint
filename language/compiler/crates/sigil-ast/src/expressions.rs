@@ -49,8 +49,6 @@ pub enum Expr {
     Concurrent(Box<ConcurrentExpr>),
     #[cfg_attr(feature = "serde", serde(rename = "MemberAccessExpr"))]
     MemberAccess(MemberAccessExpr),
-    #[cfg_attr(feature = "serde", serde(rename = "WithMockExpr"))]
-    WithMock(Box<WithMockExpr>),
     #[cfg_attr(feature = "serde", serde(rename = "TypeAscriptionExpr"))]
     TypeAscription(Box<TypeAscriptionExpr>),
 }
@@ -538,16 +536,6 @@ pub struct SpawnEachStep {
 pub struct MemberAccessExpr {
     pub namespace: Vec<String>, // ['fs', 'promises'] or ['axios'] (Sigil syntax: fs::promises)
     pub member: String,         // 'readFile' or 'get'
-    pub location: SourceLocation,
-}
-
-/// With mock expression: withMock target replacement { body }
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct WithMockExpr {
-    pub target: Expr,
-    pub replacement: Expr,
-    pub body: Expr,
     pub location: SourceLocation,
 }
 

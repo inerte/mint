@@ -1,7 +1,7 @@
 # Sigil Testing Specification
 
-Version: 1.0.0
-Last Updated: 2026-03-14
+Version: 1.1.0
+Last Updated: 2026-03-23
 
 ## Overview
 
@@ -11,7 +11,8 @@ Current implemented testing surface includes:
 
 - top-level `test "name" { ... }`
 - optional explicit test effects
-- built-in `withMock(...) { ... }`
+- optional `world { ... }` clause on tests
+- compiler-owned `world::` and `test::` roots
 - CLI test discovery and execution
 
 This spec describes the implemented system in the current compiler, not older
@@ -41,6 +42,25 @@ test "writes log" =>!Log  {
 }
 ```
 
+World-derived test:
+
+```sigil program tests/worldTest.sigil
+i stdlib::io
+
+i test::check::log
+
+i world::log
+
+λmain()=>Unit=()
+
+test "captured log contains line" =>!Log world {
+  c log=(world::log.capture():world::log.LogEntry)
+} {
+  stdlib::io.println("captured")=() and
+  test::check::log.contains("captured")
+}
+```
+
 Rules:
 
 - test description is a string literal
@@ -48,6 +68,8 @@ Rules:
 - test body must evaluate to `Bool`
 - `true` means pass
 - `false` means fail
+- test-local `world { ... }` is declaration-only and contains `c` bindings of `world::...` entry values
+- test-local world bindings are visible only inside that test body
 
 ## Test Location
 
@@ -62,30 +84,32 @@ Test files are ordinary `.sigil` files and may also declare:
 
 Test files are executable-oriented and must define `main`.
 
-## Mocking
+## Runtime Worlds
 
-### `withMock`
+Sigil tests run inside a compiler-owned runtime world.
 
-Current built-in mocking form:
+Baseline world:
 
-```sigil program tests/mockTest.sigil
-λfetchUser(id:Int)=>String="OK"
+- selected from `config/<env>.lib.sigil`
+- exported as `c world=(...:world::runtime.World)`
 
-λmain()=>Unit=()
+Test-local derivation:
 
-test "fallback on API failure" {
-  withMock(fetchUser,λ(id:Int)=>String="ERR"){fetchUser(1)="ERR"}
-}
-```
+- `test ... world { ... } { ... }` overlays entries onto the selected env world
+- singleton entries such as `world::clock.*` or `world::log.*` replace that kind
+- topology-indexed `world::http.*` and `world::tcp.*` replace by dependency handle
 
-Allowed targets:
+Observation surface:
 
-- extern members
-- any Sigil function
+- `test::observe::...` exposes raw traces
+- `test::check::...` exposes Bool helpers over those traces
 
-Placement rule:
+Canonical example helpers include:
 
-- `withMock(...)` is only valid directly inside `test` declaration bodies
+- `test::observe::http.requests`
+- `test::observe::log.entries`
+- `test::check::http.calledOnce`
+- `test::check::log.contains`
 
 ## CLI Surface
 
@@ -109,9 +133,17 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test -
 
 ```
 
-For topology-aware projects:
+For runtime-world projects:
 
 - `--env <name>` is required
+
+`sigil test` also enforces project source coverage:
+
+- every function in project `src/*.lib.sigil` must be executed by the suite
+- sum-returning project functions must observe each relevant output variant
+- missing surface coverage is reported as ordinary failing test results
+- suite-style runs (`sigil test`, `sigil test path/to/tests/`) enforce this gate
+- focused single-file runs (`sigil test path/to/tests/file.sigil`) skip the project-wide coverage gate
 
 ## JSON Output
 
@@ -140,7 +172,7 @@ Current output does not include:
 
 - `declaredEffects`
 - assertion metadata
-- coverage data
+- raw coverage traces
 
 Normative references:
 

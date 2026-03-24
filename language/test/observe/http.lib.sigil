@@ -1,0 +1,15 @@
+t LastRequestPath=LastRequestPath(String)
+
+i stdlib::httpClient
+
+i stdlib::topology
+
+i world::http
+
+λcallCount(entry:world::http.HttpEntry)=>Int=0
+
+λlastPath(entry:world::http.HttpEntry)=>Option[String]=None()
+
+λlastRequest(entry:world::http.HttpEntry)=>Option[stdlib::httpClient.HttpRequest]=None()
+
+λrequests(entry:world::http.HttpEntry)=>[stdlib::httpClient.HttpRequest]=[]

@@ -18,7 +18,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ Regular-expression compile/test/search - `stdlib/regex`
 - ✅ HTTP and TCP clients and servers - `stdlib/httpClient`, `stdlib/httpServer`, `stdlib/tcpClient`, `stdlib/tcpServer`
 - ✅ Runtime dependency topology - `stdlib/topology`
-- ✅ Runtime dependency config bindings - `stdlib/config`
+- ✅ Runtime dependency config helpers - `stdlib/config`
 - ✅ JSON parsing/serialization - `stdlib/json`
 - ✅ Path manipulation - `stdlib/path`
 - ✅ Time parsing/comparison/clock - `stdlib/time`
@@ -309,7 +309,7 @@ The split is:
 - topology-aware application code must not pass raw base URLs directly
 
 `stdlib::topology` owns the dependency handles.
-`stdlib::config` owns per-environment bindings in `config/*.lib.sigil`.
+`config/*.lib.sigil` now exports `world`, built through `world::http`, `world::tcp`, and `world::runtime`.
 
 `stdlib::httpServer` is the canonical request/response server layer:
 
@@ -356,7 +356,7 @@ The canonical framing model is:
 - one newline-delimited response per connection
 
 `stdlib::topology` owns the dependency handles.
-`stdlib::config` owns per-environment bindings in `config/*.lib.sigil`.
+`config/*.lib.sigil` now exports `world`, built through `world::http`, `world::tcp`, and `world::runtime`.
 
 `stdlib::tcpServer` is the matching minimal TCP server layer:
 
@@ -374,7 +374,12 @@ until it is terminated externally.
 ## Topology
 
 `stdlib::topology` is the canonical declaration layer for external HTTP and TCP
-runtime dependencies. `stdlib::config` is the canonical binding layer.
+runtime dependencies. The canonical environment runtime layer now lives under
+the compiler-owned `world::` roots rather than `stdlib::config`.
+
+`stdlib::config` remains available for low-level binding value helpers inside
+config modules, but project environments no longer export `Bindings`. The env
+ABI is `c world=(...:world::runtime.World)`.
 
 Topology-aware projects define `src/topology.lib.sigil`, the selected
 `config/<env>.lib.sigil`, and use typed handles instead

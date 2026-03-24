@@ -1,0 +1,5 @@
+i test::observe::file
+
+λexists(path:String)=>Bool=test::observe::file.exists(path)
+
+λtextEquals(expected:String,path:String)=>Bool=test::observe::file.readText(path)=expected

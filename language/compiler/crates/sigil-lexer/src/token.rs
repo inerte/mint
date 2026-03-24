@@ -81,9 +81,6 @@ pub enum TokenType {
     #[token("mut")]
     MUT,
 
-    #[token("withMock")]
-    WithMock,
-
     #[token("when")]
     WHEN,
 

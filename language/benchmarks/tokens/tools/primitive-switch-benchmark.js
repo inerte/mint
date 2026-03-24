@@ -8,9 +8,9 @@ import { measureSourceWithAllTokenizers } from './tokenizers.js';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 
 const DEFAULT_FILES = [
-  'language/benchmarks/tokens/algorithms/fibonacci/fibonacci.sigil',
-  'language/benchmarks/tokens/algorithms/gcd/gcd.sigil',
-  'language/benchmarks/tokens/algorithms/is-palindrome/isPalindrome.sigil',
+  'projects/algorithms/src/fibonacci.sigil',
+  'projects/algorithms/src/gcd.sigil',
+  'projects/algorithms/src/isPalindrome.sigil',
   'projects/todo-app/src/todoDomain.lib.sigil',
   'language/examples/optionResultPractical.sigil'
 ];

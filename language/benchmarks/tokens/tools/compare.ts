@@ -10,7 +10,53 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { compareImplementations, generateComparisonTable, calculateEfficiency } from './count-tokens.js';
+
+const toolsDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(toolsDir, '..', '..', '..', '..');
+const casesManifestPath = path.resolve(toolsDir, '..', 'cases.json');
+
+type BenchmarkCase = {
+  python: string;
+  sigil: string;
+  typescript: string;
+};
+
+function loadCasesManifest(): Record<string, BenchmarkCase> {
+  return JSON.parse(fs.readFileSync(casesManifestPath, 'utf8'));
+}
+
+function resolveCaseId(input: string): string | null {
+  if (!input) {
+    return null;
+  }
+
+  if (fs.existsSync(input)) {
+    return path.basename(path.resolve(input));
+  }
+
+  return input;
+}
+
+function findImplementationsFromManifest(input: string): { algorithmName: string; files: string[] } | null {
+  const cases = loadCasesManifest();
+  const caseId = resolveCaseId(input);
+  const benchmarkCase = caseId ? cases[caseId] : null;
+
+  if (!benchmarkCase) {
+    return null;
+  }
+
+  return {
+    algorithmName: caseId,
+    files: [
+      benchmarkCase.python,
+      benchmarkCase.sigil,
+      benchmarkCase.typescript
+    ].map((relativePath) => path.resolve(repoRoot, relativePath))
+  };
+}
 
 function findImplementations(algorithmDir: string): string[] {
   const files: string[] = [];
@@ -37,18 +83,17 @@ function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    console.error('Usage: compare.ts <algorithm-directory>');
+    console.error('Usage: compare.ts <algorithm-directory-or-case-id>');
     console.error('Example: compare.js language/benchmarks/tokens/algorithms/factorial');
     process.exit(1);
   }
 
-  const algorithmDir = args[0];
-  const algorithmName = path.basename(algorithmDir);
-
-  console.log(`\n# ${algorithmName} - Token Comparison\n`);
-
   try {
-    const files = findImplementations(algorithmDir);
+    const manifestImplementations = findImplementationsFromManifest(args[0]);
+    const algorithmName = manifestImplementations?.algorithmName ?? path.basename(args[0]);
+    const files = manifestImplementations?.files ?? findImplementations(args[0]);
+
+    console.log(`\n# ${algorithmName} - Token Comparison\n`);
 
     if (files.length === 0) {
       console.error('No implementation files found');

@@ -1,3 +1,0 @@
-i stdlib::numeric
-
-λmain()=>Int=stdlib::numeric.gcd(48,18)

@@ -1,5 +1,0 @@
-i stdlib::string
-
-λisPalindrome(s:String)=>Bool=s=stdlib::string.reverse(s)
-
-λmain()=>Bool=isPalindrome("racecar")

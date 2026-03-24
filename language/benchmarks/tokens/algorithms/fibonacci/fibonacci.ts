@@ -1,9 +1,9 @@
-function fib(n: number): number {
+function fibonacci(n: number): number {
   if (n === 0) return 0;
   if (n === 1) return 1;
-  return fib(n - 1) + fib(n - 2);
+  return fibonacci(n - 1) + fibonacci(n - 2);
 }
 
 function main(): number {
-  return fib(10);
+  return fibonacci(10);
 }

@@ -36,6 +36,10 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test p
 
 These files are the canonical home for the practical algorithm corpus that used to be split across `language/examples/` and `projects/algorithms/`.
 
+The published token benchmark corpus under `language/benchmarks/tokens/`
+reuses Sigil source files from this project rather than keeping duplicate
+benchmark-only `.sigil` copies.
+
 Demo files:
 
 - `src/combinationsDemo.sigil`

@@ -1,0 +1,42 @@
+{
+  "factorial": {
+    "python": "language/benchmarks/tokens/algorithms/factorial/factorial.py",
+    "sigil": "projects/algorithms/src/factorialValid.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/factorial/factorial.ts"
+  },
+  "fibonacci": {
+    "python": "language/benchmarks/tokens/algorithms/fibonacci/fibonacci.py",
+    "sigil": "projects/algorithms/src/fibonacci.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/fibonacci/fibonacci.ts"
+  },
+  "filter-even": {
+    "python": "language/benchmarks/tokens/algorithms/filter-even/filter-even.py",
+    "sigil": "projects/algorithms/src/filterEven.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/filter-even/filter-even.ts"
+  },
+  "gcd": {
+    "python": "language/benchmarks/tokens/algorithms/gcd/gcd.py",
+    "sigil": "projects/algorithms/src/gcd.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/gcd/gcd.ts"
+  },
+  "is-palindrome": {
+    "python": "language/benchmarks/tokens/algorithms/is-palindrome/is-palindrome.py",
+    "sigil": "projects/algorithms/src/isPalindrome.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/is-palindrome/is-palindrome.ts"
+  },
+  "map-double": {
+    "python": "language/benchmarks/tokens/algorithms/map-double/map-double.py",
+    "sigil": "projects/algorithms/src/mapDouble.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/map-double/map-double.ts"
+  },
+  "power": {
+    "python": "language/benchmarks/tokens/algorithms/power/power.py",
+    "sigil": "projects/algorithms/src/power.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/power/power.ts"
+  },
+  "sum-list": {
+    "python": "language/benchmarks/tokens/algorithms/sum-list/sum-list.py",
+    "sigil": "projects/algorithms/src/sumList.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/sum-list/sum-list.ts"
+  }
+}

@@ -48,7 +48,7 @@ Claude Code: "This function calculates the nth Fibonacci number with a helper
               helper into a loop"
 ```
 
-**28.1% fewer tokens than TypeScript in the current published benchmark corpus** - More code fits in LLM context windows.
+**27.0% fewer tokens than TypeScript in the current published benchmark corpus** - More code fits in LLM context windows.
 
 ## First-Class Testing (Agent-First)
 
@@ -117,7 +117,7 @@ If 93% of code is AI-generated (2026 stats), why optimize for the 7%?
 3. **One Textual Representation**: Code won't compile if it doesn't match the compiler's canonical printed form
    Parseable-but-non-canonical source is rejected by `compile`, `run`, and `test`.
 4. **Strong Types**: Bidirectional type checking with mandatory annotations
-5. **Context Efficiency**: ~10% more code fits in context windows (current benchmark average)
+5. **Context Efficiency**: ~27% fewer tokens than the current TypeScript benchmark corpus
 
 ### How Humans Interact
 
@@ -255,16 +255,16 @@ See `benchmarks/tokens/RESULTS.md` for methodology and per-algorithm code.
 | Algorithm | Sigil Tokens | TypeScript Tokens | Sigil Fewer Tokens vs TS |
 |----------|-------------:|------------------:|-------------------------:|
 | factorial | 44 | 52 | 15.4% |
-| fibonacci | 57 | 60 | 5.0% |
+| fibonacci | 62 | 60 | -3.3% |
 | gcd | 21 | 48 | 56.3% |
 | power | 44 | 52 | 15.4% |
 | map-double | 44 | 59 | 25.4% |
 | filter-even | 47 | 67 | 29.9% |
 | is-palindrome | 31 | 49 | 36.7% |
 | sum-list | 26 | 50 | 48.0% |
-| **Average** | **39.3** | **54.6** | **28.1%** |
+| **Average** | **39.9** | **54.6** | **27.0%** |
 
-**Practical takeaway:** current published evidence supports roughly **28% fewer tokens than TypeScript** across the active 8-algorithm corpus.
+**Practical takeaway:** current published evidence supports roughly **27% fewer tokens than TypeScript** across the active 8-case corpus sourced from `projects/algorithms`.
 
 ## Developer Workflow
 
@@ -392,7 +392,7 @@ This is a research project exploring machine-first language design. Contribution
 1. **Unicode Tokenization**: Do modern LLM tokenizers handle `λ` as 1 token or multiple?
 2. **Generation Accuracy**: Can LLMs achieve >99% syntax correctness with canonical format?
 3. **Developer Experience**: Do developers prefer AI-mediated coding over direct writing?
-4. **Token Efficiency**: How much token reduction do we achieve in practice beyond the current 28.1% published benchmark result?
+4. **Token Efficiency**: How much token reduction do we achieve in practice beyond the current 27.0% published benchmark result?
 5. **Context Utilization**: Does denser code enable better LLM reasoning?
 
 ## License

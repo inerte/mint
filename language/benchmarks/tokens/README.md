@@ -3,6 +3,11 @@
 This benchmark family measures Sigil's token efficiency against a small
 cross-language corpus and tests tokenizer-sensitive syntax choices.
 
+The canonical Sigil implementations come from `projects/algorithms/src/`.
+This directory keeps the benchmark harness, the non-Sigil baselines, and the
+published results. `cases.json` maps each published benchmark case to its
+Sigil, Python, and TypeScript source files.
+
 ## Goal
 
 **Measure Sigil's token efficiency for LLM training.**
@@ -54,6 +59,11 @@ The active corpus currently contains 8 algorithms:
 - `power`
 - `sum-list`
 
+For these published cases:
+
+- the Sigil source of truth lives in `projects/algorithms/src/`
+- the Python and TypeScript baselines live under `language/benchmarks/tokens/algorithms/`
+
 Future benchmark families can live alongside this one under
 `language/benchmarks/`, but today `tokens/` is the only active family.
 
@@ -90,6 +100,9 @@ bash language/benchmarks/tokens/run-all.sh
 # | Characters | 89 | 145 | 178 |
 # | ... | ... | ... | ... |
 ```
+
+`compare.js` resolves the Sigil source through `language/benchmarks/tokens/cases.json`,
+so the algorithm directory no longer needs a duplicate `.sigil` copy.
 
 ### Unicode Replacement Benchmark
 
@@ -151,9 +164,8 @@ The inserted space is part of the real replacement cost and must be measured.
 ### What To Expect
 
 The current corpus shows Sigil as more token-efficient than TypeScript overall,
-but the exact gap varies a lot by construct. The strongest gains come from
-compact recursive and list-processing examples, while some more imperative or
-mixed-style examples are closer.
+but the exact gap varies by construct. Most cases favor Sigil strongly, while
+some are much closer and one currently favors TypeScript.
 
 The underlying hypothesis is still:
 
@@ -189,9 +201,11 @@ for the current corpus totals and per-algorithm table.
 To add a new algorithm:
 
 1. Create directory: `language/benchmarks/tokens/algorithms/<name>/`
-2. Implement the algorithm in the active comparison languages
-3. Run comparison: `node language/benchmarks/tokens/tools/compare.js language/benchmarks/tokens/algorithms/<name>`
-4. Refresh `RESULTS.md` if the published corpus changed
+2. Add or point the Sigil implementation at a canonical source file in `projects/algorithms/src/`
+3. Implement the non-Sigil baselines in the active comparison languages
+4. Register the case in `language/benchmarks/tokens/cases.json`
+5. Run comparison: `node language/benchmarks/tokens/tools/compare.js language/benchmarks/tokens/algorithms/<name>`
+6. Refresh `RESULTS.md` if the published corpus changed
 
 ## Limitations
 

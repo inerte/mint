@@ -3,16 +3,16 @@
 **Date:** 2026-03-24  
 **Tokenizer:** `tiktoken` (`cl100k_base`)  
 **Baseline:** TypeScript  
-**Corpus:** 8 algorithms in `language/benchmarks/tokens/algorithms/`
+**Corpus:** 8 cases from `projects/algorithms/src/`, with Python/TypeScript baselines in `language/benchmarks/tokens/algorithms/`
 
 ## Executive Summary
 
-Across the current published corpus, Sigil uses **314 tokens** where the
+Across the current published corpus, Sigil uses **319 tokens** where the
 TypeScript baseline uses **437**. That is:
 
-- **28.1% fewer tokens than TypeScript**
-- **1.392x TypeScript efficiency** when measured as `TypeScript / Sigil`
-- **40.7% fewer characters** than the same TypeScript corpus
+- **27.0% fewer tokens than TypeScript**
+- **1.370x TypeScript efficiency** when measured as `TypeScript / Sigil`
+- **38.6% fewer characters** than the same TypeScript corpus
 
 Python is slightly larger than the TypeScript baseline in this corpus:
 
@@ -24,23 +24,26 @@ Python is slightly larger than the TypeScript baseline in this corpus:
 | Algorithm | Sigil | TypeScript | Python | TS / Sigil | Sigil Fewer Tokens vs TS |
 |-----------|------:|-----------:|-------:|-----------:|-------------------------:|
 | factorial | 44 | 52 | 48 | 1.182x | 15.4% |
-| fibonacci | 57 | 60 | 60 | 1.053x | 5.0% |
+| fibonacci | 62 | 60 | 60 | 0.968x | -3.3% |
 | filter-even | 47 | 67 | 70 | 1.426x | 29.9% |
 | gcd | 21 | 48 | 48 | 2.286x | 56.3% |
 | is-palindrome | 31 | 49 | 48 | 1.581x | 36.7% |
 | map-double | 44 | 59 | 62 | 1.341x | 25.4% |
 | power | 44 | 52 | 52 | 1.182x | 15.4% |
 | sum-list | 26 | 50 | 58 | 1.923x | 48.0% |
-| **Average** | **39.3** | **54.6** | **55.8** | **1.392x** | **28.1%** |
-| **Total** | **314** | **437** | **446** | **1.392x** | **28.1%** |
+| **Average** | **39.9** | **54.6** | **55.8** | **1.370x** | **27.0%** |
+| **Total** | **319** | **437** | **446** | **1.370x** | **27.0%** |
 
 ## Current Takeaways
 
-### 1. The current corpus favors Sigil across all 8 examples
+### 1. The current corpus still favors Sigil overall, but not uniformly
 
-There are no TypeScript wins in the active published set. The smallest gap is
-`fibonacci`, where Sigil is still 5.0% smaller. The largest is `gcd`, where
-Sigil is 56.3% smaller.
+Seven of the eight current cases favor Sigil. `fibonacci` is now a small
+TypeScript win at **3.3% fewer tokens**.
+
+The baselines now use the same `fibonacci` naming as the canonical Sigil source,
+so this result is no longer an artifact of mismatched identifier names. It is a
+real outcome of the current source forms.
 
 ### 2. Compact recursive and list-oriented forms still drive the best gains
 
@@ -66,10 +69,10 @@ true for the current benchmark sources and should not be reused.
 
 The current corpus averages:
 
-- **105.4 characters** per Sigil implementation
-- **177.6 characters** per TypeScript implementation
+- **109.1 characters** per Sigil implementation
+- **180.6 characters** per TypeScript implementation
 
-That is **40.7% fewer characters**. Character density is not the primary metric
+That is **39.6% fewer characters**. Character density is not the primary metric
 for LLM training, but it is a useful secondary check that the token results are
 not just a tokenizer quirk.
 
@@ -78,7 +81,7 @@ not just a tokenizer quirk.
 These numbers support the same high-level claim as before, but more strongly:
 
 - Sigil's canonical syntax is materially more token-efficient than TypeScript in
-  this corpus.
+  this corpus overall.
 - Python does not beat TypeScript here despite being dynamically typed.
 - Compact symbolic forms like `λ`, `=>`, `::`, and dense `match` syntax are not
   getting erased by `cl100k_base`; they still buy real compression.

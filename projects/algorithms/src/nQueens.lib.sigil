@@ -1,12 +1,10 @@
-i stdlib::list
-
 λnQueens(size:Int)=>[[Int]] match size≤0{
   true=>[]|
   false=>placeQueens([],0,size)
 }
 
 λplaceQueens(placedRev:[Int],row:Int,size:Int)=>[[Int]] match row=size{
-  true=>wrapSolution(stdlib::list.reverse(placedRev))|
+  true=>wrapSolution(§list.reverse(placedRev))|
   false=>tryColumns(0,placedRev,row,size)
 }
 

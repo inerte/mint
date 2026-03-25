@@ -15,10 +15,10 @@ machinery as project tests rather than through separate shell launchers.
 - test files are ordinary `.sigil` files
 - test files may include helpers alongside `test` declarations
 
-Application/library code should live under `src/` and be imported from tests with
-normal Sigil imports.
+Application/library code should live under `src/` and be referenced from tests
+with rooted module syntax.
 
-## Importing Real Modules
+## Referencing Real Modules
 
 Library code is file-based, not `export`-based:
 
@@ -32,12 +32,10 @@ t Todo={done:Bool,id:Int,text:String}
 ```
 
 ```sigil program projects/todo-app/tests/todoDomain.sigil
-i src::todoDomain
-
 λmain()=>Unit=()
 
 test "count completed todos" {
-  src::todoDomain.completedCount([{done:true,id:1,text:"A"},{done:false,id:2,text:"B"}])=1
+  •todoDomain.completedCount([{done:true,id:1,text:"A"},{done:false,id:2,text:"B"}])=1
 }
 ```
 
@@ -60,31 +58,23 @@ Rules:
 Effectful tests use explicit effects:
 
 ```sigil program language/test-fixtures/tests/effects.sigil
-i stdlib::io
-
 λmain()=>Unit=()
 
 test "writes log" =>!Log  {
-  stdlib::io.println("x")=()
+  §io.println("x")=()
 }
 ```
 
 Tests may also derive a local world:
 
 ```sigil program language/test-fixtures/tests/testWorld.sigil
-i stdlib::io
-
-i test::check::log
-
-i world::log
-
 λmain()=>Unit=()
 
 test "worlds capture logs" =>!Log world {
-  c log=(world::log.capture():world::log.LogEntry)
+  c log=(†log.capture():†log.LogEntry)
 } {
-  stdlib::io.println("captured")=() and
-  test::check::log.contains("captured")
+  §io.println("captured")=() and
+  ※check::log.contains("captured")
 }
 ```
 
@@ -96,15 +86,15 @@ Instead:
 
 - `config/<env>.lib.sigil` exports the baseline `world`
 - each `test` may derive that world locally with `world { ... }`
-- `world::...` builds world entries for `Clock`, `Fs`, `Http`, `Log`, `Process`, `Tcp`, and `Timer`
-- `test::observe::...` exposes raw traces from the active test world
-- `test::check::...` exposes Bool-returning helpers over those traces
+- `†...` builds world entries for `Clock`, `Fs`, `Http`, `Log`, `Process`, `Tcp`, and `Timer`
+- `※observe::...` exposes raw traces from the active test world
+- `※check::...` exposes Bool-returning helpers over those traces
 
 Canonical split:
 
-- `world::` is compiler-owned runtime world construction
-- `test::observe` is raw test-world inspection
-- `test::check` is ergonomic Bool helpers for tests
+- `†` is compiler-owned runtime world construction
+- `※observe` is raw test-world inspection
+- `※check` is ergonomic Bool helpers for tests
 
 Canonical note:
 
@@ -114,19 +104,13 @@ Canonical note:
 Example:
 
 ```sigil program language/test-fixtures/tests/testWorld.sigil
-i stdlib::io
-
-i test::check::log
-
-i world::log
-
 λmain()=>Unit=()
 
 test "captured log contains line" =>!Log world {
-  c log=(world::log.capture():world::log.LogEntry)
+  c log=(†log.capture():†log.LogEntry)
 } {
-  stdlib::io.println("captured")=() and
-  test::check::log.contains("captured")
+  §io.println("captured")=() and
+  ※check::log.contains("captured")
 }
 ```
 
@@ -137,6 +121,9 @@ test "captured log contains line" =>!Log world {
 - missing surface coverage is reported as ordinary failing test results
 - this coverage gate applies to suite-style runs such as `sigil test` or `sigil test path/to/tests/`
 - focused single-file runs such as `sigil test path/to/tests/file.sigil` skip the project-wide coverage gate
+
+Library tests may call `•...` exports directly. Executable tests exercise
+program behavior through `main`.
 
 ## CLI
 
@@ -159,9 +146,9 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test -
 For runtime-world projects, `--env <name>` is required.
 
 For process-heavy harness code, prefer:
-- `stdlib::process` for child processes
-- `stdlib::file.makeTempDir` for scratch workspaces
-- `stdlib::time.sleepMs` for retry loops
+- `§process` for child processes
+- `§file.makeTempDir` for scratch workspaces
+- `§time.sleepMs` for retry loops
 
 ## JSON Output
 

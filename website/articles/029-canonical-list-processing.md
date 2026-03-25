@@ -27,15 +27,15 @@ The validator now rejects these exact recursive shapes:
 
 The required replacements are:
 
-- `stdlib::list.all` for universal checks
-- `stdlib::list.any` for existential checks
-- `stdlib::list.countIf` for predicate counting
+- `§list.all` for universal checks
+- `§list.any` for existential checks
+- `§list.countIf` for predicate counting
 - `map` for projection
 - `filter` for filtering
-- `stdlib::list.find` for first-match search
-- `stdlib::list.flatMap` for flattening projection
-- `reduce ... from ...` or `stdlib::list.fold` for reduction
-- `stdlib::list.reverse` for reversal
+- `§list.find` for first-match search
+- `§list.flatMap` for flattening projection
+- `reduce ... from ...` or `§list.fold` for reduction
+- `§list.reverse` for reversal
 
 This is not a general optimizer and not a semantic equivalence engine. The
 rules are narrow AST-shape checks.
@@ -83,9 +83,7 @@ Rejected:
 Required:
 
 ```sigil module
-i stdlib::list
-
-λallPositive(xs:[Int])=>Bool=stdlib::list.all(isPositive,xs)
+λallPositive(xs:[Int])=>Bool=§list.all(isPositive,xs)
 
 λisPositive(x:Int)=>Bool=x>0
 ```
@@ -116,9 +114,7 @@ Rejected:
 Required:
 
 ```sigil module
-i stdlib::list
-
-λanyEven(xs:[Int])=>Bool=stdlib::list.any(isEven,xs)
+λanyEven(xs:[Int])=>Bool=§list.any(isEven,xs)
 
 λisEven(x:Int)=>Bool=x%2=0
 ```
@@ -175,9 +171,7 @@ Rejected:
 Required:
 
 ```sigil module
-i stdlib::list
-
-λcountEven(xs:[Int])=>Int=stdlib::list.countIf(isEven,xs)
+λcountEven(xs:[Int])=>Int=§list.countIf(isEven,xs)
 
 λisEven(x:Int)=>Bool=x%2=0
 ```
@@ -245,9 +239,7 @@ Rejected:
 Required:
 
 ```sigil module
-i stdlib::list
-
-λfindEven(xs:[Int])=>Option[Int]=stdlib::list.find(isEven,xs)
+λfindEven(xs:[Int])=>Option[Int]=§list.find(isEven,xs)
 
 λisEven(x:Int)=>Bool=x%2=0
 ```
@@ -278,11 +270,9 @@ Rejected:
 Required:
 
 ```sigil module
-i stdlib::list
-
 λdigits(x:Int)=>[Int]=[x]
 
-λexplode(xs:[Int])=>[Int]=stdlib::list.flatMap(digits,xs)
+λexplode(xs:[Int])=>[Int]=§list.flatMap(digits,xs)
 ```
 
 ### Reverse
@@ -311,9 +301,7 @@ Rejected:
 Required:
 
 ```sigil module
-i stdlib::list
-
-λreverse(xs:[Int])=>[Int]=stdlib::list.reverse(xs)
+λreverse(xs:[Int])=>[Int]=§list.reverse(xs)
 ```
 
 ### Fold

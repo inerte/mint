@@ -1,25 +1,21 @@
-i src::primeFactorization
-
-i src::trialDivisionPrimality
-
 λmain()=>Unit=()
 
 test "prime factorization of composite number is sorted by discovery" {
-  src::primeFactorization.primeFactors(84)=[2,2,3,7]
+  •primeFactorization.primeFactors(84)=[2,2,3,7]
 }
 
 test "prime factorization of prime number returns singleton list" {
-  src::primeFactorization.primeFactors(13)=[13]
+  •primeFactorization.primeFactors(13)=[13]
 }
 
 test "trial division rejects one" {
-  ¬src::trialDivisionPrimality.trialDivisionPrimality(1)
+  ¬•trialDivisionPrimality.trialDivisionPrimality(1)
 }
 
 test "trial division accepts prime numbers" {
-  src::trialDivisionPrimality.trialDivisionPrimality(97)
+  •trialDivisionPrimality.trialDivisionPrimality(97)
 }
 
 test "trial division rejects composite numbers" {
-  ¬src::trialDivisionPrimality.trialDivisionPrimality(91)
+  ¬•trialDivisionPrimality.trialDivisionPrimality(91)
 }

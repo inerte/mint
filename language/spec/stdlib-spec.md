@@ -13,9 +13,11 @@ The Sigil standard library provides essential types and functions that are autom
 4. **Composable** - Functions that work well together
 5. **Zero-cost abstractions** - Compile to efficient JavaScript
 
-## Automatic Imports
+## Implicit Prelude and Rooted Modules
 
-The prelude is automatically imported into every Sigil module. No explicit import needed.
+The prelude is available in every Sigil module without qualification. Other
+modules are reached through rooted references such as `§list`, `•topology`,
+`†runtime`, and `※check::log`.
 
 ## Core Types
 
@@ -23,7 +25,7 @@ The prelude is automatically imported into every Sigil module. No explicit impor
 
 Implicit core prelude sum type:
 
-```sigil decl core::prelude
+```sigil decl ¶prelude
 t ConcurrentOutcome[T,E]=Aborted()|Failure(E)|Success(T)
 ```
 
@@ -77,9 +79,9 @@ isErr(res)
 
 ## List Operations
 
-### Implemented `stdlib::list` Functions
+### Implemented `§list` Functions
 
-```sigil decl stdlib::list
+```sigil decl §list
 λall[T](pred:λ(T)=>Bool,xs:[T])=>Bool
 λany[T](pred:λ(T)=>Bool,xs:[T])=>Bool
 λcontains[T](item:T,xs:[T])=>Bool
@@ -115,25 +117,25 @@ Safe element access uses `Option[T]`:
 
 Sigil treats the list-processing surface as canonical:
 
-- use `stdlib::list.all` for universal checks
-- use `stdlib::list.any` for existential checks
-- use `stdlib::list.countIf` for predicate counting
+- use `§list.all` for universal checks
+- use `§list.any` for existential checks
+- use `§list.countIf` for predicate counting
 - use `map` for projection
 - use `filter` for filtering
-- use `stdlib::list.find` for first-match search
-- use `stdlib::list.flatMap` for flattening projection
-- use `reduce ... from ...` or `stdlib::list.fold` for reduction
-- use `stdlib::list.reverse` for reversal
+- use `§list.find` for first-match search
+- use `§list.flatMap` for flattening projection
+- use `reduce ... from ...` or `§list.fold` for reduction
+- use `§list.reverse` for reversal
 
 The validator rejects exact recursive clones of `all`, `any`, `map`, `filter`,
 `find`, `flatMap`, `fold`, and `reverse`, rejects `#(xs filter pred)` in favor of
-`stdlib::list.countIf`, and rejects recursive result-building of the form
+`§list.countIf`, and rejects recursive result-building of the form
 `self(rest)⧺rhs`. These are narrow AST-shape rules, not a general complexity
 prover.
 
-### Implemented `stdlib::numeric` Helpers
+### Implemented `§numeric` Helpers
 
-```sigil decl stdlib::numeric
+```sigil decl §numeric
 t DivMod={quotient:Int,remainder:Int}
 λabs(x:Int)=>Int
 λclamp(hi:Int,lo:Int,x:Int)=>Int
@@ -158,7 +160,7 @@ t DivMod={quotient:Int,remainder:Int}
 
 ## String Operations
 
-```sigil decl stdlib::string
+```sigil decl §string
 λcharAt(idx:Int,s:String)=>String
 λdrop(n:Int,s:String)=>String
 λendsWith(s:String,suffix:String)=>Bool
@@ -182,9 +184,9 @@ t DivMod={quotient:Int,remainder:Int}
 
 ## File and Process Operations
 
-### Implemented `stdlib::file` Functions
+### Implemented `§file` Functions
 
-```sigil decl stdlib::file
+```sigil decl §file
 λappendText(content:String,path:String)=>!Fs Unit
 λexists(path:String)=>!Fs Bool
 λlistDir(path:String)=>!Fs [String]
@@ -200,9 +202,9 @@ t DivMod={quotient:Int,remainder:Int}
 `makeTempDir(prefix)` creates a fresh temp directory and returns its absolute
 path. Cleanup remains explicit through `removeTree`.
 
-### Implemented `stdlib::process` Types and Functions
+### Implemented `§process` Types and Functions
 
-```sigil decl stdlib::process
+```sigil decl §process
 t Command={argv:[String],cwd:Option[String],env:{String↦String}}
 t RunningProcess={pid:Int}
 t ProcessResult={code:Int,stderr:String,stdout:String}
@@ -224,9 +226,9 @@ Process rules:
 - `run` captures stdout and stderr in memory
 - `kill` is a normal termination request, not a timeout/escalation protocol
 
-### Implemented `stdlib::regex` Types and Functions
+### Implemented `§regex` Types and Functions
 
-```sigil decl stdlib::regex
+```sigil decl §regex
 t Regex={flags:String,pattern:String}
 t RegexError={message:String}
 t RegexMatch={captures:[String],end:Int,full:String,start:Int}
@@ -242,9 +244,9 @@ Regex rules:
 - `find` returns the first match only
 - unmatched capture groups are returned as empty strings in `captures`
 
-### Implemented `stdlib::time` Additions
+### Implemented `§time` Additions
 
-```sigil decl stdlib::time
+```sigil decl §time
 λsleepMs(ms:Int)=>!Timer Unit
 ```
 
@@ -253,9 +255,9 @@ orchestration.
 
 ## Map Operations
 
-Maps are a core collection concept, and helper functions live in `core::map`.
+Maps are a core collection concept, and helper functions live in `¶map`.
 
-```sigil decl core::map
+```sigil decl ¶map
 t Entry[K,V]={key:K,value:V}
 
 λempty[K,V]()=>{K↦V}
@@ -277,7 +279,7 @@ t Entry[K,V]={key:K,value:V}
 
 ## JSON Operations
 
-```sigil decl stdlib::json
+```sigil decl §json
 t JsonError={message:String}
 t JsonValue=JsonArray([JsonValue])|JsonBool(Bool)|JsonNull|JsonNumber(Float)|JsonObject({String↦JsonValue})|JsonString(String)
 
@@ -299,10 +301,10 @@ Notes:
 
 ## Decode Operations
 
-`stdlib::decode` is the canonical boundary layer from raw `JsonValue` to trusted
+`§decode` is the canonical boundary layer from raw `JsonValue` to trusted
 internal Sigil values.
 
-```sigil decl stdlib::decode
+```sigil decl §decode
 t DecodeError={message:String,path:[String]}
 t Decoder[T]=λ(JsonValue)=>Result[T,DecodeError]
 
@@ -325,15 +327,15 @@ t Decoder[T]=λ(JsonValue)=>Result[T,DecodeError]
 ```
 
 Notes:
-- `stdlib::json` owns raw parsing and inspection.
-- `stdlib::decode` owns conversion into trusted internal types.
+- `§json` owns raw parsing and inspection.
+- `§decode` owns conversion into trusted internal types.
 - `DecodeError.path` records the nested field/index path of the failure.
 - If a field may be absent, keep the record exact and use `Option[T]` for that field.
 - Sigil does not use open records or partial records for this boundary story.
 
 ## Time Operations
 
-```sigil decl stdlib::time
+```sigil decl §time
 t Instant={epochMillis:Int}
 t TimeError={message:String}
 
@@ -353,12 +355,12 @@ Notes:
 
 ## Math Operations
 
-The numeric helper surface is owned by `stdlib::numeric`; there is no separate
+The numeric helper surface is owned by `§numeric`; there is no separate
 math module today.
 
 ## Logging Operations
 
-```sigil decl stdlib::io
+```sigil decl §io
 λdebug(msg:String)=>!Log Unit
 λeprintln(msg:String)=>!Log Unit
 λprint(msg:String)=>!Log Unit
@@ -371,13 +373,6 @@ math module today.
 ### Import Syntax
 
 ```sigil module
-i stdlib::file
-
-i stdlib::list
-
-i stdlib::path
-
-i stdlib::process
 ```
 
 ### Export Visibility
@@ -385,20 +380,20 @@ i stdlib::process
 File extension determines visibility:
 
 **`.lib.sigil` files** (libraries):
-- All top-level declarations are automatically visible to importers
+- All top-level declarations are automatically visible to other modules
 - No `export` keyword needed or allowed
 
 **`.sigil` files** (executables):
-- Cannot be imported (except by test files in `tests/` directories)
+- Export nothing directly
 - Have `main()` function
 
-No selective imports, no aliasing, no export lists.
+No import declarations, no aliasing, no export lists.
 
 ## Standard Library Modules
 
 ### core/prelude
 
-Auto-imported. Contains the foundational vocabulary types:
+Implicitly available. Contains the foundational vocabulary types:
 - `Option[T]`
 - `Result[T,E]`
 - `Some`
@@ -406,7 +401,7 @@ Auto-imported. Contains the foundational vocabulary types:
 - `Ok`
 - `Err`
 
-### stdlib::file
+### §file
 
 UTF-8 filesystem helpers:
 - `appendText`
@@ -419,7 +414,7 @@ UTF-8 filesystem helpers:
 - `removeTree`
 - `writeText`
 
-### stdlib::path
+### §path
 
 Filesystem path helpers:
 - `basename`
@@ -429,52 +424,52 @@ Filesystem path helpers:
 - `normalize`
 - `relative`
 
-### stdlib::io
+### §io
 
 Console and process I/O only (`print`, `println`, `eprintln`, `warn`, `debug`)
 
-### core::map
+### ¶map
 
 Dynamic keyed collection helpers over `{K↦V}` values.
 
-### stdlib::numeric
+### §numeric
 
 Integer helpers (`abs`, `divmod`, `gcd`, `lcm`, `max`, `min`, `mod`,
 predicates like `isEven`, and ranges).
 
-### stdlib::json
+### §json
 
 Typed JSON parsing and serialization (`JsonValue`, `parse`, `stringify`)
 
-```sigil decl stdlib::json
+```sigil decl §json
 λparse(input:String)=>Result[JsonValue,JsonError]
 λstringify(value:JsonValue)=>String
 ```
 
-### stdlib::decode
+### §decode
 
 Canonical JSON-to-domain decoding (`Decoder[T]`, `DecodeError`, `run`, `parse`)
 
-```sigil decl stdlib::decode
+```sigil decl §decode
 λrun[T](decoder:Decoder[T],value:JsonValue)=>Result[T,DecodeError]
 λparse[T](decoder:Decoder[T],input:String)=>Result[T,DecodeError]
 ```
 
-### stdlib::time
+### §time
 
 Time and instant handling (`Instant`, strict ISO parsing, clock access)
 
-```sigil decl stdlib::time
+```sigil decl §time
 λparseIso(input:String)=>Result[Instant,TimeError]
 λformatIso(instant:Instant)=>String
 λnow()=>!Clock Instant
 ```
 
-### stdlib::topology
+### §topology
 
 Canonical declaration layer for external HTTP and TCP runtime dependencies.
 
-```sigil decl stdlib::topology
+```sigil decl §topology
 t Environment=Environment(String)
 t HttpServiceDependency=HttpServiceDependency(String)
 t TcpServiceDependency=TcpServiceDependency(String)
@@ -484,53 +479,53 @@ t TcpServiceDependency=TcpServiceDependency(String)
 λtcpService(name:String)=>TcpServiceDependency
 ```
 
-### stdlib::config
+### §config
 
 Low-level helper layer for topology-backed environment config data.
 
 Canonical project environment files now export `world` values built through
-`world::runtime`, `world::http`, and `world::tcp`. `stdlib::config` remains
+`†runtime`, `†http`, and `†tcp`. `§config` remains
 available inside config modules for binding-shaped helper values, but it is no
 longer the exported environment ABI.
 
-```sigil decl stdlib::config
+```sigil decl §config
 t BindingValue=EnvVar(String)|Literal(String)
 t Bindings={httpBindings:[HttpBinding],tcpBindings:[TcpBinding]}
 t HttpBinding={baseUrl:BindingValue,dependencyName:String}
 t PortBindingValue=EnvVarPort(String)|LiteralPort(Int)
 t TcpBinding={dependencyName:String,host:BindingValue,port:PortBindingValue}
 
-λbindHttp(baseUrl:String,dependency:stdlib::topology.HttpServiceDependency)=>HttpBinding
-λbindHttpEnv(dependency:stdlib::topology.HttpServiceDependency,envVar:String)=>HttpBinding
-λbindTcp(dependency:stdlib::topology.TcpServiceDependency,host:String,port:Int)=>TcpBinding
-λbindTcpEnv(dependency:stdlib::topology.TcpServiceDependency,hostEnvVar:String,portEnvVar:String)=>TcpBinding
+λbindHttp(baseUrl:String,dependency:§topology.HttpServiceDependency)=>HttpBinding
+λbindHttpEnv(dependency:§topology.HttpServiceDependency,envVar:String)=>HttpBinding
+λbindTcp(dependency:§topology.TcpServiceDependency,host:String,port:Int)=>TcpBinding
+λbindTcpEnv(dependency:§topology.TcpServiceDependency,hostEnvVar:String,portEnvVar:String)=>TcpBinding
 λbindings(httpBindings:[HttpBinding],tcpBindings:[TcpBinding])=>Bindings
 ```
 
-### stdlib::httpClient
+### §httpClient
 
 Canonical text-based HTTP client.
 
-```sigil decl stdlib::httpClient
+```sigil decl §httpClient
 t Headers={String↦String}
 t HttpError={kind:HttpErrorKind,message:String}
 t HttpErrorKind=InvalidJson()|InvalidUrl()|Network()|Timeout()|Topology()
 t HttpMethod=Delete()|Get()|Patch()|Post()|Put()
-t HttpRequest={body:Option[String],dependency:stdlib::topology.HttpServiceDependency,headers:Headers,method:HttpMethod,path:String}
+t HttpRequest={body:Option[String],dependency:§topology.HttpServiceDependency,headers:Headers,method:HttpMethod,path:String}
 t HttpResponse={body:String,headers:Headers,status:Int,url:String}
 
 λrequest(request:HttpRequest)=>!Http Result[HttpResponse,HttpError]
-λget(dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
-λdelete(dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
-λpost(body:String,dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
-λput(body:String,dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
-λpatch(body:String,dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
+λget(dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
+λdelete(dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
+λpost(body:String,dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
+λput(body:String,dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
+λpatch(body:String,dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[HttpResponse,HttpError]
 
-λgetJson(dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
-λdeleteJson(dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
-λpostJson(body:JsonValue,dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
-λputJson(body:JsonValue,dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
-λpatchJson(body:JsonValue,dependency:stdlib::topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
+λgetJson(dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
+λdeleteJson(dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
+λpostJson(body:JsonValue,dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
+λputJson(body:JsonValue,dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
+λpatchJson(body:JsonValue,dependency:§topology.HttpServiceDependency,headers:Headers,path:String)=>!Http Result[JsonValue,HttpError]
 λresponseJson(response:HttpResponse)=>Result[JsonValue,HttpError]
 
 λemptyHeaders()=>Headers
@@ -544,11 +539,11 @@ Semantics:
 - invalid URL, transport failure, topology resolution failure, and JSON parse failure return `Err(HttpError)`
 - request and response bodies are UTF-8 text in v1
 
-### stdlib::httpServer
+### §httpServer
 
 Canonical request/response HTTP server.
 
-```sigil decl stdlib::httpServer
+```sigil decl §httpServer
 t Headers={String↦String}
 t Request={body:String,headers:Headers,method:String,path:String}
 t Response={body:String,headers:Headers,status:Int}
@@ -566,18 +561,18 @@ t Response={body:String,headers:Headers,status:Int}
 `serve` is long-lived: once the server is listening, the process remains active
 until it is terminated externally.
 
-### stdlib::tcpClient
+### §tcpClient
 
 Canonical one-request, one-response TCP client.
 
-```sigil decl stdlib::tcpClient
+```sigil decl §tcpClient
 t TcpError={kind:TcpErrorKind,message:String}
 t TcpErrorKind=Connection()|InvalidAddress()|Protocol()|Timeout()|Topology()
-t TcpRequest={dependency:stdlib::topology.TcpServiceDependency,message:String}
+t TcpRequest={dependency:§topology.TcpServiceDependency,message:String}
 t TcpResponse={message:String}
 
 λrequest(request:TcpRequest)=>!Tcp Result[TcpResponse,TcpError]
-λsend(dependency:stdlib::topology.TcpServiceDependency,message:String)=>!Tcp Result[TcpResponse,TcpError]
+λsend(dependency:§topology.TcpServiceDependency,message:String)=>!Tcp Result[TcpResponse,TcpError]
 ```
 
 Semantics:
@@ -585,11 +580,11 @@ Semantics:
 - the client writes one newline-delimited message and expects one newline-delimited response
 - address validation, socket failure, timeout, topology resolution failure, and framing failure return `Err(TcpError)`
 
-### stdlib::tcpServer
+### §tcpServer
 
 Canonical one-request, one-response TCP server.
 
-```sigil decl stdlib::tcpServer
+```sigil decl §tcpServer
 t Request={host:String,message:String,port:Int}
 t Response={message:String}
 
@@ -606,7 +601,7 @@ Semantics:
 ### Testing
 
 Testing is built into the language with `test` declarations and the `sigil
-test` runner. There is no current `stdlib::test` module surface.
+test` runner. There is no current `§test` module surface.
 
 ## Implementation Notes
 
@@ -622,7 +617,7 @@ test` runner. There is no current `stdlib::test` module surface.
 
 - List operations are functional (immutable) - use sparingly for large lists
 - For performance-critical code, consider using mutable collections explicitly
-- String concatenation in loops is O(n²) - prefer stdlib::string.join when building from parts
+- String concatenation in loops is O(n²) - prefer §string.join when building from parts
 
 ### Effect System
 
@@ -642,10 +637,10 @@ Projects may define reusable multi-effect aliases in `src/effects.lib.sigil`.
 
 Planned for future stdlib versions:
 
-- **stdlib::crypto** - Cryptographic functions
-- **stdlib::random** - Random number generation
-- **stdlib::stream** - Streaming I/O
-- **stdlib::concurrency** - Threads and channels
+- **§crypto** - Cryptographic functions
+- **§random** - Random number generation
+- **§stream** - Streaming I/O
+- **§concurrency** - Threads and channels
 
 ## See Also
 

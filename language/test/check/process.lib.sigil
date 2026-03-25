@@ -1,7 +1,5 @@
-i test::observe::process
+λcalled()=>Bool=※observe::process.callCount()>0
 
-λcalled()=>Bool=test::observe::process.callCount()>0
-
-λcalledNTimes(count:Int)=>Bool=test::observe::process.callCount()=count
+λcalledNTimes(count:Int)=>Bool=※observe::process.callCount()=count
 
 λcalledOnce()=>Bool=calledNTimes(1)

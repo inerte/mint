@@ -1,28 +1,24 @@
 t RelativeState={left:[String],right:[String]}
 
-i stdlib::list
-
-i stdlib::string
-
-λbasename(value:String)=>String match stdlib::list.last(splitNonempty(normalize(value))){
+λbasename(value:String)=>String match §list.last(splitNonempty(normalize(value))){
   Some(segment)=>segment|
   None()=>normalize(value)
 }
 
-λdirname(value:String)=>String=dirnameFromSegments(stdlib::string.startsWith("/",(normalize(value):String)),splitNonempty((normalize(value):String)))
+λdirname(value:String)=>String=dirnameFromSegments(§string.startsWith("/",(normalize(value):String)),splitNonempty((normalize(value):String)))
 
 λdirnameFromSegments(isAbsolute:Bool,segments:[String])=>String match #segments≤1{
   true=>rootOrCurrent(isAbsolute)|
-  false=>pathFromSegments(isAbsolute,stdlib::list.take(#segments-1,segments))
+  false=>pathFromSegments(isAbsolute,§list.take(#segments-1,segments))
 }
 
-λextname(value:String)=>String=extnameFromParts((basename(value):String),stdlib::string.split(".",(basename(value):String)))
+λextname(value:String)=>String=extnameFromParts((basename(value):String),§string.split(".",(basename(value):String)))
 
 λextnameFromParts(name:String,parts:[String])=>String match #parts≤1{
   true=>""|
-  false=>match stdlib::string.startsWith(".",name) and #parts=2{
+  false=>match §string.startsWith(".",name) and #parts=2{
     true=>""|
-    false=>match stdlib::list.last(parts){
+    false=>match §list.last(parts){
       Some(lastPart)=>"."++lastPart|
       None()=>""
     }
@@ -46,12 +42,12 @@ i stdlib::string
 }
 
 λnormalize(value:String)=>String={
-  l isAbsolute=(stdlib::string.startsWith("/",value):Bool);
-  pathFromSegments(isAbsolute,(normalizeSegments([],isAbsolute,filterEmpty(stdlib::string.split("/",value))):[String]))
+  l isAbsolute=(§string.startsWith("/",value):Bool);
+  pathFromSegments(isAbsolute,(normalizeSegments([],isAbsolute,filterEmpty(§string.split("/",value))):[String]))
 }
 
 λnormalizeSegments(acc:[String],isAbsolute:Bool,segments:[String])=>[String] match segments{
-  []=>stdlib::list.reverse(acc)|
+  []=>§list.reverse(acc)|
   [segment,.rest]=>match segment="."{
     true=>normalizeSegments(acc,isAbsolute,rest)|
     false=>match segment=".."{
@@ -73,13 +69,13 @@ i stdlib::string
 }
 
 λpathFromSegments(isAbsolute:Bool,segments:[String])=>String match isAbsolute{
-  true=>match #(stdlib::string.join("/",segments):String)=0{
+  true=>match #(§string.join("/",segments):String)=0{
     true=>"/"|
-    false=>"/"++(stdlib::string.join("/",segments):String)
+    false=>"/"++(§string.join("/",segments):String)
   }|
-  false=>match #(stdlib::string.join("/",segments):String)=0{
+  false=>match #(§string.join("/",segments):String)=0{
     true=>"."|
-    false=>(stdlib::string.join("/",segments):String)
+    false=>(§string.join("/",segments):String)
   }
 }
 
@@ -109,4 +105,4 @@ i stdlib::string
   false=>"."
 }
 
-λsplitNonempty(value:String)=>[String]=filterEmpty(stdlib::string.split("/",value))
+λsplitNonempty(value:String)=>[String]=filterEmpty(§string.split("/",value))

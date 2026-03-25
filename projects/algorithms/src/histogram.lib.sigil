@@ -1,12 +1,10 @@
 t Bucket={count:Int,value:Int}
 
-i core::map
+λbuckets(histogram:{Int↦Int})=>[Bucket]=¶map.entries(histogram) map (λ(entry:¶map.Entry[Int,Int])=>Bucket={count:entry.value,value:entry.key})
 
-λbuckets(histogram:{Int↦Int})=>[Bucket]=core::map.entries(histogram) map (λ(entry:core::map.Entry[Int,Int])=>Bucket={count:entry.value,value:entry.key})
+λhistogram(xs:[Int])=>{Int↦Int}=xs reduce increment from (¶map.empty():{Int↦Int})
 
-λhistogram(xs:[Int])=>{Int↦Int}=xs reduce increment from (core::map.empty():{Int↦Int})
-
-λincrement(histogram:{Int↦Int},value:Int)=>{Int↦Int} match core::map.get(value,histogram){
-  Some(count)=>core::map.insert(value,histogram,count+1)|
-  None()=>core::map.insert(value,histogram,1)
+λincrement(histogram:{Int↦Int},value:Int)=>{Int↦Int} match ¶map.get(value,histogram){
+  Some(count)=>¶map.insert(value,histogram,count+1)|
+  None()=>¶map.insert(value,histogram,1)
 }

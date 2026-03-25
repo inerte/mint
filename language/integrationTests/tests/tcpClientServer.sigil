@@ -1,61 +1,51 @@
-i stdlib::file
-
-i stdlib::path
-
-i stdlib::process
-
-i stdlib::string
-
-i src::support
-
 λmain()=>Unit=()
 
-λprojectDir()=>String=src::support.repoPath("projects/topology-tcp")
+λprojectDir()=>String=•support.repoPath("projects/topology-tcp")
 
-λrawClientFile()=>String=stdlib::path.join(projectDir(),"src/rawTcpClient.sigil")
+λrawClientFile()=>String=§path.join(projectDir(),"src/rawTcpClient.sigil")
 
-λrawClientSource()=>String="i stdlib::tcpClient\n\nλmain()=>!Tcp String match stdlib::tcpClient.send(\"ping\",\"127.0.0.1\"){\n  Ok(response)=>response.message|\n  Err(error)=>error.message\n}\n"
+λrawClientSource()=>String="i §tcpClient\n\nλmain()=>!Tcp String match §tcpClient.send(\"ping\",\"127.0.0.1\"){\n  Ok(response)=>response.message|\n  Err(error)=>error.message\n}\n"
 
 λrawEndpointCompileOutput()=>!Fs!Process String={
-  l _=(stdlib::file.writeText(rawClientSource(),rawClientFile()):Unit);
-  l result=(stdlib::process.run(tcpCommand(["compile","src/rawTcpClient.sigil"])):stdlib::process.ProcessResult);
-  l _=(stdlib::file.remove(rawClientFile()):Unit);
-  src::support.combinedOutput(result)
+  l _=(§file.writeText(rawClientSource(),rawClientFile()):Unit);
+  l result=(§process.run(tcpCommand(["compile","src/rawTcpClient.sigil"])):§process.ProcessResult);
+  l _=(§file.remove(rawClientFile()):Unit);
+  •support.combinedOutput(result)
 }
 
 λrunClientOutput(target:String)=>!Process!Timer String={
-  l server=(stdlib::process.start(tcpCommand(["run","src/tcpRoundtripServer.sigil","--env","test"])):stdlib::process.RunningProcess);
-  l ready=(src::support.retryRunStdoutContains(50,tcpCommand(["run","src/pingClient.sigil","--env","test"]),200,"pong"):stdlib::process.ProcessResult);
-  l result=match src::support.runStdoutContains("pong",ready){
-    true=>(stdlib::process.run(tcpCommand(["run",target,"--env","test"])):stdlib::process.ProcessResult)|
+  l server=(§process.start(tcpCommand(["run","src/tcpRoundtripServer.sigil","--env","test"])):§process.RunningProcess);
+  l ready=(•support.retryRunStdoutContains(50,tcpCommand(["run","src/pingClient.sigil","--env","test"]),200,"pong"):§process.ProcessResult);
+  l result=match •support.runStdoutContains("pong",ready){
+    true=>(§process.run(tcpCommand(["run",target,"--env","test"])):§process.ProcessResult)|
     false=>ready
   };
-  l _=(stdlib::process.kill(server):Unit);
-  l _=(stdlib::process.wait(server):stdlib::process.ProcessResult);
-  src::support.combinedOutput(result)
+  l _=(§process.kill(server):Unit);
+  l _=(§process.wait(server):§process.ProcessResult);
+  •support.combinedOutput(result)
 }
 
-λtcpCommand(args:[String])=>stdlib::process.Command=src::support.sigilIn(args,projectDir())
+λtcpCommand(args:[String])=>§process.Command=•support.sigilIn(args,projectDir())
 
-λvalidateResult()=>!Process stdlib::process.ProcessResult=stdlib::process.run(tcpCommand(["validate",".","--env","test"]))
+λvalidateResult()=>!Process §process.ProcessResult=§process.run(tcpCommand(["validate",".","--env","test"]))
 
-test "tcp topology validates for test env" =>!Process  {
-  l result=(validateResult():stdlib::process.ProcessResult);
+test "tcp topology validates for test env" =>!Process {
+  l result=(validateResult():§process.ProcessResult);
   result.code=0
 }
 
-test "tcp ping client reaches roundtrip server" =>!Process!Timer  {
-  stdlib::string.indexOf(runClientOutput("src/pingClient.sigil"),"pong")≥0=true
+test "tcp ping client reaches roundtrip server" =>!Process!Timer {
+  §string.indexOf(runClientOutput("src/pingClient.sigil"),"pong")≥0=true
 }
 
-test "tcp echo client reaches roundtrip server" =>!Process!Timer  {
-  stdlib::string.indexOf(runClientOutput("src/echoClient.sigil"),"echoed")≥0=true
+test "tcp echo client reaches roundtrip server" =>!Process!Timer {
+  §string.indexOf(runClientOutput("src/echoClient.sigil"),"echoed")≥0=true
 }
 
-test "tcp upper client reaches roundtrip server" =>!Process!Timer  {
-  stdlib::string.indexOf(runClientOutput("src/upperClient.sigil"),"HELLO")≥0=true
+test "tcp upper client reaches roundtrip server" =>!Process!Timer {
+  §string.indexOf(runClientOutput("src/upperClient.sigil"),"HELLO")≥0=true
 }
 
-test "tcp raw endpoint compile is forbidden" =>!Fs!Process  {
-  stdlib::string.indexOf(rawEndpointCompileOutput(),"SIGIL-TOPO-RAW-ENDPOINT-FORBIDDEN")≥0=true
+test "tcp raw endpoint compile is forbidden" =>!Fs!Process {
+  §string.indexOf(rawEndpointCompileOutput(),"SIGIL-TOPO-RAW-ENDPOINT-FORBIDDEN")≥0=true
 }

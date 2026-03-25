@@ -68,12 +68,12 @@ Invalid at top level:
 Canonical declaration ordering is:
 
 ```text
-t => e => i => c => λ => test
+t => e => c => λ => test
 ```
 
 There is no `export` keyword in current Sigil. Visibility is file-based:
 
-- top-level declarations in `.lib.sigil` files are importable
+- top-level declarations in `.lib.sigil` files are referenceable from other modules
 - `.sigil` files are executable-oriented
 - top-level functions, consts, and types in `.sigil` files must be reachable
   from `main` or tests
@@ -117,9 +117,7 @@ e axios:{get:λ(String)=>!Http String}
 
 e console:{log:λ(String)=>!Log Unit}
 
-i stdlib::string
-
-λfetchUser(id:Int)=>!Http String=axios.get("https://example.com/"+stdlib::string.intToString(id))
+λfetchUser(id:Int)=>!Http String=axios.get("https://example.com/"+§string.intToString(id))
 
 λmain()=>!Log Unit=console.log("hello")
 ```
@@ -191,13 +189,11 @@ t Result[T,E]=Ok(T)|Err(E)
 Imported constructors use qualified module syntax in expressions and patterns:
 
 ```sigil module projects/algorithms/src/orderingExample.lib.sigil
-i src::graphTypes
-
-λorderingResult()=>src::graphTypes.TopologicalSortResult=src::graphTypes.Ordering([1,2,3])
+λorderingResult()=>•graphTypes.TopologicalSortResult=•graphTypes.Ordering([1,2,3])
 
 λorderingValues()=>[Int] match orderingResult(){
-  src::graphTypes.Ordering(order)=>order|
-  src::graphTypes.CycleDetected()=>[]
+  •graphTypes.Ordering(order)=>order|
+  •graphTypes.CycleDetected()=>[]
 }
 ```
 
@@ -214,42 +210,36 @@ c greeting=("hello":String)
 Current parser behavior requires the typed form above. Untyped constants and the
 older `c name:Type=value` surface are not current Sigil.
 
-## Imports
+## Rooted Module References
 
-Sigil imports are namespace imports only:
+Sigil uses rooted module references directly at the use site. There are no
+top-level import declarations:
 
 ```sigil module projects/todo-app/src/importsExample.lib.sigil
-i core::map
-
-i src::todoDomain
-
-i stdlib::list
-
-i stdlib::json
+λtodoCount(todos:[•todoDomain.Todo])=>Int=•todoDomain.completedCount(todos)
 ```
 
-Use imported members through the namespace:
+Use rooted members through the namespace:
 
 ```sigil expr
-src::todoDomain.completedCount(todos)
+•todoDomain.completedCount(todos)
 ```
 
 ```sigil expr
-stdlib::list.last(items)
+§list.last(items)
 ```
 
-Canonical import roots include:
+Canonical roots include:
 
-- `core::...`
-- `config::...`
-- `src::...`
-- `stdlib::...`
-- `test::...`
-- `world::...`
+- `¶...`
+- `¤...`
+- `•...`
+- `§...`
+- `※...`
+- `†...`
 
-There are no selective imports and no import aliases.
-
-Unused imports are non-canonical.
+There are no selective imports, import aliases, or separate import
+declarations.
 
 ## Externs
 
@@ -283,7 +273,7 @@ Pure local bindings used exactly once are non-canonical and must be inlined.
 When a binding exists only to sequence effects, use the wildcard pattern:
 
 ```sigil expr
-l _=(stdlib::io.println("x"):Unit);
+l _=(§io.println("x"):Unit);
 next
 ```
 
@@ -392,20 +382,18 @@ Examples:
 Sigil uses one explicit concurrency surface:
 
 ```sigil program
-i stdlib::time
-
 λmain()=>!Timer [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5:{jitterMs:Some({max:25,min:1}),stopOn:shouldStop,windowMs:Some(1000)}{
   spawn one()
   spawnEach [1,2,3] process
 }
 
 λone()=>!Timer Result[Int,String]={
-  l _=(stdlib::time.sleepMs(0):Unit);
+  l _=(§time.sleepMs(0):Unit);
   Ok(1)
 }
 
 λprocess(value:Int)=>!Timer Result[Int,String]={
-  l _=(stdlib::time.sleepMs(0):Unit);
+  l _=(§time.sleepMs(0):Unit);
   Ok(value)
 }
 
@@ -435,15 +423,15 @@ Omitted policy defaults to no jitter, no early stop, and no windowing.
 Sigil also treats these operators as the canonical surface for common list
 plumbing:
 
-- do not hand-write recursive `all` clones; use `stdlib::list.all`
-- do not hand-write recursive `any` clones; use `stdlib::list.any`
-- do not count with `#(xs filter pred)`; use `stdlib::list.countIf`
+- do not hand-write recursive `all` clones; use `§list.all`
+- do not hand-write recursive `any` clones; use `§list.any`
+- do not count with `#(xs filter pred)`; use `§list.countIf`
 - do not hand-write recursive `map` clones when `map` fits
 - do not hand-write recursive `filter` clones when `filter` fits
-- do not hand-write recursive `find` clones; use `stdlib::list.find`
-- do not hand-write recursive `flatMap` clones; use `stdlib::list.flatMap`
+- do not hand-write recursive `find` clones; use `§list.find`
+- do not hand-write recursive `flatMap` clones; use `§list.flatMap`
 - do not hand-write recursive `fold` clones when `reduce ... from ...` fits
-- do not hand-write recursive `reverse` clones; use `stdlib::list.reverse`
+- do not hand-write recursive `reverse` clones; use `§list.reverse`
 - do not build recursive list results with `self(rest)⧺rhs`
 
 ## Tests
@@ -461,31 +449,23 @@ test "adds numbers" {
 Effectful tests use explicit effect annotations:
 
 ```sigil program language/test-fixtures/tests/writesLog.sigil
-i stdlib::io
-
 λmain()=>Unit=()
 
 test "writes log" =>!Log  {
-  stdlib::io.println("x")=()
+  §io.println("x")=()
 }
 ```
 
 Tests may also derive the active world locally:
 
 ```sigil program language/test-fixtures/tests/testWorld.sigil
-i stdlib::io
-
-i test::check::log
-
-i world::log
-
 λmain()=>Unit=()
 
 test "captured log contains line" =>!Log world {
-  c log=(world::log.capture():world::log.LogEntry)
+  c log=(†log.capture():†log.LogEntry)
 } {
-  stdlib::io.println("captured")=() and
-  test::check::log.contains("captured")
+  §io.println("captured")=() and
+  ※check::log.contains("captured")
 }
 ```
 
@@ -493,8 +473,8 @@ Rules:
 
 - `world { ... }` appears between the optional test effects and the body
 - world clauses are declaration-only and use `c` bindings
-- world bindings must be pure entry values from `world::...`
-- `test::observe` and `test::check` are test-only roots for reading the active test world
+- world bindings must be pure entry values from `†...`
+- `※observe` and `※check` are test-only roots for reading the active test world
 
 ## Canonical References
 

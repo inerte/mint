@@ -1,28 +1,10 @@
 e process
 
-i src::topology
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy(mailerApiBaseUrl(),•topology.mailerApi)],†log.stdout(),†process.real(),[],†timer.real()):†runtime.World)
 
-i world::clock
-
-i world::fs
-
-i world::http
-
-i world::log
-
-i world::process
-
-i world::runtime
-
-i world::tcp
-
-i world::timer
-
-c world=(world::runtime.world(world::clock.systemClock(),world::fs.real(),[world::http.proxy(mailerApiBaseUrl(),src::topology.mailerApi)],world::log.stdout(),world::process.real(),[],world::timer.real()):world::runtime.World)
-
-λmailerApiBaseUrl()=>String=mailerApiBaseUrlFromProperty(process.env.hasOwnProperty("MAILER_API_URL"))
+λmailerApiBaseUrl()=>String=mailerApiBaseUrlFromProperty(process.env.hasOwnProperty("mailerApiUrl"))
 
 λmailerApiBaseUrlFromProperty(hasValue:Bool)=>String match hasValue{
-  true=>(process.env.MAILER_API_URL:String)|
+  true=>(process.env.mailerApiUrl:String)|
   false=>""
 }

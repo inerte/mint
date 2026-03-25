@@ -1,8 +1,6 @@
 t ProcessEntry=DenyProcess()|FixtureProcess([ProcessRule])|RealProcess()
 
-t ProcessRule={argv:[String],cwd:Option[String],result:stdlib::process.ProcessResult}
-
-i stdlib::process
+t ProcessRule={argv:[String],cwd:Option[String],result:§process.ProcessResult}
 
 λdeny()=>ProcessEntry=DenyProcess()
 
@@ -10,4 +8,4 @@ i stdlib::process
 
 λreal()=>ProcessEntry=RealProcess()
 
-λrule(argv:[String],cwd:Option[String],result:stdlib::process.ProcessResult)=>ProcessRule={argv:argv,cwd:cwd,result:result}
+λrule(argv:[String],cwd:Option[String],result:§process.ProcessResult)=>ProcessRule={argv:argv,cwd:cwd,result:result}

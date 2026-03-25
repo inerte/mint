@@ -29,7 +29,7 @@ The language gets a simpler naming story:
 
 - type-level names are visually distinct
 - value-level names share one canonical style
-- imports and filenames align with the same rule
+- module segments and filenames align with the same rule
 
 That is a better fit for Sigil than inheriting several naming systems from other
 language traditions.

@@ -236,15 +236,15 @@ It also rejects:
 
 The required replacements are:
 
-- `stdlib::list.all`
-- `stdlib::list.any`
-- `stdlib::list.countIf`
+- `§list.all`
+- `§list.any`
+- `§list.countIf`
 - `map`
 - `filter`
-- `stdlib::list.find`
-- `stdlib::list.flatMap`
-- `reduce ... from ...` / `stdlib::list.fold`
-- `stdlib::list.reverse`
+- `§list.find`
+- `§list.flatMap`
+- `reduce ... from ...` / `§list.fold`
+- `§list.reverse`
 
 These are exact-shape canonicality rules, not general semantic equivalence or
 complexity proofs.

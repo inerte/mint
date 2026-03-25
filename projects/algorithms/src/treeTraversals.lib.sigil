@@ -1,12 +1,8 @@
 t IntTree=Empty()|Node([IntTree],Int)
 
-i stdlib::list
-
-i stdlib::numeric
-
 λflatten(tree:IntTree)=>[Int] match tree{
   Empty()=>[]|
-  Node(children,value)=>[value]⧺stdlib::list.flatMap(flatten,children)
+  Node(children,value)=>[value]⧺§list.flatMap(flatten,children)
 }
 
 λincremented(tree:IntTree)=>IntTree match tree{
@@ -14,7 +10,7 @@ i stdlib::numeric
   Node(children,value)=>Node(children map incremented,value+1)
 }
 
-λpositiveValues(tree:IntTree)=>[Int]=flatten(tree) filter stdlib::numeric.isPositive
+λpositiveValues(tree:IntTree)=>[Int]=flatten(tree) filter §numeric.isPositive
 
 λpreorder(tree:IntTree)=>[Int]=flatten(tree)
 

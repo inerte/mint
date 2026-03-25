@@ -25,7 +25,7 @@ Without this split, runtime truth gets blurred together:
 Sigil prefers one explicit model:
 - `src/topology.lib.sigil` declares dependency handles and environment names
 - `config/<env>.lib.sigil` exports the selected environment's `world`
-- application code uses typed handles from `src::topology`
+- application code uses typed handles from `•topology`
 - only config modules may read `process.env`
 
 ## Canonical Project Shape
@@ -48,15 +48,13 @@ Environment names are flexible, but the file path is canonical:
 `src/topology.lib.sigil` declares only dependency handles and environment names:
 
 ```sigil module projects/topology-http/src/topology.lib.sigil
-i stdlib::topology
+c local=(§topology.environment("local"):§topology.Environment)
 
-c local=(stdlib::topology.environment("local"):stdlib::topology.Environment)
+c mailerApi=(§topology.httpService("mailerApi"):§topology.HttpServiceDependency)
 
-c mailerApi=(stdlib::topology.httpService("mailerApi"):stdlib::topology.HttpServiceDependency)
+c prod=(§topology.environment("prod"):§topology.Environment)
 
-c prod=(stdlib::topology.environment("prod"):stdlib::topology.Environment)
-
-c test=(stdlib::topology.environment("test"):stdlib::topology.Environment)
+c test=(§topology.environment("test"):§topology.Environment)
 ```
 
 No URLs.
@@ -72,25 +70,7 @@ Those belong in config.
 Each declared environment gets one config module exporting `world`:
 
 ```sigil module projects/topology-http/config/test.lib.sigil
-i src::topology
-
-i world::clock
-
-i world::fs
-
-i world::http
-
-i world::log
-
-i world::process
-
-i world::runtime
-
-i world::tcp
-
-i world::timer
-
-c world=(world::runtime.world(world::clock.systemClock(),world::fs.real(),[world::http.proxy("http://127.0.0.1:45110",src::topology.mailerApi)],world::log.capture(),world::process.deny(),[],world::timer.virtual()):world::runtime.World)
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy("http://127.0.0.1:45110",•topology.mailerApi)],†log.capture(),†process.deny(),[],†timer.virtual()):†runtime.World)
 ```
 
 Production-style config can read env vars, but only there:
@@ -98,25 +78,7 @@ Production-style config can read env vars, but only there:
 ```sigil module projects/topology-http/config/prod.lib.sigil
 e process
 
-i src::topology
-
-i world::clock
-
-i world::fs
-
-i world::http
-
-i world::log
-
-i world::process
-
-i world::runtime
-
-i world::tcp
-
-i world::timer
-
-c world=(world::runtime.world(world::clock.systemClock(),world::fs.real(),[world::http.proxy((process.env.MAILER_API_URL:String),src::topology.mailerApi)],world::log.stdout(),world::process.real(),[],world::timer.real()):world::runtime.World)
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy((process.env.mailerApiUrl:String),•topology.mailerApi)],†log.stdout(),†process.real(),[],†timer.real()):†runtime.World)
 ```
 
 ## Application Code Uses Handles, Not Endpoints
@@ -124,11 +86,7 @@ c world=(world::runtime.world(world::clock.systemClock(),world::fs.real(),[world
 Canonical HTTP usage:
 
 ```sigil program projects/topology-http/src/getClient.sigil
-i src::topology
-
-i stdlib::httpClient
-
-λmain()=>!Http String match stdlib::httpClient.get(src::topology.mailerApi,stdlib::httpClient.emptyHeaders(),"/health"){
+λmain()=>!Http String match §httpClient.get(•topology.mailerApi,§httpClient.emptyHeaders(),"/health"){
   Ok(response)=>response.body|
   Err(error)=>error.message
 }
@@ -137,11 +95,7 @@ i stdlib::httpClient
 Canonical TCP usage:
 
 ```sigil program projects/topology-tcp/src/pingClient.sigil
-i src::topology
-
-i stdlib::tcpClient
-
-λmain()=>!Tcp String match stdlib::tcpClient.send(src::topology.eventStream,"ping"){
+λmain()=>!Tcp String match §tcpClient.send(•topology.eventStream,"ping"){
   Ok(response)=>response.message|
   Err(error)=>error.message
 }
@@ -150,9 +104,9 @@ i stdlib::tcpClient
 Forbidden patterns:
 
 ```text
-stdlib::httpClient.get("http://127.0.0.1:45110",headers,"/health")
-stdlib::tcpClient.send("127.0.0.1","ping",45120)
-process.env.MAILER_API_URL
+§httpClient.get("http://127.0.0.1:45110",headers,"/health")
+§tcpClient.send("127.0.0.1","ping",45120)
+process.env.mailerApiUrl
 ```
 
 ## `--env` Is Required

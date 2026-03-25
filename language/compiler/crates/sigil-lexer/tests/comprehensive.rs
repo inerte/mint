@@ -50,17 +50,29 @@ fn test_all_primitive_type_keywords() {
 
 #[test]
 fn test_all_keywords() {
-    let source = "i e c when l mut effect t";
+    let source = "e c when l mut effect t";
     let tokens = tokenize(source).unwrap();
 
-    assert_eq!(tokens[0].token_type, TokenType::IMPORT);
-    assert_eq!(tokens[1].token_type, TokenType::EXTERN);
-    assert_eq!(tokens[2].token_type, TokenType::CONST);
-    assert_eq!(tokens[3].token_type, TokenType::WHEN);
-    assert_eq!(tokens[4].token_type, TokenType::LET);
-    assert_eq!(tokens[5].token_type, TokenType::MUT);
-    assert_eq!(tokens[6].token_type, TokenType::Effect);
-    assert_eq!(tokens[7].token_type, TokenType::TYPE);
+    assert_eq!(tokens[0].token_type, TokenType::EXTERN);
+    assert_eq!(tokens[1].token_type, TokenType::CONST);
+    assert_eq!(tokens[2].token_type, TokenType::WHEN);
+    assert_eq!(tokens[3].token_type, TokenType::LET);
+    assert_eq!(tokens[4].token_type, TokenType::MUT);
+    assert_eq!(tokens[5].token_type, TokenType::Effect);
+    assert_eq!(tokens[6].token_type, TokenType::TYPE);
+}
+
+#[test]
+fn test_root_sigils_tokenize() {
+    let source = "§ • ¶ ¤ † ※";
+    let tokens = tokenize(source).unwrap();
+
+    assert_eq!(tokens[0].token_type, TokenType::StdlibRoot);
+    assert_eq!(tokens[1].token_type, TokenType::SrcRoot);
+    assert_eq!(tokens[2].token_type, TokenType::CoreRoot);
+    assert_eq!(tokens[3].token_type, TokenType::ConfigRoot);
+    assert_eq!(tokens[4].token_type, TokenType::WorldRoot);
+    assert_eq!(tokens[5].token_type, TokenType::TestRoot);
 }
 
 #[test]

@@ -1,42 +1,122 @@
 {
+  "binary-search": {
+    "category": "algorithm",
+    "python": "language/benchmarks/tokens/algorithms/binary-search/binary-search.py",
+    "sigil": "projects/algorithms/src/binarySearch.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/binary-search/binary-search.ts"
+  },
+  "concurrent-region": {
+    "category": "language-shaped",
+    "python": "language/benchmarks/tokens/cases/concurrent-region/concurrent-region.py",
+    "sigil": "language/test-fixtures/testConcurrentRegion.sigil",
+    "typescript": "language/benchmarks/tokens/cases/concurrent-region/concurrent-region.ts"
+  },
   "factorial": {
+    "category": "algorithm",
     "python": "language/benchmarks/tokens/algorithms/factorial/factorial.py",
     "sigil": "projects/algorithms/src/factorialValid.sigil",
     "typescript": "language/benchmarks/tokens/algorithms/factorial/factorial.ts"
   },
   "fibonacci": {
+    "category": "algorithm",
     "python": "language/benchmarks/tokens/algorithms/fibonacci/fibonacci.py",
     "sigil": "projects/algorithms/src/fibonacci.sigil",
     "typescript": "language/benchmarks/tokens/algorithms/fibonacci/fibonacci.ts"
   },
   "filter-even": {
+    "category": "algorithm",
     "python": "language/benchmarks/tokens/algorithms/filter-even/filter-even.py",
     "sigil": "projects/algorithms/src/filterEven.sigil",
     "typescript": "language/benchmarks/tokens/algorithms/filter-even/filter-even.ts"
   },
   "gcd": {
+    "category": "algorithm",
     "python": "language/benchmarks/tokens/algorithms/gcd/gcd.py",
     "sigil": "projects/algorithms/src/gcd.sigil",
     "typescript": "language/benchmarks/tokens/algorithms/gcd/gcd.ts"
   },
+  "histogram": {
+    "category": "algorithm",
+    "python": "language/benchmarks/tokens/algorithms/histogram/histogram.py",
+    "sigil": "projects/algorithms/src/histogram.lib.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/histogram/histogram.ts"
+  },
+  "insertion-sort": {
+    "category": "algorithm",
+    "python": "language/benchmarks/tokens/algorithms/insertion-sort/insertion-sort.py",
+    "sigil": "projects/algorithms/src/insertionSort.lib.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/insertion-sort/insertion-sort.ts"
+  },
   "is-palindrome": {
+    "category": "algorithm",
     "python": "language/benchmarks/tokens/algorithms/is-palindrome/is-palindrome.py",
     "sigil": "projects/algorithms/src/isPalindrome.sigil",
     "typescript": "language/benchmarks/tokens/algorithms/is-palindrome/is-palindrome.ts"
   },
+  "levenshtein-distance": {
+    "category": "algorithm",
+    "python": "language/benchmarks/tokens/algorithms/levenshtein-distance/levenshtein-distance.py",
+    "sigil": "projects/algorithms/src/levenshteinDistance.lib.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/levenshtein-distance/levenshtein-distance.ts"
+  },
+  "linear-search": {
+    "category": "algorithm",
+    "python": "language/benchmarks/tokens/algorithms/linear-search/linear-search.py",
+    "sigil": "projects/algorithms/src/linearSearch.lib.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/linear-search/linear-search.ts"
+  },
   "map-double": {
+    "category": "algorithm",
     "python": "language/benchmarks/tokens/algorithms/map-double/map-double.py",
     "sigil": "projects/algorithms/src/mapDouble.sigil",
     "typescript": "language/benchmarks/tokens/algorithms/map-double/map-double.ts"
   },
+  "merge-sort": {
+    "category": "algorithm",
+    "python": "language/benchmarks/tokens/algorithms/merge-sort/merge-sort.py",
+    "sigil": "projects/algorithms/src/mergeSort.lib.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/merge-sort/merge-sort.ts"
+  },
   "power": {
+    "category": "algorithm",
     "python": "language/benchmarks/tokens/algorithms/power/power.py",
     "sigil": "projects/algorithms/src/power.sigil",
     "typescript": "language/benchmarks/tokens/algorithms/power/power.ts"
   },
+  "quick-sort": {
+    "category": "algorithm",
+    "python": "language/benchmarks/tokens/algorithms/quick-sort/quick-sort.py",
+    "sigil": "projects/algorithms/src/quickSort.lib.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/quick-sort/quick-sort.ts"
+  },
   "sum-list": {
+    "category": "algorithm",
     "python": "language/benchmarks/tokens/algorithms/sum-list/sum-list.py",
     "sigil": "projects/algorithms/src/sumList.sigil",
     "typescript": "language/benchmarks/tokens/algorithms/sum-list/sum-list.ts"
+  },
+  "topology-http-client": {
+    "category": "language-shaped",
+    "python": "language/benchmarks/tokens/cases/topology-http-client/topology-http-client.py",
+    "sigil": "projects/topology-http/src/getClient.sigil",
+    "typescript": "language/benchmarks/tokens/cases/topology-http-client/topology-http-client.ts"
+  },
+  "topology-http-test-world": {
+    "category": "language-shaped",
+    "python": "language/benchmarks/tokens/cases/topology-http-test-world/topology-http-test-world.py",
+    "sigil": "projects/topology-http/config/test.lib.sigil",
+    "typescript": "language/benchmarks/tokens/cases/topology-http-test-world/topology-http-test-world.ts"
+  },
+  "word-frequency": {
+    "category": "algorithm",
+    "python": "language/benchmarks/tokens/algorithms/word-frequency/word-frequency.py",
+    "sigil": "projects/algorithms/src/wordFrequency.lib.sigil",
+    "typescript": "language/benchmarks/tokens/algorithms/word-frequency/word-frequency.ts"
+  },
+  "world-log-test": {
+    "category": "language-shaped",
+    "python": "language/benchmarks/tokens/cases/world-log-test/world-log-test.py",
+    "sigil": "language/test-fixtures/tests/testWorld.sigil",
+    "typescript": "language/benchmarks/tokens/cases/world-log-test/world-log-test.ts"
   }
 }

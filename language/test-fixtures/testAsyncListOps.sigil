@@ -1,9 +1,7 @@
-i stdlib::numeric
-
 λdouble(x:Int)=>Int=x*2
 
 λmain()=>Int=processList([1,2,3,4,5])
 
-λprocessList(xs:[Int])=>Int=xs map double filter stdlib::numeric.isEven reduce sum from 0
+λprocessList(xs:[Int])=>Int=xs map double filter §numeric.isEven reduce sum from 0
 
 λsum(acc:Int,x:Int)=>Int=acc+x

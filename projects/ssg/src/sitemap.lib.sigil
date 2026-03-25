@@ -1,25 +1,19 @@
-i src::content
+λabsoluteUrl(config:•types.SiteBuildConfig,page:•types.SitePage)=>String=trimTrailingSlash(config.siteUrl)++•content.canonicalRoute(page)
 
-i src::types
+λallPages(data:•types.SiteData)=>[•types.SitePage]=[data.home,data.articlesIntro]⧺data.articles⧺data.docs⧺data.spec⧺data.standalone
 
-i stdlib::string
+λpageEntries(config:•types.SiteBuildConfig,pages:[•types.SitePage])=>String=§string.join("",pages map (λ(page:•types.SitePage)=>String=pageEntry(config,page)))
 
-λabsoluteUrl(config:src::types.SiteBuildConfig,page:src::types.SitePage)=>String=trimTrailingSlash(config.siteUrl)++src::content.canonicalRoute(page)
+λpageEntry(config:•types.SiteBuildConfig,page:•types.SitePage)=>String="<url><loc>"++absoluteUrl(config,page)++"</loc>"++pageLastMod(page)++"</url>"
 
-λallPages(data:src::types.SiteData)=>[src::types.SitePage]=[data.home,data.articlesIntro]⧺data.articles⧺data.docs⧺data.spec⧺data.standalone
-
-λpageEntries(config:src::types.SiteBuildConfig,pages:[src::types.SitePage])=>String=stdlib::string.join("",pages map (λ(page:src::types.SitePage)=>String=pageEntry(config,page)))
-
-λpageEntry(config:src::types.SiteBuildConfig,page:src::types.SitePage)=>String="<url><loc>"++absoluteUrl(config,page)++"</loc>"++pageLastMod(page)++"</url>"
-
-λpageLastMod(page:src::types.SitePage)=>String match #page.meta.date>0{
+λpageLastMod(page:•types.SitePage)=>String match #page.meta.date>0{
   true=>"<lastmod>"++page.meta.date++"</lastmod>"|
   false=>""
 }
 
-λsitemapXml(config:src::types.SiteBuildConfig,data:src::types.SiteData)=>String="<?xml version=\"1.0\" encoding=\"UTF-8\"?>"++"<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"++pageEntries(config,allPages(data))++"</urlset>"
+λsitemapXml(config:•types.SiteBuildConfig,data:•types.SiteData)=>String="<?xml version=\"1.0\" encoding=\"UTF-8\"?>"++"<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"++pageEntries(config,allPages(data))++"</urlset>"
 
-λtrimTrailingSlash(path:String)=>String match #path>1 and stdlib::string.endsWith(path,"/"){
-  true=>trimTrailingSlash(stdlib::string.substring(#path-1,path,0))|
+λtrimTrailingSlash(path:String)=>String match #path>1 and §string.endsWith(path,"/"){
+  true=>trimTrailingSlash(§string.substring(#path-1,path,0))|
   false=>path
 }

@@ -1,14 +1,10 @@
-i src::httpHelpers
-
-i stdlib::httpServer
-
-λhandleRequest(req:stdlib::httpServer.Request)=>stdlib::httpServer.Response match src::httpHelpers.routePath(req.path){
-  "/echo"=>{body:req.body,headers:src::httpHelpers.serverHeaders(({↦}:{String↦String})),status:201}|
-  "/headers"=>{body:"ok",headers:src::httpHelpers.serverHeaders({"x-request-id"↦"abc-123"}),status:202}|
-  "/json"=>stdlib::httpServer.json("{\"ok\":true}",200)|
-  "/health"=>stdlib::httpServer.ok("healthy")|
-  "/routes"=>{body:src::httpHelpers.routeSummary(src::httpHelpers.allRoutes()),headers:src::httpHelpers.serverHeaders(({↦}:{String↦String})),status:200}|
-  _=>stdlib::httpServer.notFound()
+λhandleRequest(req:§httpServer.Request)=>§httpServer.Response match •httpHelpers.routePath(req.path){
+  "/echo"=>{body:req.body,headers:•httpHelpers.serverHeaders(({↦}:{String↦String})),status:201}|
+  "/headers"=>{body:"ok",headers:•httpHelpers.serverHeaders({"x-request-id"↦"abc-123"}),status:202}|
+  "/json"=>§httpServer.json("{\"ok\":true}",200)|
+  "/health"=>§httpServer.ok("healthy")|
+  "/routes"=>{body:•httpHelpers.routeSummary(•httpHelpers.allRoutes()),headers:•httpHelpers.serverHeaders(({↦}:{String↦String})),status:200}|
+  _=>§httpServer.notFound()
 }
 
-λmain()=>!Http Unit=stdlib::httpServer.serve(handleRequest,45110)
+λmain()=>!Http Unit=§httpServer.serve(handleRequest,45110)

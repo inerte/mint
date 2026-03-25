@@ -2,11 +2,9 @@ t Url={fragment:String,host:String,path:String,port:Option[Int],protocol:String,
 
 t UrlError={message:String}
 
-i core::map
+λgetQuery(key:String,url:Url)=>Option[String]=¶map.get(key,url.query)
 
-λgetQuery(key:String,url:Url)=>Option[String]=core::map.get(key,url.query)
-
-λhasQuery(key:String,url:Url)=>Bool=core::map.has(key,url.query)
+λhasQuery(key:String,url:Url)=>Bool=¶map.has(key,url.query)
 
 λisAbsolute(url:Url)=>Bool=#url.protocol>0
 

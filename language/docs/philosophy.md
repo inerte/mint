@@ -35,7 +35,7 @@ Optimize for machine generation (dense syntax, zero ambiguity, minimal tokens)
 - No alternative syntaxes
 - No optional keywords, brackets, delimiters
 - No syntactic sugar
-- One import style, one function definition, one loop construct
+- One rooted-module reference style, one function definition, one loop construct
 
 **Why?** LLMs hallucinate less when there's only one correct answer. Choice paralysis causes errors.
 
@@ -77,13 +77,13 @@ That is why Sigil now distinguishes:
 
 Examples:
 - `ConcurrentOutcome[T,E]`, `Option[T]`, `Result[T,E]`, `Aborted`, `Failure`, `Success`, `Some`, `None`, `Ok`, and `Err` are implicit core vocabulary
-- `core::map` owns map operations
-- `stdlib::string` owns string helpers like `join`
-- `stdlib::file` owns UTF-8 filesystem helpers
-- `stdlib::path` owns filesystem path helpers
-- `stdlib::json` owns JSON parsing/value helpers
-- `stdlib::time` owns clock and ISO timestamp handling
-- `stdlib::url` owns URL parsing/query helpers
+- `¶map` owns map operations
+- `§string` owns string helpers like `join`
+- `§file` owns UTF-8 filesystem helpers
+- `§path` owns filesystem path helpers
+- `§json` owns JSON parsing/value helpers
+- `§time` owns clock and ISO timestamp handling
+- `§url` owns URL parsing/query helpers
 
 The design rule is pragmatic:
 - a large stdlib is fine
@@ -107,14 +107,14 @@ That leads to four canonical rules:
 Practical example:
 
 ```sigil module
-t Message={createdAt:stdlib::time.Instant,text:String}
+t Message={createdAt:§time.Instant,text:String}
 ```
 
 If code has a `Message`, then `createdAt` is there.
 If `createdAt` might be absent, the canonical encoding is:
 
 ```sigil module
-t MaybeMessage={createdAt:Option[stdlib::time.Instant],text:String}
+t MaybeMessage={createdAt:Option[§time.Instant],text:String}
 ```
 
 not an open record, a partial record, or ambient nullability.
@@ -123,8 +123,8 @@ For JSON-backed boundaries, the intended pipeline is:
 
 ```text
 raw JSON text
-=> stdlib::json.parse
-=> stdlib::decode.parse / stdlib::decode.run
+=> §json.parse
+=> §decode.parse / §decode.run
 => exact internal records and validated wrappers
 ```
 
@@ -223,13 +223,13 @@ If a name is already bound in a function, lambda, or match scope, nested scopes 
 ```text
 ⟦ GOOD ⟧
 λprocess_user(name:String)=>String={
-  l normalized_name=(stdlib::string.trim(name):String);
+  l normalized_name=(§string.trim(name):String);
   normalized_name
 }
 
 ⟦ BAD ⟧
 λprocess_user(name:String)=>String={
-  l name=(stdlib::string.trim(name):String);
+  l name=(§string.trim(name):String);
   name
 }
 ```
@@ -249,12 +249,12 @@ Sigil also rejects the opposite source of variation: naming a pure intermediate 
 ⟦ BAD ⟧
 λformulaText(checksums:Checksums,version:String)=>String={
   l repo=(releaseRepo():String);
-  src::formula.formula({checksums:checksums,repo:repo,version:version})
+  •formula.formula({checksums:checksums,repo:repo,version:version})
 }
 
 ⟦ GOOD ⟧
 λformulaText(checksums:Checksums,version:String)=>String=
-  src::formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
+  •formula.formula({checksums:checksums,repo:releaseRepo(),version:version})
 ```
 
 This is not a style suggestion. It is canonical validation.
@@ -295,7 +295,7 @@ More code fits in LLM context windows = better understanding = better code gener
 - `match` instead of bespoke symbolic control-flow markers
 - Unicode type symbols: `IntFloatBoolString` instead of `Int,Float,Bool,String`
 
-**Result:** The current published token corpus shows **27.0% fewer tokens than TypeScript** overall (see `language/benchmarks/tokens/RESULTS.md`)
+**Result:** The current published token corpus shows **20.7% fewer tokens than TypeScript** overall, with a **16.3%** algorithm subtotal and a **41.0%** language-shaped subtotal (see `language/benchmarks/tokens/RESULTS.md`)
 
 **Why Unicode?** Modern LLMs tokenize Unicode efficiently, and it provides unambiguous semantic meaning. `Int` universally means "integers" in mathematics.
 

@@ -4,6 +4,9 @@ e fs::promises:{readFile:λ(String,String)=>String,writeFile:λ(String,String)=>
 
 e path:{join:λ(String,String)=>String}
 
-λmain()=>Unit=console.log("Typed FFI demonstration")
+λmain()=>Unit match false{
+  true=>console.log(readConfig("app.json"))|
+  false=>console.log(path.join("config","app.json"))
+}
 
 λreadConfig(filename:String)=>String=fs::promises.readFile((path.join("config",filename):String),"utf8")

@@ -1,10 +1,8 @@
-i stdlib::numeric
-
 λfilterMultiples(prime:Int,xs:[Int])=>[Int]=xs filter (λ(head:Int)=>Bool=head%prime≠0)
 
 λsieve(limit:Int)=>[Int] match limit<2{
   true=>[]|
-  false=>sieveCandidates(stdlib::numeric.range(2,limit))
+  false=>sieveCandidates(§numeric.range(2,limit))
 }
 
 λsieveCandidates(candidates:[Int])=>[Int] match candidates{

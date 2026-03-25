@@ -1,8 +1,4 @@
-i stdlib::list
-
-i stdlib::numeric
-
-λdivisors(n:Int)=>[Int]=stdlib::numeric.range(2,n) filter (λ(divisor:Int)=>Bool=n%divisor=0)
+λdivisors(n:Int)=>[Int]=§numeric.range(2,n) filter (λ(divisor:Int)=>Bool=n%divisor=0)
 
 λprimeFactors(n:Int)=>[Int] match n≤1{
   true=>[]|
@@ -15,7 +11,7 @@ i stdlib::numeric
   }
 }
 
-λsmallestDivisor(n:Int)=>Int match stdlib::list.nth(0,divisors(n)){
+λsmallestDivisor(n:Int)=>Int match §list.nth(0,divisors(n)){
   Some(value)=>value|
   None()=>n
 }

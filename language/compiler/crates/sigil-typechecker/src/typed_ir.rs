@@ -1,7 +1,7 @@
 use crate::types::{EffectSet, InferenceType, TypeScheme};
 use sigil_ast::{
-    BinaryOperator, ExternDecl, IdentifierExpr, ImportDecl, LiteralExpr, Param, Pattern,
-    PipelineOperator, SourceLocation, TypeDecl, UnaryOperator,
+    BinaryOperator, ExternDecl, IdentifierExpr, LiteralExpr, Param, Pattern, PipelineOperator,
+    SourceLocation, TypeDecl, UnaryOperator,
 };
 use std::collections::HashMap;
 
@@ -21,7 +21,6 @@ pub struct TypedProgram {
 pub enum TypedDeclaration {
     Function(TypedFunctionDecl),
     Type(TypedTypeDecl),
-    Import(TypedImportDecl),
     Const(TypedConstDecl),
     Test(TypedTestDecl),
     Extern(TypedExternDecl),
@@ -41,11 +40,6 @@ pub struct TypedFunctionDecl {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypedTypeDecl {
     pub ast: TypeDecl,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TypedImportDecl {
-    pub ast: ImportDecl,
 }
 
 #[derive(Debug, Clone, PartialEq)]

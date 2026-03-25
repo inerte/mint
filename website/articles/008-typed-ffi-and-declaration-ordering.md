@@ -35,7 +35,7 @@ typed FFI declarations depend on named types in the same direct way that other
 typed declarations do.
 
 The exact historical ordering changed from an earlier `e => i => t ...` shape to
-`t => e => i => c => λ => test`.
+`t => e => c => λ => test`.
 
 ## Why the Change Was Worth It
 

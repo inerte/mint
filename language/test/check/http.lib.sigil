@@ -1,16 +1,10 @@
-i stdlib::topology
+λcalled(entry:†http.HttpEntry)=>Bool=※observe::http.callCount(entry)>0
 
-i test::observe::http
+λcalledNTimes(count:Int,entry:†http.HttpEntry)=>Bool=※observe::http.callCount(entry)=count
 
-i world::http
+λcalledOnce(entry:†http.HttpEntry)=>Bool=calledNTimes(1,entry)
 
-λcalled(entry:world::http.HttpEntry)=>Bool=test::observe::http.callCount(entry)>0
-
-λcalledNTimes(count:Int,entry:world::http.HttpEntry)=>Bool=test::observe::http.callCount(entry)=count
-
-λcalledOnce(entry:world::http.HttpEntry)=>Bool=calledNTimes(1,entry)
-
-λlastPathIs(entry:world::http.HttpEntry,expected:String)=>Bool match test::observe::http.lastPath(entry){
+λlastPathIs(entry:†http.HttpEntry,expected:String)=>Bool match ※observe::http.lastPath(entry){
   Some(actual)=>actual=expected|
   None()=>false
 }

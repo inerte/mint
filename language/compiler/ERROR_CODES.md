@@ -84,8 +84,8 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-PARSE-NS-SEP
 **Description:** Invalid namespace separator.
 **Message:** "invalid namespace separator"
-**Example:** `i stdlib.list` or `i stdlib/list` => should be `i stdlib::list`
-**How to fix:** Use :: (U+22C5) for namespace separation
+**Example:** `§httpClient.headers.empty` => should be `§httpClient.headers::empty`
+**How to fix:** Use a Sigil root at the front and `::` only for deeper nested module segments
 
 ### SIGIL-PARSE-LOCAL-BINDING
 **Description:** Invalid local binding keyword.
@@ -109,11 +109,6 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **Description:** Duplicate extern declaration with same name.
 **Message:** "Duplicate extern declaration: \"Name\""
 **How to fix:** Remove duplicate extern declaration
-
-### SIGIL-CANON-DUPLICATE-IMPORT
-**Description:** Duplicate import statement.
-**Message:** "Duplicate import declaration: \"module\""
-**How to fix:** Remove duplicate import
 
 ### SIGIL-CANON-DUPLICATE-CONST
 **Description:** Duplicate constant declaration.
@@ -243,13 +238,13 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **Description:** Exact recursive all clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled all"
 **Example:** `λallPositive(xs:[Int])=>Bool match xs{[]=>true|[x,.rest]=>isPositive(x) and allPositive(rest)}`
-**How to fix:** Use `stdlib::list.all(pred,xs)`
+**How to fix:** Use `§list.all(pred,xs)`
 
 ### SIGIL-CANON-RECURSION-ANY-CLONE
 **Description:** Exact recursive any clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled any"
 **Example:** `λanyEven(xs:[Int])=>Bool match xs{[]=>false|[x,.rest]=>isEven(x) or anyEven(rest)}`
-**How to fix:** Use `stdlib::list.any(pred,xs)`
+**How to fix:** Use `§list.any(pred,xs)`
 
 ### SIGIL-CANON-RECURSION-MAP-CLONE
 **Description:** Exact recursive map clone detected.
@@ -267,25 +262,25 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **Description:** Exact recursive find clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled find"
 **Example:** `λfindEven(xs:[Int])=>Option[Int] match xs{[]=>None()|[x,.rest]=>match isEven(x){true=>Some(x)|false=>findEven(rest)}}`
-**How to fix:** Use `stdlib::list.find(pred,xs)`
+**How to fix:** Use `§list.find(pred,xs)`
 
 ### SIGIL-CANON-RECURSION-FLATMAP-CLONE
 **Description:** Exact recursive flatMap clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled flatMap"
 **Example:** `λexplode(xs:[Int])=>[Int] match xs{[]=>[]|[x,.rest]=>digits(x)⧺explode(rest)}`
-**How to fix:** Use `stdlib::list.flatMap(fn,xs)`
+**How to fix:** Use `§list.flatMap(fn,xs)`
 
 ### SIGIL-CANON-RECURSION-REVERSE-CLONE
 **Description:** Exact recursive reverse clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled reverse"
 **Example:** `λreverse(xs:[Int])=>[Int] match xs{[]=>[]|[x,.rest]=>reverse(rest)⧺[x]}`
-**How to fix:** Use `stdlib::list.reverse`
+**How to fix:** Use `§list.reverse`
 
 ### SIGIL-CANON-RECURSION-FOLD-CLONE
 **Description:** Exact recursive fold clone detected.
 **Message:** "Recursive function 'name' is a hand-rolled fold"
 **Example:** `λsum(xs:[Int])=>Int match xs{[]=>0|[x,.rest]=>x+sum(rest)}`
-**How to fix:** Use `xs reduce fn from init` or `stdlib::list.fold`
+**How to fix:** Use `xs reduce fn from init` or `§list.fold`
 
 ### SIGIL-CANON-BRANCHING-SELF-RECURSION
 **Description:** Non-canonical sibling self-calls over the same directly reduced parameter.
@@ -298,7 +293,7 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **Description:** Filter followed by length is a non-canonical counting shape.
 **Message:** "filter followed by length is not canonical"
 **Example:** `#(xs filter pred)`
-**How to fix:** Use `stdlib::list.countIf(pred,xs)`
+**How to fix:** Use `§list.countIf(pred,xs)`
 
 ### SIGIL-CANON-MATCH-BOOLEAN
 **Description:** Cannot pattern match on boolean expression.
@@ -356,7 +351,7 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 ### SIGIL-CANON-DECL-CATEGORY-ORDER
 **Description:** Declarations out of category order.
 **Message:** "Declarations out of category order"
-**Expected order:** types => externs => imports => consts => functions => tests
+**Expected order:** types => externs => consts => functions => tests
 **How to fix:** Reorder declarations by category
 
 ### SIGIL-CANON-DECL-EXPORT-ORDER
@@ -417,23 +412,23 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **How to fix:** Check error message for details
 
 ### SIGIL-CLI-IMPORT-NOT-FOUND
-**Description:** Cannot resolve import.
-**Message:** "cannot resolve import: path"
-**How to fix:** Check import path exists
+**Description:** Cannot resolve rooted module reference.
+**Message:** "cannot resolve module: path"
+**How to fix:** Check the rooted module path exists
 
 ### SIGIL-CLI-IMPORT-CYCLE
-**Description:** Circular import detected.
-**Message:** "import cycle detected"
-**How to fix:** Remove circular dependency
+**Description:** Circular module dependency detected.
+**Message:** "module cycle detected"
+**How to fix:** Remove circular module dependency
 
 ### SIGIL-CLI-INVALID-IMPORT
-**Description:** Invalid import module ID.
-**Message:** "invalid sigil import module id"
-**How to fix:** Use valid import syntax
+**Description:** Invalid Sigil module ID.
+**Message:** "invalid sigil module id"
+**How to fix:** Use a valid rooted module path
 
 ### SIGIL-CLI-PROJECT-ROOT-REQUIRED
-**Description:** Project import requires sigil project root.
-**Message:** "project import requires sigil project root"
+**Description:** Project module reference requires sigil project root.
+**Message:** "project module reference requires sigil project root"
 **How to fix:** Ensure project has proper structure
 
 ## Runtime Errors (SIGIL-RUNTIME-*, SIGIL-RUN-*)

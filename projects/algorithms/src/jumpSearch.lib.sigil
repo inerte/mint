@@ -1,7 +1,3 @@
-i stdlib::list
-
-i stdlib::numeric
-
 λblockSize(n:Int)=>Int=blockSizeFrom(1,n)
 
 λblockSizeFrom(candidate:Int,n:Int)=>Int match (candidate+1)*(candidate+1)>n{
@@ -9,11 +5,11 @@ i stdlib::numeric
   false=>blockSizeFrom(candidate+1,n)
 }
 
-λblockStarts(block:Int,xs:[Int])=>[Int]=stdlib::numeric.range(0,(#xs-1)/block) map (λ(step:Int)=>Int=step*block)
+λblockStarts(block:Int,xs:[Int])=>[Int]=§numeric.range(0,(#xs-1)/block) map (λ(step:Int)=>Int=step*block)
 
-λendIndex(block:Int,start:Int,xs:[Int])=>Int=stdlib::numeric.min(#xs-1,start+block-1)
+λendIndex(block:Int,start:Int,xs:[Int])=>Int=§numeric.min(#xs-1,start+block-1)
 
-λindexValue(idx:Int,xs:[Int])=>Int match stdlib::list.nth(idx,xs){
+λindexValue(idx:Int,xs:[Int])=>Int match §list.nth(idx,xs){
   Some(value)=>value|
   None()=>0
 }
@@ -23,7 +19,7 @@ i stdlib::numeric
   false=>jumpSearchInBlock(blockSize(#xs),target,xs)
 }
 
-λjumpSearchInBlock(block:Int,target:Int,xs:[Int])=>Int match stdlib::list.nth(0,(blockStarts(block,xs) filter (λ(start:Int)=>Bool=indexValue(endIndex(block,start,xs),xs)≥target):[Int])){
+λjumpSearchInBlock(block:Int,target:Int,xs:[Int])=>Int match §list.nth(0,(blockStarts(block,xs) filter (λ(start:Int)=>Bool=indexValue(endIndex(block,start,xs),xs)≥target):[Int])){
   Some(start)=>linearSearchBlock(endIndex(block,start,xs),start,target,xs)|
   None()=>-1
 }

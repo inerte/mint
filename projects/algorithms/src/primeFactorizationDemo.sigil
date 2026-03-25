@@ -1,3 +1,1 @@
-i src::primeFactorization
-
-λmain()=>[Int]=src::primeFactorization.primeFactors(84)
+λmain()=>[Int]=•primeFactorization.primeFactors(84)

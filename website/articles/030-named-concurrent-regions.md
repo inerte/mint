@@ -30,12 +30,10 @@ Those are not properties of `map`. They are properties of an execution region.
 Sigil has one canonical concurrency surface:
 
 ```sigil module
-i stdlib::time
-
 λisSystemic(err:String)=>Bool=err="NETWORK"
 
 λprocessUrl(url:String)=>!Timer Result[Int,String]={
-  l _=(stdlib::time.sleepMs(0):Unit);
+  l _=(§time.sleepMs(0):Unit);
   Ok(#url)
 }
 
@@ -61,10 +59,8 @@ Current policy fields are:
 Minimal form:
 
 ```sigil module
-i stdlib::time
-
 λprocessUrl(url:String)=>!Timer Result[Int,String]={
-  l _=(stdlib::time.sleepMs(0):Unit);
+  l _=(§time.sleepMs(0):Unit);
   Ok(#url)
 }
 

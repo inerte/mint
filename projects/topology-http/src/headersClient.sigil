@@ -1,14 +1,6 @@
-i src::topology
-
-i core::map
-
-i stdlib::httpClient
-
-i stdlib::string
-
-λmain()=>!Http String match stdlib::httpClient.get(src::topology.mailerApi,stdlib::httpClient.emptyHeaders(),"/headers"){
-  Ok(response)=>match core::map.get("x-request-id",response.headers){
-    Some(value)=>stdlib::string.intToString(response.status)++":"++value|
+λmain()=>!Http String match §httpClient.get(•topology.mailerApi,§httpClient.emptyHeaders(),"/headers"){
+  Ok(response)=>match ¶map.get("x-request-id",response.headers){
+    Some(value)=>§string.intToString(response.status)++":"++value|
     None()=>"ERR:missing-header"
   }|
   Err(error)=>"ERR:"++error.message

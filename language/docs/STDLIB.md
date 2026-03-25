@@ -29,39 +29,18 @@ The Sigil standard library provides core utility functions and predicates for co
 **Not yet implemented:**
 - ⏳ Crypto utilities
 
-## Import Syntax
+## Rooted Module Syntax
 
 ```sigil program
 e console
 
-i stdlib::file
-
-i stdlib::httpClient
-
-i stdlib::httpServer
-
-i stdlib::json
-
-i stdlib::list
-
-i stdlib::numeric
-
-i stdlib::path
-
-i stdlib::process
-
-i stdlib::regex
-
-i stdlib::string
-
-i stdlib::time
-
-i stdlib::url
-
-λmain()=>Unit=console.log(stdlib::string.intToString(#[1,2,3])++" "++stdlib::time.formatIso(stdlib::time.fromEpochMillis(0)))
+λmain()=>Unit=console.log(§string.intToString(#[1,2,3])++" "++§time.formatIso(§time.fromEpochMillis(0)))
 ```
 
-**Design:** Imports work exactly like FFI (`e module::path`). No selective imports, always use fully qualified names. This prevents name collisions and makes code explicit.
+**Design:** Sigil writes rooted module references directly at the use site.
+There are no import declarations, no selective imports, and no aliases. FFI
+still uses `e module::path`, but Sigil modules use roots like `§`, `•`, `¶`,
+`¤`, `†`, and `※`.
 
 ## Length Operator (`#`)
 
@@ -90,7 +69,7 @@ Empty lists `[]` infer their type from context:
 
 **Why `#` instead of functions?**
 
-1. **ONE canonical form** - Not `stdlib::string` helper calls vs `stdlib::list` helper calls, just `#`
+1. **ONE canonical form** - Not `§string` helper calls vs `§list` helper calls, just `#`
 2. **Leverages bidirectional type checking** - Type is known at compile time
 3. **Concise** - Machine-first language optimizes for brevity (`#s` vs `len(s)`)
 4. **Zero syntactic variation** - Single way to express "get length"
@@ -101,7 +80,7 @@ Empty lists `[]` infer their type from context:
 #[1,2,3]    => (await [1,2,3]).length
 ```
 
-**Note:** The deprecated `stdlib::list.len` function has been removed. Use `#` instead.
+**Note:** The deprecated `§list.len` function has been removed. Use `#` instead.
 
 ## Module Exports
 
@@ -113,17 +92,13 @@ There is no `export` keyword.
 
 ## File, Path, Process, JSON, Time, and URL
 
-`stdlib::file` exposes canonical UTF-8 filesystem helpers:
+`§file` exposes canonical UTF-8 filesystem helpers:
 
 ```sigil program
-i stdlib::file
-
-i stdlib::path
-
 λmain()=>!Fs Unit={
-  l out=(stdlib::path.join("/tmp","sigil.txt"):String);
-  l written=(stdlib::file.writeText("hello",out):Unit);
-  l text=(stdlib::file.readText(out):String);
+  l out=(§path.join("/tmp","sigil.txt"):String);
+  l written=(§file.writeText("hello",out):Unit);
+  l text=(§file.readText(out):String);
   ()
 }
 ```
@@ -131,25 +106,21 @@ i stdlib::path
 It also exposes `makeTempDir(prefix)` for canonical temp workspace creation in
 tooling and harness code.
 
-`stdlib::path` exposes canonical filesystem path operations:
+`§path` exposes canonical filesystem path operations:
 
 ```sigil program
-i stdlib::path
-
 λmain()=>Unit={
-  l article=(stdlib::path.basename("website/articles/hello.md"):String);
-  l directory=(stdlib::path.join("website","articles"):String);
+  l article=(§path.basename("website/articles/hello.md"):String);
+  l directory=(§path.join("website","articles"):String);
   ()
 }
 ```
 
-`stdlib::process` exposes canonical argv-based child-process execution:
+`§process` exposes canonical argv-based child-process execution:
 
 ```sigil program
-i stdlib::process
-
 λmain()=>!Process Unit={
-  l result=(stdlib::process.run(stdlib::process.command(["git","status"])):stdlib::process.ProcessResult);
+  l result=(§process.run(§process.command(["git","status"])):§process.ProcessResult);
   match result.code=0{
     true=>()|
     false=>()
@@ -170,13 +141,11 @@ The canonical process surface is:
 Commands are argv-based only. Non-zero exit status is returned in
 `ProcessResult.code`; it is not a separate failure channel.
 
-`stdlib::regex` exposes a small JavaScript-backed regular-expression surface:
+`§regex` exposes a small JavaScript-backed regular-expression surface:
 
 ```sigil program
-i stdlib::regex
-
-λmain()=>Unit match stdlib::regex.compile("i","^(sigil)-(.*)$"){
-  Ok(regex)=>match stdlib::regex.find("Sigil-lang",regex){
+λmain()=>Unit match §regex.compile("i","^(sigil)-(.*)$"){
+  Ok(regex)=>match §regex.find("Sigil-lang",regex){
     Some(found)=>{
       l matched=(found.full:String);
       ()
@@ -196,13 +165,11 @@ Regex semantics in v1 follow JavaScript `RegExp`, including pattern syntax and
 flags. `compile` validates the pattern/flags first and returns `Err` on invalid
 input. `find` returns only the first match.
 
-`stdlib::json` exposes a typed JSON AST with safe parsing:
+`§json` exposes a typed JSON AST with safe parsing:
 
 ```sigil program
-i stdlib::json
-
-λmain()=>Unit match stdlib::json.parse("{\"ok\":true}"){
-  Ok(value)=>match stdlib::json.asObject(value){
+λmain()=>Unit match §json.parse("{\"ok\":true}"){
+  Ok(value)=>match §json.asObject(value){
     Some(_)=>()|
     None()=>()
   }|
@@ -210,28 +177,22 @@ i stdlib::json
 }
 ```
 
-`stdlib::decode` is the canonical layer for turning raw `JsonValue` into trusted
+`§decode` is the canonical layer for turning raw `JsonValue` into trusted
 internal Sigil values:
 
 ```sigil module
-t Message={createdAt:stdlib::time.Instant,text:String}
+t Message={createdAt:§time.Instant,text:String}
 
-i stdlib::decode
-
-i stdlib::json
-
-i stdlib::time
-
-λinstant(value:stdlib::json.JsonValue)=>Result[stdlib::time.Instant,stdlib::decode.DecodeError] match stdlib::decode.string(value){
-  Ok(text)=>match stdlib::time.parseIso(text){
+λinstant(value:§json.JsonValue)=>Result[§time.Instant,§decode.DecodeError] match §decode.string(value){
+  Ok(text)=>match §time.parseIso(text){
     Ok(instant)=>Ok(instant)|
     Err(error)=>Err({message:error.message,path:[]})
   }|
   Err(error)=>Err(error)
 }
 
-λmessage(value:stdlib::json.JsonValue)=>Result[Message,stdlib::decode.DecodeError] match stdlib::decode.field(instant,"createdAt")(value){
-  Ok(createdAt)=>match stdlib::decode.field(stdlib::decode.string,"text")(value){
+λmessage(value:§json.JsonValue)=>Result[Message,§decode.DecodeError] match §decode.field(instant,"createdAt")(value){
+  Ok(createdAt)=>match §decode.field(§decode.string,"text")(value){
     Ok(text)=>Ok({createdAt:createdAt,text:text})|
     Err(error)=>Err(error)
   }|
@@ -240,38 +201,34 @@ i stdlib::time
 ```
 
 The intended split is:
-- `stdlib::json` for raw parse / inspect / stringify
-- `stdlib::decode` for decode / validate / trust
+- `§json` for raw parse / inspect / stringify
+- `§decode` for decode / validate / trust
 
 If a field may be absent, keep the record exact and use `Option[T]` in that
 field. Sigil does not use open or partial records for this.
 
-`stdlib::time` exposes strict ISO parsing, instant comparison, and harness sleep:
+`§time` exposes strict ISO parsing, instant comparison, and harness sleep:
 
 ```sigil program
-i stdlib::time
-
-λmain()=>Unit match stdlib::time.parseIso("2026-03-03"){
+λmain()=>Unit match §time.parseIso("2026-03-03"){
   Ok(instant)=>{
-    l millis=(stdlib::time.toEpochMillis(instant):Int);
+    l millis=(§time.toEpochMillis(instant):Int);
     ()
   }|
   Err(_)=>()
 }
 ```
 
-Effectful code may also use `stdlib::time.sleepMs(ms)` for retry loops and
+Effectful code may also use `§time.sleepMs(ms)` for retry loops and
 process orchestration.
 
-`stdlib::url` exposes strict parse results and typed URL fields for both absolute and relative targets:
+`§url` exposes strict parse results and typed URL fields for both absolute and relative targets:
 
 ```sigil program
-i stdlib::url
-
-λmain()=>Unit match stdlib::url.parse("../language/spec/cli-json.md?view=raw#schema"){
+λmain()=>Unit match §url.parse("../language/spec/cli-json.md?view=raw#schema"){
   Ok(url)=>{
     l path=(url.path:String);
-    l suffix=(stdlib::url.suffix(url):String);
+    l suffix=(§url.suffix(url):String);
     ()
   }|
   Err(_)=>()
@@ -280,17 +237,13 @@ i stdlib::url
 
 ## HTTP Client and Server
 
-`stdlib::httpClient` is the canonical text-based HTTP client layer.
+`§httpClient` is the canonical text-based HTTP client layer.
 
 For topology-aware projects, the canonical surface is handle-based rather than
 raw-URL based:
 
 ```sigil program projects/topology-http/src/getClient.sigil
-i stdlib::httpClient
-
-i src::topology
-
-λmain()=>!Http Unit match stdlib::httpClient.get(src::topology.mailerApi,stdlib::httpClient.emptyHeaders(),"/health"){
+λmain()=>!Http Unit match §httpClient.get(•topology.mailerApi,§httpClient.emptyHeaders(),"/health"){
   Ok(response)=>{
     l body=(response.body:String);
     ()
@@ -305,23 +258,21 @@ i src::topology
 The split is:
 - transport/URL failures return `Err(HttpError)`
 - any received HTTP response, including `404` and `500`, returns `Ok(HttpResponse)`
-- JSON helpers compose over `stdlib::json`
+- JSON helpers compose over `§json`
 - topology-aware application code must not pass raw base URLs directly
 
-`stdlib::topology` owns the dependency handles.
-`config/*.lib.sigil` now exports `world`, built through `world::http`, `world::tcp`, and `world::runtime`.
+`§topology` owns the dependency handles.
+`config/*.lib.sigil` now exports `world`, built through `†http`, `†tcp`, and `†runtime`.
 
-`stdlib::httpServer` is the canonical request/response server layer:
+`§httpServer` is the canonical request/response server layer:
 
 ```sigil program
-i stdlib::httpServer
-
-λhandle(request:stdlib::httpServer.Request)=>stdlib::httpServer.Response match request.path{
-  "/health"=>stdlib::httpServer.ok("healthy")|
-  _=>stdlib::httpServer.notFound()
+λhandle(request:§httpServer.Request)=>§httpServer.Response match request.path{
+  "/health"=>§httpServer.ok("healthy")|
+  _=>§httpServer.notFound()
 }
 
-λmain()=>!Http Unit=stdlib::httpServer.serve(handle,8080)
+λmain()=>!Http Unit=§httpServer.serve(handle,8080)
 ```
 
 `serve` is a long-lived runtime entrypoint: once the server is listening, the
@@ -329,16 +280,12 @@ process stays open until it is terminated externally.
 
 ## TCP Client and Server
 
-`stdlib::tcpClient` is the canonical one-request, one-response TCP client layer.
+`§tcpClient` is the canonical one-request, one-response TCP client layer.
 
 For topology-aware projects, the canonical surface is handle-based:
 
 ```sigil program projects/topology-tcp/src/pingClient.sigil
-i src::topology
-
-i stdlib::tcpClient
-
-λmain()=>!Tcp Unit match stdlib::tcpClient.send(src::topology.eventStream,"ping"){
+λmain()=>!Tcp Unit match §tcpClient.send(•topology.eventStream,"ping"){
   Ok(response)=>{
     l message=(response.message:String);
     ()
@@ -355,17 +302,15 @@ The canonical framing model is:
 - one newline-delimited request per connection
 - one newline-delimited response per connection
 
-`stdlib::topology` owns the dependency handles.
-`config/*.lib.sigil` now exports `world`, built through `world::http`, `world::tcp`, and `world::runtime`.
+`§topology` owns the dependency handles.
+`config/*.lib.sigil` now exports `world`, built through `†http`, `†tcp`, and `†runtime`.
 
-`stdlib::tcpServer` is the matching minimal TCP server layer:
+`§tcpServer` is the matching minimal TCP server layer:
 
 ```sigil program
-i stdlib::tcpServer
+λhandle(request:§tcpServer.Request)=>§tcpServer.Response=§tcpServer.response(request.message)
 
-λhandle(request:stdlib::tcpServer.Request)=>stdlib::tcpServer.Response=stdlib::tcpServer.response(request.message)
-
-λmain()=>!Tcp Unit=stdlib::tcpServer.serve(handle,45120)
+λmain()=>!Tcp Unit=§tcpServer.serve(handle,45120)
 ```
 
 `serve` is long-lived: once the TCP server is listening, the process stays open
@@ -373,24 +318,20 @@ until it is terminated externally.
 
 ## Topology
 
-`stdlib::topology` is the canonical declaration layer for external HTTP and TCP
+`§topology` is the canonical declaration layer for external HTTP and TCP
 runtime dependencies. The canonical environment runtime layer now lives under
-the compiler-owned `world::` roots rather than `stdlib::config`.
+the compiler-owned `†` roots rather than `§config`.
 
-`stdlib::config` remains available for low-level binding value helpers inside
+`§config` remains available for low-level binding value helpers inside
 config modules, but project environments no longer export `Bindings`. The env
-ABI is `c world=(...:world::runtime.World)`.
+ABI is `c world=(...:†runtime.World)`.
 
 Topology-aware projects define `src/topology.lib.sigil`, the selected
 `config/<env>.lib.sigil`, and use typed handles instead
 of raw endpoints in application code:
 
 ```sigil program projects/topology-http/src/getClient.sigil
-i src::topology
-
-i stdlib::httpClient
-
-λmain()=>!Http Unit match stdlib::httpClient.get(src::topology.mailerApi,stdlib::httpClient.emptyHeaders(),"/health"){
+λmain()=>!Http Unit match §httpClient.get(•topology.mailerApi,§httpClient.emptyHeaders(),"/health"){
   Ok(_)=>()|
   Err(_)=>()
 }
@@ -406,15 +347,13 @@ See [topology.md](./topology.md) for the full model.
 
 Check if a list is sorted in ascending order.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λsortedAsc(xs:[Int])=>Bool
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=stdlib::list.sortedAsc([1,2,3]) and ¬stdlib::list.sortedAsc([3,2,1]) and stdlib::list.sortedAsc([]) and stdlib::list.sortedAsc([5])
+λmain()=>Bool=§list.sortedAsc([1,2,3]) and ¬§list.sortedAsc([3,2,1]) and §list.sortedAsc([]) and §list.sortedAsc([5])
 ```
 
 **Use case:** Validate precondition for binary search or other sorted-list algorithms.
@@ -423,32 +362,26 @@ i stdlib::list
 
 Check if a list is sorted in descending order.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λsortedDesc(xs:[Int])=>Bool
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=stdlib::list.sortedDesc([3,2,1]) and ¬stdlib::list.sortedDesc([1,2,3])
+λmain()=>Bool=§list.sortedDesc([3,2,1]) and ¬§list.sortedDesc([1,2,3])
 ```
 
 ### all
 
 Check if all elements in a list satisfy a predicate.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λall[T](pred:λ(T)=>Bool,xs:[T])=>Bool
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::list
-
-i stdlib::numeric
-
-λmain()=>Bool=stdlib::list.all(stdlib::numeric.isPositive,[1,2,3]) and ¬stdlib::list.all(stdlib::numeric.isPositive,[1,-2,3]) and stdlib::list.all(stdlib::numeric.isEven,[2,4,6])
+λmain()=>Bool=§list.all(§numeric.isPositive,[1,2,3]) and ¬§list.all(§numeric.isPositive,[1,-2,3]) and §list.all(§numeric.isEven,[2,4,6])
 ```
 
 **Use case:** Validate that all elements meet a requirement.
@@ -457,17 +390,13 @@ i stdlib::numeric
 
 Check if any element in a list satisfies a predicate.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λany[T](pred:λ(T)=>Bool,xs:[T])=>Bool
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::list
-
-i stdlib::numeric
-
-λmain()=>Bool=¬stdlib::list.any(stdlib::numeric.isEven,[1,3,5]) and stdlib::list.any(stdlib::numeric.isEven,[1,2,3]) and stdlib::list.any(stdlib::numeric.isPrime,[4,6,8,7])
+λmain()=>Bool=¬§list.any(§numeric.isEven,[1,3,5]) and §list.any(§numeric.isEven,[1,2,3]) and §list.any(§numeric.isPrime,[4,6,8,7])
 ```
 
 **Use case:** Check if at least one element meets a requirement.
@@ -476,15 +405,13 @@ i stdlib::numeric
 
 Check if an element exists in a list.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λcontains[T](item:T,xs:[T])=>Bool
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=stdlib::list.contains(3,[1,2,3,4]) and ¬stdlib::list.contains(5,[1,2,3,4]) and ¬stdlib::list.contains(1,[])
+λmain()=>Bool=§list.contains(3,[1,2,3,4]) and ¬§list.contains(5,[1,2,3,4]) and ¬§list.contains(1,[])
 ```
 
 **Use case:** Membership testing.
@@ -493,7 +420,7 @@ i stdlib::list
 
 Count occurrences of an element in a list.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λcount[T](item:T,xs:[T])=>Int
 ```
 
@@ -501,7 +428,7 @@ Count occurrences of an element in a list.
 
 Count elements that satisfy a predicate.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λcountIf[T](pred:λ(T)=>Bool,xs:[T])=>Int
 ```
 
@@ -509,7 +436,7 @@ Count elements that satisfy a predicate.
 
 Drop the first `n` elements.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λdrop[T](n:Int,xs:[T])=>[T]
 ```
 
@@ -517,20 +444,16 @@ Drop the first `n` elements.
 
 Find the first element that satisfies a predicate.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λfind[T](pred:λ(T)=>Bool,xs:[T])=>Option[T]
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
-i stdlib::numeric
-
-λmain()=>Bool=(match stdlib::list.find(stdlib::numeric.isEven,[1,3,4,6]){
+λmain()=>Bool=(match §list.find(§numeric.isEven,[1,3,4,6]){
   Some(value)=>value=4|
   None()=>false
-}) and (match stdlib::list.find(stdlib::numeric.isEven,[1,3,5]){
+}) and (match §list.find(§numeric.isEven,[1,3,5]){
   Some(_)=>false|
   None()=>true
 })
@@ -540,47 +463,41 @@ i stdlib::numeric
 
 Map each element to a list and flatten the results in order.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λflatMap[T,U](fn:λ(T)=>[U],xs:[T])=>[U]
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=stdlib::list.flatMap(λ(x:Int)=>[Int]=[x,x],[1,2,3])=[1,1,2,2,3,3]
+λmain()=>Bool=§list.flatMap(λ(x:Int)=>[Int]=[x,x],[1,2,3])=[1,1,2,2,3,3]
 ```
 
 ### fold
 
 Reduce a list to a single value by threading an accumulator from left to right.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λfold[T,U](acc:U,fn:λ(U,T)=>U,xs:[T])=>U
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
 λappendDigit(acc:Int,x:Int)=>Int=acc*10+x
 
-λmain()=>Bool=stdlib::list.fold(0,λ(acc:Int,x:Int)=>Int=acc+x,[1,2,3])=6 and stdlib::list.fold(0,appendDigit,[1,2,3])=123
+λmain()=>Bool=§list.fold(0,λ(acc:Int,x:Int)=>Int=acc+x,[1,2,3])=6 and §list.fold(0,appendDigit,[1,2,3])=123
 ```
 
 ### inBounds
 
 Check if an index is valid for a list (in range [0, len-1]).
 
-```sigil decl stdlib::list
+```sigil decl §list
 λinBounds[T](idx:Int,xs:[T])=>Bool
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=stdlib::list.inBounds(0,[1,2,3]) and stdlib::list.inBounds(2,[1,2,3]) and ¬stdlib::list.inBounds(3,[1,2,3]) and ¬stdlib::list.inBounds(-1,[1,2,3]) and ¬stdlib::list.inBounds(0,[])
+λmain()=>Bool=§list.inBounds(0,[1,2,3]) and §list.inBounds(2,[1,2,3]) and ¬§list.inBounds(3,[1,2,3]) and ¬§list.inBounds(-1,[1,2,3]) and ¬§list.inBounds(0,[])
 ```
 
 **Use case:** Validate array/list access before indexing. Prevents out-of-bounds errors.
@@ -597,18 +514,16 @@ i stdlib::list
 
 Get the last element safely.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λlast[T](xs:[T])=>Option[T]
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=(match stdlib::list.last([]){
+λmain()=>Bool=(match §list.last([]){
   Some(_)=>false|
   None()=>true
-}) and (match stdlib::list.last([1,2,3]){
+}) and (match §list.last([1,2,3]){
   Some(value)=>value=3|
   None()=>false
 })
@@ -618,18 +533,16 @@ i stdlib::list
 
 Get the maximum element safely.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λmax(xs:[Int])=>Option[Int]
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=(match stdlib::list.max([]){
+λmain()=>Bool=(match §list.max([]){
   Some(_)=>false|
   None()=>true
-}) and (match stdlib::list.max([3,9,4]){
+}) and (match §list.max([3,9,4]){
   Some(value)=>value=9|
   None()=>false
 })
@@ -639,18 +552,16 @@ i stdlib::list
 
 Get the minimum element safely.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λmin(xs:[Int])=>Option[Int]
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=(match stdlib::list.min([]){
+λmain()=>Bool=(match §list.min([]){
   Some(_)=>false|
   None()=>true
-}) and (match stdlib::list.min([3,9,4]){
+}) and (match §list.min([3,9,4]){
   Some(value)=>value=3|
   None()=>false
 })
@@ -660,18 +571,16 @@ i stdlib::list
 
 Get the item at a zero-based index safely.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λnth[T](idx:Int,xs:[T])=>Option[T]
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=(match stdlib::list.nth(0,[7,8]){
+λmain()=>Bool=(match §list.nth(0,[7,8]){
   Some(value)=>value=7|
   None()=>false
-}) and (match stdlib::list.nth(2,[7,8]){
+}) and (match §list.nth(2,[7,8]){
   Some(_)=>false|
   None()=>true
 })
@@ -681,22 +590,20 @@ i stdlib::list
 
 Multiply all integers in a list.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λproduct(xs:[Int])=>Int
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=stdlib::list.product([])=1 and stdlib::list.product([2,3,4])=24
+λmain()=>Bool=§list.product([])=1 and §list.product([2,3,4])=24
 ```
 
 ### removeFirst
 
 Remove the first occurrence of an element.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λremoveFirst[T](item:T,xs:[T])=>[T]
 ```
 
@@ -704,7 +611,7 @@ Remove the first occurrence of an element.
 
 Reverse a list.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λreverse[T](xs:[T])=>[T]
 ```
 
@@ -712,22 +619,20 @@ Reverse a list.
 
 Sum all integers in a list.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λsum(xs:[Int])=>Int
 ```
 
 Examples:
 ```sigil program
-i stdlib::list
-
-λmain()=>Bool=stdlib::list.sum([])=0 and stdlib::list.sum([1,2,3,4])=10
+λmain()=>Bool=§list.sum([])=0 and §list.sum([1,2,3,4])=10
 ```
 
 ### take
 
 Take the first `n` elements.
 
-```sigil decl stdlib::list
+```sigil decl §list
 λtake[T](n:Int,xs:[T])=>[T]
 ```
 
@@ -739,15 +644,13 @@ Take the first `n` elements.
 
 Build an ascending integer range, inclusive at both ends.
 
-```sigil decl stdlib::numeric
+```sigil decl §numeric
 λrange(start:Int,stop:Int)=>[Int]
 ```
 
 Examples:
 ```sigil program
-i stdlib::numeric
-
-λmain()=>Bool=stdlib::numeric.range(2,5)=[2,3,4,5] and stdlib::numeric.range(3,3)=[3] and stdlib::numeric.range(5,2)=[]
+λmain()=>Bool=§numeric.range(2,5)=[2,3,4,5] and §numeric.range(3,3)=[3] and §numeric.range(5,2)=[]
 ```
 
 ## Canonical List-Processing Surface
@@ -755,19 +658,19 @@ i stdlib::numeric
 For ordinary list work, Sigil expects the canonical operators and stdlib path,
 not hand-rolled recursive plumbing:
 
-- use `stdlib::list.all` for universal checks
-- use `stdlib::list.any` for existential checks
-- use `stdlib::list.countIf` for predicate counting
+- use `§list.all` for universal checks
+- use `§list.any` for existential checks
+- use `§list.countIf` for predicate counting
 - use `map` for projection
 - use `filter` for filtering
-- use `stdlib::list.find` for first-match search
-- use `stdlib::list.flatMap` for flattening projection
-- use `reduce ... from ...` or `stdlib::list.fold` for reduction
-- use `stdlib::list.reverse` for reversal
+- use `§list.find` for first-match search
+- use `§list.flatMap` for flattening projection
+- use `reduce ... from ...` or `§list.fold` for reduction
+- use `§list.reverse` for reversal
 
 Sigil now rejects exact recursive clones of `all`, `any`, `map`, `filter`,
 `find`, `flatMap`, `fold`, and `reverse`, rejects `#(xs filter pred)` in favor of
-`stdlib::list.countIf`, and rejects recursive result-building of the form
+`§list.countIf`, and rejects recursive result-building of the form
 `self(rest)⧺rhs`.
 
 ## String Operations
@@ -780,15 +683,13 @@ Comprehensive string manipulation functions. These are **compiler intrinsics** -
 
 Get character at index.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λcharAt(idx:Int,s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.charAt(0,"hello")="h" and stdlib::string.charAt(4,"hello")="o"
+λmain()=>Bool=§string.charAt(0,"hello")="h" and §string.charAt(4,"hello")="o"
 ```
 
 **Codegen:** `s.charAt(idx)`
@@ -797,15 +698,13 @@ i stdlib::string
 
 Get substring from start to end index.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λsubstring(end:Int,s:String,start:Int)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.substring(11,"hello world",6)="world" and stdlib::string.substring(3,"hello",0)="hel"
+λmain()=>Bool=§string.substring(11,"hello world",6)="world" and §string.substring(3,"hello",0)="hel"
 ```
 
 **Codegen:** `s.substring(start, end)`
@@ -814,15 +713,13 @@ i stdlib::string
 
 Take first n characters.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λtake(n:Int,s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.take(3,"hello")="hel" and stdlib::string.take(5,"hi")="hi"
+λmain()=>Bool=§string.take(3,"hello")="hel" and §string.take(5,"hi")="hi"
 ```
 
 **Implementation:** `substring(n, s, 0)` (in Sigil)
@@ -831,15 +728,13 @@ i stdlib::string
 
 Drop first n characters.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λdrop(n:Int,s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.drop(2,"hello")="llo" and stdlib::string.drop(5,"hi")=""
+λmain()=>Bool=§string.drop(2,"hello")="llo" and §string.drop(5,"hi")=""
 ```
 
 **Implementation:** `substring(#s, s, n)` (in Sigil, uses `#` operator)
@@ -848,15 +743,13 @@ i stdlib::string
 
 Split a string on newline characters.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λlines(s:String)=>[String]
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.lines("a\nb\nc")=["a","b","c"] and stdlib::string.lines("hello")=["hello"]
+λmain()=>Bool=§string.lines("a\nb\nc")=["a","b","c"] and §string.lines("hello")=["hello"]
 ```
 
 **Implementation:** `split("\n", s)` (in Sigil)
@@ -865,15 +758,13 @@ i stdlib::string
 
 Convert to uppercase.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λtoUpper(s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.toUpper("hello")="HELLO"
+λmain()=>Bool=§string.toUpper("hello")="HELLO"
 ```
 
 **Codegen:** `s.toUpperCase()`
@@ -882,15 +773,13 @@ i stdlib::string
 
 Convert to lowercase.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λtoLower(s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.toLower("WORLD")="world"
+λmain()=>Bool=§string.toLower("WORLD")="world"
 ```
 
 **Codegen:** `s.toLowerCase()`
@@ -899,15 +788,13 @@ i stdlib::string
 
 Remove leading and trailing whitespace.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λtrim(s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.trim("  hello  ")="hello" and stdlib::string.trim("\n\ttest\n")="test"
+λmain()=>Bool=§string.trim("  hello  ")="hello" and §string.trim("\n\ttest\n")="test"
 ```
 
 **Codegen:** `s.trim()`
@@ -916,15 +803,13 @@ i stdlib::string
 
 Find index of first occurrence (returns -1 if not found).
 
-```sigil decl stdlib::string
+```sigil decl §string
 λindexOf(s:String,search:String)=>Int
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.indexOf("hello world","world")=6 and stdlib::string.indexOf("hello","xyz")=-1
+λmain()=>Bool=§string.indexOf("hello world","world")=6 and §string.indexOf("hello","xyz")=-1
 ```
 
 **Codegen:** `s.indexOf(search)`
@@ -933,15 +818,13 @@ i stdlib::string
 
 Split string by delimiter.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λsplit(delimiter:String,s:String)=>[String]
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.split(",","a,b,c")=["a","b","c"] and stdlib::string.split("\n","line1\nline2")=["line1","line2"]
+λmain()=>Bool=§string.split(",","a,b,c")=["a","b","c"] and §string.split("\n","line1\nline2")=["line1","line2"]
 ```
 
 **Codegen:** `s.split(delimiter)`
@@ -950,15 +833,13 @@ i stdlib::string
 
 Replace all occurrences of pattern with replacement.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λreplaceAll(pattern:String,replacement:String,s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.replaceAll("hello","hi","hello hello")="hi hi"
+λmain()=>Bool=§string.replaceAll("hello","hi","hello hello")="hi hi"
 ```
 
 **Codegen:** `s.replaceAll(pattern, replacement)`
@@ -967,15 +848,13 @@ i stdlib::string
 
 Repeat a string `count` times.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λrepeat(count:Int,s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.repeat(3,"ab")="ababab" and stdlib::string.repeat(0,"ab")=""
+λmain()=>Bool=§string.repeat(3,"ab")="ababab" and §string.repeat(0,"ab")=""
 ```
 
 **Implementation:** recursive concatenation in Sigil
@@ -984,22 +863,20 @@ i stdlib::string
 
 Reverse a string.
 
-```sigil decl stdlib::string
+```sigil decl §string
 λreverse(s:String)=>String
 ```
 
 **Examples:**
 ```sigil program
-i stdlib::string
-
-λmain()=>Bool=stdlib::string.reverse("stressed")="desserts" and stdlib::string.reverse("abc")="cba"
+λmain()=>Bool=§string.reverse("stressed")="desserts" and §string.reverse("abc")="cba"
 ```
 
 **Codegen:** `s.split("").reverse().join("")`
 
 ## Current String Surface
 
-`stdlib::string` currently exposes:
+`§string` currently exposes:
 
 - `charAt`
 - `drop`
@@ -1024,12 +901,12 @@ i stdlib::string
 Design notes:
 
 - use `#s=0` instead of a dedicated `isEmpty`
-- use `stdlib::string.trim(s)=""` instead of a dedicated whitespace predicate
-- use `stdlib::string.indexOf(s,search)≠-1` for containment checks
+- use `§string.trim(s)=""` instead of a dedicated whitespace predicate
+- use `§string.indexOf(s,search)≠-1` for containment checks
 
 ## Current Numeric Surface
 
-`stdlib::numeric` currently exposes:
+`§numeric` currently exposes:
 
 - `abs`
 - `clamp`
@@ -1054,16 +931,14 @@ Design notes:
 Examples:
 
 ```sigil program
-i stdlib::numeric
-
-λmain()=>Bool=stdlib::numeric.abs(-5)=5 and stdlib::numeric.isEven(4) and stdlib::numeric.isPrime(17) and stdlib::numeric.range(2,5)=[2,3,4,5]
+λmain()=>Bool=§numeric.abs(-5)=5 and §numeric.isEven(4) and §numeric.isPrime(17) and §numeric.range(2,5)=[2,3,4,5]
 ```
 
 ## Core Prelude
 
 `ConcurrentOutcome[T,E]`, `Option[T]`, `Result[T,E]`, `Aborted`, `Failure`,
 `Success`, `Some`, `None`, `Ok`, and `Err` are part of the implicit
-`core::prelude`. They do not require imports.
+`¶prelude`. They do not require qualification.
 
 Current canonical type forms:
 
@@ -1091,7 +966,7 @@ Typical usage:
 
 ## Core Map
 
-`core::map` is the canonical helper surface for `{K↦V}` values.
+`¶map` is the canonical helper surface for `{K↦V}` values.
 
 Canonical type and literal forms:
 
@@ -1103,10 +978,9 @@ c empty=(({↦}:{String↦String}):{String↦String})
 c filled=({"content-type"↦"text/plain"}:{String↦String})
 ```
 
-Canonical helper import:
+Canonical helper surface:
 
 ```sigil module
-i core::map
 ```
 
 ## Stability Note

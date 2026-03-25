@@ -1,10 +1,10 @@
 #!/bin/bash
-# Run all token-efficiency algorithm benchmarks from repo root or any cwd.
+# Run the full published token benchmark corpus from repo root or any cwd.
 
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-algorithms_dir="${script_dir}/algorithms"
+cases_manifest="${script_dir}/cases.json"
 compare_script="${script_dir}/tools/compare.js"
 
 echo "# Sigil Language - Token Efficiency Benchmarks"
@@ -14,14 +14,13 @@ echo ""
 echo "---"
 echo ""
 
-for dir in "${algorithms_dir}"/*/; do
-  algorithm=$(basename "$dir")
+while IFS= read -r case_id; do
   echo ""
-  node "$compare_script" "$dir"
+  node "$compare_script" "$case_id"
   echo ""
   echo "---"
   echo ""
-done
+done < <(node -e 'const fs=require("fs"); const cases=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); Object.keys(cases).sort().forEach((id)=>console.log(id));' "$cases_manifest")
 
 echo ""
 echo "# Summary"

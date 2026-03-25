@@ -1,17 +1,15 @@
-i stdlib::json
-
 λmain()=>Unit=()
 
 test "json parse returns Err for invalid input" {
-  match stdlib::json.parse("{bad"){
+  match §json.parse("{bad"){
     Ok(_)=>false|
     Err(_)=>true
   }
 }
 
 test "json parse returns object for valid input" {
-  match stdlib::json.parse("{\"name\":\"sigil\",\"ok\":true}"){
-    Ok(value)=>match stdlib::json.asObject(value){
+  match §json.parse("{\"name\":\"sigil\",\"ok\":true}"){
+    Ok(value)=>match §json.asObject(value){
       Some(_)=>true|
       None()=>false
     }|
@@ -20,8 +18,8 @@ test "json parse returns object for valid input" {
 }
 
 test "json stringify roundtrip preserves shape" {
-  l value=(stdlib::json.JsonObject({"active"↦stdlib::json.JsonBool(true),"name"↦stdlib::json.JsonString("sigil")}):stdlib::json.JsonValue);
-  match stdlib::json.parse(stdlib::json.stringify(value)){
+  l value=(§json.JsonObject({"active"↦§json.JsonBool(true),"name"↦§json.JsonString("sigil")}):§json.JsonValue);
+  match §json.parse(§json.stringify(value)){
     Ok(parsed)=>parsed=value|
     Err(_)=>false
   }

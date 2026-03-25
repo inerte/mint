@@ -58,7 +58,7 @@ alone, such as:
 - declaration ordering
 - file-purpose rules
 - test location rules
-- no dead imports or extern declarations
+- no dead extern declarations in executable `.sigil` files
 - no dead top-level declarations in executable `.sigil` files
 - no-shadowing
 - record field ordering
@@ -81,15 +81,15 @@ Executable note:
 
 Current list-processing examples:
 
-- recursive `all` clones are rejected in favor of `stdlib::list.all`
-- recursive `any` clones are rejected in favor of `stdlib::list.any`
-- `#(xs filter pred)` is rejected in favor of `stdlib::list.countIf`
+- recursive `all` clones are rejected in favor of `§list.all`
+- recursive `any` clones are rejected in favor of `§list.any`
+- `#(xs filter pred)` is rejected in favor of `§list.countIf`
 - recursive `map` clones are rejected in favor of `map`
 - recursive `filter` clones are rejected in favor of `filter`
-- recursive `find` clones are rejected in favor of `stdlib::list.find`
-- recursive `flatMap` clones are rejected in favor of `stdlib::list.flatMap`
-- recursive `fold` clones are rejected in favor of `reduce ... from ...` / `stdlib::list.fold`
-- recursive `reverse` clones are rejected in favor of `stdlib::list.reverse`
+- recursive `find` clones are rejected in favor of `§list.find`
+- recursive `flatMap` clones are rejected in favor of `§list.flatMap`
+- recursive `fold` clones are rejected in favor of `reduce ... from ...` / `§list.fold`
+- recursive `reverse` clones are rejected in favor of `§list.reverse`
 - recursive result-building of the form `self(rest)⧺rhs` is rejected
 
 ## Why This Matters

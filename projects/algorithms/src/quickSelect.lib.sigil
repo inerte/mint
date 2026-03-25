@@ -1,5 +1,3 @@
-i stdlib::list
-
 λquickSelect(k:Int,xs:[Int])=>Option[Int] match k<0 or k≥#xs{
   true=>None()|
   false=>quickSelectInRange(k,xs)
@@ -8,7 +6,7 @@ i stdlib::list
 λquickSelectInRange(k:Int,xs:[Int])=>Option[Int] match xs{
   []=>None()|
   [pivot,.tail]=>{
-    l equalCount=((stdlib::list.countIf(λ(value:Int)=>Bool=value=pivot,tail):Int)+1:Int);
+    l equalCount=((§list.countIf(λ(value:Int)=>Bool=value=pivot,tail):Int)+1:Int);
     l lower=(tail filter (λ(value:Int)=>Bool=value<pivot):[Int]);
     match k<#lower{
       true=>quickSelectInRange(k,lower)|

@@ -1,17 +1,9 @@
-i src::content
+λallPages(data:•types.SiteData)=>[•types.SitePage]=[data.home,data.articlesIntro]⧺data.articles⧺data.docs⧺data.spec⧺data.standalone
 
-i src::types
+λpageText(page:•types.SitePage)=>String=§string.trim(page.bodyMarkdown)
 
-i stdlib::json
+λpageValue(page:•types.SitePage)=>§json.JsonValue=§json.JsonObject({"description"↦§json.JsonString(page.meta.description),"section"↦§json.JsonString(•content.sectionNameLowercase(page.section)),"sourcePath"↦§json.JsonString(page.sourcePath),"text"↦§json.JsonString(pageText(page)),"title"↦§json.JsonString(page.meta.title),"url"↦§json.JsonString(•content.canonicalRoute(page))})
 
-i stdlib::string
+λpagesValue(pages:[•types.SitePage])=>§json.JsonValue=§json.JsonArray(pages map pageValue)
 
-λallPages(data:src::types.SiteData)=>[src::types.SitePage]=[data.home,data.articlesIntro]⧺data.articles⧺data.docs⧺data.spec⧺data.standalone
-
-λpageText(page:src::types.SitePage)=>String=stdlib::string.trim(page.bodyMarkdown)
-
-λpageValue(page:src::types.SitePage)=>stdlib::json.JsonValue=stdlib::json.JsonObject({"description"↦stdlib::json.JsonString(page.meta.description),"section"↦stdlib::json.JsonString(src::content.sectionNameLowercase(page.section)),"sourcePath"↦stdlib::json.JsonString(page.sourcePath),"text"↦stdlib::json.JsonString(pageText(page)),"title"↦stdlib::json.JsonString(page.meta.title),"url"↦stdlib::json.JsonString(src::content.canonicalRoute(page))})
-
-λpagesValue(pages:[src::types.SitePage])=>stdlib::json.JsonValue=stdlib::json.JsonArray(pages map pageValue)
-
-λsearchIndexJson(data:src::types.SiteData)=>String=stdlib::json.stringify(pagesValue(allPages(data)))
+λsearchIndexJson(data:•types.SiteData)=>String=§json.stringify(pagesValue(allPages(data)))

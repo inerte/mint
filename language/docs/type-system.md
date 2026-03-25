@@ -151,12 +151,10 @@ e console:{log:λ(String)=>!Log Unit}
 Tests can also declare effects:
 
 ```sigil program tests/writesLog.sigil
-i stdlib::io
-
 λmain()=>Unit=()
 
 test "writes log" =>!Log  {
-  stdlib::io.println("x")=()
+  §io.println("x")=()
 }
 ```
 
@@ -191,7 +189,7 @@ raw input
 Examples:
 
 ```sigil module
-t Message={createdAt:stdlib::time.Instant,text:String}
+t Message={createdAt:§time.Instant,text:String}
 
 t Email=Email(String)
 ```

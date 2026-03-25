@@ -354,12 +354,6 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
-    #[error("SIGIL-CANON-UNUSED-IMPORT: Import '{import_path}' is never used\n\nSigil rejects dead imports.\nRemove the import or use it.")]
-    UnusedImport {
-        import_path: String,
-        location: SourceLocation,
-    },
-
     #[error("SIGIL-CANON-UNUSED-EXTERN: Extern '{extern_path}' is never used\n\nSigil rejects dead extern declarations.\nRemove the extern or use it.")]
     UnusedExtern {
         extern_path: String,
@@ -385,7 +379,7 @@ pub enum ValidationError {
     #[error("SIGIL-CANON-MATCH-TUPLE-BOOLEAN: Cannot pattern match on tuple containing booleans\n\nPattern match discriminates on structure, not boolean values.")]
     MatchTupleBoolean { location: SourceLocation },
 
-    #[error("SIGIL-CANON-DECL-CATEGORY-ORDER: Declarations out of category order\n\nExpected: types => externs => imports => consts => functions => tests\nFound: {found_category} after {prev_category}")]
+    #[error("SIGIL-CANON-DECL-CATEGORY-ORDER: Declarations out of category order\n\nExpected: types => externs => consts => functions => tests\nFound: {found_category} after {prev_category}")]
     DeclCategoryOrder {
         found_category: String,
         prev_category: String,
@@ -551,7 +545,6 @@ impl ValidationError {
             ValidationError::ExternMemberOrder { location, .. } => *location,
             ValidationError::LetUntyped { location, .. } => *location,
             ValidationError::SingleUsePureBinding { location, .. } => *location,
-            ValidationError::UnusedImport { location, .. } => *location,
             ValidationError::UnusedExtern { location, .. } => *location,
             ValidationError::UnusedBinding { location, .. } => *location,
             ValidationError::UnusedDeclaration { location, .. } => *location,
@@ -622,17 +615,6 @@ impl From<ValidationError> for Diagnostic {
                     "Bindings exist for reuse, effects, destructuring, or syntax-required staging.",
                 )
             }
-
-            ValidationError::UnusedImport {
-                import_path,
-                location,
-            } => Diagnostic::new(
-                codes::canonical::UNUSED_IMPORT,
-                SigilPhase::Canonical,
-                format!("Import '{}' is never used", import_path),
-            )
-            .with_location(source_location_to_span(get_file(), location))
-            .with_details("guidance", "Remove the import or use it."),
 
             ValidationError::UnusedExtern {
                 extern_path,

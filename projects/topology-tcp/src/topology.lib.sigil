@@ -1,9 +1,7 @@
-i stdlib::topology
+c eventStream=(§topology.tcpService("eventStream"):§topology.TcpServiceDependency)
 
-c eventStream=(stdlib::topology.tcpService("eventStream"):stdlib::topology.TcpServiceDependency)
+c local=(§topology.environment("local"):§topology.Environment)
 
-c local=(stdlib::topology.environment("local"):stdlib::topology.Environment)
+c prod=(§topology.environment("prod"):§topology.Environment)
 
-c prod=(stdlib::topology.environment("prod"):stdlib::topology.Environment)
-
-c test=(stdlib::topology.environment("test"):stdlib::topology.Environment)
+c test=(§topology.environment("test"):§topology.Environment)

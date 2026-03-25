@@ -58,7 +58,7 @@ while IFS= read -r file; do
     exit 1
   fi
 done < <(find . \
-  \( -path "*/.git" -o -path "*/target" -o -path "*/node_modules" -o -path "*/.local" \) -prune \
+  \( -path "*/.git" -o -path "*/target" -o -path "*/node_modules" -o -path "*/.local" -o -path "./language/test-fixtures" \) -prune \
   -o -name "*.sigil" -type f -print | sort)
 
 echo ""

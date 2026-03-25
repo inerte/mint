@@ -35,16 +35,6 @@ fn test_duplicate_consts() {
 }
 
 #[test]
-fn test_duplicate_imports() {
-    let source = "i stdlib::list\ni stdlib::list";
-    let tokens = tokenize(source).unwrap();
-    let program = parse(tokens, "test.lib.sigil").unwrap();
-
-    let result = validate_canonical_form(&program, Some("test.lib.sigil"), None);
-    assert!(result.is_err());
-}
-
-#[test]
 fn test_no_duplicates_different_names() {
     let source = "c baz=(3:Int)\nλbar()=>Int=2\nλfoo()=>Int=1";
     let tokens = tokenize(source).unwrap();
@@ -240,8 +230,8 @@ fn test_type_declaration_valid() {
 }
 
 #[test]
-fn test_import_valid() {
-    let source = "i stdlib::list\nλsize(xs:[Int])=>Int=stdlib::list.length(xs)";
+fn test_root_qualified_reference_valid() {
+    let source = "λsize(xs:[Int])=>Int=§list.length(xs)";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
@@ -536,4 +526,25 @@ fn test_filename_valid_lib_extension() {
     let program = parse(tokens, "ffiNodeConsole.lib.sigil").unwrap();
 
     assert!(validate_canonical_form(&program, Some("ffiNodeConsole.lib.sigil"), None).is_ok());
+}
+
+#[test]
+fn test_unused_extern_allowed_in_lib_file() {
+    let source = "e console:{log:λ(String)=>Unit}";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "ffiNodeConsole.lib.sigil").unwrap();
+
+    assert!(validate_canonical_form(&program, Some("ffiNodeConsole.lib.sigil"), None).is_ok());
+}
+
+#[test]
+fn test_unused_extern_rejected_in_executable_file() {
+    let source = "e console:{log:λ(String)=>Unit}\nλmain()=>Unit=()";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "typedFfiDemo.sigil").unwrap();
+
+    let result = validate_canonical_form(&program, Some("typedFfiDemo.sigil"), None);
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(matches!(errors[0], ValidationError::UnusedExtern { .. }));
 }

@@ -488,6 +488,12 @@ impl Lexer {
             '¬' => self.add_token(tokens, TokenType::NOT, "¬", start),
             '↦' => self.add_token(tokens, TokenType::MAP, "↦", start),
             '⧺' => self.add_token(tokens, TokenType::ListAppend, "⧺", start),
+            '§' => self.add_token(tokens, TokenType::StdlibRoot, "§", start),
+            '•' => self.add_token(tokens, TokenType::SrcRoot, "•", start),
+            '¶' => self.add_token(tokens, TokenType::CoreRoot, "¶", start),
+            '¤' => self.add_token(tokens, TokenType::ConfigRoot, "¤", start),
+            '†' => self.add_token(tokens, TokenType::WorldRoot, "†", start),
+            '※' => self.add_token(tokens, TokenType::TestRoot, "※", start),
 
             // Unicode keywords
             'λ' => self.add_token(tokens, TokenType::LAMBDA, "λ", start),
@@ -708,7 +714,6 @@ impl Lexer {
         // Check for keywords
         let token_type = match value.as_str() {
             "t" => TokenType::TYPE,
-            "i" => TokenType::IMPORT,
             "e" => TokenType::EXTERN,
             "l" => TokenType::LET,
             "c" => TokenType::CONST,

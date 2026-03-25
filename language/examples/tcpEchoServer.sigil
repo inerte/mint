@@ -1,5 +1,3 @@
-i stdlib::tcpServer
+λhandle(request:§tcpServer.Request)=>§tcpServer.Response=§tcpServer.response(request.message)
 
-λhandle(request:stdlib::tcpServer.Request)=>stdlib::tcpServer.Response=stdlib::tcpServer.response(request.message)
-
-λmain()=>!Tcp Unit=stdlib::tcpServer.serve(handle,45120)
+λmain()=>!Tcp Unit=§tcpServer.serve(handle,45120)

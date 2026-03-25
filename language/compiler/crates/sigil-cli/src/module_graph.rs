@@ -3,7 +3,9 @@
 //! Handles building a dependency graph of Sigil modules for multi-module compilation
 
 use crate::project::{get_project_config, ProjectConfig, ProjectConfigError};
-use sigil_ast::{Declaration, Program};
+use sigil_ast::{
+    ConcurrentStep, Declaration, Expr, Pattern, Program, RecordPatternField, Type, TypeDef,
+};
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
 use sigil_typechecker::EffectCatalog;
@@ -39,10 +41,10 @@ pub enum ModuleGraphError {
     #[error("Validation error: {}", format_validation_errors(.0))]
     Validation(Vec<ValidationError>),
 
-    #[error("Import cycle detected: {0:?}")]
+    #[error("Module cycle detected: {0:?}")]
     ImportCycle(Vec<String>),
 
-    #[error("Import not found: {module_id} (expected at {expected_path})")]
+    #[error("Module not found: {module_id} (expected at {expected_path})")]
     ImportNotFound {
         module_id: String,
         expected_path: String,
@@ -168,33 +170,26 @@ impl ModuleGraphBuilder {
             }
         }
 
-        // Process imports
-        for decl in &ast.declarations {
-            if let Declaration::Import(import_decl) = decl {
-                let module_id = import_decl.module_path.join("::");
-
-                // Only process Sigil imports (core::, stdlib::, or src::)
-                if !is_sigil_import_path(&module_id) {
-                    continue;
-                }
-
-                // Resolve import to file path
-                let resolved = resolve_sigil_import(&abs_file, project.as_ref(), &module_id)?;
-
-                if !resolved.file_path.exists() {
-                    return Err(ModuleGraphError::ImportNotFound {
-                        module_id: module_id.clone(),
-                        expected_path: resolved.file_path.to_string_lossy().to_string(),
-                    });
-                }
-
-                // Recursively visit
-                self.visit(
-                    &resolved.file_path,
-                    Some(resolved.module_id),
-                    resolved.project,
-                )?;
+        // Process referenced Sigil modules
+        for module_id in collect_referenced_module_ids(&ast) {
+            if module_id == "core::prelude" {
+                continue;
             }
+
+            let resolved = resolve_sigil_import(&abs_file, project.as_ref(), &module_id)?;
+
+            if !resolved.file_path.exists() {
+                return Err(ModuleGraphError::ImportNotFound {
+                    module_id: module_id.clone(),
+                    expected_path: resolved.file_path.to_string_lossy().to_string(),
+                });
+            }
+
+            self.visit(
+                &resolved.file_path,
+                Some(resolved.module_id),
+                resolved.project,
+            )?;
         }
 
         // Done visiting this module
@@ -232,6 +227,240 @@ fn is_sigil_import_path(module_path: &str) -> bool {
         || module_path.starts_with("test::")
         || module_path.starts_with("src::")
         || module_path.starts_with("config::")
+}
+
+pub fn collect_referenced_module_ids(program: &Program) -> HashSet<String> {
+    let mut modules = HashSet::new();
+    for declaration in &program.declarations {
+        collect_declaration_modules(declaration, &mut modules);
+    }
+    modules.retain(|module_id| is_sigil_import_path(module_id));
+    modules
+}
+
+fn collect_declaration_modules(declaration: &Declaration, modules: &mut HashSet<String>) {
+    match declaration {
+        Declaration::Function(function) => {
+            for param in &function.params {
+                if let Some(type_annotation) = &param.type_annotation {
+                    collect_type_modules(type_annotation, modules);
+                }
+            }
+            if let Some(return_type) = &function.return_type {
+                collect_type_modules(return_type, modules);
+            }
+            collect_expr_modules(&function.body, modules);
+        }
+        Declaration::Type(type_decl) => match &type_decl.definition {
+            TypeDef::Sum(sum) => {
+                for variant in &sum.variants {
+                    for typ in &variant.types {
+                        collect_type_modules(typ, modules);
+                    }
+                }
+            }
+            TypeDef::Product(product) => {
+                for field in &product.fields {
+                    collect_type_modules(&field.field_type, modules);
+                }
+            }
+            TypeDef::Alias(alias) => collect_type_modules(&alias.aliased_type, modules),
+        },
+        Declaration::Effect(_) => {}
+        Declaration::Const(const_decl) => {
+            if let Some(type_annotation) = &const_decl.type_annotation {
+                collect_type_modules(type_annotation, modules);
+            }
+            collect_expr_modules(&const_decl.value, modules);
+        }
+        Declaration::Test(test_decl) => {
+            for binding in &test_decl.world_bindings {
+                if let Some(type_annotation) = &binding.type_annotation {
+                    collect_type_modules(type_annotation, modules);
+                }
+                collect_expr_modules(&binding.value, modules);
+            }
+            collect_expr_modules(&test_decl.body, modules);
+        }
+        Declaration::Extern(_) => {}
+    }
+}
+
+fn collect_expr_modules(expr: &Expr, modules: &mut HashSet<String>) {
+    match expr {
+        Expr::Literal(_) | Expr::Identifier(_) => {}
+        Expr::Lambda(lambda) => {
+            for param in &lambda.params {
+                if let Some(type_annotation) = &param.type_annotation {
+                    collect_type_modules(type_annotation, modules);
+                }
+            }
+            collect_type_modules(&lambda.return_type, modules);
+            collect_expr_modules(&lambda.body, modules);
+        }
+        Expr::Application(application) => {
+            collect_expr_modules(&application.func, modules);
+            for arg in &application.args {
+                collect_expr_modules(arg, modules);
+            }
+        }
+        Expr::Binary(binary) => {
+            collect_expr_modules(&binary.left, modules);
+            collect_expr_modules(&binary.right, modules);
+        }
+        Expr::Unary(unary) => collect_expr_modules(&unary.operand, modules),
+        Expr::Match(match_expr) => {
+            collect_expr_modules(&match_expr.scrutinee, modules);
+            for arm in &match_expr.arms {
+                collect_pattern_modules(&arm.pattern, modules);
+                if let Some(guard) = &arm.guard {
+                    collect_expr_modules(guard, modules);
+                }
+                collect_expr_modules(&arm.body, modules);
+            }
+        }
+        Expr::Let(let_expr) => {
+            collect_pattern_modules(&let_expr.pattern, modules);
+            collect_expr_modules(&let_expr.value, modules);
+            collect_expr_modules(&let_expr.body, modules);
+        }
+        Expr::If(if_expr) => {
+            collect_expr_modules(&if_expr.condition, modules);
+            collect_expr_modules(&if_expr.then_branch, modules);
+            if let Some(else_branch) = &if_expr.else_branch {
+                collect_expr_modules(else_branch, modules);
+            }
+        }
+        Expr::List(list) => {
+            for element in &list.elements {
+                collect_expr_modules(element, modules);
+            }
+        }
+        Expr::Record(record) => {
+            for field in &record.fields {
+                collect_expr_modules(&field.value, modules);
+            }
+        }
+        Expr::MapLiteral(map) => {
+            for entry in &map.entries {
+                collect_expr_modules(&entry.key, modules);
+                collect_expr_modules(&entry.value, modules);
+            }
+        }
+        Expr::Tuple(tuple) => {
+            for element in &tuple.elements {
+                collect_expr_modules(element, modules);
+            }
+        }
+        Expr::FieldAccess(access) => collect_expr_modules(&access.object, modules),
+        Expr::Index(index) => {
+            collect_expr_modules(&index.object, modules);
+            collect_expr_modules(&index.index, modules);
+        }
+        Expr::Pipeline(pipeline) => {
+            collect_expr_modules(&pipeline.left, modules);
+            collect_expr_modules(&pipeline.right, modules);
+        }
+        Expr::Map(map) => {
+            collect_expr_modules(&map.list, modules);
+            collect_expr_modules(&map.func, modules);
+        }
+        Expr::Filter(filter) => {
+            collect_expr_modules(&filter.list, modules);
+            collect_expr_modules(&filter.predicate, modules);
+        }
+        Expr::Fold(fold) => {
+            collect_expr_modules(&fold.list, modules);
+            collect_expr_modules(&fold.func, modules);
+            collect_expr_modules(&fold.init, modules);
+        }
+        Expr::Concurrent(concurrent) => {
+            collect_expr_modules(&concurrent.width, modules);
+            if let Some(policy) = &concurrent.policy {
+                collect_expr_modules(&Expr::Record(policy.clone()), modules);
+            }
+            for step in &concurrent.steps {
+                match step {
+                    ConcurrentStep::Spawn(spawn) => collect_expr_modules(&spawn.expr, modules),
+                    ConcurrentStep::SpawnEach(spawn_each) => {
+                        collect_expr_modules(&spawn_each.list, modules);
+                        collect_expr_modules(&spawn_each.func, modules);
+                    }
+                }
+            }
+        }
+        Expr::MemberAccess(member_access) => {
+            modules.insert(member_access.namespace.join("::"));
+        }
+        Expr::TypeAscription(ascription) => {
+            collect_expr_modules(&ascription.expr, modules);
+            collect_type_modules(&ascription.ascribed_type, modules);
+        }
+    }
+}
+
+fn collect_pattern_modules(pattern: &Pattern, modules: &mut HashSet<String>) {
+    match pattern {
+        Pattern::Literal(_) | Pattern::Identifier(_) | Pattern::Wildcard(_) => {}
+        Pattern::Constructor(constructor) => {
+            if !constructor.module_path.is_empty() {
+                modules.insert(constructor.module_path.join("::"));
+            }
+            for nested in &constructor.patterns {
+                collect_pattern_modules(nested, modules);
+            }
+        }
+        Pattern::List(list) => {
+            for nested in &list.patterns {
+                collect_pattern_modules(nested, modules);
+            }
+        }
+        Pattern::Record(record) => {
+            for RecordPatternField { pattern, .. } in &record.fields {
+                if let Some(nested) = pattern {
+                    collect_pattern_modules(nested, modules);
+                }
+            }
+        }
+        Pattern::Tuple(tuple) => {
+            for nested in &tuple.patterns {
+                collect_pattern_modules(nested, modules);
+            }
+        }
+    }
+}
+
+fn collect_type_modules(typ: &Type, modules: &mut HashSet<String>) {
+    match typ {
+        Type::Primitive(_) | Type::Variable(_) => {}
+        Type::List(list) => collect_type_modules(&list.element_type, modules),
+        Type::Map(map) => {
+            collect_type_modules(&map.key_type, modules);
+            collect_type_modules(&map.value_type, modules);
+        }
+        Type::Function(function) => {
+            for param in &function.param_types {
+                collect_type_modules(param, modules);
+            }
+            collect_type_modules(&function.return_type, modules);
+        }
+        Type::Constructor(constructor) => {
+            for arg in &constructor.type_args {
+                collect_type_modules(arg, modules);
+            }
+        }
+        Type::Tuple(tuple) => {
+            for nested in &tuple.types {
+                collect_type_modules(nested, modules);
+            }
+        }
+        Type::Qualified(qualified) => {
+            modules.insert(qualified.module_path.join("::"));
+            for arg in &qualified.type_args {
+                collect_type_modules(arg, modules);
+            }
+        }
+    }
 }
 
 fn file_path_to_module_id(abs_path: &Path, project: &Option<ProjectConfig>) -> Option<String> {
@@ -366,7 +595,7 @@ fn resolve_sigil_import(
     let file_path_str = module_id.replace("::", "/");
 
     if module_id.starts_with("src::") || module_id.starts_with("config::") {
-        // Project import
+        // Project module reference
         let project = importer_project.ok_or_else(|| ModuleGraphError::ImportNotFound {
             module_id: module_id.to_string(),
             expected_path: "project not found".to_string(),
@@ -384,7 +613,7 @@ fn resolve_sigil_import(
         || module_id.starts_with("world::")
         || module_id.starts_with("test::")
     {
-        // Language import - find language root
+        // Language module reference - find language root
         let language_root = find_language_root(importer_file)?;
         let file_path = resolve_import_path(&language_root, &file_path_str)?;
 
@@ -396,7 +625,7 @@ fn resolve_sigil_import(
     } else {
         Err(ModuleGraphError::ImportNotFound {
             module_id: module_id.to_string(),
-            expected_path: "unknown import type".to_string(),
+            expected_path: "unknown module root".to_string(),
         })
     }
 }

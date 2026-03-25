@@ -66,11 +66,6 @@ impl Printer {
             Declaration::Function(function) => self.function_decl(function, indent),
             Declaration::Type(type_decl) => self.type_decl(type_decl, indent),
             Declaration::Effect(effect_decl) => self.effect_decl(effect_decl, indent),
-            Declaration::Import(import_decl) => {
-                self.indent(indent);
-                self.push("i ");
-                self.push(&import_decl.module_path.join("::"));
-            }
             Declaration::Const(const_decl) => {
                 self.indent(indent);
                 self.push("c ");
@@ -337,7 +332,7 @@ impl Printer {
                 };
                 format!(
                     "{}.{}{}",
-                    qualified.module_path.join("::"),
+                    module_path_text(&qualified.module_path),
                     qualified.type_name,
                     args
                 )
@@ -533,7 +528,7 @@ impl Printer {
             ),
             Expr::Concurrent(concurrent) => self.concurrent_text(concurrent, indent),
             Expr::MemberAccess(member) => {
-                format!("{}.{}", member.namespace.join("::"), member.member)
+                format!("{}.{}", module_path_text(&member.namespace), member.member)
             }
             Expr::TypeAscription(ascription) => {
                 format!(
@@ -778,11 +773,7 @@ impl Printer {
                 let prefix = if constructor.module_path.is_empty() {
                     constructor.name.clone()
                 } else {
-                    format!(
-                        "{}.{}",
-                        constructor.module_path.join("::"),
-                        constructor.name
-                    )
+                    format!("{}.{}", module_path_text(&constructor.module_path), constructor.name)
                 };
                 if constructor.patterns.is_empty() {
                     format!("{}()", prefix)
@@ -909,6 +900,30 @@ fn literal_text(literal: &LiteralExpr) -> String {
         LiteralValue::Char(value) => char_literal(*value),
         LiteralValue::Bool(value) => value.to_string(),
         LiteralValue::Unit => "()".to_string(),
+    }
+}
+
+fn module_path_text(module_path: &[String]) -> String {
+    if let Some((root, rest)) = module_path.split_first() {
+        if let Some(sigl) = root_sigil(root) {
+            if rest.is_empty() {
+                return sigl.to_string();
+            }
+            return format!("{}{}", sigl, rest.join("::"));
+        }
+    }
+    module_path.join("::")
+}
+
+fn root_sigil(root: &str) -> Option<&'static str> {
+    match root {
+        "stdlib" => Some("§"),
+        "src" => Some("•"),
+        "core" => Some("¶"),
+        "config" => Some("¤"),
+        "world" => Some("†"),
+        "test" => Some("※"),
+        _ => None,
     }
 }
 

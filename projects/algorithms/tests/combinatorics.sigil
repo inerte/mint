@@ -1,12 +1,6 @@
-i src::linearSearch
-
-i src::nQueens
-
-i src::permutations
-
 λallUnique(cols:[Int])=>Bool match cols{
   []=>true|
-  [head,.tail]=>match src::linearSearch.linearSearch(head,tail)=-1{
+  [head,.tail]=>match •linearSearch.linearSearch(head,tail)=-1{
     true=>allUnique(tail)|
     false=>false
   }
@@ -32,27 +26,27 @@ i src::permutations
 }
 
 test "permutations of empty list is list with empty list" {
-  src::permutations.permutations([])=[[]]
+  •permutations.permutations([])=[[]]
 }
 
 test "permutations of three items has six outputs" {
-  #src::permutations.permutations([1,2,3])=6
+  #•permutations.permutations([1,2,3])=6
 }
 
 test "permutations order starts with canonical recursive cases" {
-  src::permutations.permutations([1,2,3])=[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]
+  •permutations.permutations([1,2,3])=[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]
 }
 
 test "n queens size one has one solution" {
-  src::nQueens.nQueens(1)=[[0]]
+  •nQueens.nQueens(1)=[[0]]
 }
 
 test "n queens size four has two solutions" {
-  #src::nQueens.nQueens(4)=2
+  #•nQueens.nQueens(4)=2
 }
 
 test "n queens solutions are conflict free" {
-  match src::nQueens.nQueens(4){
+  match •nQueens.nQueens(4){
     [firstSolution,secondSolution]=>allUnique(firstSolution) and noDiagonalConflicts(firstSolution) and allUnique(secondSolution) and noDiagonalConflicts(secondSolution)|
     _=>false
   }

@@ -1,25 +1,17 @@
 t NextTodoId=NextTodoId(Int)
 
-t PersistedState={nextId:NextTodoId,todos:[src::todoDomain.Todo]}
+t PersistedState={nextId:NextTodoId,todos:[•todoDomain.Todo]}
 
-i src::todoDomain
-
-i stdlib::decode
-
-i stdlib::json
-
-i stdlib::string
-
-λdecodeNextTodoId(value:stdlib::json.JsonValue)=>Result[NextTodoId,stdlib::decode.DecodeError] match stdlib::decode.int(value){
+λdecodeNextTodoId(value:§json.JsonValue)=>Result[NextTodoId,§decode.DecodeError] match §decode.int(value){
   Ok(nextId)=>Ok(NextTodoId(nextId))|
   Err(error)=>Err(error)
 }
 
-λdecodeState(input:String)=>Result[PersistedState,stdlib::decode.DecodeError]=stdlib::decode.parse(stateDecoder,input)
+λdecodeState(input:String)=>Result[PersistedState,§decode.DecodeError]=§decode.parse(stateDecoder,input)
 
-λdecodeTodo(value:stdlib::json.JsonValue)=>Result[src::todoDomain.Todo,stdlib::decode.DecodeError] match stdlib::decode.field(stdlib::decode.bool,"done")(value){
-  Ok(done)=>match stdlib::decode.field(stdlib::decode.int,"id")(value){
-    Ok(id)=>match stdlib::decode.field(stdlib::decode.string,"text")(value){
+λdecodeTodo(value:§json.JsonValue)=>Result[•todoDomain.Todo,§decode.DecodeError] match §decode.field(§decode.bool,"done")(value){
+  Ok(done)=>match §decode.field(§decode.int,"id")(value){
+    Ok(id)=>match §decode.field(§decode.string,"text")(value){
       Ok(text)=>Ok({done:done,id:id,text:text})|
       Err(error)=>Err(error)
     }|
@@ -28,17 +20,17 @@ i stdlib::string
   Err(error)=>Err(error)
 }
 
-λencodeState(state:PersistedState)=>String=stdlib::json.stringify(encodeStateToJson(state))
+λencodeState(state:PersistedState)=>String=§json.stringify(encodeStateToJson(state))
 
-λencodeStateToJson(state:PersistedState)=>stdlib::json.JsonValue=stdlib::json.JsonObject({"nextId"↦stdlib::json.JsonString(stdlib::string.intToString(nextTodoIdValue(state.nextId))),"todos"↦encodeTodos(state.todos)})
+λencodeStateToJson(state:PersistedState)=>§json.JsonValue=§json.JsonObject({"nextId"↦§json.JsonString(§string.intToString(nextTodoIdValue(state.nextId))),"todos"↦encodeTodos(state.todos)})
 
-λencodeTodo(todo:src::todoDomain.Todo)=>stdlib::json.JsonValue=stdlib::json.JsonObject({"done"↦stdlib::json.JsonBool(todo.done),"id"↦stdlib::json.JsonString(stdlib::string.intToString(todo.id)),"text"↦stdlib::json.JsonString(todo.text)})
+λencodeTodo(todo:•todoDomain.Todo)=>§json.JsonValue=§json.JsonObject({"done"↦§json.JsonBool(todo.done),"id"↦§json.JsonString(§string.intToString(todo.id)),"text"↦§json.JsonString(todo.text)})
 
-λencodeTodos(todos:[src::todoDomain.Todo])=>stdlib::json.JsonValue match todos{
-  []=>stdlib::json.JsonArray([])|
+λencodeTodos(todos:[•todoDomain.Todo])=>§json.JsonValue match todos{
+  []=>§json.JsonArray([])|
   [todo,.rest]=>match encodeTodos(rest){
-    stdlib::json.JsonArray(items)=>stdlib::json.JsonArray([encodeTodo(todo)]⧺items)|
-    _=>stdlib::json.JsonArray([encodeTodo(todo)])
+    §json.JsonArray(items)=>§json.JsonArray([encodeTodo(todo)]⧺items)|
+    _=>§json.JsonArray([encodeTodo(todo)])
   }
 }
 
@@ -46,8 +38,8 @@ i stdlib::string
   NextTodoId(value)=>value
 }
 
-λstateDecoder(value:stdlib::json.JsonValue)=>Result[PersistedState,stdlib::decode.DecodeError] match stdlib::decode.field(decodeNextTodoId,"nextId")(value){
-  Ok(nextId)=>match stdlib::decode.field(stdlib::decode.list(decodeTodo),"todos")(value){
+λstateDecoder(value:§json.JsonValue)=>Result[PersistedState,§decode.DecodeError] match §decode.field(decodeNextTodoId,"nextId")(value){
+  Ok(nextId)=>match §decode.field(§decode.list(decodeTodo),"todos")(value){
     Ok(todos)=>Ok({nextId:nextId,todos:todos})|
     Err(error)=>Err(error)
   }|

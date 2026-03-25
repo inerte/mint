@@ -61,7 +61,7 @@ Current canonical boolean operators:
 - `¬`
 
 Module scope is declaration-only:
-- valid top-level forms: `t`, `e`, `i`, `c`, `λ`, `test`
+- valid top-level forms: `t`, `e`, `c`, `λ`, `test`
 - never generate top-level `l`
 - use `c` for immutable module-level values
 - move setup bindings inside `main()` or another function body
@@ -102,14 +102,14 @@ Current high-signal printer choices:
 - no discretionary alternative layout for the same AST shape
 
 Current constructor and list invariants:
-- imported sum-type constructors use fully qualified module syntax in both expressions and patterns
-- canonical example: `src::graphTypes.Ordering([1,2,3])`
-- canonical imported nullary pattern example: `src::graphTypes.CycleDetected()`
+- rooted sum-type constructors use fully qualified module syntax in both expressions and patterns
+- canonical example: `•graphTypes.Ordering([1,2,3])`
+- canonical rooted nullary pattern example: `•graphTypes.CycleDetected()`
 - list literals preserve nesting exactly as written
 - use `⧺` only for explicit concatenation; never rely on list literals to flatten values
 - if a canonical helper exists in `stdlib`, prefer it over project-local reimplementation
-- in first-party Sigil code outside `language/stdlib/`, do not locally redefine canonical stdlib helpers; use qualified calls like `stdlib::list.sum` and `stdlib::numeric.max`
-- for safe integer list lookup/end access, prefer `stdlib::list.nth` and `stdlib::list.last`
+- in first-party Sigil code outside `language/stdlib/`, do not locally redefine canonical stdlib helpers; use qualified calls like `§list.sum` and `§numeric.max`
+- for safe integer list lookup/end access, prefer `§list.nth` and `§list.last`
 - Sigil keeps one promise-shaped runtime model, and explicit widening uses named `concurrent` regions
 - the canonical concurrent-region surface is `concurrent name@width{...}` or `concurrent name@width:{jitterMs:...,stopOn:...,windowMs:...}{...}`
 - only `width` is required; omitted policy defaults to no jitter, no early stop, and no windowing
@@ -123,9 +123,9 @@ Current constructor and list invariants:
 - do not describe Sigil as using Hindley-Milner let-polymorphism
 - prefer canonical `Option[T]` / `Result[T,E]` over monomorphic wrappers like `IntOption`
 - generic lambdas and call-site type arguments like `f[Int](x)` are not part of Sigil's surface
-- `ConcurrentOutcome`, `Option`, `Result`, `Aborted`, `Failure`, `Success`, `Some`, `None`, `Ok`, and `Err` are implicit core vocabulary from `core::prelude`
+- `ConcurrentOutcome`, `Option`, `Result`, `Aborted`, `Failure`, `Success`, `Some`, `None`, `Ok`, and `Err` are implicit core vocabulary from `¶prelude`
 - `Map` is a core collection concept with type syntax `{K↦V}` and literal syntax `{key↦value,...}` / `{↦}`
-- helper operations for foundational core types stay namespaced under `core::...`
+- helper operations for foundational core types stay namespaced under `¶...`
 - operational helpers live in canonical stdlib modules; use `language/docs/STDLIB.md` and `language/spec/stdlib-spec.md` as the source of truth for the current surface
 - prefixes are not intrinsically valuable; canonical ownership is
 - future changes should decide intentionally whether a concept belongs in:
@@ -133,7 +133,7 @@ Current constructor and list invariants:
   - a namespaced module surface
   - backend/runtime only
 - prefer putting operational formats/protocols (json, time, url, http, markdown) in `stdlib`
-- prefer `stdlib::process`, `stdlib::file.makeTempDir`, and `stdlib::time.sleepMs` for repo-local harness/tooling workflows before reaching for shell-specific orchestration
+- prefer `§process`, `§file.makeTempDir`, and `§time.sleepMs` for repo-local harness/tooling workflows before reaching for shell-specific orchestration
 - promote concepts to core only when they are universal language-shaping vocabulary
 - records and maps are distinct:
   - records are fixed-shape structural products using `:`
@@ -141,19 +141,20 @@ Current constructor and list invariants:
   - never blur them in syntax, docs, examples, or future features
   - records are exact and closed; Sigil does not have open records, row tails, or width subtyping
   - if a field may be absent, keep the record exact and use `Option[T]` for that field
-  - prefer early boundary conversion with `stdlib::decode` instead of carrying raw `JsonValue` deep into business logic
+  - prefer early boundary conversion with `§decode` instead of carrying raw `JsonValue` deep into business logic
   - when a validated boundary value should remain distinct from a raw primitive, prefer a named wrapper type like `Email` or `UserId`
   - topology-aware projects must declare external HTTP/TCP dependencies and environment names in `src/topology.lib.sigil`
   - topology-aware projects are validated against the selected `--env`, which must resolve to `config/<env>.lib.sigil`
-  - topology-aware application code must use `src::topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
+  - topology-aware application code must use `•topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
   - `process.env` belongs only in `config/*.lib.sigil`, never in ordinary application code
   - tests run in explicit worlds; prefer `config/<env>.lib.sigil` baseline worlds plus test-local `world { ... }` derivation over ad hoc rewiring
-  - unused imports and unused extern declarations are non-canonical
+  - unused extern declarations are non-canonical in executable `.sigil` files; `.lib.sigil` files may expose extern-based API surface that is unused locally
+  - rooted module references are written directly at use sites; there is no separate import declaration surface
   - inline single-use pure locals; keep bindings only for reuse, effects, destructuring, or syntax-required staging
   - reject dead named bindings; use `l _=(...)` when sequencing effects without keeping a reusable local
   - `.sigil` files must keep top-level functions, consts, and types reachable from `main` or tests; `.lib.sigil` files may still expose API that is unused locally
   - do not hand-roll recursive list plumbing when Sigil already has a canonical surface
-  - use `map` for projection, `filter` for filtering, `reduce ... from ...` / `stdlib::list.fold` for reduction, `stdlib::list.reverse` for reversal, `stdlib::list.any` / `stdlib::list.all` / `stdlib::list.find` for existential, universal, and first-match search, `stdlib::list.flatMap` for flattening projection, and `stdlib::list.countIf` for predicate counting
+  - use `map` for projection, `filter` for filtering, `reduce ... from ...` / `§list.fold` for reduction, `§list.reverse` for reversal, `§list.any` / `§list.all` / `§list.find` for existential, universal, and first-match search, `§list.flatMap` for flattening projection, and `§list.countIf` for predicate counting
   - do not build list results by appending to the recursive result (`self(rest)⧺rhs`); use a canonical operator or a wrapper plus accumulator helper with one final reverse
 
 ### 3) Keep user-facing errors actionable
@@ -164,17 +165,17 @@ Error messages should:
 - give the required canonical form when possible
 
 Prefer:
-- `Use "::" (e.g., i stdlib::list)`
+- `Use a root sigil and nested module separators only where needed (e.g., §list, ※check::log, †runtime.World)`
 
 Over:
 - vague parse failures with no remediation
 
 ### 4) Stdlib modules are typed interfaces, not just examples
 
-`stdlib/` modules are consumed through typed imports.
+`stdlib/` modules are consumed through typed rooted references.
 
 When adding or relying on stdlib functions:
-- ensure required functions are declared in the correct file kind (`.lib.sigil` for importable modules)
+- ensure required functions are declared in the correct file kind (`.lib.sigil` for reusable modules)
 - keep module boundaries intentional (avoid duplicate public APIs across modules unless deliberate)
 - update docs/spec references if canonical module names or public functions change
 
@@ -264,26 +265,26 @@ Sigil enforces canonical filename format:
 
 **Why?**
 - Case-insensitive filesystem safety (macOS/Windows)
-- Consistent import path readability
+- Consistent rooted-module path readability
 - One canonical way (Sigil philosophy)
 
 #### File Purpose (by extension)
 
 **`.lib.sigil` files** (libraries):
-- All functions are automatically visible to importers (no `export` keyword)
+- All functions are automatically visible to other modules (no `export` keyword)
 - Cannot have main() function
 - Used for reusable code, types, utilities
 
 **`.sigil` files** (executables):
 - Must have main() function
-- Cannot be imported (except by test files)
+- Export nothing directly
 - Used for programs, scripts, examples
 
 **`tests/*.sigil` files** (tests):
 - Must have main()=>Unit=() function
 - Can have test blocks
 - Must be in tests/ directory
-- Special privilege: can import from ANY file and see ALL functions
+- May reference `.lib.sigil` APIs directly and exercise executable behavior through `main`
 
 When creating new files:
 - Library? => Use `.lib.sigil`, all functions auto-visible
@@ -309,8 +310,6 @@ Coverage gate behavior:
 
 Create new test file:
 ```sigil program tests/myFeature.sigil
-i stdlib::list
-
 λmain()=>Unit=()
 
 test "my feature works" {
@@ -406,7 +405,7 @@ cargo test --manifest-path language/compiler/Cargo.toml
 - If parser accepts multiple forms but Sigil only allows one, validator must reject non-canonical forms clearly.
 
 ### `compiler/crates/sigil-typechecker`
-- If syntax/module naming changes affect namespaces/imports, update user-facing error text to match canonical Sigil syntax.
+- If syntax/module naming changes affect rooted namespaces or module resolution, update user-facing error text to match canonical Sigil syntax.
 - Keep internal representations stable when possible (e.g., filesystem/module resolution formats).
 - The typechecker-to-codegen contract is `TypeCheckResult`, not a raw declaration-type map.
 - Build new semantic facts into the typed IR (`typed_program`) instead of teaching codegen to rediscover them from raw AST shape.
@@ -420,7 +419,7 @@ cargo test --manifest-path language/compiler/Cargo.toml
 - Prefer small, canonical modules.
 - Avoid duplicate overlapping functions across modules unless there is a clear module-boundary reason.
 - All stdlib modules use `.lib.sigil` extension.
-- All functions in `.lib.sigil` files are automatically visible to importers.
+- All functions in `.lib.sigil` files are automatically visible to other modules.
 
 ### `examples/`
 - Example Sigil files demonstrating language features
@@ -462,11 +461,11 @@ For language work, summarize:
 Good commit messages explain why the language/compiler change matters:
 - ambiguity removed
 - canonical form enforced
-- typed import/export bug fixed
+- cross-module type-resolution bug fixed
 - diagnostics improved
 
 Examples of useful verbs:
 - `Fix` parser ambiguity for namespace/division parsing
-- `Update` canonical import syntax to use :: separators
-- `Export` stdlib list utilities for typed imports
+- `Update` rooted-module syntax to use explicit root sigils
+- `Expose` stdlib list utilities for cross-module type checking
 - `Sync` docs/spec examples with parser behavior

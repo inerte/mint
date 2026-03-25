@@ -1,22 +1,14 @@
-i stdlib::io
-
-i stdlib::numeric
-
-i test::check::log
-
-i world::log
-
 λmain()=>Unit=()
 
 test "log capture records side effects" =>!Log world {
-  c log=(world::log.capture():world::log.LogEntry)
+  c log=(†log.capture():†log.LogEntry)
 } {
-  l _=(stdlib::io.println("captured"):Unit);
-  test::check::log.contains("captured")
+  l _=(§io.println("captured"):Unit);
+  ※check::log.contains("captured")
 }
 
 test "numeric predicates are available in projects" {
-  stdlib::numeric.isEven(2)=true and stdlib::numeric.isOdd(3)=true
+  §numeric.isEven(2)=true and §numeric.isOdd(3)=true
 }
 
 test "pure boolean passes" {

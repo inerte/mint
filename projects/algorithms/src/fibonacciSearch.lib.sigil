@@ -1,7 +1,5 @@
 t FibFrame={fibM:Int,fibMm1:Int,fibMm2:Int,offset:Int}
 
-i stdlib::list
-
 λcandidateIndex(frame:FibFrame,xs:[Int])=>Int=minIndex(#xs-1,frame.offset+frame.fibMm2)
 
 λfibonacciSearch(target:Int,xs:[Int])=>Int match #xs=0{
@@ -9,7 +7,7 @@ i stdlib::list
   false=>searchFrame(initialFrame(#xs),target,xs)
 }
 
-λindexValue(idx:Int,xs:[Int])=>Int match stdlib::list.nth(idx,xs){
+λindexValue(idx:Int,xs:[Int])=>Int match §list.nth(idx,xs){
   Some(value)=>value|
   None()=>0
 }

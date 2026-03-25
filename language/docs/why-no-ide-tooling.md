@@ -105,9 +105,9 @@ The compiler CLI is 1,010 lines of TypeScript. It provides:
 Example error:
 
 ```
-Error: Expected "::" separator in import path
-Found: i stdlib/list
-Expected: i stdlib::list
+Error: Expected a Sigil root for module reference
+Found: stdlib/list.length(xs)
+Expected: §list.length(xs)
 ```
 
 Claude Code reads these diagnostics and explains them to humans in natural language.
@@ -347,7 +347,7 @@ But realistically, if Claude Code is unavailable, you have bigger problems than 
 
 Actually, this works **better** as codebases grow:
 
-- **Large codebases**: More code fits in LLM context (the current published corpus shows Sigil using 27.0% fewer tokens than TypeScript)
+- **Large codebases**: More code fits in LLM context (the current published corpus shows Sigil using 20.7% fewer tokens than TypeScript)
 - **Complex code**: AI explanations scale better than human documentation
 - **Maintenance**: No stale documentation to keep in sync
 

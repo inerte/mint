@@ -1,10 +1,4 @@
-i src::topology
-
-i stdlib::httpClient
-
-i stdlib::json
-
-λmain()=>!Http String match stdlib::httpClient.getJson(src::topology.mailerApi,stdlib::httpClient.emptyHeaders(),"/json"){
-  Ok(value)=>stdlib::json.stringify(value)|
+λmain()=>!Http String match §httpClient.getJson(•topology.mailerApi,§httpClient.emptyHeaders(),"/json"){
+  Ok(value)=>§json.stringify(value)|
   Err(error)=>"ERR:"++error.message
 }

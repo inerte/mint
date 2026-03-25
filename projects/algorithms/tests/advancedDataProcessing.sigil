@@ -1,31 +1,25 @@
-i core::map
-
-i src::histogram
-
-i src::wordFrequency
-
 λmain()=>Unit=()
 
 test "histogram counts duplicate integers" {
-  l counts=(src::histogram.histogram([1,1,2,3,3,3]):{Int↦Int});
-  core::map.size(counts)=3 and (match core::map.get(3,counts){
+  l counts=(•histogram.histogram([1,1,2,3,3,3]):{Int↦Int});
+  ¶map.size(counts)=3 and (match ¶map.get(3,counts){
     Some(value)=>value=3|
     None()=>false
   })
 }
 
 test "histogram buckets map entries into records" {
-  #src::histogram.buckets(src::histogram.histogram([4,4,5]))=2
+  #•histogram.buckets(•histogram.histogram([4,4,5]))=2
 }
 
 test "word frequency lowercases and counts repeated words" {
-  l counts=(src::wordFrequency.frequency(["Sigil sigil map","filter reduce SIGIL"]):{String↦Int});
-  match core::map.get("sigil",counts){
-    Some(value)=>value=3 and core::map.size(counts)=4|
+  l counts=(•wordFrequency.frequency(["Sigil sigil map","filter reduce SIGIL"]):{String↦Int});
+  match ¶map.get("sigil",counts){
+    Some(value)=>value=3 and ¶map.size(counts)=4|
     None()=>false
   }
 }
 
 test "word frequency summary turns counts into buckets" {
-  #src::wordFrequency.summary(["one two two"])=2
+  #•wordFrequency.summary(["one two two"])=2
 }

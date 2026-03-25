@@ -139,7 +139,7 @@ fn test_type_declaration_product() {
 
 #[test]
 fn test_type_declaration_function_alias() {
-    let source = "t Decoder[T]=λ(stdlib::json.JsonValue)=>Result[T,DecodeError]";
+    let source = "t Decoder[T]=λ(§json.JsonValue)=>Result[T,DecodeError]";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -197,18 +197,23 @@ fn test_boolean_literals_parse() {
 }
 
 #[test]
-fn test_import_declaration() {
-    let source = "i stdlib::list";
+fn test_root_qualified_member_access() {
+    let source = "λmain()=>Int=§list.length([1,2,3])";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
     match &program.declarations[0] {
-        Declaration::Import(imp) => {
-            assert_eq!(imp.module_path.len(), 2);
-            assert_eq!(imp.module_path[0], "stdlib");
-            assert_eq!(imp.module_path[1], "list");
-        }
-        _ => panic!("Expected import declaration"),
+        Declaration::Function(function) => match &function.body {
+            sigil_ast::Expr::Application(application) => match &application.func {
+                sigil_ast::Expr::MemberAccess(member) => {
+                    assert_eq!(member.namespace, vec!["stdlib".to_string(), "list".to_string()]);
+                    assert_eq!(member.member, "length");
+                }
+                other => panic!("Expected member access, got {:?}", other),
+            },
+            other => panic!("Expected application, got {:?}", other),
+        },
+        _ => panic!("Expected function declaration"),
     }
 }
 
@@ -252,7 +257,7 @@ fn test_local_let_expression_still_parses() {
 
 #[test]
 fn test_qualified_constructor_application_parses() {
-    let source = "λmain()=>Unit=src::graphTypes.Ordering([])";
+    let source = "λmain()=>Unit=•graphTypes.Ordering([])";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -276,7 +281,8 @@ fn test_qualified_constructor_application_parses() {
 
 #[test]
 fn test_qualified_constructor_pattern_parses() {
-    let source = "λmain(result:Int)=>Int match result{src::graphTypes.Ordering(order)=>#order|src::graphTypes.CycleDetected()=>0}";
+    let source =
+        "λmain(result:Int)=>Int match result{•graphTypes.Ordering(order)=>#order|•graphTypes.CycleDetected()=>0}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 

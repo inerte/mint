@@ -1,48 +1,63 @@
 ---
-title: Why Sigil Switched to :: and =>
+title: Why Sigil Uses Root Sigils and =>
 date: 2026-03-14
 author: Sigil Language Team
 slug: why-sigil-switched-to-colon-colon-and-fat-arrow
 ---
 
-# Why Sigil Switched to :: and =>
+# Why Sigil Uses Root Sigils and =>
 
-Sigil replaced `⋅` with `::` and `→` with `=>`.
+Sigil uses explicit root sigils for module provenance and `=>` for function and
+match arrows.
 
-## Why the Change Happened
+## Why Root Sigils
 
-The decision was based on whole-file tokenization over the actual Sigil corpus,
-not on isolated symbol comparisons. Under the tokenizer that matters most for
-this repo, the older Unicode forms were more expensive than the ASCII
-alternatives.
+Sigil wants every non-local reference to say where it comes from without
+requiring a separate import declaration.
 
-The measured savings across the `language/` and `projects/` corpus were large
-enough to justify a hard break.
+That is why the language uses fixed roots:
 
-## Why `::` Instead of `.`
+- `§` for stdlib modules
+- `•` for project source modules
+- `¶` for core modules
+- `¤` for config modules
+- `†` for world modules
+- `※` for test modules
 
-The strongest token winner for namespace syntax was `.`, but that would have
-collapsed an important structural distinction:
+Examples:
+
+- `§list.sum`
+- `•graphTypes.Ordering`
+- `†runtime.World`
+- `※check::log.contains`
+
+This keeps provenance explicit at the use site, avoids local-name collisions,
+and removes a whole class of bookkeeping around import declarations.
+
+## Why Not Plain `.`
+
+The strongest token winner for module syntax was collapsing everything into `.`,
+but that would have blurred two different relationships:
 
 - `record.field`
-- `fs::promises.readFile`
-- `src::graphTypes.Ordering`
+- `•graphTypes.Ordering`
 
-Sigil already uses `.` for field access. Reusing it for namespace paths would
-make parsing less direct and weaken a grammar boundary the language currently
-keeps clean. `::` still improves token cost while preserving that distinction.
+Sigil already uses `.` for member access. Keeping the root sigil separate and
+using `::` only after the root for deeper module descent preserves a cleaner
+grammar boundary.
 
 ## Why `=>`
 
-The arrow change was simpler. `=>` measured slightly better than `->` on the
-current corpus and works cleanly across function signatures and match arms.
+The arrow choice is simpler. `=>` works cleanly for function signatures and
+match arms while staying compact and visually regular.
 
-Using one canonical arrow throughout the language also keeps the surface easier
-to predict.
+Using one canonical arrow throughout the language keeps the surface easier to
+predict for both humans and models.
 
 ## Result
 
-This change is a good example of Sigil's syntax policy. Token cost matters, but
-it is measured on surrounding code and balanced against deterministic parsing.
-The language does not simply pick the shortest glyph sequence. It picks the
-canonical form that reduces cost without weakening structure.
+This is a good example of Sigil's syntax policy.
+
+The language does not optimize for the shortest isolated glyph sequence. It
+chooses the canonical surface that keeps provenance explicit, parsing direct,
+and whole-program token cost low.

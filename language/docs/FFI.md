@@ -208,7 +208,7 @@ e fs::promises:{mkdir:λ(String,MkdirOptions)=>Unit}
 t MkdirOptions={recursive:Bool}
 ```
 
-This is why Sigil's canonical declaration ordering is: **`t => e => i => c => λ => test`**
+This is why Sigil's canonical declaration ordering is: **`t => e => c => λ => test`**
 
 See [Canonical Declaration Ordering](/articles/canonical-declaration-ordering) for more details.
 

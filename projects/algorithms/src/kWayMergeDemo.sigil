@@ -1,3 +1,1 @@
-i src::kWayMerge
-
-λmain()=>[Int]=src::kWayMerge.kWayMerge([[1,4,7],[2,5,8],[3,6,9]])
+λmain()=>[Int]=•kWayMerge.kWayMerge([[1,4,7],[2,5,8],[3,6,9]])

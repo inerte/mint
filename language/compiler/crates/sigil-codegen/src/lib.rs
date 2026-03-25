@@ -10,8 +10,8 @@
 //! - Runtime helpers emitted at top of file
 
 use sigil_ast::{
-    BinaryOperator, ExternDecl, ImportDecl, LiteralExpr, LiteralValue, Pattern,
-    PatternLiteralValue, PipelineOperator, TypeDecl, TypeDef, UnaryOperator,
+    BinaryOperator, ExternDecl, LiteralExpr, LiteralValue, Pattern, PatternLiteralValue,
+    PipelineOperator, TypeDecl, TypeDef, UnaryOperator,
 };
 use sigil_typechecker::typed_ir::{
     MethodSelector, TypedBinaryExpr, TypedCallExpr, TypedConcurrentExpr, TypedConcurrentStep,
@@ -21,6 +21,7 @@ use sigil_typechecker::typed_ir::{
     TypedMapLiteralExpr, TypedMatchExpr, TypedMethodCallExpr, TypedPipelineExpr, TypedProgram,
     TypedRecordExpr, TypedTestDecl, TypedTupleExpr, TypedUnaryExpr,
 };
+use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
 
@@ -881,6 +882,7 @@ impl TypeScriptGenerator {
         // module except the prelude module itself, so runtime code needs the same
         // bindings even though the typechecker injected them implicitly.
         self.emit_core_prelude_runtime_import()?;
+        self.emit_runtime_module_imports(program)?;
 
         // Generate code for all declarations
         for decl in &program.declarations {
@@ -933,6 +935,19 @@ impl TypeScriptGenerator {
             import_path
         ));
         self.output.push("\n".to_string());
+        Ok(())
+    }
+
+    fn emit_runtime_module_imports(&mut self, program: &TypedProgram) -> Result<(), CodegenError> {
+        for module_id in collect_runtime_module_ids(program) {
+            if module_id == "core::prelude" {
+                continue;
+            }
+            self.emit_module_import(&module_id)?;
+        }
+        if !program.declarations.is_empty() {
+            self.output.push("\n".to_string());
+        }
         Ok(())
     }
 
@@ -1533,7 +1548,6 @@ impl TypeScriptGenerator {
             TypedDeclaration::Function(func) => self.generate_function(func),
             TypedDeclaration::Type(type_decl) => self.generate_type_decl(&type_decl.ast),
             TypedDeclaration::Const(const_decl) => self.generate_const(const_decl),
-            TypedDeclaration::Import(import) => self.generate_import(&import.ast),
             TypedDeclaration::Extern(extern_decl) => self.generate_extern(&extern_decl.ast),
             TypedDeclaration::Test(test) => self.generate_test(test),
         }
@@ -2056,33 +2070,29 @@ impl TypeScriptGenerator {
         Ok(())
     }
 
-    fn generate_import(&mut self, import: &ImportDecl) -> Result<(), CodegenError> {
-        // Convert Sigil import to ES module import (namespace style)
-        // For src::utils, create:
-        //   - namespace: src_utils (matches member access generation)
-        //   - import path: relative to current output file
-        let namespace = sanitize_js_identifier(&import.module_path.join("_"));
+    fn emit_module_import(&mut self, module_id: &str) -> Result<(), CodegenError> {
+        let module_path = module_id.split("::").collect::<Vec<_>>();
+        let namespace = sanitize_js_identifier(&module_path.join("_"));
         let import_path = if let Some(ref output_file) = self.output_file {
             let output_path = Path::new(output_file);
             if let Some(local_root) = find_output_root(output_path) {
-                let target_abs = local_root
-                    .join(import.module_path.join("/"))
-                    .with_extension("js");
+                let target_abs = local_root.join(module_path.join("/")).with_extension("js");
                 relative_import_path(
                     output_path.parent().unwrap_or_else(|| Path::new(".")),
                     &target_abs,
                 )
             } else {
-                format!("./{}.js", import.module_path.join("/"))
+                format!("./{}.js", module_path.join("/"))
             }
         } else {
-            format!("./{}.js", import.module_path.join("/"))
+            format!("./{}.js", module_path.join("/"))
         };
 
         self.emit(&format!(
             "import * as {} from '{}';",
             namespace, import_path
         ));
+        self.output.push("\n".to_string());
         Ok(())
     }
 
@@ -3783,17 +3793,195 @@ fn relative_import_path(from_dir: &Path, target_file: &Path) -> String {
     }
 }
 
+fn collect_runtime_module_ids(program: &TypedProgram) -> BTreeSet<String> {
+    let mut modules = BTreeSet::new();
+    for declaration in &program.declarations {
+        collect_runtime_modules_in_declaration(declaration, &mut modules);
+    }
+    modules.retain(|module_id| is_sigil_runtime_module(module_id));
+    modules
+}
+
+fn collect_runtime_modules_in_declaration(
+    declaration: &TypedDeclaration,
+    modules: &mut BTreeSet<String>,
+) {
+    match declaration {
+        TypedDeclaration::Function(function) => {
+            collect_runtime_modules_in_expr(&function.body, modules)
+        }
+        TypedDeclaration::Const(const_decl) => {
+            collect_runtime_modules_in_expr(&const_decl.value, modules)
+        }
+        TypedDeclaration::Test(test_decl) => {
+            for binding in &test_decl.world_bindings {
+                collect_runtime_modules_in_expr(&binding.value, modules);
+            }
+            collect_runtime_modules_in_expr(&test_decl.body, modules);
+        }
+        TypedDeclaration::Type(_) | TypedDeclaration::Extern(_) => {}
+    }
+}
+
+fn collect_runtime_modules_in_expr(expr: &TypedExpr, modules: &mut BTreeSet<String>) {
+    match &expr.kind {
+        TypedExprKind::Literal(_) | TypedExprKind::Identifier(_) => {}
+        TypedExprKind::NamespaceMember { namespace, .. } => {
+            modules.insert(namespace.join("::"));
+        }
+        TypedExprKind::Lambda(lambda) => collect_runtime_modules_in_expr(&lambda.body, modules),
+        TypedExprKind::Call(call) => {
+            collect_runtime_modules_in_expr(&call.func, modules);
+            for arg in &call.args {
+                collect_runtime_modules_in_expr(arg, modules);
+            }
+        }
+        TypedExprKind::ConstructorCall(call) => {
+            if let Some(module_path) = &call.module_path {
+                modules.insert(module_path.join("::"));
+            }
+            for arg in &call.args {
+                collect_runtime_modules_in_expr(arg, modules);
+            }
+        }
+        TypedExprKind::ExternCall(call) => {
+            modules.insert(call.namespace.join("::"));
+            for arg in &call.args {
+                collect_runtime_modules_in_expr(arg, modules);
+            }
+        }
+        TypedExprKind::MethodCall(call) => {
+            collect_runtime_modules_in_expr(&call.receiver, modules);
+            if let MethodSelector::Index(index) = &call.selector {
+                collect_runtime_modules_in_expr(index, modules);
+            }
+            for arg in &call.args {
+                collect_runtime_modules_in_expr(arg, modules);
+            }
+        }
+        TypedExprKind::Binary(binary) => {
+            collect_runtime_modules_in_expr(&binary.left, modules);
+            collect_runtime_modules_in_expr(&binary.right, modules);
+        }
+        TypedExprKind::Unary(unary) => collect_runtime_modules_in_expr(&unary.operand, modules),
+        TypedExprKind::Match(match_expr) => {
+            collect_runtime_modules_in_expr(&match_expr.scrutinee, modules);
+            for arm in &match_expr.arms {
+                if let Some(guard) = &arm.guard {
+                    collect_runtime_modules_in_expr(guard, modules);
+                }
+                collect_runtime_modules_in_expr(&arm.body, modules);
+            }
+        }
+        TypedExprKind::Let(let_expr) => {
+            collect_runtime_modules_in_expr(&let_expr.value, modules);
+            collect_runtime_modules_in_expr(&let_expr.body, modules);
+        }
+        TypedExprKind::If(if_expr) => {
+            collect_runtime_modules_in_expr(&if_expr.condition, modules);
+            collect_runtime_modules_in_expr(&if_expr.then_branch, modules);
+            if let Some(else_branch) = &if_expr.else_branch {
+                collect_runtime_modules_in_expr(else_branch, modules);
+            }
+        }
+        TypedExprKind::List(list) => {
+            for element in &list.elements {
+                collect_runtime_modules_in_expr(element, modules);
+            }
+        }
+        TypedExprKind::Tuple(tuple) => {
+            for element in &tuple.elements {
+                collect_runtime_modules_in_expr(element, modules);
+            }
+        }
+        TypedExprKind::Record(record) => {
+            for field in &record.fields {
+                collect_runtime_modules_in_expr(&field.value, modules);
+            }
+        }
+        TypedExprKind::MapLiteral(map) => {
+            for entry in &map.entries {
+                collect_runtime_modules_in_expr(&entry.key, modules);
+                collect_runtime_modules_in_expr(&entry.value, modules);
+            }
+        }
+        TypedExprKind::FieldAccess(field_access) => {
+            collect_runtime_modules_in_expr(&field_access.object, modules);
+        }
+        TypedExprKind::Index(index) => {
+            collect_runtime_modules_in_expr(&index.object, modules);
+            collect_runtime_modules_in_expr(&index.index, modules);
+        }
+        TypedExprKind::Map(map) => {
+            collect_runtime_modules_in_expr(&map.list, modules);
+            collect_runtime_modules_in_expr(&map.func, modules);
+        }
+        TypedExprKind::Filter(filter) => {
+            collect_runtime_modules_in_expr(&filter.list, modules);
+            collect_runtime_modules_in_expr(&filter.predicate, modules);
+        }
+        TypedExprKind::Fold(fold) => {
+            collect_runtime_modules_in_expr(&fold.list, modules);
+            collect_runtime_modules_in_expr(&fold.func, modules);
+            collect_runtime_modules_in_expr(&fold.init, modules);
+        }
+        TypedExprKind::Concurrent(concurrent) => {
+            collect_runtime_modules_in_expr(&concurrent.config.width, modules);
+            if let Some(jitter_ms) = &concurrent.config.jitter_ms {
+                collect_runtime_modules_in_expr(jitter_ms, modules);
+            }
+            if let Some(stop_on) = &concurrent.config.stop_on {
+                collect_runtime_modules_in_expr(stop_on, modules);
+            }
+            if let Some(window_ms) = &concurrent.config.window_ms {
+                collect_runtime_modules_in_expr(window_ms, modules);
+            }
+            for step in &concurrent.steps {
+                match step {
+                    TypedConcurrentStep::Spawn(spawn) => {
+                        collect_runtime_modules_in_expr(&spawn.expr, modules)
+                    }
+                    TypedConcurrentStep::SpawnEach(spawn_each) => {
+                        collect_runtime_modules_in_expr(&spawn_each.list, modules);
+                        collect_runtime_modules_in_expr(&spawn_each.func, modules);
+                    }
+                }
+            }
+        }
+        TypedExprKind::Pipeline(pipeline) => {
+            collect_runtime_modules_in_expr(&pipeline.left, modules);
+            collect_runtime_modules_in_expr(&pipeline.right, modules);
+        }
+    }
+}
+
+fn is_sigil_runtime_module(module_id: &str) -> bool {
+    module_id.starts_with("core::")
+        || module_id.starts_with("stdlib::")
+        || module_id.starts_with("world::")
+        || module_id.starts_with("test::")
+        || module_id.starts_with("src::")
+        || module_id.starts_with("config::")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sigil_lexer::tokenize;
+    use sigil_lexer::{tokenize, Position, SourceLocation};
     use sigil_parser::parse;
+    use sigil_typechecker::typed_ir::{PurityClass, StrictnessClass};
     use sigil_typechecker::type_check;
+    use sigil_typechecker::types::{InferenceType, TList};
+    use std::collections::HashSet;
 
     fn typed_program_for(source: &str, path: &str) -> TypedProgram {
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, path).unwrap();
         type_check(&program, source, None).unwrap().typed_program
+    }
+
+    fn test_location() -> SourceLocation {
+        SourceLocation::single(Position::new(1, 1, 0))
     }
 
     #[test]
@@ -3867,24 +4055,19 @@ mod tests {
 
     #[test]
     fn test_generate_import_sanitizes_alias_and_uses_relative_path() {
-        let source = "i src::rot13Encoder\nλmain()=>Unit=()";
-        let program = typed_program_for(source, "test.sigil");
-
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
             module_id: None,
             source_file: Some("projects/algorithms/tests/rot13Encoder.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/tests/rot13Encoder.ts".to_string()),
         });
-        let result = gen.generate(&program).unwrap();
+        gen.emit_module_import("src::rot13Encoder").unwrap();
+        let result = gen.output.join("");
 
         assert!(result.contains("import * as src_rot13Encoder from '../src/rot13Encoder.js';"));
     }
 
     #[test]
     fn test_generate_import_uses_local_root_for_stdlib_test_outputs() {
-        let source = "i stdlib::numeric\nλmain()=>Unit=()";
-        let program = typed_program_for(source, "test.sigil");
-
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
             module_id: None,
             source_file: Some("language/stdlib-tests/tests/numericPredicates.sigil".to_string()),
@@ -3892,7 +4075,8 @@ mod tests {
                 "/tmp/language/stdlib-tests/.local/tests/numericPredicates.ts".to_string(),
             ),
         });
-        let result = gen.generate(&program).unwrap();
+        gen.emit_module_import("stdlib::numeric").unwrap();
+        let result = gen.output.join("");
 
         assert!(result.contains("import * as stdlib_numeric from '../stdlib/numeric.js';"));
     }
@@ -3947,8 +4131,37 @@ mod tests {
 
     #[test]
     fn test_generate_qualified_constructor_call_without_mock_wrapper() {
-        let source = "i src::graphTypes\nλmain()=>Unit=src::graphTypes.Ordering([])";
-        let program = typed_program_for(source, "test.sigil");
+        let program = TypedProgram {
+            declarations: vec![TypedDeclaration::Function(TypedFunctionDecl {
+                name: "main".to_string(),
+                type_params: vec![],
+                params: vec![],
+                return_type: InferenceType::Any,
+                effects: None,
+                body: TypedExpr {
+                    kind: TypedExprKind::ConstructorCall(TypedConstructorCallExpr {
+                        module_path: Some(vec!["src".to_string(), "graphTypes".to_string()]),
+                        constructor: "Ordering".to_string(),
+                        args: vec![TypedExpr {
+                            kind: TypedExprKind::List(TypedListExpr { elements: vec![] }),
+                            typ: InferenceType::List(Box::new(TList {
+                                element_type: InferenceType::Any,
+                            })),
+                            effects: HashSet::new(),
+                            purity: PurityClass::Pure,
+                            strictness: StrictnessClass::Deferred,
+                            location: test_location(),
+                        }],
+                    }),
+                    typ: InferenceType::Any,
+                    effects: HashSet::new(),
+                    purity: PurityClass::Pure,
+                    strictness: StrictnessClass::Deferred,
+                    location: test_location(),
+                },
+                location: test_location(),
+            })],
+        };
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
             module_id: None,

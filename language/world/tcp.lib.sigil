@@ -10,18 +10,16 @@ t TcpResponsePlan=Respond(String)|Timeout()
 
 t TcpRule={request:String,response:TcpResponsePlan}
 
-i stdlib::topology
-
-λdeny(dependency:stdlib::topology.TcpServiceDependency)=>TcpEntry match dependency{
-  stdlib::topology.TcpServiceDependency(dependencyName)=>TcpEntry({dependencyName:dependencyName,mode:Deny()})
+λdeny(dependency:§topology.TcpServiceDependency)=>TcpEntry match dependency{
+  §topology.TcpServiceDependency(dependencyName)=>TcpEntry({dependencyName:dependencyName,mode:Deny()})
 }
 
-λfixture(dependency:stdlib::topology.TcpServiceDependency,rules:[TcpRule])=>TcpEntry match dependency{
-  stdlib::topology.TcpServiceDependency(dependencyName)=>TcpEntry({dependencyName:dependencyName,mode:Fixture(rules)})
+λfixture(dependency:§topology.TcpServiceDependency,rules:[TcpRule])=>TcpEntry match dependency{
+  §topology.TcpServiceDependency(dependencyName)=>TcpEntry({dependencyName:dependencyName,mode:Fixture(rules)})
 }
 
-λproxy(dependency:stdlib::topology.TcpServiceDependency,host:String,port:Int)=>TcpEntry match dependency{
-  stdlib::topology.TcpServiceDependency(dependencyName)=>TcpEntry({dependencyName:dependencyName,mode:Proxy({host:host,port:port})})
+λproxy(dependency:§topology.TcpServiceDependency,host:String,port:Int)=>TcpEntry match dependency{
+  §topology.TcpServiceDependency(dependencyName)=>TcpEntry({dependencyName:dependencyName,mode:Proxy({host:host,port:port})})
 }
 
 λrespond(body:String)=>TcpResponsePlan=Respond(body)

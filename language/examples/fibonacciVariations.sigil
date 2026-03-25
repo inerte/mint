@@ -1,7 +1,3 @@
-i stdlib::list
-
-i stdlib::numeric
-
 λfib01BasicRecursive(n:Int)=>Int=fib01BasicRecursiveHelper(0,1,n)
 
 λfib01BasicRecursiveHelper(a:Int,b:Int,n:Int)=>Int match n{
@@ -36,7 +32,7 @@ i stdlib::numeric
 
 λfib04TupleSwap(n:Int)=>Int=fib04TupleHelper(0,1,n)
 
-λfib05SequenceBuilder(n:Int)=>Int match stdlib::list.last(fibSequence(n)){
+λfib05SequenceBuilder(n:Int)=>Int match §list.last(fibSequence(n)){
   Some(x)=>x|
   None()=>0
 }
@@ -45,7 +41,7 @@ i stdlib::numeric
 
 λfib06ListSumHelper(a:Int,b:Int,n:Int)=>Int match n{
   0=>a|
-  count=>fib06ListSumHelper(b,stdlib::list.sum([a,b]),count-1)
+  count=>fib06ListSumHelper(b,§list.sum([a,b]),count-1)
 }
 
 λfib07WithOption(n:Int)=>Int=(match fib07WithOptionHelper(0,1,n){
@@ -63,21 +59,21 @@ i stdlib::numeric
 
 λfib08ModHelper(a:Int,b:Int,n:Int)=>Int match n{
   0=>a|
-  count=>fib08ModHelper(b,stdlib::numeric.mod(a+b,1000000007),count-1)
+  count=>fib08ModHelper(b,§numeric.mod(a+b,1000000007),count-1)
 }
 
 λfib09MinMax(n:Int)=>Int=fib09MinMaxHelper(0,1,n)
 
 λfib09MinMaxHelper(a:Int,b:Int,n:Int)=>Int match n{
   0=>a|
-  count=>fib09MinMaxHelper(b,stdlib::numeric.min(a,b)+stdlib::numeric.max(a,b),count-1)
+  count=>fib09MinMaxHelper(b,§numeric.min(a,b)+§numeric.max(a,b),count-1)
 }
 
 λfib10AbsSum(n:Int)=>Int=fib10AbsSumHelper(0,1,n)
 
 λfib10AbsSumHelper(a:Int,b:Int,n:Int)=>Int match n{
   0=>a|
-  count=>fib10AbsSumHelper(b,stdlib::numeric.abs(a)+stdlib::numeric.abs(b),count-1)
+  count=>fib10AbsSumHelper(b,§numeric.abs(a)+§numeric.abs(b),count-1)
 }
 
 λfib11WithLength(n:Int)=>Int=lengthInterpretation(n)
@@ -119,7 +115,7 @@ i stdlib::numeric
 
 λmain()=>Int=fib01BasicRecursive(10)+fib02WithGuards(10)+fib03NestedMatches(10)+fib04TupleSwap(10)+fib05SequenceBuilder(10)+fib06ListSum(10)+fib07WithOption(10)+fib08Mod(10)+fib09MinMax(10)+fib10AbsSum(10)+fib11WithLength(10)+fib12Comparison(10)
 
-λsumLastTwo(xs:[Int])=>Int match stdlib::list.reverse(xs){
+λsumLastTwo(xs:[Int])=>Int match §list.reverse(xs){
   [a,b,.rest]=>a+b|
   other=>0
 }

@@ -48,7 +48,7 @@ Claude Code: "This function calculates the nth Fibonacci number with a helper
               helper into a loop"
 ```
 
-**27.0% fewer tokens than TypeScript in the current published benchmark corpus** - More code fits in LLM context windows.
+**20.7% fewer tokens than TypeScript in the current published benchmark corpus** - More code fits in LLM context windows.
 
 ## First-Class Testing (Agent-First)
 
@@ -67,42 +67,42 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test -
 - Effectful tests declare effects explicitly
 - `config/<env>.lib.sigil` exports the baseline `world`
 - Tests may derive that world locally with `world { ... }`
-- `test::observe` and `test::check` inspect the active test world
+- `※observe` and `※check` inspect the active test world
 - `sigil test` enforces project `src/*.lib.sigil` surface coverage
 - Test files run in parallel by default (JSON results are output in stable order)
 
 See `docs/TESTING.md`.
 
-## Module System (Typed Imports)
+## Module System (Typed Rooted References)
 
-Sigil-to-Sigil imports are typechecked across modules (not trust-mode `any`).
+Sigil-to-Sigil references are typechecked across modules. There is no separate
+import declaration surface.
 
-Canonical Sigil imports:
+Canonical cross-module reference:
 
 ```sigil module projects/todo-app/src/countTodos.lib.sigil
-i src::todoDomain
-
-i stdlib::list
-
-λtodoCount(todos:[src::todoDomain.Todo])=>Int=#todos
+λtodoCount(todos:[•todoDomain.Todo])=>Int=#todos
 ```
 
-Exports are determined by file extension:
+Module visibility is determined by file extension:
 
 - **`.lib.sigil` files**: ALL declarations are automatically exported (libraries)
 - **`.sigil` files**: NOTHING is exported (executables with `main()` function)
 
-No `export` keyword exists - the file extension declares the intent.
+No `export` keyword exists. The file extension declares the intent.
 
-- Only `src/...`, `config/...`, `core/...`, `stdlib/...`, `world/...`, and `test/...` are valid Sigil import roots
-- Import cycles are compile errors
+- Only `•`, `¤`, `¶`, `§`, `†`, and `※` are valid Sigil module roots
+- `::` is only used after a root when descending into nested modules such as `※check::log`
+- Module cycles are compile errors
 - FFI (`e module::path`) remains trust-mode and link-time validated
 
 Sigil also has a very small implicit core prelude:
 - `Option[T]`, `Result[T,E]`
 - `Some`, `None`, `Ok`, `Err`
 
-These are available without import because they define everyday control and data vocabulary. Most operational helpers still live in namespaced modules like `core::map`, `stdlib::string`, `stdlib::file`, `stdlib::path`, `stdlib::process`, and `stdlib::time`.
+These are available without qualification because they define everyday control
+and data vocabulary. Most operational helpers still live in rooted modules like
+`¶map`, `§string`, `§file`, `§path`, `§process`, and `§time`.
 
 ## Why Machine-First Design?
 
@@ -117,7 +117,7 @@ If 93% of code is AI-generated (2026 stats), why optimize for the 7%?
 3. **One Textual Representation**: Code won't compile if it doesn't match the compiler's canonical printed form
    Parseable-but-non-canonical source is rejected by `compile`, `run`, and `test`.
 4. **Strong Types**: Bidirectional type checking with mandatory annotations
-5. **Context Efficiency**: ~27% fewer tokens than the current TypeScript benchmark corpus
+5. **Context Efficiency**: ~21% fewer tokens than the current mixed TypeScript benchmark corpus
 
 ### How Humans Interact
 
@@ -136,7 +136,7 @@ Developers interact through **Claude Code**:
 - No alternative syntaxes for the same construct
 - No optional keywords, brackets, or delimiters
 - No syntactic sugar creating multiple representations
-- Single import style, single function definition, single loop construct
+- Single rooted-module reference style, single function definition, single loop construct
 
 ### 2. Strong, Checked Types
 **"Types are mandatory and checked bidirectionally"**
@@ -163,7 +163,8 @@ Developers interact through **Claude Code**:
 Compact canonical syntax for model-facing efficiency:
 - `λ` for function (1 char vs 2-8)
 - `=>` for returns/maps-to
-- `::` for namespace paths without colliding with field access
+- root sigils (`§`, `•`, `¶`, `¤`, `†`, `※`) for explicit module provenance
+- `::` only for deeper nested module segments such as `※check::log`
 - `match` for pattern match (common keyword with strong model priors)
 - `Int` for integers, `Float` for reals, `Bool` for bool, `String` for string
 - `map` for list projection
@@ -231,11 +232,9 @@ It does not use Hindley-Milner let-polymorphism for local bindings.
 
 ### Built-in List Operations
 ```sigil module
-i stdlib::numeric
-
 λdoubled()=>[Int]=[1,2,3,4,5] map (λ(x:Int)=>Int=x*2)
 
-λevens()=>[Int]=[1,2,3,4,5] filter stdlib::numeric.isEven
+λevens()=>[Int]=[1,2,3,4,5] filter §numeric.isEven
 
 λtotal()=>Int=[1,2,3,4,5] reduce (λ(acc:Int,x:Int)=>Int=acc+x) from 0
 ```
@@ -249,22 +248,16 @@ t User={active:Bool,name:String}
 
 ## Token Efficiency Comparison
 
-**Measured with `tiktoken` (`cl100k_base`) vs TypeScript across 8 benchmark algorithms**  
-See `benchmarks/tokens/RESULTS.md` for methodology and per-algorithm code.
+**Measured with `tiktoken` (`cl100k_base`) vs TypeScript across 20 published benchmark cases**  
+See `benchmarks/tokens/RESULTS.md` for methodology and per-case results.
 
-| Algorithm | Sigil Tokens | TypeScript Tokens | Sigil Fewer Tokens vs TS |
-|----------|-------------:|------------------:|-------------------------:|
-| factorial | 44 | 52 | 15.4% |
-| fibonacci | 62 | 60 | -3.3% |
-| gcd | 21 | 48 | 56.3% |
-| power | 44 | 52 | 15.4% |
-| map-double | 44 | 59 | 25.4% |
-| filter-even | 47 | 67 | 29.9% |
-| is-palindrome | 31 | 49 | 36.7% |
-| sum-list | 26 | 50 | 48.0% |
-| **Average** | **39.9** | **54.6** | **27.0%** |
+| Subcorpus | Cases | Sigil Tokens | TypeScript Tokens | Sigil Fewer Tokens vs TS |
+|-----------|------:|-------------:|------------------:|-------------------------:|
+| Algorithms | 16 | 1746 | 2087 | 16.3% |
+| Language-shaped (`concurrent`, `world`, `topology`) | 4 | 268 | 454 | 41.0% |
+| **Combined** | **20** | **2014** | **2541** | **20.7%** |
 
-**Practical takeaway:** current published evidence supports roughly **27% fewer tokens than TypeScript** across the active 8-case corpus sourced from `projects/algorithms`.
+**Practical takeaway:** current published evidence supports roughly **21% fewer tokens than TypeScript** across the active mixed 20-case corpus.
 
 ## Developer Workflow
 
@@ -392,7 +385,7 @@ This is a research project exploring machine-first language design. Contribution
 1. **Unicode Tokenization**: Do modern LLM tokenizers handle `λ` as 1 token or multiple?
 2. **Generation Accuracy**: Can LLMs achieve >99% syntax correctness with canonical format?
 3. **Developer Experience**: Do developers prefer AI-mediated coding over direct writing?
-4. **Token Efficiency**: How much token reduction do we achieve in practice beyond the current 27.0% published benchmark result?
+4. **Token Efficiency**: How much token reduction do we achieve in practice beyond the current 20.7% published benchmark result?
 5. **Context Utilization**: Does denser code enable better LLM reasoning?
 
 ## License

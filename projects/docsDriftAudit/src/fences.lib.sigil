@@ -1,19 +1,13 @@
-t ScanState={current:Option[OpenSnippet],issues:[src::types.Issue],line:Int,results:[src::types.Snippet]}
+t ScanState={current:Option[OpenSnippet],issues:[•types.Issue],line:Int,results:[•types.Snippet]}
 
-t OpenSnippet={content:[String],filePath:String,info:src::types.FenceInfo,line:Int}
-
-i src::types
-
-i stdlib::list
-
-i stdlib::string
+t OpenSnippet={content:[String],filePath:String,info:•types.FenceInfo,line:Int}
 
 λappendContent(current:OpenSnippet,line:String)=>OpenSnippet={content:current.content⧺[line],filePath:current.filePath,info:current.info,line:current.line}
 
-λcloseSnippet(current:OpenSnippet,results:[src::types.Snippet])=>[src::types.Snippet]=results⧺[{content:stdlib::string.join("\n",current.content),filePath:current.filePath,info:current.info,line:current.line}]
+λcloseSnippet(current:OpenSnippet,results:[•types.Snippet])=>[•types.Snippet]=results⧺[{content:§string.join("\n",current.content),filePath:current.filePath,info:current.info,line:current.line}]
 
-λextractSnippets(filePath:String,markdown:String)=>src::types.ExtractResult={
-  l scan=(finishScan(scanLines(filePath,stdlib::string.lines(markdown),{current:None(),issues:[],line:1,results:[]})):ScanState);
+λextractSnippets(filePath:String,markdown:String)=>•types.ExtractResult={
+  l scan=(finishScan(scanLines(filePath,§string.lines(markdown),{current:None(),issues:[],line:1,results:[]})):ScanState);
   {issues:scan.issues,results:scan.results}
 }
 
@@ -22,19 +16,19 @@ i stdlib::string
   None()=>state
 }
 
-λinvalidFenceIssue(filePath:String,line:Int,message:String)=>src::types.Issue={line:line,message:message,path:filePath}
+λinvalidFenceIssue(filePath:String,line:Int,message:String)=>•types.Issue={line:line,message:message,path:filePath}
 
-λisFence(line:String)=>Bool=stdlib::string.startsWith("```",line)
+λisFence(line:String)=>Bool=§string.startsWith("```",line)
 
-λisSigilFence(line:String)=>Bool=stdlib::string.startsWith("```sigil",line)
+λisSigilFence(line:String)=>Bool=§string.startsWith("```sigil",line)
 
 λnonEmpty(text:String)=>Bool=#text>0
 
-λparseFenceInfo(info:String)=>Result[src::types.FenceInfo,String]={
-  l trimmed=(stdlib::string.trim(info):String);
-  match stdlib::string.indexOf(trimmed," "){
-    idx when idx≥0=>match stdlib::string.substring(idx,trimmed,0){
-      "sigil"=>parseFenceKind(stdlib::string.trim(stdlib::string.drop(idx+1,trimmed)))|
+λparseFenceInfo(info:String)=>Result[•types.FenceInfo,String]={
+  l trimmed=(§string.trim(info):String);
+  match §string.indexOf(trimmed," "){
+    idx when idx≥0=>match §string.substring(idx,trimmed,0){
+      "sigil"=>parseFenceKind(§string.trim(§string.drop(idx+1,trimmed)))|
       _=>Err("Sigil code fences must start with 'sigil'")
     }|
     _=>match trimmed{
@@ -44,12 +38,12 @@ i stdlib::string
   }
 }
 
-λparseFenceKind(rest:String)=>Result[src::types.FenceInfo,String] match stdlib::string.indexOf(rest," "){
-  idx when idx≥0=>parseFenceKindWithContext(stdlib::string.substring(idx,rest,0),stdlib::string.trim(stdlib::string.drop(idx+1,rest)))|
+λparseFenceKind(rest:String)=>Result[•types.FenceInfo,String] match §string.indexOf(rest," "){
+  idx when idx≥0=>parseFenceKindWithContext(§string.substring(idx,rest,0),§string.trim(§string.drop(idx+1,rest)))|
   _=>parseFenceKindWithoutContext(rest)
 }
 
-λparseFenceKindWithContext(kind:String,rest:String)=>Result[src::types.FenceInfo,String] match stdlib::string.indexOf(rest," "){
+λparseFenceKindWithContext(kind:String,rest:String)=>Result[•types.FenceInfo,String] match §string.indexOf(rest," "){
   idx when idx≥0=>Err("Sigil fence '"++kind++"' has too many arguments")|
   _=>match kind{
     "decl"=>Ok({context:Some(rest),kind:"decl"})|
@@ -61,8 +55,8 @@ i stdlib::string
   }
 }
 
-λparseFenceKindWithoutContext(kind:String)=>Result[src::types.FenceInfo,String] match kind{
-  "decl"=>Err("sigil decl fences must include a module path like 'sigil decl stdlib::list'")|
+λparseFenceKindWithoutContext(kind:String)=>Result[•types.FenceInfo,String] match kind{
+  "decl"=>Err("sigil decl fences must include a module path like 'sigil decl §list'")|
   "expr"=>Ok({context:None(),kind:"expr"})|
   "exprs"=>Ok({context:None(),kind:"exprs"})|
   "invalid-expr"=>Ok({context:None(),kind:"invalid-expr"})|
@@ -75,13 +69,13 @@ i stdlib::string
   _=>Err("unknown Sigil fence kind '"++kind++"'")
 }
 
-λparseModulePath(kind:String,virtualPath:String)=>Result[src::types.FenceInfo,String] match stdlib::string.endsWith(virtualPath,".lib.sigil"){
+λparseModulePath(kind:String,virtualPath:String)=>Result[•types.FenceInfo,String] match §string.endsWith(virtualPath,".lib.sigil"){
   true=>Ok({context:Some(virtualPath),kind:kind})|
   false=>Err("sigil "++kind++" fences must use a .lib.sigil virtual path")
 }
 
-λparseProgramPath(kind:String,virtualPath:String)=>Result[src::types.FenceInfo,String] match stdlib::string.endsWith(virtualPath,".sigil"){
-  true=>match stdlib::string.endsWith(virtualPath,".lib.sigil"){
+λparseProgramPath(kind:String,virtualPath:String)=>Result[•types.FenceInfo,String] match §string.endsWith(virtualPath,".sigil"){
+  true=>match §string.endsWith(virtualPath,".lib.sigil"){
     true=>Err("sigil "++kind++" fences must use a .sigil virtual path")|
     false=>Ok({context:Some(virtualPath),kind:kind})
   }|
@@ -99,7 +93,7 @@ i stdlib::string
     false=>{current:Some(appendContent(current,line)),issues:state.issues,line:state.line+1,results:state.results}
   }|
   None()=>match isSigilFence(line){
-    true=>match parseFenceInfo(stdlib::string.drop(3,line)){
+    true=>match parseFenceInfo(§string.drop(3,line)){
       Ok(info)=>{current:Some({content:[],filePath:filePath,info:info,line:state.line}),issues:state.issues,line:state.line+1,results:state.results}|
       Err(message)=>{current:None(),issues:state.issues⧺[invalidFenceIssue(filePath,state.line,message)],line:state.line+1,results:state.results}
     }|

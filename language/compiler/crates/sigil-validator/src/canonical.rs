@@ -691,10 +691,7 @@ fn validate_source_layout(
             Declaration::Test(test_decl) => {
                 validate_expr_layout(&test_decl.body, source, &mut errors);
             }
-            Declaration::Type(_)
-            | Declaration::Effect(_)
-            | Declaration::Import(_)
-            | Declaration::Extern(_) => {}
+            Declaration::Type(_) | Declaration::Effect(_) | Declaration::Extern(_) => {}
         }
     }
 
@@ -795,7 +792,7 @@ pub fn validate_canonical_form_with_options(
     // Rule 10: Naming forms - lowerCamelCase / UpperCamelCase only
     validate_naming_forms(program, &mut errors);
 
-    // Rule 11: No dead imports/externs/declarations
+    // Rule 11: No dead executable externs/declarations
     if let Err(e) = validate_no_unused_items(program, file_path) {
         errors.extend(e);
     }
@@ -829,9 +826,7 @@ pub fn validate_typed_canonical_form(
                 collect_unused_named_bindings(&test_decl.body, &mut errors);
                 collect_single_use_pure_bindings(&test_decl.body, &mut errors);
             }
-            TypedDeclaration::Type(_)
-            | TypedDeclaration::Import(_)
-            | TypedDeclaration::Extern(_) => {}
+            TypedDeclaration::Type(_) | TypedDeclaration::Extern(_) => {}
         }
     }
 
@@ -1615,7 +1610,7 @@ fn validate_record_field_ordering(program: &Program) -> Result<(), Vec<Validatio
             Declaration::Test(test_decl) => {
                 validate_expr_record_fields(&test_decl.body, &mut errors)
             }
-            Declaration::Effect(_) | Declaration::Extern(_) | Declaration::Import(_) => {}
+            Declaration::Effect(_) | Declaration::Extern(_) => {}
         }
     }
 
@@ -1934,10 +1929,7 @@ fn validate_no_shadowing(program: &Program) -> Result<(), Vec<ValidationError>> 
                 let mut scopes = Vec::new();
                 validate_expr_no_shadowing(&test_decl.body, &mut scopes, &mut errors);
             }
-            Declaration::Type(_)
-            | Declaration::Effect(_)
-            | Declaration::Extern(_)
-            | Declaration::Import(_) => {}
+            Declaration::Type(_) | Declaration::Effect(_) | Declaration::Extern(_) => {}
         }
     }
 
@@ -1955,7 +1947,6 @@ fn validate_no_duplicates(program: &Program) -> Result<(), Vec<ValidationError>>
     let mut type_names: HashMap<String, SourceLocation> = HashMap::new();
     let mut effect_names: HashMap<String, SourceLocation> = HashMap::new();
     let mut extern_names: HashMap<String, SourceLocation> = HashMap::new();
-    let mut import_paths: HashMap<String, SourceLocation> = HashMap::new();
     let mut const_names: HashMap<String, SourceLocation> = HashMap::new();
     let mut function_names: HashMap<String, SourceLocation> = HashMap::new();
     let mut test_names: HashMap<String, SourceLocation> = HashMap::new();
@@ -2006,24 +1997,6 @@ fn validate_no_duplicates(program: &Program) -> Result<(), Vec<ValidationError>>
                     });
                 } else {
                     extern_names.insert(name, *location);
-                }
-            }
-
-            Declaration::Import(ImportDecl {
-                module_path,
-                location,
-            }) => {
-                let path = module_path.join("::");
-                if let Some(first_loc) = import_paths.get(&path) {
-                    errors.push(ValidationError::DuplicateDeclaration {
-                        kind: "IMPORT".to_string(),
-                        what: "import".to_string(),
-                        name: path,
-                        location: *location,
-                        first_location: *first_loc,
-                    });
-                } else {
-                    import_paths.insert(path, *location);
                 }
             }
 
@@ -2210,14 +2183,7 @@ fn validate_no_unused_items(
 
     let is_lib_file = file_path.is_some_and(|path| path.ends_with(".lib.sigil"));
 
-    let import_paths: HashSet<String> = program
-        .declarations
-        .iter()
-        .filter_map(|decl| match decl {
-            Declaration::Import(import_decl) => Some(import_decl.module_path.join("::")),
-            _ => None,
-        })
-        .collect();
+    let import_paths: HashSet<String> = HashSet::new();
     let extern_paths: HashSet<String> = program
         .declarations
         .iter()
@@ -2270,7 +2236,6 @@ fn validate_no_unused_items(
         .flatten()
         .collect();
 
-    let mut imports = Vec::new();
     let mut externs = HashMap::new();
     let mut values = HashMap::new();
     let mut types = HashMap::new();
@@ -2279,9 +2244,6 @@ fn validate_no_unused_items(
 
     for decl in &program.declarations {
         match decl {
-            Declaration::Import(import_decl) => {
-                imports.push((import_decl.module_path.join("::"), import_decl.location));
-            }
             Declaration::Extern(extern_decl) => {
                 let path = extern_decl.module_path.join("::");
                 externs.insert(
@@ -2379,21 +2341,14 @@ fn validate_no_unused_items(
         collect_executable_usage(&values, &types, &externs, &tests)
     };
 
-    for (import_path, location) in imports {
-        if !reachability.imports.contains(&import_path) {
-            errors.push(ValidationError::UnusedImport {
-                import_path,
-                location,
-            });
-        }
-    }
-
-    for (extern_path, extern_usage) in &externs {
-        if !reachability.externs.contains(extern_path) {
-            errors.push(ValidationError::UnusedExtern {
-                extern_path: extern_path.clone(),
-                location: extern_usage.location,
-            });
+    if !is_lib_file {
+        for (extern_path, extern_usage) in &externs {
+            if !reachability.externs.contains(extern_path) {
+                errors.push(ValidationError::UnusedExtern {
+                    extern_path: extern_path.clone(),
+                    location: extern_usage.location,
+                });
+            }
         }
     }
 
@@ -4019,17 +3974,6 @@ fn validate_naming_forms(program: &Program, errors: &mut Vec<ValidationError>) {
                     });
                 }
             }
-            Declaration::Import(import_decl) => {
-                for segment in &import_decl.module_path {
-                    if !is_lower_camel_case(segment) {
-                        errors.push(ValidationError::ModulePathForm {
-                            found: segment.clone(),
-                            suggestion: suggestion_suffix(segment, to_lower_camel_case(segment)),
-                            location: import_decl.location,
-                        });
-                    }
-                }
-            }
             Declaration::Const(const_decl) => {
                 if !is_lower_camel_case(&const_decl.name) {
                     errors.push(ValidationError::IdentifierForm {
@@ -5040,10 +4984,7 @@ fn collect_filter_then_count_errors(program: &Program, errors: &mut Vec<Validati
             Declaration::Test(test_decl) => {
                 collect_filter_then_count_in_expr(&test_decl.body, errors)
             }
-            Declaration::Type(_)
-            | Declaration::Effect(_)
-            | Declaration::Import(_)
-            | Declaration::Extern(_) => {}
+            Declaration::Type(_) | Declaration::Effect(_) | Declaration::Extern(_) => {}
         }
     }
 }
@@ -5283,23 +5224,6 @@ mod tests {
             .unwrap_err()
             .iter()
             .any(|error| matches!(error, ValidationError::UnusedBinding { binding_name, .. } if binding_name == "unused")));
-    }
-
-    #[test]
-    fn test_unused_import_rejected() {
-        let source = r#"i stdlib::string
-
-λmain()=>Unit=()
-"#;
-        let tokens = tokenize(source).unwrap();
-        let program = parse(tokens, "test.sigil").unwrap();
-
-        let result = validate_canonical_form(&program, Some("test.sigil"), Some(source));
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .iter()
-            .any(|error| matches!(error, ValidationError::UnusedImport { import_path, .. } if import_path == "stdlib::string")));
     }
 
     #[test]
@@ -5670,11 +5594,11 @@ mod tests {
 
     #[test]
     fn test_canonical_any_all_find_allowed() {
-        let source = r#"λallPositive(xs:[Int])=>Bool=stdlib::list.all(λ(x:Int)=>Bool=x>0,xs)
+        let source = r#"λallPositive(xs:[Int])=>Bool=§list.all(λ(x:Int)=>Bool=x>0,xs)
 
-λanyEven(xs:[Int])=>Bool=stdlib::list.any(λ(x:Int)=>Bool=x%2=0,xs)
+λanyEven(xs:[Int])=>Bool=§list.any(λ(x:Int)=>Bool=x%2=0,xs)
 
-λfindEven(xs:[Int])=>Option[Int]=stdlib::list.find(λ(x:Int)=>Bool=x%2=0,xs)
+λfindEven(xs:[Int])=>Option[Int]=§list.find(λ(x:Int)=>Bool=x%2=0,xs)
 
 λmain()=>Bool=allPositive([1,2,3]) and anyEven([1,2,3]) and findEven([1,2,3,4])=Some(2)
 "#;
@@ -5685,9 +5609,9 @@ mod tests {
 
     #[test]
     fn test_canonical_flat_map_and_count_if_allowed() {
-        let source = r#"λcountEven(xs:[Int])=>Int=stdlib::list.countIf(λ(x:Int)=>Bool=x%2=0,xs)
+        let source = r#"λcountEven(xs:[Int])=>Int=§list.countIf(λ(x:Int)=>Bool=x%2=0,xs)
 
-λexplode(xs:[Int])=>[Int]=stdlib::list.flatMap(λ(x:Int)=>[Int]=[x,x],xs)
+λexplode(xs:[Int])=>[Int]=§list.flatMap(λ(x:Int)=>[Int]=[x,x],xs)
 
 λmain()=>Bool=countEven([1,2,3,4])=2 and explode([1,2])=[1,1,2,2]
 "#;
@@ -5701,7 +5625,7 @@ mod tests {
 fn validate_declaration_ordering(program: &Program) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
 
-    // Check category order (type => extern => import => const => function => test)
+    // Check category order (type => extern => const => function => test)
     if let Err(e) = validate_category_boundaries(&program.declarations) {
         errors.extend(e);
     }
@@ -5753,10 +5677,9 @@ fn validate_category_boundaries(declarations: &[Declaration]) -> Result<(), Vec<
             Declaration::Type(_) => 0,
             Declaration::Effect(_) => 1,
             Declaration::Extern(_) => 2,
-            Declaration::Import(_) => 3,
-            Declaration::Const(_) => 4,
-            Declaration::Function(_) => 5,
-            Declaration::Test(_) => 6,
+            Declaration::Const(_) => 3,
+            Declaration::Function(_) => 4,
+            Declaration::Test(_) => 5,
         }
     };
 
@@ -5766,16 +5689,14 @@ fn validate_category_boundaries(declarations: &[Declaration]) -> Result<(), Vec<
         let current_index = get_category_index(decl) as i32;
 
         if current_index < last_category_index {
-            let category_names = [
-                "type", "effect", "extern", "import", "const", "function", "test",
-            ];
-            let category_symbols = ["t", "effect", "e", "i", "c", "λ", "test"];
+            let category_names = ["type", "effect", "extern", "const", "function", "test"];
+            let category_symbols = ["t", "effect", "e", "c", "λ", "test"];
 
             return Err(vec![ValidationError::DeclarationOrderOld {
                 message: format!(
                     "SIGIL-CANON-DECL-CATEGORY-ORDER: Wrong category position\n\
                      Found: {} ({}) at line {}\n\
-                     Category order: t => effect => e => i => c => λ => test",
+                     Category order: t => effect => e => c => λ => test",
                     category_symbols[current_index as usize],
                     category_names[current_index as usize],
                     get_declaration_location(decl).start.line
@@ -5855,7 +5776,6 @@ fn get_declaration_location(decl: &Declaration) -> &SourceLocation {
         Declaration::Type(TypeDecl { location, .. }) => location,
         Declaration::Effect(EffectDecl { location, .. }) => location,
         Declaration::Extern(ExternDecl { location, .. }) => location,
-        Declaration::Import(ImportDecl { location, .. }) => location,
         Declaration::Const(ConstDecl { location, .. }) => location,
         Declaration::Function(FunctionDecl { location, .. }) => location,
         Declaration::Test(TestDecl { location, .. }) => location,

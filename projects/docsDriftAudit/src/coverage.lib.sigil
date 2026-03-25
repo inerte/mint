@@ -1,33 +1,25 @@
-i stdlib::path
-
-i stdlib::regex
-
-i stdlib::list
-
-i stdlib::string
-
-λcollectQualifiedRefs(source:String)=>[String] match stdlib::regex.compile("","stdlib::[A-Za-z0-9]+\\.[a-z][A-Za-z0-9]*"){
-  Ok(pattern)=>collectQualifiedRefsLines(stdlib::string.lines(source),pattern,[])|
+λcollectQualifiedRefs(source:String)=>[String] match §regex.compile("","§[A-Za-z0-9]+\\.[a-z][A-Za-z0-9]*"){
+  Ok(pattern)=>collectQualifiedRefsLines(§string.lines(source),pattern,[])|
   Err(_)=>[]
 }
 
-λcollectQualifiedRefsLine(pattern:stdlib::regex.Regex,refs:[String],source:String)=>[String] match stdlib::regex.find(source,pattern){
-  Some(found)=>collectQualifiedRefsLine(pattern,insertUnique(found.full,refs),stdlib::string.substring(#source,source,found.end))|
+λcollectQualifiedRefsLine(pattern:§regex.Regex,refs:[String],source:String)=>[String] match §regex.find(source,pattern){
+  Some(found)=>collectQualifiedRefsLine(pattern,insertUnique(found.full,refs),§string.substring(#source,source,found.end))|
   None()=>refs
 }
 
-λcollectQualifiedRefsLines(lines:[String],pattern:stdlib::regex.Regex,refs:[String])=>[String] match lines{
+λcollectQualifiedRefsLines(lines:[String],pattern:§regex.Regex,refs:[String])=>[String] match lines{
   []=>refs|
   [line,.rest]=>collectQualifiedRefsLines(rest,pattern,collectQualifiedRefsLine(pattern,refs,line))
 }
 
 λcollectStdlibExports(filePath:String,parseJson:String)=>[String]=qualifyExports(functionNamesFromParseJson(parseJson),modulePathFromStdlibFile(filePath))
 
-λdocumentedRefsForSnippet(modulePath:String,source:String)=>[String]=documentedRefsForSnippetLines(stdlib::string.lines(source),modulePath,[])
+λdocumentedRefsForSnippet(modulePath:String,source:String)=>[String]=documentedRefsForSnippetLines(§string.lines(source),modulePath,[])
 
 λdocumentedRefsForSnippetLines(lines:[String],modulePath:String,refs:[String])=>[String] match lines{
   []=>refs|
-  [line,.rest]=>match extractFunctionName(stdlib::string.trim(line)){
+  [line,.rest]=>match extractFunctionName(§string.trim(line)){
     Some(name)=>documentedRefsForSnippetLines(rest,modulePath,insertUnique(modulePath++"."++name,refs))|
     None()=>documentedRefsForSnippetLines(rest,modulePath,refs)
   }
@@ -35,31 +27,31 @@ i stdlib::string
 
 λdropUntilBoundary(acc:String,text:String)=>String match #text=0{
   true=>acc|
-  false=>match isIdentifierChar(stdlib::string.charAt(0,text)){
-    true=>dropUntilBoundary(acc++stdlib::string.charAt(0,text),stdlib::string.drop(1,text))|
+  false=>match isIdentifierChar(§string.charAt(0,text)){
+    true=>dropUntilBoundary(acc++§string.charAt(0,text),§string.drop(1,text))|
     false=>acc
   }
 }
 
-λextractFunctionName(line:String)=>Option[String] match stdlib::string.startsWith("λ",line){
-  true=>Some(extractFunctionNameInner("",stdlib::string.drop(1,line)))|
+λextractFunctionName(line:String)=>Option[String] match §string.startsWith("λ",line){
+  true=>Some(extractFunctionNameInner("",§string.drop(1,line)))|
   false=>None()
 }
 
 λextractFunctionNameInner(acc:String,text:String)=>String match #text=0{
   true=>acc|
   false=>{
-    l ch=(stdlib::string.charAt(0,text):String);
+    l ch=(§string.charAt(0,text):String);
     match isIdentifierChar(ch){
-      true=>extractFunctionNameInner(acc++ch,stdlib::string.drop(1,text))|
+      true=>extractFunctionNameInner(acc++ch,§string.drop(1,text))|
       false=>acc
     }
   }
 }
 
-λfunctionNamesFromDeclMatches(names:[String],pattern:stdlib::regex.Regex,source:String)=>[String] match stdlib::regex.find(source,pattern){
+λfunctionNamesFromDeclMatches(names:[String],pattern:§regex.Regex,source:String)=>[String] match §regex.find(source,pattern){
   Some(found)=>{
-    l remaining=(stdlib::string.drop(found.end,source):String);
+    l remaining=(§string.drop(found.end,source):String);
     match found.captures{
       [name]=>functionNamesFromDeclMatches(insertUnique(name,names),pattern,remaining)|
       _=>functionNamesFromDeclMatches(names,pattern,remaining)
@@ -68,14 +60,14 @@ i stdlib::string
   None()=>names
 }
 
-λfunctionNamesFromParseJson(parseJson:String)=>[String] match stdlib::regex.compile("","\"type\":\"FunctionDecl\",\"name\":\"([A-Za-z_][A-Za-z0-9_]*)\""){
+λfunctionNamesFromParseJson(parseJson:String)=>[String] match §regex.compile("","\"type\":\"FunctionDecl\",\"name\":\"([A-Za-z_][A-Za-z0-9_]*)\""){
   Ok(pattern)=>functionNamesFromDeclMatches([],pattern,parseJson)|
   Err(_)=>[]
 }
 
-λfunctionNamesFromTokens(expectName:Bool,names:[String],pattern:stdlib::regex.Regex,source:String)=>[String] match stdlib::regex.find(source,pattern){
+λfunctionNamesFromTokens(expectName:Bool,names:[String],pattern:§regex.Regex,source:String)=>[String] match §regex.find(source,pattern){
   Some(found)=>{
-    l remaining=(stdlib::string.drop(found.end,source):String);
+    l remaining=(§string.drop(found.end,source):String);
     match found.full="\"type\":\"FunctionDecl\""{
       true=>functionNamesFromTokens(true,names,pattern,remaining)|
       false=>match expectName{
@@ -87,13 +79,13 @@ i stdlib::string
   None()=>names
 }
 
-λinsertUnique(item:String,items:[String])=>[String] match stdlib::list.contains(item,items){
+λinsertUnique(item:String,items:[String])=>[String] match §list.contains(item,items){
   true=>items|
   false=>items⧺[item]
 }
 
-λisIdentifierChar(ch:String)=>Bool match stdlib::regex.compile("","^[A-Za-z0-9_]$"){
-  Ok(pattern)=>stdlib::regex.isMatch(ch,pattern)|
+λisIdentifierChar(ch:String)=>Bool match §regex.compile("","^[A-Za-z0-9_]$"){
+  Ok(pattern)=>§regex.isMatch(ch,pattern)|
   Err(_)=>false
 }
 
@@ -103,12 +95,12 @@ i stdlib::string
 }
 
 λmoduleNameFromStdlibFile(filePath:String)=>String={
-  l fileName=(stdlib::path.basename(filePath):String);
-  stdlib::string.substring(#fileName-10,fileName,0)
+  l fileName=(§path.basename(filePath):String);
+  §string.substring(#fileName-10,fileName,0)
 }
 
-λmodulePathFromStdlibFile(filePath:String)=>String="stdlib::"++moduleNameFromStdlibFile(filePath)
+λmodulePathFromStdlibFile(filePath:String)=>String="§"++moduleNameFromStdlibFile(filePath)
 
 λqualifyExports(exports:[String],modulePath:String)=>[String]=exports map (λ(name:String)=>String=modulePath++"."++name)
 
-λtokenName(token:String)=>String=dropUntilBoundary("",stdlib::string.drop(8,token))
+λtokenName(token:String)=>String=dropUntilBoundary("",§string.drop(8,token))

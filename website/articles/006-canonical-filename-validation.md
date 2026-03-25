@@ -29,12 +29,12 @@ Invalid forms include:
 
 If the language wants one canonical naming system, filenames cannot be left to a
 mix of `snake_case`, `kebab-case`, and `camelCase`. Those differences create
-avoidable variance in imports, project layout, and generated code.
+avoidable variance in rooted module paths, project layout, and generated code.
 
 The filename rule keeps module names aligned with the rest of Sigil's value-level
 naming story:
 
-- predictable import paths
+- predictable rooted module paths
 - less style drift across repos
 - fewer filesystem-specific surprises
 - less ambiguity for tools and agents

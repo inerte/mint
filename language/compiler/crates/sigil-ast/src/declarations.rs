@@ -13,8 +13,6 @@ pub enum Declaration {
     Type(TypeDecl),
     #[cfg_attr(feature = "serde", serde(rename = "EffectDecl"))]
     Effect(EffectDecl),
-    #[cfg_attr(feature = "serde", serde(rename = "ImportDecl"))]
-    Import(ImportDecl),
     #[cfg_attr(feature = "serde", serde(rename = "ConstDecl"))]
     Const(ConstDecl),
     #[cfg_attr(feature = "serde", serde(rename = "TestDecl"))]
@@ -124,15 +122,6 @@ pub struct TypeAlias {
 pub struct EffectDecl {
     pub name: String,
     pub effects: Vec<String>,
-    pub location: SourceLocation,
-}
-
-/// Import declaration: i stdlib::list
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ImportDecl {
-    #[cfg_attr(feature = "serde", serde(rename = "modulePath"))]
-    pub module_path: Vec<String>, // No selective imports - works like FFI (use as namespace.member)
     pub location: SourceLocation,
 }
 

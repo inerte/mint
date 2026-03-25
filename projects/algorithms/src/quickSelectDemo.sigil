@@ -1,3 +1,1 @@
-i src::quickSelect
-
-λmain()=>Option[Int]=src::quickSelect.quickSelect(3,[9,1,7,3,5,8,2])
+λmain()=>Option[Int]=•quickSelect.quickSelect(3,[9,1,7,3,5,8,2])

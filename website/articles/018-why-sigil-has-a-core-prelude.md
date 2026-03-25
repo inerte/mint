@@ -22,7 +22,7 @@ qualified with a module prefix.
 
 ## The Decision
 
-Sigil uses a small `core::prelude` for concepts that are foundational enough to
+Sigil uses a small `¶prelude` for concepts that are foundational enough to
 shape the whole language surface. Other operational domains remain in `stdlib`
 with explicit ownership.
 

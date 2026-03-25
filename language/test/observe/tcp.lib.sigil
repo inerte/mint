@@ -1,9 +1,5 @@
-i stdlib::topology
+λcallCount(entry:†tcp.TcpEntry)=>Int=0
 
-i world::tcp
+λlastRequest(entry:†tcp.TcpEntry)=>Option[String]=None()
 
-λcallCount(entry:world::tcp.TcpEntry)=>Int=0
-
-λlastRequest(entry:world::tcp.TcpEntry)=>Option[String]=None()
-
-λrequests(entry:world::tcp.TcpEntry)=>[String]=[]
+λrequests(entry:†tcp.TcpEntry)=>[String]=[]

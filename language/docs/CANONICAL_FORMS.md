@@ -57,7 +57,7 @@ Current filename diagnostics:
 Top-level declarations must appear in this category order:
 
 ```text
-t => e => i => c => λ => test
+t => e => c => λ => test
 ```
 
 Module scope is declaration-only.
@@ -69,7 +69,7 @@ Current Sigil does not have an `export` token.
 
 Visibility is file-based:
 
-- declarations in `.lib.sigil` files are importable
+- declarations in `.lib.sigil` files are referenceable from other modules
 - `.sigil` files are executable-oriented
 
 ## Function and Lambda Surface
@@ -172,7 +172,6 @@ purpose.
 
 Current enforced rules:
 
-- imports must be used
 - extern declarations must be used
 - named local bindings used zero times are rejected
 - executable `.sigil` files reject top-level functions, consts, and types that
@@ -203,15 +202,15 @@ Current exact-shape bans:
 
 Canonical replacements:
 
-- universal checks: `stdlib::list.all`
-- existential checks: `stdlib::list.any`
-- predicate counting: `stdlib::list.countIf`
+- universal checks: `§list.all`
+- existential checks: `§list.any`
+- predicate counting: `§list.countIf`
 - projection: `map`
 - filtering: `filter`
-- first-match search: `stdlib::list.find`
-- flattening projection: `stdlib::list.flatMap`
-- reduction: `reduce ... from ...` or `stdlib::list.fold`
-- reversal: `stdlib::list.reverse`
+- first-match search: `§list.find`
+- flattening projection: `§list.flatMap`
+- reduction: `reduce ... from ...` or `§list.fold`
+- reversal: `§list.reverse`
 - custom list building: wrapper + accumulator helper, reversing once at the end if needed
 
 These are exact-shape validator rules, not general algorithm analysis.

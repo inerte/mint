@@ -1,3 +1,1 @@
-i src::sieveOfEratosthenes
-
-λmain()=>[Int]=src::sieveOfEratosthenes.sieve(30)
+λmain()=>[Int]=•sieveOfEratosthenes.sieve(30)

@@ -66,9 +66,6 @@ pub enum TokenType {
     #[token("t", priority = 2)]
     TYPE,
 
-    #[token("i", priority = 2)]
-    IMPORT,
-
     #[token("e", priority = 2)]
     EXTERN,
 
@@ -215,6 +212,24 @@ pub enum TokenType {
 
     #[token("::")]
     NamespaceSep,
+
+    #[token("§")]
+    StdlibRoot,
+
+    #[token("•")]
+    SrcRoot,
+
+    #[token("¶")]
+    CoreRoot,
+
+    #[token("¤")]
+    ConfigRoot,
+
+    #[token("†")]
+    WorldRoot,
+
+    #[token("※")]
+    TestRoot,
 
     #[token(".")]
     DOT,

@@ -12,8 +12,6 @@ t User={age:Int,name:String}
 
 e console
 
-i stdlib::string
-
 λclassifyNumber(n:Int)=>String match n{
   x when x>1000=>"huge"|
   x when x>100=>"large"|
@@ -43,7 +41,7 @@ i stdlib::string
 
 λfindFirstPositive(list:[Int])=>String match list{
   []=>"empty list"|
-  [x,.rest] when x>0=>"first positive: "++stdlib::string.intToString(x)|
+  [x,.rest] when x>0=>"first positive: "++§string.intToString(x)|
   [_,.xs]=>findFirstPositive(xs)
 }
 
@@ -71,23 +69,31 @@ i stdlib::string
   l _=(console.log(classifyPoint({x:3,y:7})):Unit);
   l _=(console.log("\n=== Color Conversion ==="):Unit);
   l _=(console.log(colorToHex(Red())):Unit);
+  l _=(console.log("\n=== State Transition ==="):Unit);
+  l _=(console.log(stateToString(stateTransition(Increment(),{count:99,mode:"normal"}))):Unit);
+  l _=(console.log(stateToString(stateTransition(Reset(),{count:5,mode:"busy"}))):Unit);
+  l _=(console.log("\n=== First Positive ==="):Unit);
+  l _=(console.log(findFirstPositive([-3,-1,4,8])):Unit);
+  l _=(console.log(findFirstPositive(([]:[Int]))):Unit);
   0
 }
 
 λprioritizeTask(priority:Int,urgent:Bool)=>String match priority{
-  p when urgent=>"URGENT (priority "++stdlib::string.intToString(p)++")"|
+  p when urgent=>"URGENT (priority "++§string.intToString(p)++")"|
   p when p>7=>"High priority"|
   p when p>3=>"Medium priority"|
   _=>"Low priority"
 }
 
 λprocessResult(r:Result)=>String match r{
-  Ok(n) when n>100=>"Big success: "++stdlib::string.intToString(n)|
-  Ok(n) when n>0=>"Success: "++stdlib::string.intToString(n)|
+  Ok(n) when n>100=>"Big success: "++§string.intToString(n)|
+  Ok(n) when n>0=>"Success: "++§string.intToString(n)|
   Ok(n)=>"Success with zero or negative"|
   Err(msg) when #msg>0=>"Error: "++msg|
   Err(_)=>"Unknown error"
 }
+
+λstateToString(state:State)=>String="State(count="++§string.intToString(state.count)++", mode="++state.mode++")"
 
 λstateTransition(action:Action,state:State)=>State match action{
   Increment() when state.count<100=>{count:state.count+1,mode:state.mode}|

@@ -1,5 +1,1 @@
-i core::map
-
-i src::histogram
-
-λmain()=>Int=core::map.size(src::histogram.histogram([1,1,2,3,3,3]))
+λmain()=>Int=¶map.size(•histogram.histogram([1,1,2,3,3,3]))

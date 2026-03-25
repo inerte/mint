@@ -1,5 +1,3 @@
-i stdlib::list
-
 λadvanceOne(changed:Bool,minHead:Int,runs:[[Int]])=>[[Int]] match runs{
   []=>[]|
   [run,.rest]=>match changed{
@@ -14,7 +12,7 @@ i stdlib::list
   }
 }
 
-λhead(xs:[Int])=>Int match stdlib::list.nth(0,xs){
+λhead(xs:[Int])=>Int match §list.nth(0,xs){
   Some(value)=>value|
   None()=>0
 }
@@ -34,11 +32,11 @@ i stdlib::list
 
 λnonEmpty(xs:[Int])=>Bool=#xs>0
 
-λsmallestHead(runs:[[Int]])=>Int match stdlib::list.min(runs map head){
+λsmallestHead(runs:[[Int]])=>Int match §list.min(runs map head){
   Some(value)=>value|
   None()=>0
 }
 
-λtail(xs:[Int])=>[Int]=stdlib::list.drop(1,xs)
+λtail(xs:[Int])=>[Int]=§list.drop(1,xs)
 
 λtotalValues(runs:[[Int]])=>Int=runs map (λ(run:[Int])=>Int=#run) reduce (λ(acc:Int,count:Int)=>Int=acc+count) from 0

@@ -10,14 +10,7 @@ slug: topology-vs-config
 Sigil draws a strict line between topology and configuration.
 
 - topology says what the program depends on
-- config says how one environment binds those dependencies
-
-## Update: Config Now Exports Worlds
-
-As of 2026-03-23, the canonical config surface is `c world=(...:world::runtime.World)`.
-That makes config responsible for the whole runtime world of one environment,
-not just raw HTTP/TCP bindings. The newer `worlds-not-mocks` article covers the
-expanded model and the testing implications.
+- config says how one environment builds the runtime world for those dependencies
 
 ## Why the Split Matters
 

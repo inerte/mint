@@ -3,96 +3,129 @@
 **Date:** 2026-03-24  
 **Tokenizer:** `tiktoken` (`cl100k_base`)  
 **Baseline:** TypeScript  
-**Corpus:** 8 cases from `projects/algorithms/src/`, with Python/TypeScript baselines in `language/benchmarks/tokens/algorithms/`
+**Corpus:** 20 published cases: 16 algorithm cases plus 4 language-shaped cases exercising `concurrent`, `world`, and topology-aware code
 
 ## Executive Summary
 
-Across the current published corpus, Sigil uses **319 tokens** where the
-TypeScript baseline uses **437**. That is:
+Across the current published corpus, Sigil uses **2014 tokens** where the
+TypeScript baseline uses **2541**. That is:
 
-- **27.0% fewer tokens than TypeScript**
-- **1.370x TypeScript efficiency** when measured as `TypeScript / Sigil`
-- **38.6% fewer characters** than the same TypeScript corpus
+- **20.7% fewer tokens than TypeScript**
+- **1.262x TypeScript efficiency** when measured as `TypeScript / Sigil`
+- **33.6% fewer characters** than the same TypeScript corpus
 
-Python is slightly larger than the TypeScript baseline in this corpus:
+Python is still slightly smaller than the TypeScript baseline in this mixed
+corpus:
 
-- **446 tokens total**
-- **2.0% more tokens than TypeScript**
+- **2505 tokens total**
+- **1.4% fewer tokens than TypeScript**
 
-## Per-Algorithm Results
+## Subtotals
 
-| Algorithm | Sigil | TypeScript | Python | TS / Sigil | Sigil Fewer Tokens vs TS |
-|-----------|------:|-----------:|-------:|-----------:|-------------------------:|
-| factorial | 44 | 52 | 48 | 1.182x | 15.4% |
-| fibonacci | 62 | 60 | 60 | 0.968x | -3.3% |
-| filter-even | 47 | 67 | 70 | 1.426x | 29.9% |
-| gcd | 21 | 48 | 48 | 2.286x | 56.3% |
-| is-palindrome | 31 | 49 | 48 | 1.581x | 36.7% |
-| map-double | 44 | 59 | 62 | 1.341x | 25.4% |
-| power | 44 | 52 | 52 | 1.182x | 15.4% |
-| sum-list | 26 | 50 | 58 | 1.923x | 48.0% |
-| **Average** | **39.9** | **54.6** | **55.8** | **1.370x** | **27.0%** |
-| **Total** | **319** | **437** | **446** | **1.370x** | **27.0%** |
+| Subcorpus | Cases | Sigil | TypeScript | Python | TS / Sigil | Sigil Fewer Tokens vs TS |
+|-----------|------:|------:|-----------:|-------:|-----------:|-------------------------:|
+| Algorithms | 16 | 1746 | 2087 | 2113 | 1.195x | 16.3% |
+| Language-shaped | 4 | 268 | 454 | 392 | 1.694x | 41.0% |
+| **Combined** | **20** | **2014** | **2541** | **2505** | **1.262x** | **20.7%** |
+
+## Per-Case Results
+
+| Case | Category | Sigil | TypeScript | Python | TS / Sigil | Sigil Fewer Tokens vs TS |
+|------|----------|------:|-----------:|-------:|-----------:|-------------------------:|
+| binary-search | algorithm | 138 | 154 | 154 | 1.116x | 10.4% |
+| concurrent-region | language-shaped | 61 | 180 | 152 | 2.951x | 66.1% |
+| factorial | algorithm | 44 | 52 | 48 | 1.182x | 15.4% |
+| fibonacci | algorithm | 62 | 60 | 60 | 0.968x | -3.3% |
+| filter-even | algorithm | 39 | 67 | 70 | 1.718x | 41.8% |
+| gcd | algorithm | 14 | 48 | 48 | 3.429x | 70.8% |
+| histogram | algorithm | 136 | 151 | 150 | 1.110x | 9.9% |
+| insertion-sort | algorithm | 104 | 111 | 109 | 1.067x | 6.3% |
+| is-palindrome | algorithm | 24 | 49 | 48 | 2.042x | 51.0% |
+| levenshtein-distance | algorithm | 215 | 260 | 256 | 1.209x | 17.3% |
+| linear-search | algorithm | 77 | 93 | 93 | 1.208x | 17.2% |
+| map-double | algorithm | 44 | 59 | 62 | 1.341x | 25.4% |
+| merge-sort | algorithm | 453 | 526 | 533 | 1.161x | 13.9% |
+| power | algorithm | 44 | 52 | 52 | 1.182x | 15.4% |
+| quick-sort | algorithm | 137 | 145 | 149 | 1.058x | 5.5% |
+| sum-list | algorithm | 19 | 50 | 58 | 2.632x | 62.0% |
+| topology-http-client | language-shaped | 55 | 70 | 71 | 1.273x | 21.4% |
+| topology-http-test-world | language-shaped | 59 | 117 | 87 | 1.983x | 49.6% |
+| word-frequency | algorithm | 196 | 210 | 223 | 1.071x | 6.7% |
+| world-log-test | language-shaped | 93 | 87 | 82 | 0.935x | -6.9% |
+| **Average** | **mixed** | **100.7** | **127.1** | **125.3** | **1.262x** | **20.7%** |
+| **Total** | **mixed** | **2014** | **2541** | **2505** | **1.262x** | **20.7%** |
 
 ## Current Takeaways
 
-### 1. The current corpus still favors Sigil overall, but not uniformly
+### 1. The root-sigil rewrite materially improved the published corpus
 
-Seven of the eight current cases favor Sigil. `fibonacci` is now a small
-TypeScript win at **3.3% fewer tokens**.
+The earlier import-based surface still showed a healthy advantage, but the
+current no-import, root-sigil surface moves the mixed published corpus to
+**20.7% fewer tokens than TypeScript**.
 
-The baselines now use the same `fibonacci` naming as the canonical Sigil source,
-so this result is no longer an artifact of mismatched identifier names. It is a
-real outcome of the current source forms.
+This is the more relevant number now because it reflects the actual canonical
+language surface.
 
-### 2. Compact recursive and list-oriented forms still drive the best gains
+### 2. Sigil now wins 18 of 20 cases
 
-The strongest gains come from examples where Sigil can stay inside a compact
-single-expression shape:
+The current TypeScript wins are:
 
-- `gcd`: 21 vs 48 tokens
-- `sum-list`: 26 vs 50 tokens
-- `is-palindrome`: 31 vs 49 tokens
+- `fibonacci`: **3.3% fewer tokens** in TypeScript
+- `world-log-test`: **6.9% fewer tokens** in TypeScript
 
-This aligns with the language goal: one canonical surface with very little
-syntactic ceremony around expression-heavy code.
+Everything else in the active published corpus favors Sigil.
 
-### 3. The previously published `sum-list` outlier is gone
+### 3. Language-shaped code is now a stronger advantage than pure algorithms
 
-Earlier published results had `sum-list` losing to TypeScript. In the current
-corpus it is one of the strongest Sigil wins, at **48.0% fewer tokens**.
+The most interesting change in the refreshed corpus is the language-shaped
+subtotal:
 
-That means the old “reduce is less efficient in Sigil” conclusion is no longer
-true for the current benchmark sources and should not be reused.
+- algorithms: **16.3% fewer**
+- language-shaped: **41.0% fewer**
 
-### 4. Character count drops harder than token count
+That means the current syntax is not only compact on small algorithmic examples.
+It is especially compact on the Sigil-specific surfaces that matter for the
+language story: `concurrent`, runtime worlds, and topology-aware configuration.
 
-The current corpus averages:
+### 4. The strongest wins are now both small helpers and Sigil-specific surfaces
 
-- **109.1 characters** per Sigil implementation
-- **180.6 characters** per TypeScript implementation
+Largest gains:
 
-That is **39.6% fewer characters**. Character density is not the primary metric
-for LLM training, but it is a useful secondary check that the token results are
-not just a tokenizer quirk.
+- `gcd`: 14 vs 48 tokens
+- `concurrent-region`: 61 vs 180 tokens
+- `sum-list`: 19 vs 50 tokens
+- `is-palindrome`: 24 vs 49 tokens
+- `topology-http-test-world`: 59 vs 117 tokens
+
+The new `topology-http-client` result is also notable. Under the old surface it
+was a TypeScript win; with the rooted syntax it is now a Sigil win.
+
+### 5. The misses are useful and narrower now
+
+The current misses are:
+
+- `fibonacci`, where helper naming and explicit state threading remain slightly heavier
+- `world-log-test`, where a tiny test file still pays a visible observation/check cost
+
+Those are useful constraints. They show where the remaining token overhead lives
+without changing the overall conclusion.
 
 ## Interpretation
 
-These numbers support the same high-level claim as before, but more strongly:
+The current benchmark story is:
 
-- Sigil's canonical syntax is materially more token-efficient than TypeScript in
-  this corpus overall.
-- Python does not beat TypeScript here despite being dynamically typed.
-- Compact symbolic forms like `λ`, `=>`, `::`, and dense `match` syntax are not
-  getting erased by `cl100k_base`; they still buy real compression.
+- Sigil is more token-efficient than TypeScript overall on the current mixed corpus.
+- The published gap is now **20.7%**, with explicit algorithm vs language-shaped subtotals.
+- The current root-sigil surface is materially better than the older import-based surface.
+- Sigil-specific runtime/testing/config code is now one of the strongest parts of the benchmark.
+- Python stays close to the TypeScript baseline overall.
 
 ## Limitations
 
-- The sample is still small: **8 algorithms**
-- The corpus is biased toward short expression-heavy examples
+- The sample is still small: **20 cases**
+- The corpus is mixed, but it is still not a full application benchmark
 - This is a token-efficiency benchmark, not a runtime-performance benchmark
-- Results should not be overgeneralized to production code without a larger
-  corpus
+- Results should not be overgeneralized to production code without a larger and more varied corpus
 
 ## Reproduce
 
@@ -100,7 +133,7 @@ These numbers support the same high-level claim as before, but more strongly:
 cd language/benchmarks/tokens/tools
 npm install
 
-node language/benchmarks/tokens/tools/compare.js language/benchmarks/tokens/algorithms/factorial
+node language/benchmarks/tokens/tools/compare.js factorial
 bash language/benchmarks/tokens/run-all.sh
 node language/benchmarks/tokens/tools/unicode-benchmark.js measure --out language/benchmarks/tokens/results/unicode-replacements.json
 ```

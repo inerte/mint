@@ -26,9 +26,9 @@ config/<env>.lib.sigil
 
 ## Topology Surface
 
-`stdlib::topology` defines:
+`§topology` defines:
 
-```sigil decl stdlib::topology
+```sigil decl §topology
 t Environment=Environment(String)
 t HttpServiceDependency=HttpServiceDependency(String)
 t TcpServiceDependency=TcpServiceDependency(String)
@@ -38,12 +38,12 @@ t TcpServiceDependency=TcpServiceDependency(String)
 λtcpService(name:String)=>TcpServiceDependency
 ```
 
-`world::runtime` and world entry roots define the canonical env surface:
+`†runtime` and world entry roots define the canonical env surface:
 
-```sigil decl world::runtime
-t World={clock:world::clock.ClockEntry,fs:world::fs.FsEntry,http:[world::http.HttpEntry],log:world::log.LogEntry,process:world::process.ProcessEntry,tcp:[world::tcp.TcpEntry],timer:world::timer.TimerEntry}
+```sigil decl †runtime
+t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
 
-λworld(clock:world::clock.ClockEntry,fs:world::fs.FsEntry,http:[world::http.HttpEntry],log:world::log.LogEntry,process:world::process.ProcessEntry,tcp:[world::tcp.TcpEntry],timer:world::timer.TimerEntry)=>World
+λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World
 ```
 
 ## Compile-Time Rules
@@ -51,13 +51,13 @@ t World={clock:world::clock.ClockEntry,fs:world::fs.FsEntry,http:[world::http.Ht
 ### Topology declaration location
 
 Calls to these constructors are only valid in `src/topology.lib.sigil`:
-- `stdlib::topology.httpService`
-- `stdlib::topology.tcpService`
-- `stdlib::topology.environment`
+- `§topology.httpService`
+- `§topology.tcpService`
+- `§topology.environment`
 
 ### World entry location
 
-Calls to `world::http.*` and `world::tcp.*` entry constructors are only valid in:
+Calls to `†http.*` and `†tcp.*` entry constructors are only valid in:
 
 - `config/*.lib.sigil`
 - test-local `world { ... }` clauses
@@ -75,8 +75,8 @@ It is invalid in:
 ### Dependency-aware API usage
 
 Topology-aware HTTP/TCP APIs require dependency handles:
-- `stdlib::httpClient.*` requires `HttpServiceDependency`
-- `stdlib::tcpClient.*` requires `TcpServiceDependency`
+- `§httpClient.*` requires `HttpServiceDependency`
+- `§tcpClient.*` requires `TcpServiceDependency`
 
 The compiler rejects:
 - raw URLs passed to topology-aware HTTP client APIs

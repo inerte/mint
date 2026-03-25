@@ -35,16 +35,16 @@ package ecosystem.
 
 The site uses:
 
-- `stdlib::markdown` for markdown parsing
-- `stdlib::httpServer` for local serving
-- `stdlib::file` and `stdlib::path` for filesystem work
-- `stdlib::string`, `stdlib::list`, and `stdlib::time` for the remaining
+- `§markdown` for markdown parsing
+- `§httpServer` for local serving
+- `§file` and `§path` for filesystem work
+- `§string`, `§list`, and `§time` for the remaining
   transformation pipeline
 
 That produces a simpler dependency story:
 
 - the compiler and stdlib ship together
-- the imports are canonical
+- rooted module references are canonical
 - there is no library selection problem for the same task
 
 ## The Markdown Case
@@ -81,7 +81,7 @@ packages. It did prove something narrower and more valuable: a language can
 ship enough batteries that ordinary repo tooling does not have to start with a
 dependency hunt.
 
-That matters for Sigil because canonical imports and standard patterns are part
+That matters for Sigil because canonical rooted references and standard patterns are part
 of the language design, not just a packaging preference. The site generator is
 useful in its own right, but it also serves as evidence that Sigil's standard
 library is large enough to support real project infrastructure.

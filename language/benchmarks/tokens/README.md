@@ -3,10 +3,15 @@
 This benchmark family measures Sigil's token efficiency against a small
 cross-language corpus and tests tokenizer-sensitive syntax choices.
 
-The canonical Sigil implementations come from `projects/algorithms/src/`.
+The published corpus now mixes:
+
+- canonical algorithm implementations from `projects/algorithms/src/`
+- language-shaped Sigil sources that exercise `concurrent`, `world`, and topology-aware code
+
 This directory keeps the benchmark harness, the non-Sigil baselines, and the
-published results. `cases.json` maps each published benchmark case to its
-Sigil, Python, and TypeScript source files.
+published results. `cases.json` is the source of truth for the active corpus:
+it maps each published benchmark case to its category plus its Sigil, Python,
+and TypeScript source files.
 
 ## Goal
 
@@ -48,21 +53,38 @@ The current published corpus compares:
 - **TypeScript** - baseline
 - **Python** - secondary comparison point
 
-The active corpus currently contains 8 algorithms:
+The active corpus currently contains 20 cases.
 
+Algorithm cases:
+- `binary-search`
 - `factorial`
 - `fibonacci`
 - `filter-even`
 - `gcd`
+- `histogram`
+- `insertion-sort`
 - `is-palindrome`
+- `levenshtein-distance`
+- `linear-search`
 - `map-double`
+- `merge-sort`
 - `power`
+- `quick-sort`
 - `sum-list`
+- `word-frequency`
+
+Language-shaped cases:
+- `concurrent-region`
+- `topology-http-client`
+- `topology-http-test-world`
+- `world-log-test`
 
 For these published cases:
 
-- the Sigil source of truth lives in `projects/algorithms/src/`
-- the Python and TypeScript baselines live under `language/benchmarks/tokens/algorithms/`
+- the algorithm Sigil source of truth lives in `projects/algorithms/src/`
+- the language-shaped Sigil source of truth lives in first-party fixtures and projects such as `language/test-fixtures/` and `projects/topology-http/`
+- the Python and TypeScript baselines live under `language/benchmarks/tokens/algorithms/` and `language/benchmarks/tokens/cases/`
+- some cases point at executable `.sigil` files, some at canonical `.lib.sigil` modules, and some at config/test-world files
 
 Future benchmark families can live alongside this one under
 `language/benchmarks/`, but today `tokens/` is the only active family.
@@ -87,8 +109,8 @@ npm install
 ### Run Comparison
 
 ```bash
-# Compare one algorithm
-node language/benchmarks/tokens/tools/compare.js language/benchmarks/tokens/algorithms/factorial
+# Compare one published case
+node language/benchmarks/tokens/tools/compare.js factorial
 
 # Run the full published corpus
 bash language/benchmarks/tokens/run-all.sh
@@ -101,8 +123,8 @@ bash language/benchmarks/tokens/run-all.sh
 # | ... | ... | ... | ... |
 ```
 
-`compare.js` resolves the Sigil source through `language/benchmarks/tokens/cases.json`,
-so the algorithm directory no longer needs a duplicate `.sigil` copy.
+`compare.js` resolves cases through `language/benchmarks/tokens/cases.json`,
+so the baseline directory no longer needs a duplicate `.sigil` copy.
 
 ### Unicode Replacement Benchmark
 
@@ -164,12 +186,17 @@ The inserted space is part of the real replacement cost and must be measured.
 ### What To Expect
 
 The current corpus shows Sigil as more token-efficient than TypeScript overall,
-but the exact gap varies by construct. Most cases favor Sigil strongly, while
-some are much closer and one currently favors TypeScript.
+but the exact gap varies a lot by construct.
+
+The published split is now:
+
+- **Algorithms subtotal**: 16 cases, **16.3% fewer tokens than TypeScript**
+- **Language-shaped subtotal**: 4 cases, **41.0% fewer tokens than TypeScript**
+- **Combined corpus**: 20 cases, **20.7% fewer tokens than TypeScript**
 
 The underlying hypothesis is still:
 
-1. **Compact canonical syntax** - `λ`, `=>`, `::`, and `match` compress common structure
+1. **Compact canonical syntax** - `λ`, `=>`, root sigils, and `match` compress common structure
 2. **Canonical forms** - ONE way to write each construct
 3. **No syntactic noise** - Minimal keywords/boilerplate
 4. **Type annotations required** - More type info per token
@@ -186,30 +213,29 @@ The underlying hypothesis is still:
 
 ### Training Impact
 
-If Sigil achieves **1.5x efficiency**:
-- 50% more Sigil code fits in training data
-- 50% lower training costs for equivalent dataset size
-- 50% more context fits in LLM windows
+If Sigil achieves **1.15x efficiency** on a mixed corpus:
+- about 15% more Sigil code fits in the same training window
+- training datasets and context windows stretch farther for the same token budget
+- gains depend heavily on construct shape rather than staying constant across all code
 
 ### Current Published Snapshot
 
 See `RESULTS.md`
-for the current corpus totals and per-algorithm table.
+for the current corpus totals and per-case tables.
 
 ## Contributing
 
-To add a new algorithm:
+To add a new published case:
 
-1. Create directory: `language/benchmarks/tokens/algorithms/<name>/`
-2. Add or point the Sigil implementation at a canonical source file in `projects/algorithms/src/`
-3. Implement the non-Sigil baselines in the active comparison languages
-4. Register the case in `language/benchmarks/tokens/cases.json`
-5. Run comparison: `node language/benchmarks/tokens/tools/compare.js language/benchmarks/tokens/algorithms/<name>`
-6. Refresh `RESULTS.md` if the published corpus changed
+1. Add or point the Sigil implementation at a canonical first-party source file
+2. Put the non-Sigil baselines in `language/benchmarks/tokens/algorithms/<name>/` or `language/benchmarks/tokens/cases/<name>/`
+3. Register the case and its `category` in `language/benchmarks/tokens/cases.json`
+4. Run comparison: `node language/benchmarks/tokens/tools/compare.js <name>`
+5. Refresh `RESULTS.md` if the published corpus changed
 
 ## Limitations
 
-- **Semantic equivalence** - We aim for identical algorithms, but language idioms differ
+- **Semantic equivalence** - We aim for equivalent examples, but language idioms differ
 - **Code style** - We use idiomatic style for each language (not artificially verbose/terse)
 - **Type annotations** - Sigil and TypeScript are explicitly typed; Python uses type hints
 - **Comments excluded** - Focus on executable code only

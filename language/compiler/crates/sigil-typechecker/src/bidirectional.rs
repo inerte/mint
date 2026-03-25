@@ -16,7 +16,7 @@ use crate::typed_ir::{
     TypedConcurrentConfig, TypedConcurrentExpr, TypedConcurrentStep, TypedConstDecl,
     TypedConstructorCallExpr, TypedDeclaration, TypedExpr, TypedExprKind, TypedExternCallExpr,
     TypedExternDecl, TypedFieldAccessExpr, TypedFilterExpr, TypedFoldExpr, TypedFunctionDecl,
-    TypedIfExpr, TypedImportDecl, TypedIndexExpr, TypedLambdaExpr, TypedLetExpr, TypedListExpr,
+    TypedIfExpr, TypedIndexExpr, TypedLambdaExpr, TypedLetExpr, TypedListExpr,
     TypedMapEntryExpr, TypedMapExpr, TypedMapLiteralExpr, TypedMatchArm, TypedMatchExpr,
     TypedMethodCallExpr, TypedPipelineExpr, TypedProgram, TypedRecordExpr, TypedRecordField,
     TypedSpawnEachStep, TypedSpawnStep, TypedTestDecl, TypedTupleExpr, TypedTypeDecl,
@@ -83,6 +83,12 @@ pub fn type_check(
     {
         for (name, scheme) in prelude_schemes {
             env.bind_scheme(name.clone(), scheme.clone());
+        }
+    }
+
+    if let Some(imported_namespaces) = options.imported_namespaces.as_ref() {
+        for (namespace_name, imported_type) in imported_namespaces {
+            env.bind(namespace_name.clone(), imported_type.clone());
         }
     }
 
@@ -232,18 +238,6 @@ pub fn type_check(
                 }
             }
 
-            Declaration::Import(import_decl) => {
-                let namespace_name = import_decl.module_path.join("::");
-                let imported_type = options
-                    .imported_namespaces
-                    .as_ref()
-                    .and_then(|ns: &HashMap<String, InferenceType>| ns.get(&namespace_name))
-                    .cloned()
-                    .unwrap_or(InferenceType::Any);
-
-                env.bind(namespace_name, imported_type);
-            }
-
             Declaration::Test(_) => {
                 // TODO: Check test declarations
             }
@@ -281,10 +275,6 @@ pub fn type_check(
         } else if let Declaration::Type(type_decl) = decl {
             typed_declarations.push(TypedDeclaration::Type(TypedTypeDecl {
                 ast: type_decl.clone(),
-            }));
-        } else if let Declaration::Import(import_decl) = decl {
-            typed_declarations.push(TypedDeclaration::Import(TypedImportDecl {
-                ast: import_decl.clone(),
             }));
         } else if let Declaration::Extern(extern_decl) = decl {
             typed_declarations.push(TypedDeclaration::Extern(TypedExternDecl {
@@ -345,7 +335,7 @@ fn resolve_qualified_type(
             if !available_types.is_empty() {
                 return Err(TypeError::new(
                     format!(
-                        "Undefined type: {}.{}\n\nModule '{}' is imported, but it does not export a type named '{}'.\n\nAvailable exported types:\n{}",
+                        "Undefined type: {}.{}\n\nModule '{}' is referenced here, but it does not export a type named '{}'.\n\nAvailable exported types:\n{}",
                         module_id,
                         qualified.type_name,
                         module_id,
@@ -362,10 +352,7 @@ fn resolve_qualified_type(
         }
 
         return Err(TypeError::new(
-            format!(
-                "Module '{}' is not imported or does not export any types.\n\nAdd this import: i {}",
-                module_id, module_id
-            ),
+            format!("Module '{}' is unavailable or does not export any types.", module_id),
             Some(qualified.location),
         ));
     };
@@ -680,7 +667,6 @@ fn validate_declaration_surface_types(decl: &Declaration) -> Result<(), TypeErro
             Ok(())
         }
         Declaration::Test(test_decl) => validate_expr_surface_types(&test_decl.body),
-        Declaration::Import(_) => Ok(()),
     }
 }
 
@@ -2608,14 +2594,11 @@ fn synthesize_member_access(
 ) -> Result<InferenceType, TypeError> {
     let namespace_name = member_access.namespace.join("::");
 
-    // Check namespace exists (should be registered from extern/import declaration)
+    // Check namespace exists (should be registered from extern declarations or referenced modules)
     let namespace_type = env.lookup(&namespace_name);
     if namespace_type.is_none() {
         return Err(TypeError::new(
-            format!(
-                "Unknown namespace '{}'. Did you forget 'e {}' or 'i {}'?",
-                namespace_name, namespace_name, namespace_name
-            ),
+            format!("Unknown namespace '{}'", namespace_name),
             Some(member_access.location),
         ));
     }
@@ -2634,7 +2617,7 @@ fn synthesize_member_access(
         return Ok(member_type);
     }
 
-    // If namespace is a record (typed extern/import), check member exists
+    // If namespace is a record, check member exists
     if let InferenceType::Record(ref record) = namespace_type {
         if let Some(member_type) = record.fields.get(&member_access.member) {
             return Ok(member_type.clone());
@@ -3792,7 +3775,7 @@ mod tests {
         let program = parse(tokens, "test.sigil").unwrap();
 
         let result = type_check(&program, source, TypeCheckOptions::default());
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "{result:?}");
 
         let types = result.unwrap();
         assert_eq!(types.declaration_types.len(), 1);
@@ -3946,7 +3929,7 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_product_type_resolves_for_field_access() {
-        let source = "i src::types\nλslug_len(meta:src::types.ArticleMeta)=>Int=#meta.slug";
+        let source = "λslug_len(meta:•types.ArticleMeta)=>Int=#meta.slug";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -4003,7 +3986,13 @@ mod tests {
             source,
             TypeCheckOptions {
                 effect_catalog: None,
-                imported_namespaces: None,
+                imported_namespaces: Some(HashMap::from([(
+                    "src::graphTypes".to_string(),
+                    InferenceType::Record(TRecord {
+                        fields: HashMap::new(),
+                        name: Some("src::graphTypes".to_string()),
+                    }),
+                )])),
                 imported_type_registries: Some(imported_type_registries),
                 imported_value_schemes: None,
                 source_file: None,
@@ -4122,8 +4111,7 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_constructor_expression_typechecks() {
-        let source =
-            "i src::graphTypes\nλmk()=>src::graphTypes.TopologicalSortResult=src::graphTypes.Ordering([1,2,3])";
+        let source = "λmk()=>•graphTypes.TopologicalSortResult=•graphTypes.Ordering([1,2,3])";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -4164,18 +4152,24 @@ mod tests {
             source,
             TypeCheckOptions {
                 effect_catalog: None,
-                imported_namespaces: None,
+                imported_namespaces: Some(HashMap::from([(
+                    "src::graphTypes".to_string(),
+                    InferenceType::Record(TRecord {
+                        fields: HashMap::new(),
+                        name: Some("src::graphTypes".to_string()),
+                    }),
+                )])),
                 imported_type_registries: Some(imported_type_registries),
                 imported_value_schemes: None,
                 source_file: None,
             },
         );
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "{result:?}");
     }
 
     #[test]
     fn test_qualified_imported_constructor_pattern_typechecks() {
-        let source = "i src::graphTypes\nλproject(result:src::graphTypes.TopologicalSortResult)=>[Int] match result{src::graphTypes.Ordering(order)=>order|src::graphTypes.CycleDetected()=>[]}";
+        let source = "λproject(result:•graphTypes.TopologicalSortResult)=>[Int] match result{•graphTypes.Ordering(order)=>order|•graphTypes.CycleDetected()=>[]}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -4237,7 +4231,7 @@ mod tests {
 
     #[test]
     fn test_imported_generic_constructor_typechecks() {
-        let source = "i core::prelude\nλmain()=>Option[Int]=Some(42)";
+        let source = "λmain()=>Option[Int]=Some(42)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 

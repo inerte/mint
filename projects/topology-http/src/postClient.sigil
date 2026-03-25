@@ -1,10 +1,4 @@
-i src::topology
-
-i stdlib::httpClient
-
-i stdlib::string
-
-λmain()=>!Http String match stdlib::httpClient.post("echoed",src::topology.mailerApi,stdlib::httpClient.emptyHeaders(),"/echo"){
-  Ok(response)=>stdlib::string.intToString(response.status)++":"++response.body|
+λmain()=>!Http String match §httpClient.post("echoed",•topology.mailerApi,§httpClient.emptyHeaders(),"/echo"){
+  Ok(response)=>§string.intToString(response.status)++":"++response.body|
   Err(error)=>"ERR:"++error.message
 }

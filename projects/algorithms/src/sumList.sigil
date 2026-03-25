@@ -1,3 +1,1 @@
-i stdlib::list
-
-λmain()=>Int=stdlib::list.sum([1,2,3,4,5])
+λmain()=>Int=§list.sum([1,2,3,4,5])

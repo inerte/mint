@@ -1,10 +1,6 @@
-i stdlib::tcpClient
-
-i stdlib::topology
-
 λmain()=>Unit=()
 
 test "tcp client request record preserves dependency and message" {
-  l request=({dependency:stdlib::topology.TcpServiceDependency("eventStream"),message:"ping"}:stdlib::tcpClient.TcpRequest);
-  request.dependency=stdlib::topology.TcpServiceDependency("eventStream") and request.message="ping"
+  l request=({dependency:§topology.TcpServiceDependency("eventStream"),message:"ping"}:§tcpClient.TcpRequest);
+  request.dependency=§topology.TcpServiceDependency("eventStream") and request.message="ping"
 }

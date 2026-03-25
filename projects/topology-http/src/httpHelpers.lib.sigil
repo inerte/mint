@@ -1,18 +1,12 @@
-i core::map
-
-i stdlib::list
-
-i stdlib::string
-
 λallRoutes()=>[String]=["/echo","/headers","/health","/json","/routes"]
 
-λpublicRoute(route:String)=>Bool=stdlib::string.startsWith("/",route)
+λpublicRoute(route:String)=>Bool=§string.startsWith("/",route)
 
-λroutePath(path:String)=>String match stdlib::string.indexOf(path,"?"){
-  idx when idx≥0=>stdlib::string.substring(idx,path,0)|
+λroutePath(path:String)=>String match §string.indexOf(path,"?"){
+  idx when idx≥0=>§string.substring(idx,path,0)|
   _=>path
 }
 
-λrouteSummary(routes:[String])=>String=stdlib::string.unlines(routes filter publicRoute)
+λrouteSummary(routes:[String])=>String=§string.unlines(routes filter publicRoute)
 
-λserverHeaders(extra:{String↦String})=>{String↦String}=core::map.merge({"content-type"↦"text/plain; charset=utf-8"},extra)
+λserverHeaders(extra:{String↦String})=>{String↦String}=¶map.merge({"content-type"↦"text/plain; charset=utf-8"},extra)

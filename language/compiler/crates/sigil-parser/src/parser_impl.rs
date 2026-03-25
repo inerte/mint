@@ -70,11 +70,6 @@ impl Parser {
             return self.const_declaration();
         }
 
-        // Import declaration: i module::path
-        if self.match_token(TokenType::IMPORT) {
-            return self.import_declaration();
-        }
-
         // Extern declaration: e module::path
         if self.match_token(TokenType::EXTERN) {
             return self.extern_declaration();
@@ -86,7 +81,7 @@ impl Parser {
             return self.test_declaration();
         }
 
-        Err(self.error("Expected top-level declaration (t, effect, e, i, c, λ, or test)"))
+        Err(self.error("Expected top-level declaration (t, effect, e, c, λ, or test)"))
     }
 
     fn function_declaration(&mut self) -> Result<Declaration, ParseError> {
@@ -481,36 +476,6 @@ impl Parser {
         }))
     }
 
-    fn import_declaration(&mut self) -> Result<Declaration, ParseError> {
-        let start = self.previous();
-        let mut module_path = Vec::new();
-
-        // Parse module path: i stdlib::list
-        loop {
-            module_path.push(self.module_path_segment()?);
-            if !self.match_token(TokenType::NamespaceSep) {
-                break;
-            }
-        }
-
-        if self.check(TokenType::SLASH) || self.check(TokenType::DOT) {
-            let bad = self.peek();
-            return Err(ParseError::InvalidNamespaceSeparator {
-                file: self.filename.clone(),
-                found: bad.value.clone(),
-                line: bad.location.start.line,
-                column: bad.location.start.column,
-                location: bad.location,
-            });
-        }
-
-        let end = self.previous();
-        Ok(Declaration::Import(ImportDecl {
-            module_path,
-            location: self.make_location(start.location.start, end.location.end),
-        }))
-    }
-
     fn extern_declaration(&mut self) -> Result<Declaration, ParseError> {
         let start = self.previous();
         let mut module_path = Vec::new();
@@ -799,6 +764,36 @@ impl Parser {
             })));
         }
 
+        // Qualified type with root sigil
+        if let Some(root) = self.match_root_token() {
+            let start = root;
+            let module_path = self.rooted_module_path(&start)?;
+            self.consume(TokenType::DOT, "Expected \".\" after qualified type path")?;
+            let type_name = self
+                .consume(TokenType::UpperIdentifier, "Expected type name after \".\"")?
+                .value
+                .clone();
+
+            let mut type_args = Vec::new();
+            if self.match_token(TokenType::LBRACKET) {
+                loop {
+                    type_args.push(self.parse_type()?);
+                    if !self.match_token(TokenType::COMMA) {
+                        break;
+                    }
+                }
+                self.consume(TokenType::RBRACKET, "Expected \"]\"")?;
+            }
+
+            let end = self.previous();
+            return Ok(Type::Qualified(QualifiedType {
+                module_path,
+                type_name,
+                type_args,
+                location: self.make_location(start.location.start, end.location.end),
+            }));
+        }
+
         // Qualified type or type constructor/variable
         if self.match_token(TokenType::IDENTIFIER) || self.match_token(TokenType::UpperIdentifier) {
             let start = self.previous();
@@ -807,6 +802,9 @@ impl Parser {
 
             // Check for qualified type
             if self.check(TokenType::NamespaceSep) {
+                if is_sigil_root_name(&first_segment) {
+                    return Err(self.error("Expected type"));
+                }
                 let mut module_path = vec![first_segment];
 
                 while self.match_token(TokenType::NamespaceSep) {
@@ -1288,12 +1286,36 @@ impl Parser {
             }));
         }
 
+        // Root-qualified namespace member
+        if let Some(root) = self.match_root_token() {
+            let start = root;
+            let namespace = self.rooted_module_path(&start)?;
+            self.consume(TokenType::DOT, "Expected \".\" after namespace path")?;
+            let member = if self.match_token(TokenType::IDENTIFIER)
+                || self.match_token(TokenType::UpperIdentifier)
+            {
+                self.previous().value.clone()
+            } else {
+                return Err(self.error("Expected member name"));
+            };
+
+            let end = self.previous().location.end;
+            return Ok(Expr::MemberAccess(MemberAccessExpr {
+                namespace,
+                member,
+                location: SourceLocation::new(start.location.start, end),
+            }));
+        }
+
         // Identifier
         if self.match_token(TokenType::IDENTIFIER) || self.match_token(TokenType::UpperIdentifier) {
             let tok = self.previous();
 
             // Check for member access (FFI): module::path.member
             if self.check(TokenType::NamespaceSep) {
+                if is_sigil_root_name(&tok.value) {
+                    return Err(self.error("Expected expression"));
+                }
                 let mut namespace = vec![tok.value.clone()];
                 let start = tok.location.start;
 
@@ -1799,13 +1821,56 @@ impl Parser {
             }));
         }
 
-        // Constructor pattern or identifier: Some, src::mod.Some, x
+        // Root-qualified constructor pattern: •types.Some(...)
+        if let Some(root) = self.match_root_token() {
+            let start = root;
+            let module_path = self.rooted_module_path(&start)?;
+
+            self.consume(TokenType::DOT, "Expected \".\" after qualified constructor path")?;
+
+            let constructor_name = self
+                .consume(
+                    TokenType::UpperIdentifier,
+                    "Expected constructor name after \".\"",
+                )?
+                .value
+                .clone();
+
+            let patterns = if self.match_token(TokenType::LPAREN) {
+                let mut patterns = Vec::new();
+                if !self.check(TokenType::RPAREN) {
+                    loop {
+                        patterns.push(self.pattern()?);
+                        if !self.match_token(TokenType::COMMA) {
+                            break;
+                        }
+                    }
+                }
+                self.consume(TokenType::RPAREN, "Expected \")\"")?;
+                patterns
+            } else {
+                Vec::new()
+            };
+
+            let end = self.previous();
+            return Ok(Pattern::Constructor(ConstructorPattern {
+                module_path,
+                name: constructor_name,
+                patterns,
+                location: self.make_location(start.location.start, end.location.end),
+            }));
+        }
+
+        // Constructor pattern or identifier: Some, mod::Some, x
         if self.match_token(TokenType::UpperIdentifier) {
             let start = self.previous();
             let name = start.value.clone();
             let mut module_path = Vec::new();
 
             if self.check(TokenType::NamespaceSep) {
+                if is_sigil_root_name(&name) {
+                    return Err(self.error("Expected pattern"));
+                }
                 module_path.push(name.clone());
 
                 while self.match_token(TokenType::NamespaceSep) {
@@ -1892,6 +1957,9 @@ impl Parser {
             let start = self.previous();
 
             if self.check(TokenType::NamespaceSep) {
+                if is_sigil_root_name(&start.value) {
+                    return Err(self.error("Expected pattern"));
+                }
                 let mut module_path = vec![start.value.clone()];
 
                 while self.match_token(TokenType::NamespaceSep) {
@@ -2075,6 +2143,21 @@ impl Parser {
         false
     }
 
+    fn match_root_token(&mut self) -> Option<Token> {
+        if self.match_any(&[
+            TokenType::StdlibRoot,
+            TokenType::SrcRoot,
+            TokenType::CoreRoot,
+            TokenType::ConfigRoot,
+            TokenType::WorldRoot,
+            TokenType::TestRoot,
+        ]) {
+            Some(self.previous())
+        } else {
+            None
+        }
+    }
+
     fn check(&self, token_type: TokenType) -> bool {
         if self.is_at_end() {
             false
@@ -2188,6 +2271,31 @@ impl Parser {
 
     fn make_location(&self, start: Position, end: Position) -> SourceLocation {
         SourceLocation::new(start, end)
+    }
+
+    fn rooted_module_path(&mut self, root: &Token) -> Result<Vec<String>, ParseError> {
+        let root_name = root_name_for_token(root.token_type).expect("root token");
+        let mut module_path = vec![root_name.to_string(), self.module_path_segment()?];
+        while self.match_token(TokenType::NamespaceSep) {
+            module_path.push(self.module_path_segment()?);
+        }
+        Ok(module_path)
+    }
+}
+
+fn is_sigil_root_name(name: &str) -> bool {
+    matches!(name, "stdlib" | "src" | "core" | "config" | "world" | "test")
+}
+
+fn root_name_for_token(token_type: TokenType) -> Option<&'static str> {
+    match token_type {
+        TokenType::StdlibRoot => Some("stdlib"),
+        TokenType::SrcRoot => Some("src"),
+        TokenType::CoreRoot => Some("core"),
+        TokenType::ConfigRoot => Some("config"),
+        TokenType::WorldRoot => Some("world"),
+        TokenType::TestRoot => Some("test"),
+        _ => None,
     }
 }
 

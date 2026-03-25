@@ -1333,34 +1333,27 @@ console.log(JSON.stringify({{ coverageTargets: {coverage_targets_json}, results,
 ///
 /// For each import, creates a namespace type (record) containing exported functions/constants
 fn build_imported_namespaces(
-    ast: &Program,
+    _ast: &Program,
     compiled_modules: &HashMap<String, HashMap<String, InferenceType>>,
 ) -> HashMap<String, InferenceType> {
     let mut imported = HashMap::new();
 
-    for decl in &ast.declarations {
-        if let Declaration::Import(import_decl) = decl {
-            let module_id = import_decl.module_path.join("::");
-
-            if let Some(types) = compiled_modules.get(&module_id) {
-                // Build namespace type from exported functions/consts
-                let mut fields = HashMap::new();
-                for (name, typ) in types {
-                    fields.insert(
-                        name.clone(),
-                        qualify_inference_type_in_context(typ, &module_id),
-                    );
-                }
-
-                imported.insert(
-                    module_id.clone(),
-                    InferenceType::Record(TRecord {
-                        fields,
-                        name: Some(module_id.clone()),
-                    }),
-                );
-            }
+    for (module_id, types) in compiled_modules {
+        let mut fields = HashMap::new();
+        for (name, typ) in types {
+            fields.insert(
+                name.clone(),
+                qualify_inference_type_in_context(typ, module_id),
+            );
         }
+
+        imported.insert(
+            module_id.clone(),
+            InferenceType::Record(TRecord {
+                fields,
+                name: Some(module_id.clone()),
+            }),
+        );
     }
 
     imported
@@ -1452,63 +1445,31 @@ fn qualify_inference_type_in_context(typ: &InferenceType, module_id: &str) -> In
 ///
 /// Extracts type definitions (sum types, product types) from imported modules
 fn build_imported_type_registries(
-    ast: &Program,
+    _ast: &Program,
     type_registries: &HashMap<String, HashMap<String, TypeInfo>>,
 ) -> HashMap<String, HashMap<String, TypeInfo>> {
-    let mut imported = HashMap::new();
-
-    if let Some(registry) = type_registries.get("core::prelude") {
-        imported.insert("core::prelude".to_string(), registry.clone());
-    }
-
-    for decl in &ast.declarations {
-        if let Declaration::Import(import_decl) = decl {
-            let module_id = import_decl.module_path.join("::");
-
-            if let Some(registry) = type_registries.get(&module_id) {
-                imported.insert(module_id.clone(), registry.clone());
-            }
-        }
-    }
-
-    imported
+    type_registries.clone()
 }
 
 fn build_imported_value_schemes(
-    ast: &Program,
+    _ast: &Program,
     compiled_schemes: &HashMap<String, HashMap<String, TypeScheme>>,
 ) -> HashMap<String, HashMap<String, TypeScheme>> {
     let mut imported = HashMap::new();
 
-    if let Some(schemes) = compiled_schemes.get("core::prelude") {
+    for (module_id, schemes) in compiled_schemes {
         imported.insert(
-            "core::prelude".to_string(),
+            module_id.clone(),
             schemes
                 .iter()
-                .map(|(name, scheme)| (name.clone(), scheme.clone()))
+                .map(|(name, scheme)| {
+                    (
+                        name.clone(),
+                        qualify_scheme_for_module(module_id.as_str(), scheme),
+                    )
+                })
                 .collect(),
         );
-    }
-
-    for decl in &ast.declarations {
-        if let Declaration::Import(import_decl) = decl {
-            let module_id = import_decl.module_path.join("::");
-
-            if let Some(schemes) = compiled_schemes.get(&module_id) {
-                imported.insert(
-                    module_id.clone(),
-                    schemes
-                        .iter()
-                        .map(|(name, scheme)| {
-                            (
-                                name.clone(),
-                                qualify_scheme_for_module(module_id.as_str(), scheme),
-                            )
-                        })
-                        .collect(),
-                );
-            }
-        }
     }
 
     imported

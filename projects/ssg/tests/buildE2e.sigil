@@ -1,89 +1,77 @@
-i src::build
+λbaseConfig(outputDir:String)=>•types.SiteBuildConfig={basePath:"/",outputDir:outputDir,repoUrl:"https://github.com/inerte/sigil",siteDescription:"Machine-first programming language designed for canonical code generation.",siteTitle:"Sigil",siteUrl:"https://inerte.github.io/sigil"}
 
-i src::types
-
-i stdlib::file
-
-i stdlib::list
-
-i stdlib::path
-
-i stdlib::string
-
-λbaseConfig(outputDir:String)=>src::types.SiteBuildConfig={basePath:"/",outputDir:outputDir,repoUrl:"https://github.com/inerte/sigil",siteDescription:"Machine-first programming language designed for canonical code generation.",siteTitle:"Sigil",siteUrl:"https://inerte.github.io/sigil"}
-
-λcontains(haystack:String,needle:String)=>Bool=stdlib::string.indexOf(haystack,needle)≥0
+λcontains(haystack:String,needle:String)=>Bool=§string.indexOf(haystack,needle)≥0
 
 λmain()=>Unit=()
 
 test "build site removes stale output files" =>!SiteBuild {
   l outputDir=("/tmp/sigil-ssg-e2e-clean":String);
-  l _=(stdlib::file.removeTree(outputDir):Unit);
-  l _=(stdlib::file.makeDirs(outputDir):Unit);
-  l _=(stdlib::file.writeText("stale",stdlib::path.join(outputDir,"stale.txt")):Unit);
-  l _=(src::build.buildSite(baseConfig(outputDir)):Unit);
-  l rootEntries=(src::build.listDir(outputDir):[String]);
-  stdlib::list.contains("stale.txt",rootEntries)=false
+  l _=(§file.removeTree(outputDir):Unit);
+  l _=(§file.makeDirs(outputDir):Unit);
+  l _=(§file.writeText("stale",§path.join(outputDir,"stale.txt")):Unit);
+  l _=(•build.buildSite(baseConfig(outputDir)):Unit);
+  l rootEntries=(•build.listDir(outputDir):[String]);
+  §list.contains("stale.txt",rootEntries)=false
 }
 
 test "build site renders docs content page" =>!SiteBuild {
   l outputDir=("/tmp/sigil-ssg-e2e-docs":String);
-  l _=(stdlib::file.removeTree(outputDir):Unit);
-  l _=(src::build.buildSite(baseConfig(outputDir)):Unit);
-  l stdlibDoc=(stdlib::file.readText(stdlib::path.join(outputDir,"docs/stdlib/index.html")):String);
+  l _=(§file.removeTree(outputDir):Unit);
+  l _=(•build.buildSite(baseConfig(outputDir)):Unit);
+  l stdlibDoc=(§file.readText(§path.join(outputDir,"docs/stdlib/index.html")):String);
   contains(stdlibDoc,"Sigil Standard Library")
 }
 
 test "build site renders nav sections on homepage" =>!SiteBuild {
   l outputDir=("/tmp/sigil-ssg-e2e-home":String);
-  l _=(stdlib::file.removeTree(outputDir):Unit);
-  l _=(src::build.buildSite(baseConfig(outputDir)):Unit);
-  l home=(stdlib::file.readText(stdlib::path.join(outputDir,"index.html")):String);
+  l _=(§file.removeTree(outputDir):Unit);
+  l _=(•build.buildSite(baseConfig(outputDir)):Unit);
+  l home=(§file.readText(§path.join(outputDir,"index.html")):String);
   contains(home,">Articles<") and contains(home,">Docs<") and contains(home,">Spec<") and contains(home,"placeholder=\"Search docs, articles, and spec pages\"") and contains(home,"/assets/search.js")
 }
 
 test "build site writes key output files" =>!SiteBuild {
   l outputDir=("/tmp/sigil-ssg-e2e-files":String);
-  l _=(stdlib::file.removeTree(outputDir):Unit);
-  l _=(src::build.buildSite(baseConfig(outputDir)):Unit);
-  l about=(stdlib::file.readText(stdlib::path.join(outputDir,"about-site/index.html")):String);
-  l articles=(stdlib::file.readText(stdlib::path.join(outputDir,"articles/index.html")):String);
-  l css=(stdlib::file.readText(stdlib::path.join(outputDir,"assets/site.css")):String);
-  l docs=(stdlib::file.readText(stdlib::path.join(outputDir,"docs/index.html")):String);
-  l notFound=(stdlib::file.readText(stdlib::path.join(outputDir,"404.html")):String);
-  l siteJson=(stdlib::file.readText(stdlib::path.join(outputDir,"site.json")):String);
-  l spec=(stdlib::file.readText(stdlib::path.join(outputDir,"spec/index.html")):String);
+  l _=(§file.removeTree(outputDir):Unit);
+  l _=(•build.buildSite(baseConfig(outputDir)):Unit);
+  l about=(§file.readText(§path.join(outputDir,"about-site/index.html")):String);
+  l articles=(§file.readText(§path.join(outputDir,"articles/index.html")):String);
+  l css=(§file.readText(§path.join(outputDir,"assets/site.css")):String);
+  l docs=(§file.readText(§path.join(outputDir,"docs/index.html")):String);
+  l notFound=(§file.readText(§path.join(outputDir,"404.html")):String);
+  l siteJson=(§file.readText(§path.join(outputDir,"site.json")):String);
+  l spec=(§file.readText(§path.join(outputDir,"spec/index.html")):String);
   contains(about,"About This Site") and contains(articles,"Latest Articles") and #css>0 and contains(docs,"Docs") and contains(notFound,"Page not found") and contains(siteJson,"\"generatedAt\":\"") and contains(spec,"Spec")
 }
 
 test "build site writes manifest with repo url and counts" =>!SiteBuild {
   l outputDir=("/tmp/sigil-ssg-e2e-manifest":String);
-  l _=(stdlib::file.removeTree(outputDir):Unit);
-  l _=(src::build.buildSite(baseConfig(outputDir)):Unit);
-  l manifest=(stdlib::file.readText(stdlib::path.join(outputDir,"site.json")):String);
+  l _=(§file.removeTree(outputDir):Unit);
+  l _=(•build.buildSite(baseConfig(outputDir)):Unit);
+  l manifest=(§file.readText(§path.join(outputDir,"site.json")):String);
   contains(manifest,"\"repoUrl\":\"https://github.com/inerte/sigil\"") and contains(manifest,"\"articlesCount\":\"") and contains(manifest,"\"docsCount\":\"") and contains(manifest,"\"specCount\":\"")
 }
 
 test "build site writes feed with article metadata" =>!SiteBuild {
   l outputDir=("/tmp/sigil-ssg-e2e-feed":String);
-  l _=(stdlib::file.removeTree(outputDir):Unit);
-  l _=(src::build.buildSite(baseConfig(outputDir)):Unit);
-  l feed=(stdlib::file.readText(stdlib::path.join(outputDir,"feed.xml")):String);
+  l _=(§file.removeTree(outputDir):Unit);
+  l _=(•build.buildSite(baseConfig(outputDir)):Unit);
+  l feed=(§file.readText(§path.join(outputDir,"feed.xml")):String);
   contains(feed,"<feed xmlns=\"http://www.w3.org/2005/Atom\">") and contains(feed,"https://inerte.github.io/sigil/feed.xml") and contains(feed,"https://inerte.github.io/sigil/articles/worlds-not-mocks/") and contains(feed,"<title>Worlds, Not Mocks</title>")
 }
 
 test "build site writes search index with core page fields" =>!SiteBuild {
   l outputDir=("/tmp/sigil-ssg-e2e-search":String);
-  l _=(stdlib::file.removeTree(outputDir):Unit);
-  l _=(src::build.buildSite(baseConfig(outputDir)):Unit);
-  l searchIndex=(stdlib::file.readText(stdlib::path.join(outputDir,"search-index.json")):String);
+  l _=(§file.removeTree(outputDir):Unit);
+  l _=(•build.buildSite(baseConfig(outputDir)):Unit);
+  l searchIndex=(§file.readText(§path.join(outputDir,"search-index.json")):String);
   contains(searchIndex,"\"section\":\"article\"") and contains(searchIndex,"\"title\":\"Worlds, Not Mocks\"") and contains(searchIndex,"\"url\":\"/articles/worlds-not-mocks/\"") and contains(searchIndex,"\"sourcePath\":\"website/articles/031-worlds-not-mocks.md\"")
 }
 
 test "build site writes sitemap with canonical urls" =>!SiteBuild {
   l outputDir=("/tmp/sigil-ssg-e2e-sitemap":String);
-  l _=(stdlib::file.removeTree(outputDir):Unit);
-  l _=(src::build.buildSite(baseConfig(outputDir)):Unit);
-  l sitemap=(stdlib::file.readText(stdlib::path.join(outputDir,"sitemap.xml")):String);
+  l _=(§file.removeTree(outputDir):Unit);
+  l _=(•build.buildSite(baseConfig(outputDir)):Unit);
+  l sitemap=(§file.readText(§path.join(outputDir,"sitemap.xml")):String);
   contains(sitemap,"https://inerte.github.io/sigil/") and contains(sitemap,"https://inerte.github.io/sigil/articles/") and contains(sitemap,"https://inerte.github.io/sigil/about-site/") and contains(sitemap,"https://inerte.github.io/sigil/docs/stdlib/")
 }

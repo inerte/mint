@@ -2,10 +2,10 @@
 /**
  * Benchmark Comparison Tool
  *
- * Compares algorithm implementations across languages.
+ * Compares published benchmark cases across languages.
  *
  * Usage:
- *   node language/benchmarks/tokens/tools/compare.js language/benchmarks/tokens/algorithms/factorial
+ *   node language/benchmarks/tokens/tools/compare.js factorial
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -64,8 +64,8 @@ function findImplementations(algorithmDir) {
 function main() {
     const args = process.argv.slice(2);
     if (args.length === 0) {
-        console.error('Usage: compare.ts <algorithm-directory-or-case-id>');
-        console.error('Example: compare.js language/benchmarks/tokens/algorithms/factorial');
+        console.error('Usage: compare.js <case-id-or-case-directory>');
+        console.error('Example: compare.js factorial');
         process.exit(1);
     }
     try {

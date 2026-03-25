@@ -13,7 +13,10 @@
   Err(_)=>false
 }
 
-λmain()=>Int=getOrZero(safeHead([1,2,3]))+getOrDefault(0,safeSubtract(10,2))+getOrDefault(999,safeSubtract(10,20))
+λmain()=>Int=getOrZero(safeHead([1,2,3]))+getOrDefault(0,safeSubtract(10,2))+getOrDefault(999,safeSubtract(10,20))+(match isOk(safeSubtract(3,1)){
+  true=>1|
+  false=>0
+})
 
 λsafeHead(xs:[Int])=>Option[Int] match xs{
   []=>None()|

@@ -224,6 +224,11 @@ impl Parser {
 
         self.consume(TokenType::EQUAL, "Expected \"=\"")?;
         let definition = self.type_definition()?;
+        let constraint = if self.match_identifier("where") {
+            Some(self.expression()?)
+        } else {
+            None
+        };
 
         let end = self.previous();
         let location = self.make_location(start.location.start, end.location.end);
@@ -232,6 +237,7 @@ impl Parser {
             name,
             type_params,
             definition,
+            constraint,
             location,
         }))
     }
@@ -794,6 +800,34 @@ impl Parser {
             }));
         }
 
+        // Project type root: µTypeName[T]
+        if let Some(root) = self.match_project_type_root() {
+            let start = root;
+            let type_name = self
+                .consume(TokenType::UpperIdentifier, "Expected type name after \"µ\"")?
+                .value
+                .clone();
+
+            let mut type_args = Vec::new();
+            if self.match_token(TokenType::LBRACKET) {
+                loop {
+                    type_args.push(self.parse_type()?);
+                    if !self.match_token(TokenType::COMMA) {
+                        break;
+                    }
+                }
+                self.consume(TokenType::RBRACKET, "Expected \"]\"")?;
+            }
+
+            let end = self.previous();
+            return Ok(Type::Qualified(QualifiedType {
+                module_path: project_types_module_path(),
+                type_name,
+                type_args,
+                location: self.make_location(start.location.start, end.location.end),
+            }));
+        }
+
         // Qualified type or type constructor/variable
         if self.match_token(TokenType::IDENTIFIER) || self.match_token(TokenType::UpperIdentifier) {
             let start = self.previous();
@@ -1302,6 +1336,24 @@ impl Parser {
             let end = self.previous().location.end;
             return Ok(Expr::MemberAccess(MemberAccessExpr {
                 namespace,
+                member,
+                location: SourceLocation::new(start.location.start, end),
+            }));
+        }
+
+        // Project type namespace member: µOrdering
+        if let Some(root) = self.match_project_type_root() {
+            let start = root;
+            let member = self
+                .consume(
+                    TokenType::UpperIdentifier,
+                    "Expected project type or constructor name after \"µ\"",
+                )?
+                .value
+                .clone();
+            let end = self.previous().location.end;
+            return Ok(Expr::MemberAccess(MemberAccessExpr {
+                namespace: project_types_module_path(),
                 member,
                 location: SourceLocation::new(start.location.start, end),
             }));
@@ -1821,7 +1873,7 @@ impl Parser {
             }));
         }
 
-        // Root-qualified constructor pattern: •types.Some(...)
+        // Root-qualified constructor pattern: µSome(...) or §option.Some(...)
         if let Some(root) = self.match_root_token() {
             let start = root;
             let module_path = self.rooted_module_path(&start)?;
@@ -1855,6 +1907,42 @@ impl Parser {
             let end = self.previous();
             return Ok(Pattern::Constructor(ConstructorPattern {
                 module_path,
+                name: constructor_name,
+                patterns,
+                location: self.make_location(start.location.start, end.location.end),
+            }));
+        }
+
+        // Project type constructor pattern: µSome(...)
+        if let Some(root) = self.match_project_type_root() {
+            let start = root;
+            let constructor_name = self
+                .consume(
+                    TokenType::UpperIdentifier,
+                    "Expected constructor name after \"µ\"",
+                )?
+                .value
+                .clone();
+
+            let patterns = if self.match_token(TokenType::LPAREN) {
+                let mut patterns = Vec::new();
+                if !self.check(TokenType::RPAREN) {
+                    loop {
+                        patterns.push(self.pattern()?);
+                        if !self.match_token(TokenType::COMMA) {
+                            break;
+                        }
+                    }
+                }
+                self.consume(TokenType::RPAREN, "Expected \")\"")?;
+                patterns
+            } else {
+                Vec::new()
+            };
+
+            let end = self.previous();
+            return Ok(Pattern::Constructor(ConstructorPattern {
+                module_path: project_types_module_path(),
                 name: constructor_name,
                 patterns,
                 location: self.make_location(start.location.start, end.location.end),
@@ -2158,6 +2246,14 @@ impl Parser {
         }
     }
 
+    fn match_project_type_root(&mut self) -> Option<Token> {
+        if self.match_token(TokenType::ProjectTypeRoot) {
+            Some(self.previous())
+        } else {
+            None
+        }
+    }
+
     fn check(&self, token_type: TokenType) -> bool {
         if self.is_at_end() {
             false
@@ -2285,6 +2381,10 @@ impl Parser {
 
 fn is_sigil_root_name(name: &str) -> bool {
     matches!(name, "stdlib" | "src" | "core" | "config" | "world" | "test")
+}
+
+fn project_types_module_path() -> Vec<String> {
+    vec!["src".to_string(), "types".to_string()]
 }
 
 fn root_name_for_token(token_type: TokenType) -> Option<&'static str> {

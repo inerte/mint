@@ -158,6 +158,41 @@ fn test_type_declaration_function_alias() {
 }
 
 #[test]
+fn test_type_declaration_with_constraint() {
+    let source = "t BirthYear=Int where value>1800 and value<10000";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Type(t) => {
+            assert!(t.constraint.is_some());
+        }
+        _ => panic!("Expected type declaration"),
+    }
+}
+
+#[test]
+fn test_project_type_root_parses_as_src_types() {
+    let source = "λrender(meta:µArticleMeta)=>String=meta.slug";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Function(function) => {
+            let param_type = function.params[0].type_annotation.as_ref().unwrap();
+            match param_type {
+                Type::Qualified(qualified) => {
+                    assert_eq!(qualified.module_path, vec!["src".to_string(), "types".to_string()]);
+                    assert_eq!(qualified.type_name, "ArticleMeta");
+                }
+                other => panic!("Expected qualified µ type, got {:?}", other),
+            }
+        }
+        _ => panic!("Expected function declaration"),
+    }
+}
+
+#[test]
 fn test_multiple_params() {
     // Test function with multiple parameters
     let source = "λadd(x:Int,y:Int,z:Int)=>Int=x+y+z";
@@ -257,7 +292,7 @@ fn test_local_let_expression_still_parses() {
 
 #[test]
 fn test_qualified_constructor_application_parses() {
-    let source = "λmain()=>Unit=•graphTypes.Ordering([])";
+    let source = "λmain()=>Unit=µOrdering([])";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -265,10 +300,7 @@ fn test_qualified_constructor_application_parses() {
         Declaration::Function(f) => match &f.body {
             Expr::Application(app) => match &app.func {
                 Expr::MemberAccess(member) => {
-                    assert_eq!(
-                        member.namespace,
-                        vec!["src".to_string(), "graphTypes".to_string()]
-                    );
+                    assert_eq!(member.namespace, vec!["src".to_string(), "types".to_string()]);
                     assert_eq!(member.member, "Ordering");
                 }
                 _ => panic!("Expected qualified constructor member access"),
@@ -282,7 +314,7 @@ fn test_qualified_constructor_application_parses() {
 #[test]
 fn test_qualified_constructor_pattern_parses() {
     let source =
-        "λmain(result:Int)=>Int match result{•graphTypes.Ordering(order)=>#order|•graphTypes.CycleDetected()=>0}";
+        "λmain(result:Int)=>Int match result{µOrdering(order)=>#order|µCycleDetected()=>0}";
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
 
@@ -291,10 +323,7 @@ fn test_qualified_constructor_pattern_parses() {
             Expr::Match(match_expr) => {
                 match &match_expr.arms[0].pattern {
                     Pattern::Constructor(ctor) => {
-                        assert_eq!(
-                            ctor.module_path,
-                            vec!["src".to_string(), "graphTypes".to_string()]
-                        );
+                        assert_eq!(ctor.module_path, vec!["src".to_string(), "types".to_string()]);
                         assert_eq!(ctor.name, "Ordering");
                         assert_eq!(ctor.patterns.len(), 1);
                     }
@@ -303,10 +332,7 @@ fn test_qualified_constructor_pattern_parses() {
 
                 match &match_expr.arms[1].pattern {
                     Pattern::Constructor(ctor) => {
-                        assert_eq!(
-                            ctor.module_path,
-                            vec!["src".to_string(), "graphTypes".to_string()]
-                        );
+                        assert_eq!(ctor.module_path, vec!["src".to_string(), "types".to_string()]);
                         assert_eq!(ctor.name, "CycleDetected");
                         assert!(ctor.patterns.is_empty());
                     }

@@ -1,5 +1,3 @@
-t WordBucket={count:Int,word:String}
-
 λfrequency(lines:[String])=>{String↦Int}=normalizedWords(lines) reduce increment from (¶map.empty():{String↦Int})
 
 λincrement(histogram:{String↦Int},word:String)=>{String↦Int} match ¶map.get(word,histogram){
@@ -13,4 +11,4 @@ t WordBucket={count:Int,word:String}
 
 λsplitWords(line:String)=>[String]=§string.split(" ",§string.toLower(line))
 
-λsummary(lines:[String])=>[WordBucket]=¶map.entries(frequency(lines)) map (λ(entry:¶map.Entry[String,Int])=>WordBucket={count:entry.value,word:entry.key})
+λsummary(lines:[String])=>[µWordBucket]=¶map.entries(frequency(lines)) map (λ(entry:¶map.Entry[String,Int])=>µWordBucket={count:entry.value,word:entry.key})

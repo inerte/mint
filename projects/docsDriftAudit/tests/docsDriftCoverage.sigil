@@ -1,6 +1,6 @@
 λallOk(results:[Bool])=>Bool=§list.all(λ(result:Bool)=>Bool=result,results)
 
-λfenceInfo(context:Option[String],kind:String)=>•types.FenceInfo={context:context,kind:kind}
+λfenceInfo(context:Option[String],kind:String)=>µFenceInfo={context:context,kind:kind}
 
 λmain()=>Unit=()
 
@@ -9,7 +9,7 @@
   Ok(root)=>root
 }
 
-λsnippet(content:String,filePath:String,info:•types.FenceInfo,line:Int)=>•types.Snippet={content:content,filePath:filePath,info:info,line:line}
+λsnippet(content:String,filePath:String,info:µFenceInfo,line:Int)=>µSnippet={content:content,filePath:filePath,info:info,line:line}
 
 test "coverage helpers parse refs exports and identifiers" {
   l parseJson=("{\"type\":\"FunctionDecl\",\"name\":\"trim\",\"type\":\"FunctionDecl\",\"name\":\"split\"}":String);
@@ -30,13 +30,13 @@ test "coverage helpers parse refs exports and identifiers" {
 
 test "docs drift helper surface normalizes snippets and issues" {
   l command=(•docsDrift.compilerCommand(["parse","sample.sigil"],"/repo"):§process.Command);
-  l exprSnippet=(snippet("\"hi\"\n\"bye\"","docs/test.md",fenceInfo(None(),"exprs"),1):•types.Snippet);
+  l exprSnippet=(snippet("\"hi\"\n\"bye\"","docs/test.md",fenceInfo(None(),"exprs"),1):µSnippet);
   allOk([command.argv=[§path.join("/repo","language/compiler/target/debug/sigil"),"parse","sample.sigil"],match command.cwd{
     Some(cwd)=>cwd="/repo"|
     None()=>false
   },•docsDrift.allLinesSatisfy(["alpha","beta"],λ(line:String)=>Bool=#line>0),¬•docsDrift.allLinesSatisfy(["alpha",""],λ(line:String)=>Bool=#line>0),•docsDrift.declSnippetIssues("docs/test.md",7,"c value=1")=[{line:7,message:"sigil decl snippets may only contain type or function signatures",path:"docs/test.md"}],•docsDrift.declSnippetIssuesInner("docs/test.md",3,["λtrim(s:String)=>String","c invalid=1"])=[{line:3,message:"sigil decl snippets may only contain type or function signatures",path:"docs/test.md"}],•docsDrift.defaultVirtualPath("module")="snippet.lib.sigil",•docsDrift.hasTopLevelPrefix(["l local=1","λmain()=>Unit=()"],"λmain("),•docsDrift.invalidFenceIssue("docs/test.md",4,"boom")={line:4,message:"boom",path:"docs/test.md"},•docsDrift.isCheckedKind("expr"),¬•docsDrift.isCheckedKind("unknown"),•docsDrift.isDocAnnotationLine("⟦ doc ⟧"),•docsDrift.isProgramLikeLines(["test \"x\" { true }"]),•docsDrift.isTopLevelLikeLine("λtrim(s:String)=>String=s"),•docsDrift.isTopLevelLikeLines(["λtrim(s:String)=>String=s"]),•docsDrift.issueMessage({line:9,message:"bad",path:"docs/test.md"})="docs/test.md:9: bad",•docsDrift.mergeIssueLists([{line:1,message:"left",path:"a.md"}],[{line:2,message:"right",path:"b.md"}])=[{line:1,message:"left",path:"a.md"},{line:2,message:"right",path:"b.md"}],•docsDrift.mergeUnique(["alpha"],["beta","alpha"])=["alpha","beta"],•docsDrift.normalizeSnippetContent("⟦ note ⟧\nλtrim(s:String)=>String=s\n")="λtrim(s:String)=>String=s",•docsDrift.normalizedExprsKind(exprSnippet)="exprs",•docsDrift.normalizedSnippetContentForKind("expr","⟦ note ⟧\n#xs\n")="#xs",•docsDrift.normalizedSnippetLines("⟦ note ⟧\nλtrim(s:String)=>String=s\n")=["λtrim(s:String)=>String=s"],•docsDrift.normalizedSnippetLinesInner(["⟦ note ⟧","λtrim(s:String)=>String=s"])=["λtrim(s:String)=>String=s"],•docsDrift.ordinalPath(2,"tmp")=§path.join("tmp","snippet-2"),match •docsDrift.parseFenceInfo("sigil expr"){
     Ok(info)=>{
-      l parsed=(info:•types.FenceInfo);
+      l parsed=(info:µFenceInfo);
       parsed.kind="expr" and (match parsed.context{
         None()=>true|
         Some(_)=>false
@@ -68,10 +68,10 @@ test "docs drift helper surface normalizes snippets and issues" {
 }
 
 test "fence helpers parse valid and invalid forms" {
-  l extracted=(•fences.extractSnippets("docs/test.md",§string.unlines(["```sigil module src/sample.lib.sigil","λsample()=>String=\"ok\"","```"])):•types.ExtractResult);
+  l extracted=(•fences.extractSnippets("docs/test.md",§string.unlines(["```sigil module src/sample.lib.sigil","λsample()=>String=\"ok\"","```"])):µExtractResult);
   allOk([match •fences.parseFenceInfo("sigil module src/sample.lib.sigil"){
     Ok(info)=>{
-      l parsed=(info:•types.FenceInfo);
+      l parsed=(info:µFenceInfo);
       parsed.kind="module" and (match parsed.context{
         Some(path)=>path="src/sample.lib.sigil"|
         None()=>false
@@ -83,7 +83,7 @@ test "fence helpers parse valid and invalid forms" {
     Err(message)=>§string.indexOf(message,"unknown Sigil fence kind")≥0
   },match •fences.parseFenceKind("module src/sample.lib.sigil"){
     Ok(info)=>{
-      l parsed=(info:•types.FenceInfo);
+      l parsed=(info:µFenceInfo);
       parsed.kind="module" and (match parsed.context{
         Some(path)=>path="src/sample.lib.sigil"|
         None()=>false
@@ -92,7 +92,7 @@ test "fence helpers parse valid and invalid forms" {
     Err(_)=>false
   },match •fences.parseFenceKindWithContext("module","src/sample.lib.sigil"){
     Ok(info)=>{
-      l parsed=(info:•types.FenceInfo);
+      l parsed=(info:µFenceInfo);
       parsed.kind="module" and (match parsed.context{
         Some(path)=>path="src/sample.lib.sigil"|
         None()=>false
@@ -104,7 +104,7 @@ test "fence helpers parse valid and invalid forms" {
     Err(message)=>§string.indexOf(message,"does not accept an argument")≥0
   },match •fences.parseFenceKindWithoutContext("expr"){
     Ok(info)=>{
-      l parsed=(info:•types.FenceInfo);
+      l parsed=(info:µFenceInfo);
       parsed.kind="expr" and (match parsed.context{
         None()=>true|
         Some(_)=>false
@@ -116,7 +116,7 @@ test "fence helpers parse valid and invalid forms" {
     Err(message)=>§string.indexOf(message,"unknown Sigil fence kind")≥0
   },match •fences.parseModulePath("module","src/sample.lib.sigil"){
     Ok(info)=>{
-      l parsed=(info:•types.FenceInfo);
+      l parsed=(info:µFenceInfo);
       parsed.kind="module" and (match parsed.context{
         Some(path)=>path="src/sample.lib.sigil"|
         None()=>false
@@ -131,7 +131,7 @@ test "fence helpers parse valid and invalid forms" {
     Err(message)=>§string.indexOf(message,"must use a .sigil virtual path")≥0
   },match •fences.parseProgramPath("program","src/sample.sigil"){
     Ok(info)=>{
-      l parsed=(info:•types.FenceInfo);
+      l parsed=(info:µFenceInfo);
       parsed.kind="program" and (match parsed.context{
         Some(path)=>path="src/sample.sigil"|
         None()=>false
@@ -140,7 +140,7 @@ test "fence helpers parse valid and invalid forms" {
     Err(_)=>false
   },•fences.invalidFenceIssue("docs/test.md",2,"boom")={line:2,message:"boom",path:"docs/test.md"},•fences.isFence("```"),•fences.isSigilFence("```sigil expr"),•fences.nonEmpty("x"),extracted.issues=[],match extracted.results{
     [item]=>{
-      l found=(item:•types.Snippet);
+      l found=(item:µSnippet);
       found.info.kind="module" and found.line=1
     }|
     _=>false
@@ -154,8 +154,8 @@ test "markdown coverage helpers read sandbox files" =>!Fs world {
   l _=(§file.makeDirs("tests"):Unit);
   l _=(§file.writeText(§string.unlines(["```sigil decl §string","λtrim(s:String)=>String","```","","```sigil expr","§string.trim(\" hi \")","```"]),"docs/example.md"):Unit);
   l _=(§file.writeText("λmain()=>Unit={\n  l sample=(§string.trim(\" hi \"):String);\n  ()\n}\n","tests/example.sigil"):Unit);
-  l audit=(•docsDrift.collectMarkdownAuditRefs("docs/example.md","."):•docsDrift.MarkdownAudit);
-  l coverageAudit=(•docsDrift.runMarkdownCoverageAudit(["docs/example.md"],"."):•docsDrift.MarkdownAudit);
+  l audit=(•docsDrift.collectMarkdownAuditRefs("docs/example.md","."):µMarkdownAudit);
+  l coverageAudit=(•docsDrift.runMarkdownCoverageAudit(["docs/example.md"],"."):µMarkdownAudit);
   l refs=(•docsDrift.readCoverageRefs(["tests/example.sigil"],"."):[String]);
   allOk([audit.documentedRefs=["§string.trim"],audit.issues=[],audit.snippetRefs=["§string.trim"],coverageAudit.documentedRefs=["§string.trim"],coverageAudit.issues=[],coverageAudit.snippetRefs=["§string.trim"],refs=["§string.trim"]])
 }
@@ -168,19 +168,19 @@ test "path based helpers succeed on decl only markdown" =>!AuditIo {
   l _=(§file.removeTree(tempDir):Unit);
   l _=(§file.makeDirs(tempDir):Unit);
   l _=(§file.writeText(§string.unlines(["```sigil decl §string","λtrim(s:String)=>String","```"]),path):Unit);
-  l markdownAudit=(•docsDrift.processMarkdownFile(false,path,root,tempDir):•docsDrift.MarkdownAudit);
-  l refsForFile=(•docsDrift.runRefsForFile(path):Result[•docsDrift.MarkdownAudit,String]);
-  l refsForPaths=(•docsDrift.runRefsForPaths([path]):Result[•docsDrift.MarkdownAudit,String]);
-  l runCheck=(•docsDrift.runCheckForPaths([path]):Result[[•types.Issue],String]);
+  l markdownAudit=(•docsDrift.processMarkdownFile(false,path,root,tempDir):µMarkdownAudit);
+  l refsForFile=(•docsDrift.runRefsForFile(path):Result[µMarkdownAudit,String]);
+  l refsForPaths=(•docsDrift.runRefsForPaths([path]):Result[µMarkdownAudit,String]);
+  l runCheck=(•docsDrift.runCheckForPaths([path]):Result[[µIssue],String]);
   allOk([markdownAudit.issues=[],match refsForFile{
     Ok(audit)=>{
-      l found=(audit:•docsDrift.MarkdownAudit);
+      l found=(audit:µMarkdownAudit);
       found.documentedRefs=["§string.trim"] and found.issues=[]
     }|
     Err(_)=>false
   },match refsForPaths{
     Ok(audit)=>{
-      l found=(audit:•docsDrift.MarkdownAudit);
+      l found=(audit:µMarkdownAudit);
       found.documentedRefs=["§string.trim"] and found.issues=[]
     }|
     Err(_)=>false
@@ -226,7 +226,7 @@ test "stdlib export helpers parse repo stdlib files" =>!AuditIo {
 
 test "git discovery helpers return repo paths" =>!Process {
   l markdown=(•docsDrift.gitTrackedMarkdown():Result[[String],String]);
-  l selection=(•docsDrift.selectedMarkdownPaths():Result[•docsDrift.MarkdownSelection,String]);
+  l selection=(•docsDrift.selectedMarkdownPaths():Result[µMarkdownSelection,String]);
   l stdlibPaths=(•docsDrift.gitTrackedStdlib():Result[[String],String]);
   l stdlibTests=(•docsDrift.gitTrackedStdlibTests():Result[[String],String]);
   allOk([match markdown{
@@ -234,7 +234,7 @@ test "git discovery helpers return repo paths" =>!Process {
     Err(_)=>false
   },match selection{
     Ok(found)=>{
-      l selectedPaths=(found:•docsDrift.MarkdownSelection);
+      l selectedPaths=(found:µMarkdownSelection);
       ¬selectedPaths.failFast and #selectedPaths.paths>0
     }|
     Err(_)=>false

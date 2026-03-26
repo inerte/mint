@@ -190,9 +190,9 @@ but the exact gap varies a lot by construct.
 
 The published split is now:
 
-- **Algorithms subtotal**: 16 cases, **16.3% fewer tokens than TypeScript**
+- **Algorithms subtotal**: 16 cases, **17.0% fewer tokens than TypeScript**
 - **Language-shaped subtotal**: 4 cases, **41.0% fewer tokens than TypeScript**
-- **Combined corpus**: 20 cases, **20.7% fewer tokens than TypeScript**
+- **Combined corpus**: 20 cases, **21.3% fewer tokens than TypeScript**
 
 The underlying hypothesis is still:
 

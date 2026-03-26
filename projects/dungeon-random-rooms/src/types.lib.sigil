@@ -1,0 +1,9 @@
+t IntRoll={rng:Rng,value:Int}
+
+t Rng={seed:Int}
+
+t Room={h:Int,w:Int,x:Int,y:Int}
+
+t RoomRoll={rng:Rng,room:Room}
+
+t World={room1:Room,room2:Room,room3:Room}

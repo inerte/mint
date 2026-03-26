@@ -29,7 +29,7 @@ test "todo json decode todo rejects missing text field" {
 }
 
 test "todo json roundtrip preserves state" {
-  l state=({nextId:•todoJson.NextTodoId(9),todos:[{done:false,id:1,text:"Ship JSON stdlib"},{done:true,id:2,text:"Write tests"}]}:•todoJson.PersistedState);
+  l state=({nextId:µNextTodoId(9),todos:[{done:false,id:1,text:"Ship JSON stdlib"},{done:true,id:2,text:"Write tests"}]}:µPersistedState);
   match •todoJson.decodeState((•todoJson.encodeState(state):String)){
     Ok(decoded)=>decoded=state|
     Err(_)=>false

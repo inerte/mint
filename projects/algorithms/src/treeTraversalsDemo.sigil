@@ -1,3 +1,3 @@
 λmain()=>[Int]=•treeTraversals.preorder(sampleTree())
 
-λsampleTree()=>•treeTraversals.IntTree=•treeTraversals.Node([•treeTraversals.Node([•treeTraversals.Node([],4)],2),•treeTraversals.Node([],3)],1)
+λsampleTree()=>µIntTree=µNode([µNode([µNode([],4)],2),µNode([],3)],1)

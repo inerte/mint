@@ -1,7 +1,3 @@
-t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[String]}
-
-t MarkdownSelection={failFast:Bool,paths:[String]}
-
 λallLinesSatisfy(lines:[String],predicate:λ(String)=>Bool)=>Bool match lines{
   []=>true|
   [head,.tail]=>match predicate(head){
@@ -10,13 +6,13 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λcollectMarkdownAuditRefs(filePath:String,root:String)=>!Fs MarkdownAudit={
+λcollectMarkdownAuditRefs(filePath:String,root:String)=>!Fs µMarkdownAudit={
   l markdown=(§file.readText(§path.join(root,filePath)):String);
-  l extraction=(extractSnippets(filePath,markdown):•types.ExtractResult);
+  l extraction=(extractSnippets(filePath,markdown):µExtractResult);
   collectMarkdownAuditRefsFromSnippets(extraction.results,{documentedRefs:[],issues:extraction.issues,snippetRefs:[]})
 }
 
-λcollectMarkdownAuditRefsFromSnippets(snippets:[•types.Snippet],state:MarkdownAudit)=>MarkdownAudit match snippets{
+λcollectMarkdownAuditRefsFromSnippets(snippets:[µSnippet],state:µMarkdownAudit)=>µMarkdownAudit match snippets{
   []=>state|
   [head,.tail]=>{
     l current=(match isCheckedKind(head.info.kind){
@@ -34,7 +30,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
         }|
         _=>{documentedRefs:[],issues:[],snippetRefs:snippetRefsForValidatedSnippet(head)}
       }
-    }:MarkdownAudit);
+    }:µMarkdownAudit);
     collectMarkdownAuditRefsFromSnippets(tail,{documentedRefs:mergeUnique(state.documentedRefs,current.documentedRefs),issues:mergeIssueLists(state.issues,current.issues),snippetRefs:mergeUnique(state.snippetRefs,current.snippetRefs)})
   }
 }
@@ -45,9 +41,9 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
 
 λcompilerCommand(argv:[String],root:String)=>§process.Command=§process.withCwd(§process.command([§path.join(root,"language/compiler/target/debug/sigil")]⧺argv),root)
 
-λdeclSnippetIssues(filePath:String,line:Int,source:String)=>[•types.Issue]=declSnippetIssuesInner(filePath,line,§string.lines(source))
+λdeclSnippetIssues(filePath:String,line:Int,source:String)=>[µIssue]=declSnippetIssuesInner(filePath,line,§string.lines(source))
 
-λdeclSnippetIssuesInner(filePath:String,line:Int,lines:[String])=>[•types.Issue] match lines{
+λdeclSnippetIssuesInner(filePath:String,line:Int,lines:[String])=>[µIssue] match lines{
   []=>[]|
   [head,.tail]=>{
     l trimmed=(§string.trim(head):String);
@@ -68,9 +64,9 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
 
 λdocumentedRefsForSnippet(modulePath:String,source:String)=>[String]=•coverage.documentedRefsForSnippet(modulePath,source)
 
-λexecuteSnippetCheck(expectsSuccess:Bool,filePath:String,root:String,subcommand:String,tempDir:String,virtualPath:String,wrappedSource:String)=>!AuditIo [•types.Issue]={
+λexecuteSnippetCheck(expectsSuccess:Bool,filePath:String,root:String,subcommand:String,tempDir:String,virtualPath:String,wrappedSource:String)=>!AuditIo [µIssue]={
   l snippetPath=(§path.join(tempDir,virtualPath):String);
-  l preparation=(prepareSnippetWorkspace(filePath,root,tempDir,virtualPath):[•types.Issue]);
+  l preparation=(prepareSnippetWorkspace(filePath,root,tempDir,virtualPath):[µIssue]);
   l _=(§file.makeDirs(§path.dirname(snippetPath)):Unit);
   match #preparation>0{
     true=>preparation|
@@ -91,7 +87,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λextractSnippets(filePath:String,markdown:String)=>•types.ExtractResult=•fences.extractSnippets(filePath,markdown)
+λextractSnippets(filePath:String,markdown:String)=>µExtractResult=•fences.extractSnippets(filePath,markdown)
 
 λgitTopLevel()=>!Process Result[String,String]={
   l result=(§process.run(§process.command(["git","rev-parse","--show-toplevel"])):§process.ProcessResult);
@@ -115,7 +111,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λinvalidFenceIssue(filePath:String,line:Int,message:String)=>•types.Issue={line:line,message:message,path:filePath}
+λinvalidFenceIssue(filePath:String,line:Int,message:String)=>µIssue={line:line,message:message,path:filePath}
 
 λisCheckedKind(kind:String)=>Bool match kind{
   "decl"=>true|
@@ -135,16 +131,16 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
 
 λisProgramLikeLines(lines:[String])=>Bool=hasTopLevelPrefix(lines,"test ") or hasTopLevelPrefix(lines,"λmain(")
 
-λisTopLevelLikeLine(line:String)=>Bool=§string.startsWith("c ",line) or §string.startsWith("e ",line) or §string.startsWith("i ",line) or §string.startsWith("t ",line) or §string.startsWith("test ",line) or §string.startsWith("λ",line)
+λisTopLevelLikeLine(line:String)=>Bool=§string.startsWith("c ",line) or §string.startsWith("e ",line) or §string.startsWith("t ",line) or §string.startsWith("test ",line) or §string.startsWith("λ",line)
 
 λisTopLevelLikeLines(lines:[String])=>Bool match lines{
   []=>false|
   [head,.tail]=>isTopLevelLikeLine(head)
 }
 
-λissueMessage(issue:•types.Issue)=>String=issue.path++":"++§string.intToString(issue.line)++": "++issue.message
+λissueMessage(issue:µIssue)=>String=issue.path++":"++§string.intToString(issue.line)++": "++issue.message
 
-λmergeIssueLists(left:[•types.Issue],right:[•types.Issue])=>[•types.Issue] match right{
+λmergeIssueLists(left:[µIssue],right:[µIssue])=>[µIssue] match right{
   []=>left|
   [head,.tail]=>mergeIssueLists(left⧺[head],tail)
 }
@@ -156,7 +152,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
 
 λnormalizeSnippetContent(source:String)=>String=§string.join("\n",normalizedSnippetLines(source))
 
-λnormalizedExprsKind(snippet:•types.Snippet)=>String={
+λnormalizedExprsKind(snippet:µSnippet)=>String={
   l lines=(normalizedSnippetLines(snippet.content):[String]);
   match isTopLevelLikeLines(lines){
     true=>match isProgramLikeLines(lines){
@@ -191,14 +187,14 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
 
 λordinalPath(ordinal:Int,tempDir:String)=>String=§path.join(tempDir,"snippet-"++§string.intToString(ordinal))
 
-λparseFenceInfo(info:String)=>Result[•types.FenceInfo,String]=•fences.parseFenceInfo(info)
+λparseFenceInfo(info:String)=>Result[µFenceInfo,String]=•fences.parseFenceInfo(info)
 
 λparseTrackedFiles(result:§process.ProcessResult)=>Result[[String],String] match result.code=0{
   true=>Ok((§string.lines(result.stdout):[String]) filter •fences.nonEmpty)|
   false=>Err(result.stderr)
 }
 
-λprepareSnippetWorkspace(filePath:String,root:String,tempDir:String,virtualPath:String)=>!AuditIo [•types.Issue] match projectRootFromVirtualPath(virtualPath){
+λprepareSnippetWorkspace(filePath:String,root:String,tempDir:String,virtualPath:String)=>!AuditIo [µIssue] match projectRootFromVirtualPath(virtualPath){
   Some(projectRoot)=>{
     l targetProjectRoot=(§path.join(tempDir,projectRoot):String);
     l _=(§file.makeDirs(§path.dirname(targetProjectRoot)):Unit);
@@ -211,7 +207,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   None()=>[]
 }
 
-λprintIssues(issues:[•types.Issue])=>!Log Unit match issues{
+λprintIssues(issues:[µIssue])=>!Log Unit match issues{
   []=>()|
   [head,.tail]=>{
     l _=(§io.println(issueMessage(head)):Unit);
@@ -219,9 +215,9 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λprocessMarkdownFile(failFast:Bool,filePath:String,root:String,tempDir:String)=>!AuditIo MarkdownAudit={
+λprocessMarkdownFile(failFast:Bool,filePath:String,root:String,tempDir:String)=>!AuditIo µMarkdownAudit={
   l markdown=(§file.readText(§path.join(root,filePath)):String);
-  l extraction=(extractSnippets(filePath,markdown):•types.ExtractResult);
+  l extraction=(extractSnippets(filePath,markdown):µExtractResult);
   match failFast and #extraction.issues>0{
     true=>match extraction.issues{
       [first,.tail]=>{documentedRefs:[],issues:[first],snippetRefs:[]}|
@@ -236,10 +232,10 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   false=>§string.trim(result.stdout)
 }
 
-λprocessSnippets(failFast:Bool,filePath:String,ordinal:Int,root:String,snippets:[•types.Snippet],state:MarkdownAudit,tempDir:String)=>!AuditIo MarkdownAudit match snippets{
+λprocessSnippets(failFast:Bool,filePath:String,ordinal:Int,root:String,snippets:[µSnippet],state:µMarkdownAudit,tempDir:String)=>!AuditIo µMarkdownAudit match snippets{
   []=>state|
   [head,.tail]=>{
-    l checked=(validateSnippet(filePath,ordinal,root,head,tempDir):MarkdownAudit);
+    l checked=(validateSnippet(filePath,ordinal,root,head,tempDir):µMarkdownAudit);
     match failFast and #checked.issues>0{
       true=>match checked.issues{
         [first,.rest]=>{documentedRefs:mergeUnique(state.documentedRefs,checked.documentedRefs),issues:[first],snippetRefs:mergeUnique(state.snippetRefs,checked.snippetRefs)}|
@@ -282,13 +278,13 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
 
 λrepoTempDir(root:String)=>String=§path.join(root,".local/docsDriftAuditTmp")
 
-λrunCheck()=>!AuditIo Result[[•types.Issue],String] match gitTopLevel(){
+λrunCheck()=>!AuditIo Result[[µIssue],String] match gitTopLevel(){
   Ok(root)=>match selectedMarkdownPaths(){
     Ok(selection)=>{
       l tempDir=(repoTempDir(root):String);
       l _=(§file.removeTree(tempDir):Unit);
       l _=(§file.makeDirs(tempDir):Unit);
-      l markdownAudit=(runMarkdownAudit(selection.failFast,selection.paths,root,tempDir):MarkdownAudit);
+      l markdownAudit=(runMarkdownAudit(selection.failFast,selection.paths,root,tempDir):µMarkdownAudit);
       match selection.failFast{
         true=>Ok(markdownAudit.issues)|
         false=>match gitTrackedStdlib(){
@@ -312,26 +308,26 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   Err(message)=>Err(message)
 }
 
-λrunCheckForPaths(paths:[String])=>!AuditIo Result[[•types.Issue],String] match gitTopLevel(){
+λrunCheckForPaths(paths:[String])=>!AuditIo Result[[µIssue],String] match gitTopLevel(){
   Ok(root)=>{
     l tempDir=(repoTempDir(root):String);
     l _=(§file.removeTree(tempDir):Unit);
     l _=(§file.makeDirs(tempDir):Unit);
-    l markdownAudit=(runMarkdownAudit(true,paths,root,tempDir):MarkdownAudit);
+    l markdownAudit=(runMarkdownAudit(true,paths,root,tempDir):µMarkdownAudit);
     l _=(§file.removeTree(tempDir):Unit);
     Ok(markdownAudit.issues)
   }|
   Err(message)=>Err(message)
 }
 
-λrunCoverageChecks(actualExports:[String],documentedRefs:[String],existingIssues:[•types.Issue],snippetRefs:[String],stdlibRefs:[String])=>[•types.Issue]=runCoverageChecksInner(actualExports,mergeUnique(snippetRefs,stdlibRefs),documentedRefs,existingIssues)
+λrunCoverageChecks(actualExports:[String],documentedRefs:[String],existingIssues:[µIssue],snippetRefs:[String],stdlibRefs:[String])=>[µIssue]=runCoverageChecksInner(actualExports,mergeUnique(snippetRefs,stdlibRefs),documentedRefs,existingIssues)
 
-λrunCoverageChecksInner(actualExports:[String],coverageRefs:[String],documentedRefs:[String],issues:[•types.Issue])=>[•types.Issue]=runReferenceIssues(actualExports,runReferenceIssues(actualExports,runUncoveredDocumentedIssues(coverageRefs,documentedRefs,issues),documentedRefs),coverageRefs)
+λrunCoverageChecksInner(actualExports:[String],coverageRefs:[String],documentedRefs:[String],issues:[µIssue])=>[µIssue]=runReferenceIssues(actualExports,runReferenceIssues(actualExports,runUncoveredDocumentedIssues(coverageRefs,documentedRefs,issues),documentedRefs),coverageRefs)
 
-λrunCoverageOnly()=>!AuditIo Result[[•types.Issue],String] match gitTopLevel(){
+λrunCoverageOnly()=>!AuditIo Result[[µIssue],String] match gitTopLevel(){
   Ok(root)=>match gitTrackedMarkdown(){
     Ok(markdownPaths)=>{
-      l markdownAudit=(runMarkdownCoverageAudit(markdownPaths,root):MarkdownAudit);
+      l markdownAudit=(runMarkdownCoverageAudit(markdownPaths,root):µMarkdownAudit);
       match gitTrackedStdlib(){
         Ok(stdlibPaths)=>match gitTrackedStdlibTests(){
           Ok(testPaths)=>{
@@ -351,28 +347,28 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   Err(message)=>Err(message)
 }
 
-λrunMarkdownAudit(failFast:Bool,paths:[String],root:String,tempDir:String)=>!AuditIo MarkdownAudit=runMarkdownAuditInner({documentedRefs:[],issues:[],snippetRefs:[]},failFast,paths,root,tempDir)
+λrunMarkdownAudit(failFast:Bool,paths:[String],root:String,tempDir:String)=>!AuditIo µMarkdownAudit=runMarkdownAuditInner({documentedRefs:[],issues:[],snippetRefs:[]},failFast,paths,root,tempDir)
 
-λrunMarkdownAuditInner(acc:MarkdownAudit,failFast:Bool,paths:[String],root:String,tempDir:String)=>!AuditIo MarkdownAudit match paths{
+λrunMarkdownAuditInner(acc:µMarkdownAudit,failFast:Bool,paths:[String],root:String,tempDir:String)=>!AuditIo µMarkdownAudit match paths{
   []=>acc|
   _ when failFast and #acc.issues>0=>acc|
   [head,.tail]=>{
-    l current=(processMarkdownFile(failFast,head,root,tempDir):MarkdownAudit);
+    l current=(processMarkdownFile(failFast,head,root,tempDir):µMarkdownAudit);
     runMarkdownAuditInner({documentedRefs:mergeUnique(acc.documentedRefs,current.documentedRefs),issues:mergeIssueLists(acc.issues,current.issues),snippetRefs:mergeUnique(acc.snippetRefs,current.snippetRefs)},failFast,tail,root,tempDir)
   }
 }
 
-λrunMarkdownCoverageAudit(paths:[String],root:String)=>!Fs MarkdownAudit=runMarkdownCoverageAuditInner({documentedRefs:[],issues:[],snippetRefs:[]},paths,root)
+λrunMarkdownCoverageAudit(paths:[String],root:String)=>!Fs µMarkdownAudit=runMarkdownCoverageAuditInner({documentedRefs:[],issues:[],snippetRefs:[]},paths,root)
 
-λrunMarkdownCoverageAuditInner(acc:MarkdownAudit,paths:[String],root:String)=>!Fs MarkdownAudit match paths{
+λrunMarkdownCoverageAuditInner(acc:µMarkdownAudit,paths:[String],root:String)=>!Fs µMarkdownAudit match paths{
   []=>acc|
   [head,.tail]=>{
-    l current=(collectMarkdownAuditRefs(head,root):MarkdownAudit);
+    l current=(collectMarkdownAuditRefs(head,root):µMarkdownAudit);
     runMarkdownCoverageAuditInner({documentedRefs:mergeUnique(acc.documentedRefs,current.documentedRefs),issues:mergeIssueLists(acc.issues,current.issues),snippetRefs:mergeUnique(acc.snippetRefs,current.snippetRefs)},tail,root)
   }
 }
 
-λrunReferenceIssues(actualExports:[String],issues:[•types.Issue],refs:[String])=>[•types.Issue] match refs{
+λrunReferenceIssues(actualExports:[String],issues:[µIssue],refs:[String])=>[µIssue] match refs{
   []=>issues|
   [head,.tail]=>match §list.contains(head,actualExports){
     true=>runReferenceIssues(actualExports,issues,tail)|
@@ -380,23 +376,23 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λrunRefsForFile(filePath:String)=>!AuditIo Result[MarkdownAudit,String] match gitTopLevel(){
+λrunRefsForFile(filePath:String)=>!AuditIo Result[µMarkdownAudit,String] match gitTopLevel(){
   Ok(root)=>Ok(collectMarkdownAuditRefs(filePath,root))|
   Err(message)=>Err(message)
 }
 
-λrunRefsForPaths(paths:[String])=>!AuditIo Result[MarkdownAudit,String] match gitTopLevel(){
+λrunRefsForPaths(paths:[String])=>!AuditIo Result[µMarkdownAudit,String] match gitTopLevel(){
   Ok(root)=>Ok(runMarkdownCoverageAudit(paths,root))|
   Err(message)=>Err(message)
 }
 
-λrunRepoCheck()=>!AuditIo Result[[•types.Issue],String] match gitTopLevel(){
+λrunRepoCheck()=>!AuditIo Result[[µIssue],String] match gitTopLevel(){
   Ok(root)=>match gitTrackedMarkdown(){
     Ok(markdownPaths)=>{
       l tempDir=(repoTempDir(root):String);
       l _=(§file.removeTree(tempDir):Unit);
       l _=(§file.makeDirs(tempDir):Unit);
-      l markdownAudit=(runMarkdownAudit(false,markdownPaths,root,tempDir):MarkdownAudit);
+      l markdownAudit=(runMarkdownAudit(false,markdownPaths,root,tempDir):µMarkdownAudit);
       l _=(§file.removeTree(tempDir):Unit);
       match gitTrackedStdlib(){
         Ok(stdlibPaths)=>match gitTrackedStdlibTests(){
@@ -435,7 +431,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λrunUncoveredDocumentedIssues(coverageRefs:[String],documentedRefs:[String],issues:[•types.Issue])=>[•types.Issue] match documentedRefs{
+λrunUncoveredDocumentedIssues(coverageRefs:[String],documentedRefs:[String],issues:[µIssue])=>[µIssue] match documentedRefs{
   []=>issues|
   [head,.tail]=>match §list.contains(head,coverageRefs){
     true=>runUncoveredDocumentedIssues(coverageRefs,tail,issues)|
@@ -443,7 +439,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λselectedMarkdownPaths()=>!Process Result[MarkdownSelection,String]={
+λselectedMarkdownPaths()=>!Process Result[µMarkdownSelection,String]={
   l args=(§process.argv():[String]);
   match #args=0{
     true=>match gitTrackedMarkdown(){
@@ -454,7 +450,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λsnippetRefsForValidatedSnippet(snippet:•types.Snippet)=>[String] match snippet.info.kind{
+λsnippetRefsForValidatedSnippet(snippet:µSnippet)=>[String] match snippet.info.kind{
   "decl"=>[]|
   "invalid-expr"=>[]|
   "invalid-module"=>[]|
@@ -463,7 +459,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   _=>•coverage.collectQualifiedRefs(snippet.content)
 }
 
-λsnippetSource(snippet:•types.Snippet)=>String={
+λsnippetSource(snippet:µSnippet)=>String={
   l normalized=(normalizedSnippetContentForKind(snippet.info.kind,snippet.content):String);
   match snippet.info.kind{
     "expr"=>"λmain()=>Unit="++normalized|
@@ -486,7 +482,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   _=>"compile"
 }
 
-λsnippetSubcommandForSnippet(snippet:•types.Snippet)=>String match snippet.info.kind{
+λsnippetSubcommandForSnippet(snippet:µSnippet)=>String match snippet.info.kind{
   "exprs"=>match normalizedExprsKind(snippet){
     "exprs"=>"parse"|
     _=>"compile"
@@ -494,7 +490,7 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   kind=>snippetSubcommand(kind)
 }
 
-λsnippetVirtualPath(snippet:•types.Snippet)=>String match snippet.info.context{
+λsnippetVirtualPath(snippet:µSnippet)=>String match snippet.info.context{
   Some(path)=>path|
   None()=>match snippet.info.kind{
     "exprs"=>defaultVirtualPath(normalizedExprsKind(snippet))|
@@ -502,11 +498,11 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
   }
 }
 
-λvalidateSnippet(filePath:String,ordinal:Int,root:String,snippet:•types.Snippet,tempDir:String)=>!AuditIo MarkdownAudit match isCheckedKind(snippet.info.kind){
+λvalidateSnippet(filePath:String,ordinal:Int,root:String,snippet:µSnippet,tempDir:String)=>!AuditIo µMarkdownAudit match isCheckedKind(snippet.info.kind){
   false=>{documentedRefs:[],issues:[invalidFenceIssue(filePath,snippet.line,"unknown Sigil fence kind '"++snippet.info.kind++"'")],snippetRefs:[]}|
   true=>match snippet.info.kind{
     "decl"=>{
-      l issues=(declSnippetIssues(filePath,snippet.line,snippet.content):[•types.Issue]);
+      l issues=(declSnippetIssues(filePath,snippet.line,snippet.content):[µIssue]);
       match #issues=0{
         true=>match snippet.info.context{
           Some(modulePath)=>match §string.startsWith("§",modulePath){
@@ -526,10 +522,10 @@ t MarkdownSelection={failFast:Bool,paths:[String]}
         "exprs"=>normalizedExprsKind(snippet)|
         _=>kind
       }:String);
-      l issues=(executeSnippetCheck(snippetKind="expr" or snippetKind="exprs" or snippetKind="module" or snippetKind="program" or snippetKind="type",filePath,root,snippetSubcommandForSnippet(snippet),ordinalPath(ordinal,tempDir),snippetVirtualPath(snippet),snippetSource(snippet)):[•types.Issue]);
+      l issues=(executeSnippetCheck(snippetKind="expr" or snippetKind="exprs" or snippetKind="module" or snippetKind="program" or snippetKind="type",filePath,root,snippetSubcommandForSnippet(snippet),ordinalPath(ordinal,tempDir),snippetVirtualPath(snippet),snippetSource(snippet)):[µIssue]);
       match #issues=0{
         true=>{documentedRefs:[],issues:[],snippetRefs:snippetRefsForValidatedSnippet(snippet)}|
-        false=>{documentedRefs:[],issues:issues map (λ(issue:•types.Issue)=>•types.Issue={line:snippet.line,message:issue.message,path:snippet.filePath}),snippetRefs:[]}
+        false=>{documentedRefs:[],issues:issues map (λ(issue:µIssue)=>µIssue={line:snippet.line,message:issue.message,path:snippet.filePath}),snippetRefs:[]}
       }
     }
   }

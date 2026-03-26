@@ -80,6 +80,26 @@ Compound forms:
 - functions: `λ(T1,T2,...)=>R`
 - named ADTs and aliases
 
+## Project Types
+
+In projects with `sigil.json`, project-defined named types live in
+`src/types.lib.sigil` and are referenced elsewhere as `µTypeName`.
+
+Example:
+
+```sigil module projects/todo-app/src/types.lib.sigil
+t BirthYear=Int where value>1800 and value<10000
+
+t User={birthYear:BirthYear,name:String}
+```
+
+```sigil module projects/todo-app/src/todoDomain.lib.sigil
+λtodoId(todo:µTodo)=>Int=todo.id
+```
+
+`src/types.lib.sigil` is types-only and may reference only `§...` and `¶...`
+inside type definitions and constraints.
+
 ## Records and Maps
 
 Records and maps are different concepts:
@@ -103,15 +123,34 @@ Current Sigil has:
 
 If a field may be absent, use `Option[T]` in an exact record.
 
+## Constrained Types
+
+Named user-defined types may carry a pure `where` clause:
+
+```sigil module
+t BirthYear=Int where value>1800 and value<10000
+
+t DateRange={end:Int,start:Int} where value.end≥value.start
+```
+
+Current rules:
+
+- only `value` is in scope inside the constraint
+- the constraint must typecheck to `Bool`
+- constraints are pure and world-independent
+- there is no generated runtime validation in v1
+- the checker currently rejects only obvious literal contradictions
+
 ## Type Equality
 
-Sigil normalizes aliases and named product types before equality-sensitive
-checks.
+Sigil normalizes unconstrained aliases and unconstrained named product types
+before equality-sensitive checks.
 
 That means:
 
-- aliases compare structurally
-- named product types compare structurally after normalization
+- unconstrained aliases compare structurally
+- unconstrained named product types compare structurally after normalization
+- constrained aliases and named product types remain distinct
 - sum types remain nominal
 
 ## Effects
@@ -145,7 +184,10 @@ e console:{log:λ(String)=>!Log Unit}
 
 λfetch()=>!Http String=axios.get("https://example.com")
 
-λmain()=>!Log Unit=console.log("hello")
+λmain()=>!Http!Log Unit={
+  l _=(fetch():String);
+  console.log("hello")
+}
 ```
 
 Tests can also declare effects:
@@ -153,8 +195,9 @@ Tests can also declare effects:
 ```sigil program tests/writesLog.sigil
 λmain()=>Unit=()
 
-test "writes log" =>!Log  {
-  §io.println("x")=()
+test "writes log" =>!Log {
+  l _=(§io.println("x"):Unit);
+  true
 }
 ```
 
@@ -189,9 +232,9 @@ raw input
 Examples:
 
 ```sigil module
-t Message={createdAt:§time.Instant,text:String}
-
 t Email=Email(String)
+
+t Message={createdAt:§time.Instant,text:String}
 ```
 
 ## Source of Truth

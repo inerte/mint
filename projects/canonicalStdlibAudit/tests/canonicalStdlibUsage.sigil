@@ -1,4 +1,4 @@
-λcompiledRules()=>[•canonicalStdlibUsage.Rule]=•canonicalStdlibUsage.rules()
+λcompiledRules()=>[µRule]=•canonicalStdlibUsage.rules()
 
 λmain()=>Unit=()
 

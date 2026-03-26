@@ -1,0 +1,3 @@
+t Message={createdAt:§time.Instant,id:TodoId}
+
+t TodoId=TodoId(Int)

@@ -68,8 +68,8 @@ This encourages higher-level tests (also known as integration or end-to-end test
 
 The environment contract is now explicit and uniform:
 
-```sigil
-c world=(...:†runtime.World)
+```sigil module
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.stdout(),†process.real(),[],†timer.real()):†runtime.World)
 ```
 
 Every environment config module exports `world`. There is no optional fallback,
@@ -87,11 +87,13 @@ primitive effect behavior for that environment.
 
 A single test can then derive from that baseline:
 
-```sigil
+```sigil program tests/worldTest.sigil
+λmain()=>Unit=()
+
 test "captured log contains line" =>!Log world {
   c log=(†log.capture():†log.LogEntry)
 } {
-  §io.println("captured")=() and
+  l _=(§io.println("captured"):Unit);
   ※check::log.contains("captured")
 }
 ```

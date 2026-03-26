@@ -23,9 +23,7 @@ with rooted module syntax.
 Library code is file-based, not `export`-based:
 
 ```sigil module projects/todo-app/src/todoDomain.lib.sigil
-t Todo={done:Bool,id:Int,text:String}
-
-λcompletedCount(todos:[Todo])=>Int=todos reduce (λ(acc:Int,todo:Todo)=>Int match todo.done{
+λcompletedCount(todos:[µTodo])=>Int=todos reduce (λ(acc:Int,todo:µTodo)=>Int match todo.done{
   true=>acc+1|
   false=>acc
 }) from 0
@@ -55,13 +53,17 @@ Rules:
 - `true` passes
 - `false` fails
 
+In project code, named project types still live in `src/types.lib.sigil` and
+tests refer to them through `µ...`.
+
 Effectful tests use explicit effects:
 
-```sigil program language/test-fixtures/tests/effects.sigil
+```sigil program tests/writesLog.sigil
 λmain()=>Unit=()
 
-test "writes log" =>!Log  {
-  §io.println("x")=()
+test "writes log" =>!Log {
+  l _=(§io.println("x"):Unit);
+  true
 }
 ```
 
@@ -73,7 +75,7 @@ Tests may also derive a local world:
 test "worlds capture logs" =>!Log world {
   c log=(†log.capture():†log.LogEntry)
 } {
-  §io.println("captured")=() and
+  l _=(§io.println("captured"):Unit);
   ※check::log.contains("captured")
 }
 ```
@@ -109,7 +111,7 @@ Example:
 test "captured log contains line" =>!Log world {
   c log=(†log.capture():†log.LogEntry)
 } {
-  §io.println("captured")=() and
+  l _=(§io.println("captured"):Unit);
   ※check::log.contains("captured")
 }
 ```

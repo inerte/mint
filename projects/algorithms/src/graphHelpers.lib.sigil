@@ -1,6 +1,6 @@
-λhasVertex(graph:•graphTypes.Graph,vertex:Int)=>Bool=hasVertexNodes(graph.nodes,vertex)
+λhasVertex(graph:µGraph,vertex:Int)=>Bool=hasVertexNodes(graph.nodes,vertex)
 
-λhasVertexNodes(nodes:[•graphTypes.NodeNeighbors],vertex:Int)=>Bool match nodes{
+λhasVertexNodes(nodes:[µNodeNeighbors],vertex:Int)=>Bool match nodes{
   []=>false|
   [node,.tail]=>match node.vertex=vertex{
     true=>true|
@@ -8,7 +8,7 @@
   }
 }
 
-λneighborsFromNodes(nodes:[•graphTypes.NodeNeighbors],vertex:Int)=>[Int] match nodes{
+λneighborsFromNodes(nodes:[µNodeNeighbors],vertex:Int)=>[Int] match nodes{
   []=>[]|
   [node,.tail]=>match node.vertex=vertex{
     true=>node.neighbors|
@@ -16,8 +16,8 @@
   }
 }
 
-λneighborsOf(graph:•graphTypes.Graph,vertex:Int)=>[Int]=neighborsFromNodes(graph.nodes,vertex)
+λneighborsOf(graph:µGraph,vertex:Int)=>[Int]=neighborsFromNodes(graph.nodes,vertex)
 
-λvertices(graph:•graphTypes.Graph)=>[Int]=verticesFromNodes(graph.nodes)
+λvertices(graph:µGraph)=>[Int]=verticesFromNodes(graph.nodes)
 
-λverticesFromNodes(nodes:[•graphTypes.NodeNeighbors])=>[Int]=nodes map (λ(node:•graphTypes.NodeNeighbors)=>Int=node.vertex)
+λverticesFromNodes(nodes:[µNodeNeighbors])=>[Int]=nodes map (λ(node:µNodeNeighbors)=>Int=node.vertex)

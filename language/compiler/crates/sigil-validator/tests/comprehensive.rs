@@ -3,6 +3,8 @@
 use sigil_lexer::tokenize;
 use sigil_parser::parse;
 use sigil_validator::{validate_canonical_form, ValidationError};
+use std::fs;
+use std::path::PathBuf;
 
 // ============================================================================
 // DUPLICATE DECLARATION TESTS
@@ -218,6 +220,70 @@ fn test_function_declaration_valid() {
     let program = parse(tokens, "test.lib.sigil").unwrap();
 
     assert!(validate_canonical_form(&program, Some("test.lib.sigil"), None).is_ok());
+}
+
+fn temp_project_path(relative: &str) -> PathBuf {
+    let unique = format!(
+        "sigil-validator-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let root = std::env::temp_dir().join(unique);
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("sigil.json"),
+        "{\"name\":\"validator-test\",\"version\":\"0.1.0\"}\n",
+    )
+    .unwrap();
+    root.join(relative)
+}
+
+#[test]
+fn test_project_types_must_live_in_src_types_file() {
+    let source = "t User=User(Int)\nλmain()=>Unit=()";
+    let file_path = temp_project_path("src/main.sigil");
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, file_path.to_string_lossy().as_ref()).unwrap();
+
+    let result = validate_canonical_form(&program, Some(file_path.to_string_lossy().as_ref()), None);
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .iter()
+        .any(|error| matches!(error, ValidationError::TypeDeclarationPlacement { .. })));
+}
+
+#[test]
+fn test_src_types_file_may_only_contain_type_declarations() {
+    let source = "t User=User(Int)\nc answer=(42:Int)";
+    let file_path = temp_project_path("src/types.lib.sigil");
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, file_path.to_string_lossy().as_ref()).unwrap();
+
+    let result = validate_canonical_form(&program, Some(file_path.to_string_lossy().as_ref()), None);
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .iter()
+        .any(|error| matches!(error, ValidationError::TypeDeclarationPlacement { .. })));
+}
+
+#[test]
+fn test_src_types_file_rejects_non_foundational_roots() {
+    let source = "t EnvConfig=¤prod.Settings";
+    let file_path = temp_project_path("src/types.lib.sigil");
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, file_path.to_string_lossy().as_ref()).unwrap();
+
+    let result = validate_canonical_form(&program, Some(file_path.to_string_lossy().as_ref()), None);
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .iter()
+        .any(|error| matches!(error, ValidationError::TypeDeclarationPlacement { .. })));
 }
 
 #[test]

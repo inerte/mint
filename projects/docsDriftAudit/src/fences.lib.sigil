@@ -1,22 +1,18 @@
-t ScanState={current:Option[OpenSnippet],issues:[•types.Issue],line:Int,results:[•types.Snippet]}
+λappendContent(current:µOpenSnippet,line:String)=>µOpenSnippet={content:current.content⧺[line],filePath:current.filePath,info:current.info,line:current.line}
 
-t OpenSnippet={content:[String],filePath:String,info:•types.FenceInfo,line:Int}
+λcloseSnippet(current:µOpenSnippet,results:[µSnippet])=>[µSnippet]=results⧺[{content:§string.join("\n",current.content),filePath:current.filePath,info:current.info,line:current.line}]
 
-λappendContent(current:OpenSnippet,line:String)=>OpenSnippet={content:current.content⧺[line],filePath:current.filePath,info:current.info,line:current.line}
-
-λcloseSnippet(current:OpenSnippet,results:[•types.Snippet])=>[•types.Snippet]=results⧺[{content:§string.join("\n",current.content),filePath:current.filePath,info:current.info,line:current.line}]
-
-λextractSnippets(filePath:String,markdown:String)=>•types.ExtractResult={
-  l scan=(finishScan(scanLines(filePath,§string.lines(markdown),{current:None(),issues:[],line:1,results:[]})):ScanState);
+λextractSnippets(filePath:String,markdown:String)=>µExtractResult={
+  l scan=(finishScan(scanLines(filePath,§string.lines(markdown),{current:None(),issues:[],line:1,results:[]})):µScanState);
   {issues:scan.issues,results:scan.results}
 }
 
-λfinishScan(state:ScanState)=>ScanState match state.current{
+λfinishScan(state:µScanState)=>µScanState match state.current{
   Some(current)=>{current:None(),issues:state.issues⧺[{line:current.line,message:"unterminated Sigil code fence",path:current.filePath}],line:state.line,results:state.results}|
   None()=>state
 }
 
-λinvalidFenceIssue(filePath:String,line:Int,message:String)=>•types.Issue={line:line,message:message,path:filePath}
+λinvalidFenceIssue(filePath:String,line:Int,message:String)=>µIssue={line:line,message:message,path:filePath}
 
 λisFence(line:String)=>Bool=§string.startsWith("```",line)
 
@@ -24,7 +20,7 @@ t OpenSnippet={content:[String],filePath:String,info:•types.FenceInfo,line:Int
 
 λnonEmpty(text:String)=>Bool=#text>0
 
-λparseFenceInfo(info:String)=>Result[•types.FenceInfo,String]={
+λparseFenceInfo(info:String)=>Result[µFenceInfo,String]={
   l trimmed=(§string.trim(info):String);
   match §string.indexOf(trimmed," "){
     idx when idx≥0=>match §string.substring(idx,trimmed,0){
@@ -38,12 +34,12 @@ t OpenSnippet={content:[String],filePath:String,info:•types.FenceInfo,line:Int
   }
 }
 
-λparseFenceKind(rest:String)=>Result[•types.FenceInfo,String] match §string.indexOf(rest," "){
+λparseFenceKind(rest:String)=>Result[µFenceInfo,String] match §string.indexOf(rest," "){
   idx when idx≥0=>parseFenceKindWithContext(§string.substring(idx,rest,0),§string.trim(§string.drop(idx+1,rest)))|
   _=>parseFenceKindWithoutContext(rest)
 }
 
-λparseFenceKindWithContext(kind:String,rest:String)=>Result[•types.FenceInfo,String] match §string.indexOf(rest," "){
+λparseFenceKindWithContext(kind:String,rest:String)=>Result[µFenceInfo,String] match §string.indexOf(rest," "){
   idx when idx≥0=>Err("Sigil fence '"++kind++"' has too many arguments")|
   _=>match kind{
     "decl"=>Ok({context:Some(rest),kind:"decl"})|
@@ -55,7 +51,7 @@ t OpenSnippet={content:[String],filePath:String,info:•types.FenceInfo,line:Int
   }
 }
 
-λparseFenceKindWithoutContext(kind:String)=>Result[•types.FenceInfo,String] match kind{
+λparseFenceKindWithoutContext(kind:String)=>Result[µFenceInfo,String] match kind{
   "decl"=>Err("sigil decl fences must include a module path like 'sigil decl §list'")|
   "expr"=>Ok({context:None(),kind:"expr"})|
   "exprs"=>Ok({context:None(),kind:"exprs"})|
@@ -69,12 +65,12 @@ t OpenSnippet={content:[String],filePath:String,info:•types.FenceInfo,line:Int
   _=>Err("unknown Sigil fence kind '"++kind++"'")
 }
 
-λparseModulePath(kind:String,virtualPath:String)=>Result[•types.FenceInfo,String] match §string.endsWith(virtualPath,".lib.sigil"){
+λparseModulePath(kind:String,virtualPath:String)=>Result[µFenceInfo,String] match §string.endsWith(virtualPath,".lib.sigil"){
   true=>Ok({context:Some(virtualPath),kind:kind})|
   false=>Err("sigil "++kind++" fences must use a .lib.sigil virtual path")
 }
 
-λparseProgramPath(kind:String,virtualPath:String)=>Result[•types.FenceInfo,String] match §string.endsWith(virtualPath,".sigil"){
+λparseProgramPath(kind:String,virtualPath:String)=>Result[µFenceInfo,String] match §string.endsWith(virtualPath,".sigil"){
   true=>match §string.endsWith(virtualPath,".lib.sigil"){
     true=>Err("sigil "++kind++" fences must use a .sigil virtual path")|
     false=>Ok({context:Some(virtualPath),kind:kind})
@@ -82,12 +78,12 @@ t OpenSnippet={content:[String],filePath:String,info:•types.FenceInfo,line:Int
   false=>Err("sigil "++kind++" fences must use a .sigil virtual path")
 }
 
-λscanLines(filePath:String,lines:[String],state:ScanState)=>ScanState match lines{
+λscanLines(filePath:String,lines:[String],state:µScanState)=>µScanState match lines{
   []=>state|
   [line,.rest]=>scanLines(filePath,rest,scanNextLine(filePath,line,state))
 }
 
-λscanNextLine(filePath:String,line:String,state:ScanState)=>ScanState match state.current{
+λscanNextLine(filePath:String,line:String,state:µScanState)=>µScanState match state.current{
   Some(current)=>match isFence(line){
     true=>{current:None(),issues:state.issues,line:state.line+1,results:closeSnippet(current,state.results)}|
     false=>{current:Some(appendContent(current,line)),issues:state.issues,line:state.line+1,results:state.results}

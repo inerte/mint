@@ -77,6 +77,26 @@ Constructed types:
 - `λ(T1,T2,...)=>R`
 - named ADTs and aliases
 
+## Project-Defined Named Types
+
+In projects with `sigil.json`, project-defined named types live in
+`src/types.lib.sigil` and are referenced elsewhere with `µ...`.
+
+Example:
+
+```sigil module projects/todo-app/src/types.lib.sigil
+t BirthYear=Int where value>1800 and value<10000
+
+t User={birthYear:BirthYear,name:String}
+```
+
+```sigil module projects/todo-app/src/todoDomain.lib.sigil
+λtodoId(todo:µTodo)=>Int=todo.id
+```
+
+`src/types.lib.sigil` is types-only and may reference only `§...` and `¶...`
+inside type definitions and constraints.
+
 ## Algebraic Data Types
 
 Examples:
@@ -110,14 +130,34 @@ Sigil currently has:
 If a field may be absent, the canonical representation is `Option[T]` inside an
 exact record.
 
+## Constrained Types
+
+Named user-defined types may carry a pure `where` clause:
+
+```sigil module
+t BirthYear=Int where value>1800 and value<10000
+
+t DateRange={end:Int,start:Int} where value.end≥value.start
+```
+
+Constraint rules:
+
+- only `value` is in scope
+- the constraint must typecheck to `Bool`
+- constraints are pure and world-independent
+- v1 uses constraints as richer type meaning, not automatic runtime validation
+- the checker currently rejects only obvious literal contradictions
+
 ## Structural Equality
 
-Type equality normalizes aliases and named product types before comparison.
+Type equality normalizes unconstrained aliases and unconstrained named product
+types before comparison.
 
 That means:
 
-- aliases compare structurally
-- named product types compare structurally after normalization
+- unconstrained aliases compare structurally
+- unconstrained named product types compare structurally after normalization
+- constrained aliases and named product types remain distinct
 - sum types remain nominal
 
 This is a checker invariant, not inference.
@@ -154,7 +194,10 @@ e console:{log:λ(String)=>!Log Unit}
 
 λfetch()=>!Http String=axios.get("https://example.com")
 
-λmain()=>!Log Unit=console.log("hello")
+λmain()=>!Http!Log Unit={
+  l _=(fetch():String);
+  console.log("hello")
+}
 ```
 
 Effects are explicit surface syntax. The checker tracks them as part of the

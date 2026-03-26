@@ -7,6 +7,12 @@ slug: exact-records-and-trusted-boundaries
 
 # Exact Records and Trusted Boundaries
 
+> Update (2026-03-26): project-defined internal records and wrappers now live
+> in `src/types.lib.sigil` and are referenced elsewhere as `µMessage`,
+> `µEmail`, `µUserId`, and so on. The boundary story below still applies; the
+> domain vocabulary is just centralized now. See
+> [/articles/centralized-project-types-and-constrained-type-meanings/](/articles/centralized-project-types-and-constrained-type-meanings/).
+
 Sigil treats internal records as exact, closed products. That choice is closely
 related to the language's approach to boundaries: uncertainty should be handled
 at the edge of the system, not carried indefinitely through internal business

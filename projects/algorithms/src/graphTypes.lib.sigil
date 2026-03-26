@@ -1,5 +1,0 @@
-t Graph={nodes:[NodeNeighbors]}
-
-t NodeNeighbors={neighbors:[Int],vertex:Int}
-
-t TopologicalSortResult=CycleDetected()|Ordering([Int])

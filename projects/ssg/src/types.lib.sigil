@@ -2,6 +2,10 @@ t AliasRoute={alias:String,route:String}
 
 t PageMeta={author:String,category:String,date:String,description:String,slug:String,title:String}
 
+t ParseLinesResult={contentLines:[String],meta:PageMeta}
+
+t ParseResult={content:String,meta:PageMeta}
+
 t Section=Article()|Doc()|Home()|Spec()
 
 t SiteBuildConfig={basePath:String,outputDir:String,repoUrl:String,siteDescription:String,siteTitle:String,siteUrl:String}

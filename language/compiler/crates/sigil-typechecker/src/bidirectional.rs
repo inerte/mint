@@ -28,8 +28,8 @@ use crate::types::{
 };
 use crate::TypeCheckOptions;
 use sigil_ast::{
-    BinaryOperator, Declaration, Expr, FunctionDecl, LiteralType, PrimitiveName, Program, Type,
-    TypeDef,
+    BinaryOperator, Declaration, Expr, FunctionDecl, LiteralType, LiteralValue, PrimitiveName,
+    Program, Type, TypeDef, TypeDecl, UnaryOperator,
 };
 use sigil_diagnostics::codes;
 use std::collections::{HashMap, HashSet};
@@ -102,6 +102,7 @@ pub fn type_check(
                     TypeInfo {
                         type_params: type_decl.type_params.clone(),
                         definition: type_decl.definition.clone(),
+                        constraint: type_decl.constraint.clone(),
                     },
                 );
 
@@ -244,6 +245,8 @@ pub fn type_check(
         }
     }
 
+    validate_type_constraints(&env, program)?;
+
     let mut typed_declarations = Vec::new();
 
     // Second pass: Type check function bodies and build typed IR
@@ -382,6 +385,12 @@ fn resolve_qualified_type(
 
     let qualified_name = format!("{}.{}", module_id, qualified.type_name);
     if type_info.type_params.is_empty() {
+        if type_info.constraint.is_some() {
+            return Ok(InferenceType::Constructor(TConstructor {
+                name: qualified_name,
+                type_args,
+            }));
+        }
         match &type_info.definition {
             TypeDef::Product(product) => {
                 let mut fields = HashMap::new();
@@ -471,6 +480,9 @@ fn resolve_named_type(
             {
                 if let Some(type_info) = env.lookup_qualified_type(&module_path, &type_name) {
                     if type_info.type_params.is_empty() {
+                        if type_info.constraint.is_some() {
+                            return Ok(inference_type.clone());
+                        }
                         return match &type_info.definition {
                             TypeDef::Product(product) => {
                                 let mut fields = HashMap::new();
@@ -500,6 +512,9 @@ fn resolve_named_type(
 
             if let Some(type_info) = env.lookup_type(&constructor.name) {
                 if type_info.type_params.is_empty() {
+                    if type_info.constraint.is_some() {
+                        return Ok(inference_type.clone());
+                    }
                     return match &type_info.definition {
                         TypeDef::Product(product) => {
                             let mut fields = HashMap::new();
@@ -568,6 +583,14 @@ fn ast_type_to_inference_type_resolved(
 ) -> Result<InferenceType, TypeError> {
     match ast_type {
         Type::Qualified(qualified) => resolve_qualified_type(env, type_param_env, qualified),
+        Type::Constructor(constructor) => Ok(InferenceType::Constructor(TConstructor {
+            name: constructor.name.clone(),
+            type_args: constructor
+                .type_args
+                .iter()
+                .map(|arg| ast_type_to_inference_type_resolved(env, type_param_env, arg))
+                .collect::<Result<Vec<_>, _>>()?,
+        })),
         Type::List(list_type) => Ok(InferenceType::List(Box::new(crate::types::TList {
             element_type: ast_type_to_inference_type_resolved(
                 env,
@@ -617,6 +640,416 @@ fn validate_surface_types(program: &Program) -> Result<(), TypeError> {
     }
 
     Ok(())
+}
+
+fn validate_type_constraints(env: &TypeEnvironment, program: &Program) -> Result<(), TypeError> {
+    for decl in &program.declarations {
+        let Declaration::Type(type_decl) = decl else {
+            continue;
+        };
+        let Some(constraint) = &type_decl.constraint else {
+            continue;
+        };
+
+        let value_type = constraint_value_type_for_decl(env, type_decl)?;
+        let mut bindings = HashMap::new();
+        bindings.insert("value".to_string(), value_type);
+        let constraint_env = env.extend(Some(bindings));
+        let constraint_type = synthesize(&constraint_env, constraint)?;
+
+        if !same_type(&constraint_env, &constraint_type, &bool_type()) {
+            return Err(TypeError::new(
+                format!(
+                    "Type constraint for '{}' must return Bool, got {}",
+                    type_decl.name,
+                    format_type(&constraint_type)
+                ),
+                Some(expr_location(constraint)),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn constraint_value_type_for_decl(
+    env: &TypeEnvironment,
+    type_decl: &TypeDecl,
+) -> Result<InferenceType, TypeError> {
+    let type_param_env = make_type_param_env(&type_decl.type_params);
+    match &type_decl.definition {
+        TypeDef::Alias(alias) => {
+            ast_type_to_inference_type_resolved(env, Some(&type_param_env), &alias.aliased_type)
+        }
+        TypeDef::Product(product) => {
+            let mut fields = HashMap::new();
+            for field in &product.fields {
+                fields.insert(
+                    field.name.clone(),
+                    ast_type_to_inference_type_resolved(
+                        env,
+                        Some(&type_param_env),
+                        &field.field_type,
+                    )?,
+                );
+            }
+            Ok(InferenceType::Record(TRecord { fields, name: None }))
+        }
+        TypeDef::Sum(_) => Ok(InferenceType::Constructor(TConstructor {
+            name: type_decl.name.clone(),
+            type_args: type_decl
+                .type_params
+                .iter()
+                .filter_map(|name| type_param_env.get(name).cloned())
+                .collect(),
+        })),
+    }
+}
+
+fn expr_location(expr: &Expr) -> sigil_lexer::SourceLocation {
+    match expr {
+        Expr::Literal(expr) => expr.location,
+        Expr::Identifier(expr) => expr.location,
+        Expr::Lambda(expr) => expr.location,
+        Expr::Application(expr) => expr.location,
+        Expr::Binary(expr) => expr.location,
+        Expr::Unary(expr) => expr.location,
+        Expr::Match(expr) => expr.location,
+        Expr::Let(expr) => expr.location,
+        Expr::If(expr) => expr.location,
+        Expr::List(expr) => expr.location,
+        Expr::Record(expr) => expr.location,
+        Expr::MapLiteral(expr) => expr.location,
+        Expr::Tuple(expr) => expr.location,
+        Expr::FieldAccess(expr) => expr.location,
+        Expr::Index(expr) => expr.location,
+        Expr::Pipeline(expr) => expr.location,
+        Expr::Map(expr) => expr.location,
+        Expr::Filter(expr) => expr.location,
+        Expr::Fold(expr) => expr.location,
+        Expr::Concurrent(expr) => expr.location,
+        Expr::MemberAccess(expr) => expr.location,
+        Expr::TypeAscription(expr) => expr.location,
+    }
+}
+
+fn lookup_constrained_type_info(
+    env: &TypeEnvironment,
+    typ: &InferenceType,
+) -> Option<(String, TypeInfo, Vec<InferenceType>)> {
+    let InferenceType::Constructor(constructor) = typ else {
+        return None;
+    };
+
+    if let Some((module_path, type_name)) = split_qualified_constructor_name(&constructor.name) {
+        let info = env.lookup_qualified_type(&module_path, &type_name)?;
+        if info.constraint.is_some() {
+            return Some((constructor.name.clone(), info, constructor.type_args.clone()));
+        }
+    }
+
+    let info = env.lookup_type(&constructor.name)?;
+    if info.constraint.is_some() {
+        return Some((constructor.name.clone(), info, constructor.type_args.clone()));
+    }
+
+    None
+}
+
+fn matches_expected_type(
+    env: &TypeEnvironment,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+) -> bool {
+    let (normalized_actual, normalized_expected) = canonical_pair(env, actual_type, expected_type);
+    if types_equal(&normalized_actual, &normalized_expected) {
+        return true;
+    }
+
+    if let Ok(subst) = unify(&normalized_actual, &normalized_expected) {
+        let unified_actual = apply_subst(&subst, &normalized_actual);
+        let unified_expected = apply_subst(&subst, &normalized_expected);
+        return types_equal(&unified_actual, &unified_expected);
+    }
+
+    false
+}
+
+fn underlying_type_for_constrained_info(
+    env: &TypeEnvironment,
+    type_info: &TypeInfo,
+    type_name: &str,
+    type_args: &[InferenceType],
+) -> Result<Option<InferenceType>, TypeError> {
+    let type_param_env: TypeParamEnv = type_info
+        .type_params
+        .iter()
+        .cloned()
+        .zip(type_args.iter().cloned())
+        .collect();
+
+    match &type_info.definition {
+        TypeDef::Alias(alias) => Ok(Some(ast_type_to_inference_type_resolved(
+            env,
+            Some(&type_param_env),
+            &alias.aliased_type,
+        )?)),
+        TypeDef::Product(product) => {
+            let mut fields = HashMap::new();
+            for field in &product.fields {
+                fields.insert(
+                    field.name.clone(),
+                    ast_type_to_inference_type_resolved(
+                        env,
+                        Some(&type_param_env),
+                        &field.field_type,
+                    )?,
+                );
+            }
+            Ok(Some(InferenceType::Record(TRecord {
+                fields,
+                name: Some(type_name.to_string()),
+            })))
+        }
+        TypeDef::Sum(_) => Ok(None),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum StaticValue {
+    Int(i64),
+    Float(f64),
+    String(String),
+    Char(char),
+    Bool(bool),
+    Unit,
+    List(Vec<StaticValue>),
+    Map(Vec<(StaticValue, StaticValue)>),
+    Tuple(Vec<StaticValue>),
+    Record(HashMap<String, StaticValue>),
+}
+
+fn static_value_from_expr(expr: &Expr) -> Option<StaticValue> {
+    match expr {
+        Expr::Literal(literal) => match &literal.value {
+            LiteralValue::Int(value) => Some(StaticValue::Int(*value)),
+            LiteralValue::Float(value) => Some(StaticValue::Float(*value)),
+            LiteralValue::String(value) => Some(StaticValue::String(value.clone())),
+            LiteralValue::Char(value) => Some(StaticValue::Char(*value)),
+            LiteralValue::Bool(value) => Some(StaticValue::Bool(*value)),
+            LiteralValue::Unit => Some(StaticValue::Unit),
+        },
+        Expr::List(list) => {
+            let mut values = Vec::with_capacity(list.elements.len());
+            for element in &list.elements {
+                values.push(static_value_from_expr(element)?);
+            }
+            Some(StaticValue::List(values))
+        }
+        Expr::MapLiteral(map) => {
+            let mut values = Vec::with_capacity(map.entries.len());
+            for entry in &map.entries {
+                values.push((
+                    static_value_from_expr(&entry.key)?,
+                    static_value_from_expr(&entry.value)?,
+                ));
+            }
+            Some(StaticValue::Map(values))
+        }
+        Expr::Tuple(tuple) => {
+            let mut values = Vec::with_capacity(tuple.elements.len());
+            for element in &tuple.elements {
+                values.push(static_value_from_expr(element)?);
+            }
+            Some(StaticValue::Tuple(values))
+        }
+        Expr::Record(record) => {
+            let mut fields = HashMap::new();
+            for field in &record.fields {
+                fields.insert(field.name.clone(), static_value_from_expr(&field.value)?);
+            }
+            Some(StaticValue::Record(fields))
+        }
+        Expr::Unary(unary) => match unary.operator {
+            UnaryOperator::Negate => match static_value_from_expr(&unary.operand)? {
+                StaticValue::Int(value) => Some(StaticValue::Int(-value)),
+                StaticValue::Float(value) => Some(StaticValue::Float(-value)),
+                _ => None,
+            },
+            UnaryOperator::Not => match static_value_from_expr(&unary.operand)? {
+                StaticValue::Bool(value) => Some(StaticValue::Bool(!value)),
+                _ => None,
+            },
+            UnaryOperator::Length => match static_value_from_expr(&unary.operand)? {
+                StaticValue::String(value) => Some(StaticValue::Int(value.chars().count() as i64)),
+                StaticValue::List(values) => Some(StaticValue::Int(values.len() as i64)),
+                StaticValue::Map(entries) => Some(StaticValue::Int(entries.len() as i64)),
+                StaticValue::Tuple(values) => Some(StaticValue::Int(values.len() as i64)),
+                _ => None,
+            },
+        },
+        Expr::TypeAscription(type_asc) => static_value_from_expr(&type_asc.expr),
+        _ => None,
+    }
+}
+
+fn static_bool_from_constraint(expr: &Expr, value: &StaticValue) -> Option<bool> {
+    match eval_static_expr(expr, value, &HashMap::new())? {
+        StaticValue::Bool(result) => Some(result),
+        _ => None,
+    }
+}
+
+fn eval_static_expr(
+    expr: &Expr,
+    value: &StaticValue,
+    locals: &HashMap<String, StaticValue>,
+) -> Option<StaticValue> {
+    match expr {
+        Expr::Literal(_) | Expr::List(_) | Expr::MapLiteral(_) | Expr::Tuple(_) | Expr::Record(_) => {
+            static_value_from_expr(expr)
+        }
+        Expr::Identifier(identifier) => {
+            if identifier.name == "value" {
+                Some(value.clone())
+            } else {
+                locals.get(&identifier.name).cloned()
+            }
+        }
+        Expr::Unary(unary) => match unary.operator {
+            UnaryOperator::Negate => match eval_static_expr(&unary.operand, value, locals)? {
+                StaticValue::Int(inner) => Some(StaticValue::Int(-inner)),
+                StaticValue::Float(inner) => Some(StaticValue::Float(-inner)),
+                _ => None,
+            },
+            UnaryOperator::Not => match eval_static_expr(&unary.operand, value, locals)? {
+                StaticValue::Bool(inner) => Some(StaticValue::Bool(!inner)),
+                _ => None,
+            },
+            UnaryOperator::Length => match eval_static_expr(&unary.operand, value, locals)? {
+                StaticValue::String(inner) => Some(StaticValue::Int(inner.chars().count() as i64)),
+                StaticValue::List(inner) => Some(StaticValue::Int(inner.len() as i64)),
+                StaticValue::Map(inner) => Some(StaticValue::Int(inner.len() as i64)),
+                StaticValue::Tuple(inner) => Some(StaticValue::Int(inner.len() as i64)),
+                _ => None,
+            },
+        },
+        Expr::Binary(binary) => {
+            let left = eval_static_expr(&binary.left, value, locals)?;
+            let right = eval_static_expr(&binary.right, value, locals)?;
+            eval_static_binary(binary.operator, left, right)
+        }
+        Expr::If(if_expr) => match eval_static_expr(&if_expr.condition, value, locals)? {
+            StaticValue::Bool(true) => eval_static_expr(&if_expr.then_branch, value, locals),
+            StaticValue::Bool(false) => {
+                if_expr
+                    .else_branch
+                    .as_ref()
+                    .and_then(|branch| eval_static_expr(branch, value, locals))
+            }
+            _ => None,
+        },
+        Expr::FieldAccess(field_access) => match eval_static_expr(&field_access.object, value, locals)? {
+            StaticValue::Record(fields) => fields.get(&field_access.field).cloned(),
+            _ => None,
+        },
+        Expr::TypeAscription(type_asc) => eval_static_expr(&type_asc.expr, value, locals),
+        _ => None,
+    }
+}
+
+fn eval_static_binary(
+    operator: BinaryOperator,
+    left: StaticValue,
+    right: StaticValue,
+) -> Option<StaticValue> {
+    match operator {
+        BinaryOperator::Add => match (left, right) {
+            (StaticValue::Int(left), StaticValue::Int(right)) => Some(StaticValue::Int(left + right)),
+            (StaticValue::Float(left), StaticValue::Float(right)) => {
+                Some(StaticValue::Float(left + right))
+            }
+            _ => None,
+        },
+        BinaryOperator::Subtract => match (left, right) {
+            (StaticValue::Int(left), StaticValue::Int(right)) => Some(StaticValue::Int(left - right)),
+            (StaticValue::Float(left), StaticValue::Float(right)) => {
+                Some(StaticValue::Float(left - right))
+            }
+            _ => None,
+        },
+        BinaryOperator::Multiply => match (left, right) {
+            (StaticValue::Int(left), StaticValue::Int(right)) => Some(StaticValue::Int(left * right)),
+            (StaticValue::Float(left), StaticValue::Float(right)) => {
+                Some(StaticValue::Float(left * right))
+            }
+            _ => None,
+        },
+        BinaryOperator::Divide => match (left, right) {
+            (_, StaticValue::Int(0)) | (_, StaticValue::Float(0.0)) => None,
+            (StaticValue::Int(left), StaticValue::Int(right)) => Some(StaticValue::Int(left / right)),
+            (StaticValue::Float(left), StaticValue::Float(right)) => {
+                Some(StaticValue::Float(left / right))
+            }
+            _ => None,
+        },
+        BinaryOperator::Modulo => match (left, right) {
+            (_, StaticValue::Int(0)) => None,
+            (StaticValue::Int(left), StaticValue::Int(right)) => Some(StaticValue::Int(left % right)),
+            _ => None,
+        },
+        BinaryOperator::Power => None,
+        BinaryOperator::Equal => Some(StaticValue::Bool(left == right)),
+        BinaryOperator::NotEqual => Some(StaticValue::Bool(left != right)),
+        BinaryOperator::Less => static_ordering_bool(left, right, |left, right| left < right),
+        BinaryOperator::Greater => static_ordering_bool(left, right, |left, right| left > right),
+        BinaryOperator::LessEq => static_ordering_bool(left, right, |left, right| left <= right),
+        BinaryOperator::GreaterEq => static_ordering_bool(left, right, |left, right| left >= right),
+        BinaryOperator::And => match (left, right) {
+            (StaticValue::Bool(left), StaticValue::Bool(right)) => {
+                Some(StaticValue::Bool(left && right))
+            }
+            _ => None,
+        },
+        BinaryOperator::Or => match (left, right) {
+            (StaticValue::Bool(left), StaticValue::Bool(right)) => {
+                Some(StaticValue::Bool(left || right))
+            }
+            _ => None,
+        },
+        BinaryOperator::Append => match (left, right) {
+            (StaticValue::String(left), StaticValue::String(right)) => {
+                Some(StaticValue::String(left + &right))
+            }
+            _ => None,
+        },
+        BinaryOperator::ListAppend => match (left, right) {
+            (StaticValue::List(mut left), StaticValue::List(right)) => {
+                left.extend(right);
+                Some(StaticValue::List(left))
+            }
+            _ => None,
+        },
+        BinaryOperator::Pipe | BinaryOperator::ComposeFwd | BinaryOperator::ComposeBwd => None,
+    }
+}
+
+fn static_ordering_bool(
+    left: StaticValue,
+    right: StaticValue,
+    predicate: impl FnOnce(f64, f64) -> bool,
+) -> Option<StaticValue> {
+    let left = match left {
+        StaticValue::Int(value) => value as f64,
+        StaticValue::Float(value) => value,
+        _ => return None,
+    };
+    let right = match right {
+        StaticValue::Int(value) => value as f64,
+        StaticValue::Float(value) => value,
+        _ => return None,
+    };
+    Some(StaticValue::Bool(predicate(left, right)))
 }
 
 fn validate_declaration_surface_types(decl: &Declaration) -> Result<(), TypeError> {
@@ -3426,8 +3859,48 @@ fn synthesize_type_ascription(
     // Convert ascribed type from AST to inference type
     let ascribed_type = ast_type_to_inference_type_resolved(env, None, &type_asc.ascribed_type)?;
 
-    // Check that the expression matches the ascribed type
-    check(env, &type_asc.expr, &ascribed_type)?;
+    if let Some((type_name, type_info, type_args)) = lookup_constrained_type_info(env, &ascribed_type)
+    {
+        let actual_type = synthesize(env, &type_asc.expr)?;
+
+        if !matches_expected_type(env, &actual_type, &ascribed_type) {
+            let underlying_type =
+                underlying_type_for_constrained_info(env, &type_info, &type_name, &type_args)?
+                    .unwrap_or_else(|| ascribed_type.clone());
+
+            if !matches_expected_type(env, &actual_type, &underlying_type) {
+                let (normalized_actual, normalized_expected) =
+                    canonical_pair(env, &actual_type, &underlying_type);
+                return Err(TypeError::mismatch(
+                    format!(
+                        "Type mismatch: expected {}, got {}",
+                        format_type(&normalized_expected),
+                        format_type(&normalized_actual)
+                    ),
+                    Some(type_asc.location),
+                    normalized_expected,
+                    normalized_actual,
+                ));
+            }
+        }
+
+        if let (Some(constraint), Some(value)) =
+            (type_info.constraint.as_ref(), static_value_from_expr(&type_asc.expr))
+        {
+            if let Some(false) = static_bool_from_constraint(constraint, &value) {
+                return Err(TypeError::new(
+                    format!(
+                        "Obvious constrained-type contradiction: this value does not satisfy the constraint for '{}'",
+                        type_name
+                    ),
+                    Some(type_asc.location),
+                ));
+            }
+        }
+    } else {
+        // Check that the expression matches the ascribed type
+        check(env, &type_asc.expr, &ascribed_type)?;
+    }
 
     // Return the ascribed type
     Ok(ascribed_type)
@@ -3609,6 +4082,7 @@ mod tests {
                 ],
                 location: synthetic_loc(),
             }),
+            constraint: None,
         };
 
         let option_info = TypeInfo {
@@ -3631,6 +4105,7 @@ mod tests {
                 ],
                 location: synthetic_loc(),
             }),
+            constraint: None,
         };
 
         let result_info = TypeInfo {
@@ -3656,6 +4131,7 @@ mod tests {
                 ],
                 location: synthetic_loc(),
             }),
+            constraint: None,
         };
 
         let prelude_registry = HashMap::from([
@@ -3929,7 +4405,7 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_product_type_resolves_for_field_access() {
-        let source = "λslug_len(meta:•types.ArticleMeta)=>Int=#meta.slug";
+        let source = "λslug_len(meta:µArticleMeta)=>Int=#meta.slug";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
@@ -3977,6 +4453,7 @@ mod tests {
                         ],
                         location: synthetic_loc(),
                     }),
+                    constraint: None,
                 },
             )]),
         );
@@ -3987,10 +4464,10 @@ mod tests {
             TypeCheckOptions {
                 effect_catalog: None,
                 imported_namespaces: Some(HashMap::from([(
-                    "src::graphTypes".to_string(),
+                    "src::types".to_string(),
                     InferenceType::Record(TRecord {
                         fields: HashMap::new(),
-                        name: Some("src::graphTypes".to_string()),
+                        name: Some("src::types".to_string()),
                     }),
                 )])),
                 imported_type_registries: Some(imported_type_registries),
@@ -4056,6 +4533,87 @@ mod tests {
     }
 
     #[test]
+    fn test_constrained_alias_ascription_typechecks_for_obvious_valid_literal() {
+        let source =
+            "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=(1988:BirthYear)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_alias_rejects_obvious_literal_contradiction() {
+        let source =
+            "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=(1700:BirthYear)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("Obvious constrained-type contradiction"));
+    }
+
+    #[test]
+    fn test_constrained_alias_is_nominal_for_function_arguments() {
+        let source =
+            "t BirthYear=Int where value>1800 and value<10000\nλkeep(year:BirthYear)=>BirthYear=year\nλmain()=>BirthYear=keep(1988)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_type_constructor_with_qualified_type_args_resolves_nested_qualified_types() {
+        let source =
+            "λmain()=>Result[µPersistedState,String]=Ok({nextId:1})";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let imported_type_registries = HashMap::from([(
+            "src::types".to_string(),
+            HashMap::from([(
+                "PersistedState".to_string(),
+                TypeInfo {
+                    type_params: vec![],
+                    definition: TypeDef::Product(sigil_ast::ProductType {
+                        fields: vec![sigil_ast::Field {
+                            name: "nextId".to_string(),
+                            field_type: Type::Primitive(sigil_ast::PrimitiveType {
+                                name: PrimitiveName::Int,
+                                location: synthetic_loc(),
+                            }),
+                            location: synthetic_loc(),
+                        }],
+                        location: synthetic_loc(),
+                    }),
+                    constraint: None,
+                },
+            )]),
+        )]);
+
+        let mut options = core_prelude_type_options();
+        options.imported_type_registries = Some(
+            options
+                .imported_type_registries
+                .clone()
+                .unwrap_or_default()
+                .into_iter()
+                .chain(imported_type_registries)
+                .collect(),
+        );
+
+        let result = type_check(&program, source, options);
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
     fn test_process_env_access_is_rejected_outside_config_modules() {
         let source = "e process\nλmain()=>String=(process.env.sigilSiteBasePath:String)";
         let tokens = tokenize(source).unwrap();
@@ -4111,13 +4669,13 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_constructor_expression_typechecks() {
-        let source = "λmk()=>•graphTypes.TopologicalSortResult=•graphTypes.Ordering([1,2,3])";
+        let source = "λmk()=>µTopologicalSortResult=µOrdering([1,2,3])";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
         let mut imported_type_registries = HashMap::new();
         imported_type_registries.insert(
-            "src::graphTypes".to_string(),
+            "src::types".to_string(),
             HashMap::from([(
                 "TopologicalSortResult".to_string(),
                 TypeInfo {
@@ -4143,6 +4701,7 @@ mod tests {
                         ],
                         location: synthetic_loc(),
                     }),
+                    constraint: None,
                 },
             )]),
         );
@@ -4153,10 +4712,10 @@ mod tests {
             TypeCheckOptions {
                 effect_catalog: None,
                 imported_namespaces: Some(HashMap::from([(
-                    "src::graphTypes".to_string(),
+                    "src::types".to_string(),
                     InferenceType::Record(TRecord {
                         fields: HashMap::new(),
-                        name: Some("src::graphTypes".to_string()),
+                        name: Some("src::types".to_string()),
                     }),
                 )])),
                 imported_type_registries: Some(imported_type_registries),
@@ -4169,13 +4728,13 @@ mod tests {
 
     #[test]
     fn test_qualified_imported_constructor_pattern_typechecks() {
-        let source = "λproject(result:•graphTypes.TopologicalSortResult)=>[Int] match result{•graphTypes.Ordering(order)=>order|•graphTypes.CycleDetected()=>[]}";
+        let source = "λproject(result:µTopologicalSortResult)=>[Int] match result{µOrdering(order)=>order|µCycleDetected()=>[]}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
         let mut imported_type_registries = HashMap::new();
         imported_type_registries.insert(
-            "src::graphTypes".to_string(),
+            "src::types".to_string(),
             HashMap::from([(
                 "TopologicalSortResult".to_string(),
                 TypeInfo {
@@ -4201,6 +4760,7 @@ mod tests {
                         ],
                         location: synthetic_loc(),
                     }),
+                    constraint: None,
                 },
             )]),
         );
@@ -4217,6 +4777,102 @@ mod tests {
             },
         );
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_imported_namespace_function_returning_option_of_record_binds_record_payload() {
+        let source = "λmain()=>Bool match •formula.parseChecksums(\"x\",\"y\"){Some(checksums)=>checksums.darwinArm64=\"a\"|None()=>false}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut options = core_prelude_type_options();
+        options.imported_namespaces = Some(HashMap::from([(
+            "src::formula".to_string(),
+            InferenceType::Record(TRecord {
+                fields: HashMap::from([(
+                    "parseChecksums".to_string(),
+                    InferenceType::Function(Box::new(TFunction {
+                        params: vec![
+                            InferenceType::Primitive(TPrimitive {
+                                name: PrimitiveName::String,
+                            }),
+                            InferenceType::Primitive(TPrimitive {
+                                name: PrimitiveName::String,
+                            }),
+                        ],
+                        return_type: InferenceType::Constructor(TConstructor {
+                            name: "Option".to_string(),
+                            type_args: vec![InferenceType::Record(TRecord {
+                                fields: HashMap::from([
+                                    (
+                                        "darwinArm64".to_string(),
+                                        InferenceType::Primitive(TPrimitive {
+                                            name: PrimitiveName::String,
+                                        }),
+                                    ),
+                                    (
+                                        "darwinX64".to_string(),
+                                        InferenceType::Primitive(TPrimitive {
+                                            name: PrimitiveName::String,
+                                        }),
+                                    ),
+                                ]),
+                                name: Some("src::types.ReleaseChecksums".to_string()),
+                            })],
+                        }),
+                        effects: None,
+                    })),
+                )]),
+                name: Some("src::formula".to_string()),
+            }),
+        )]));
+
+        let result = type_check(&program, source, options);
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_imported_namespace_function_returning_result_of_record_binds_record_payload() {
+        let source = "λmain()=>Bool match •todoJson.decodeState(\"{}\"){Ok(state)=>state.nextId=1|Err(_)=>false}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let mut options = core_prelude_type_options();
+        options.imported_namespaces = Some(HashMap::from([(
+            "src::todoJson".to_string(),
+            InferenceType::Record(TRecord {
+                fields: HashMap::from([(
+                    "decodeState".to_string(),
+                    InferenceType::Function(Box::new(TFunction {
+                        params: vec![InferenceType::Primitive(TPrimitive {
+                            name: PrimitiveName::String,
+                        })],
+                        return_type: InferenceType::Constructor(TConstructor {
+                            name: "Result".to_string(),
+                            type_args: vec![
+                                InferenceType::Record(TRecord {
+                                    fields: HashMap::from([(
+                                        "nextId".to_string(),
+                                        InferenceType::Primitive(TPrimitive {
+                                            name: PrimitiveName::Int,
+                                        }),
+                                    )]),
+                                    name: Some("src::types.PersistedState".to_string()),
+                                }),
+                                InferenceType::Primitive(TPrimitive {
+                                    name: PrimitiveName::String,
+                                }),
+                            ],
+                        }),
+                        effects: None,
+                    })),
+                )]),
+                name: Some("src::todoJson".to_string()),
+            }),
+        )]));
+
+        let result = type_check(&program, source, options);
+        assert!(result.is_ok(), "{result:?}");
     }
 
     #[test]

@@ -1,8 +1,4 @@
-t ParseResult={content:String,meta:•types.PageMeta}
-
-t ParseLinesResult={contentLines:[String],meta:•types.PageMeta}
-
-λapplyFrontmatterLine(line:String,meta:•types.PageMeta)=>•types.PageMeta={
+λapplyFrontmatterLine(line:String,meta:µPageMeta)=>µPageMeta={
   l separatorIdx=(§string.indexOf(line,":"):Int);
   match separatorIdx<0{
     true=>meta|
@@ -38,7 +34,7 @@ t ParseLinesResult={contentLines:[String],meta:•types.PageMeta}
   false=>collapseHyphens(§string.replaceAll("--","-",text))
 }
 
-λconsumeFrontmatter(lines:[String],meta:•types.PageMeta)=>ParseLinesResult match lines{
+λconsumeFrontmatter(lines:[String],meta:µPageMeta)=>µParseLinesResult match lines{
   []=>{contentLines:[],meta:meta}|
   [line,.rest]=>match line{
     "---"=>{contentLines:rest,meta:meta}|
@@ -46,14 +42,14 @@ t ParseLinesResult={contentLines:[String],meta:•types.PageMeta}
   }
 }
 
-λdefaultMeta()=>•types.PageMeta={author:"",category:"",date:"",description:"",slug:"",title:""}
+λdefaultMeta()=>µPageMeta={author:"",category:"",date:"",description:"",slug:"",title:""}
 
-λderiveSlug(meta:•types.PageMeta,sourcePath:String)=>String match #meta.slug>0{
+λderiveSlug(meta:µPageMeta,sourcePath:String)=>String match #meta.slug>0{
   true=>normalizeSlug(meta.slug)|
   false=>normalizeSlug(filenameStem(sourcePath))
 }
 
-λderiveTitle(content:String,meta:•types.PageMeta,sourcePath:String)=>String match #meta.title>0{
+λderiveTitle(content:String,meta:µPageMeta,sourcePath:String)=>String match #meta.title>0{
   true=>meta.title|
   false=>match firstH1Line(§string.split("\n",content)){
     []=>humanizeStem(filenameStem(sourcePath))|
@@ -102,19 +98,19 @@ t ParseLinesResult={contentLines:[String],meta:•types.PageMeta}
 
 λnormalizeSlug(slug:String)=>String=trimHyphens(collapseHyphens(§string.replaceAll(" ","-",§string.replaceAll("_","-",§string.toLower(slug)))))
 
-λparseFrontmatter(markdown:String,sourcePath:String)=>ParseResult match §string.split("\n",markdown){
+λparseFrontmatter(markdown:String,sourcePath:String)=>µParseResult match §string.split("\n",markdown){
   []=>{
-    l meta=(defaultMeta():•types.PageMeta);
+    l meta=(defaultMeta():µPageMeta);
     {content:markdown,meta:{author:"",category:"",date:"",description:"",slug:deriveSlug(meta,sourcePath),title:deriveTitle(markdown,meta,sourcePath)}}
   }|
   [line,.rest]=>match line{
     "---"=>{
-      l parsed=(consumeFrontmatter(rest,defaultMeta()):ParseLinesResult);
+      l parsed=(consumeFrontmatter(rest,defaultMeta()):µParseLinesResult);
       l content=(§string.join("\n",parsed.contentLines):String);
       {content:content,meta:{author:parsed.meta.author,category:parsed.meta.category,date:parsed.meta.date,description:parsed.meta.description,slug:deriveSlug(parsed.meta,sourcePath),title:deriveTitle(content,parsed.meta,sourcePath)}}
     }|
     _=>{
-      l meta=(defaultMeta():•types.PageMeta);
+      l meta=(defaultMeta():µPageMeta);
       {content:markdown,meta:{author:"",category:"",date:"",description:"",slug:deriveSlug(meta,sourcePath),title:deriveTitle(markdown,meta,sourcePath)}}
     }
   }

@@ -209,6 +209,10 @@ impl Printer {
             }
             TypeDef::Alias(alias) => self.push(&self.type_text(&alias.aliased_type)),
         }
+        if let Some(constraint) = &type_decl.constraint {
+            self.push(" where ");
+            self.push(&self.expr(constraint, 0, 0));
+        }
     }
 
     fn params(&mut self, params: &[Param]) {
@@ -330,12 +334,16 @@ impl Printer {
                             .join(",")
                     )
                 };
-                format!(
-                    "{}.{}{}",
-                    module_path_text(&qualified.module_path),
-                    qualified.type_name,
-                    args
-                )
+                if is_project_types_module(&qualified.module_path) {
+                    format!("µ{}{}", qualified.type_name, args)
+                } else {
+                    format!(
+                        "{}.{}{}",
+                        module_path_text(&qualified.module_path),
+                        qualified.type_name,
+                        args
+                    )
+                }
             }
         }
     }
@@ -528,7 +536,11 @@ impl Printer {
             ),
             Expr::Concurrent(concurrent) => self.concurrent_text(concurrent, indent),
             Expr::MemberAccess(member) => {
-                format!("{}.{}", module_path_text(&member.namespace), member.member)
+                if is_project_types_module(&member.namespace) {
+                    format!("µ{}", member.member)
+                } else {
+                    format!("{}.{}", module_path_text(&member.namespace), member.member)
+                }
             }
             Expr::TypeAscription(ascription) => {
                 format!(
@@ -772,6 +784,8 @@ impl Printer {
             Pattern::Constructor(constructor) => {
                 let prefix = if constructor.module_path.is_empty() {
                     constructor.name.clone()
+                } else if is_project_types_module(&constructor.module_path) {
+                    format!("µ{}", constructor.name)
                 } else {
                     format!("{}.{}", module_path_text(&constructor.module_path), constructor.name)
                 };
@@ -904,6 +918,9 @@ fn literal_text(literal: &LiteralExpr) -> String {
 }
 
 fn module_path_text(module_path: &[String]) -> String {
+    if module_path == ["src".to_string(), "types".to_string()] {
+        return "µ".to_string();
+    }
     if let Some((root, rest)) = module_path.split_first() {
         if let Some(sigl) = root_sigil(root) {
             if rest.is_empty() {
@@ -913,6 +930,10 @@ fn module_path_text(module_path: &[String]) -> String {
         }
     }
     module_path.join("::")
+}
+
+fn is_project_types_module(module_path: &[String]) -> bool {
+    module_path.len() == 2 && module_path[0] == "src" && module_path[1] == "types"
 }
 
 fn root_sigil(root: &str) -> Option<&'static str> {

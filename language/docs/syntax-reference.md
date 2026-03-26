@@ -56,7 +56,6 @@ Valid top-level forms:
 
 - `t`
 - `e`
-- `i`
 - `c`
 - `λ`
 - `test`
@@ -119,7 +118,10 @@ e console:{log:λ(String)=>!Log Unit}
 
 λfetchUser(id:Int)=>!Http String=axios.get("https://example.com/"+§string.intToString(id))
 
-λmain()=>!Log Unit=console.log("hello")
+λmain()=>!Http!Log Unit={
+  l _=(fetchUser(1):String);
+  console.log("hello")
+}
 ```
 
 The built-in primitive effects are:
@@ -166,6 +168,21 @@ Generic lambdas are not part of Sigil's surface.
 
 ## Type Declarations
 
+### Project-Defined Named Types
+
+Inside a project with `sigil.json`, all project-defined named types live in:
+
+```text
+src/types.lib.sigil
+```
+
+Rules:
+
+- `src/types.lib.sigil` may contain only `t` declarations
+- outside that file, project-defined types are referenced as `µTypeName`
+- project sum constructors and patterns from `src/types.lib.sigil` also use `µ...`
+- `src/types.lib.sigil` may reference only `§...` and `¶...` inside type definitions and constraints
+
 ### Product Types
 
 ```sigil module
@@ -186,16 +203,39 @@ t Option[T]=Some(T)|None()
 t Result[T,E]=Ok(T)|Err(E)
 ```
 
-Imported constructors use qualified module syntax in expressions and patterns:
+Project-defined constructors from `src/types.lib.sigil` use `µ...` in expressions
+and patterns:
+
+```sigil module projects/algorithms/src/types.lib.sigil
+t TopologicalSortResult=CycleDetected()|Ordering([Int])
+```
 
 ```sigil module projects/algorithms/src/orderingExample.lib.sigil
-λorderingResult()=>•graphTypes.TopologicalSortResult=•graphTypes.Ordering([1,2,3])
+λorderingResult()=>µTopologicalSortResult=µOrdering([1,2,3])
 
-λorderingValues()=>[Int] match orderingResult(){
-  •graphTypes.Ordering(order)=>order|
-  •graphTypes.CycleDetected()=>[]
+λorderingValues(result:µTopologicalSortResult)=>[Int] match result{
+  µOrdering(order)=>order|
+  µCycleDetected()=>[]
 }
 ```
+
+### Constrained Types
+
+Named types may carry a pure `where` clause:
+
+```sigil module
+t BirthYear=Int where value>1800 and value<10000
+
+t DateRange={end:Int,start:Int} where value.end≥value.start
+```
+
+Constraint rules:
+
+- only `value` is in scope
+- the expression must typecheck to `Bool`
+- constraints are pure and world-independent
+- current Sigil uses constraints to carry more type meaning and reject obvious literal contradictions
+- constraints do not imply automatic runtime validation
 
 ## Constants
 
@@ -210,13 +250,13 @@ c greeting=("hello":String)
 Current parser behavior requires the typed form above. Untyped constants and the
 older `c name:Type=value` surface are not current Sigil.
 
-## Rooted Module References
+## Rooted References
 
 Sigil uses rooted module references directly at the use site. There are no
 top-level import declarations:
 
-```sigil module projects/todo-app/src/importsExample.lib.sigil
-λtodoCount(todos:[•todoDomain.Todo])=>Int=•todoDomain.completedCount(todos)
+```sigil module projects/todo-app/src/countTodos.lib.sigil
+λtodoCount(todos:[µTodo])=>Int=•todoDomain.completedCount(todos)
 ```
 
 Use rooted members through the namespace:
@@ -229,7 +269,7 @@ Use rooted members through the namespace:
 §list.last(items)
 ```
 
-Canonical roots include:
+Canonical module roots include:
 
 - `¶...`
 - `¤...`
@@ -237,6 +277,10 @@ Canonical roots include:
 - `§...`
 - `※...`
 - `†...`
+
+Project-defined named types and project sum constructors use:
+
+- `µ...`
 
 There are no selective imports, import aliases, or separate import
 declarations.
@@ -273,8 +317,10 @@ Pure local bindings used exactly once are non-canonical and must be inlined.
 When a binding exists only to sequence effects, use the wildcard pattern:
 
 ```sigil expr
-l _=(§io.println("x"):Unit);
-next
+{
+  l _=(§io.println("x"):Unit);
+  ()
+}
 ```
 
 ## Pattern Matching
@@ -448,11 +494,12 @@ test "adds numbers" {
 
 Effectful tests use explicit effect annotations:
 
-```sigil program language/test-fixtures/tests/writesLog.sigil
+```sigil program tests/writesLog.sigil
 λmain()=>Unit=()
 
-test "writes log" =>!Log  {
-  §io.println("x")=()
+test "writes log" =>!Log {
+  l _=(§io.println("x"):Unit);
+  true
 }
 ```
 
@@ -464,7 +511,7 @@ Tests may also derive the active world locally:
 test "captured log contains line" =>!Log world {
   c log=(†log.capture():†log.LogEntry)
 } {
-  §io.println("captured")=() and
+  l _=(§io.println("captured"):Unit);
   ※check::log.contains("captured")
 }
 ```

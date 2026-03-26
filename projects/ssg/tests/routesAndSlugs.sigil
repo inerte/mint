@@ -1,15 +1,15 @@
-λdocPage(slug:String)=>•types.SitePage=•content.blankPage("",{author:"",category:"",date:"",description:"",slug:slug,title:slug},"docs/"++slug,•types.Doc(),"language/docs/"++slug++".md")
+λdocPage(slug:String)=>µSitePage=•content.blankPage("",{author:"",category:"",date:"",description:"",slug:slug,title:slug},"docs/"++slug,µDoc(),"language/docs/"++slug++".md")
 
-λhomePage()=>•types.SitePage=•content.blankPage("",{author:"",category:"",date:"",description:"",slug:"home",title:"Home"},"",•types.Home(),"website/README.md")
+λhomePage()=>µSitePage=•content.blankPage("",{author:"",category:"",date:"",description:"",slug:"home",title:"Home"},"",µHome(),"website/README.md")
 
 λmain()=>Unit=()
 
 test "article route uses section slug" {
-  •content.canonicalRoute((•content.blankPage("",{author:"",category:"",date:"",description:"",slug:"hello-world",title:"Hello World"},"articles/hello-world",•types.Article(),"website/articles/hello-world.md"):•types.SitePage))="/articles/hello-world/"
+  •content.canonicalRoute((•content.blankPage("",{author:"",category:"",date:"",description:"",slug:"hello-world",title:"Hello World"},"articles/hello-world",µArticle(),"website/articles/hello-world.md"):µSitePage))="/articles/hello-world/"
 }
 
 test "docs sort uses canonical slug order" {
-  l sorted=(•content.pagesSortedByTitle(([docPage("stdlib"),docPage("async")]:[•types.SitePage])):[•types.SitePage]);
+  l sorted=(•content.pagesSortedByTitle(([docPage("stdlib"),docPage("async")]:[µSitePage])):[µSitePage]);
   sorted[0].meta.slug="async" and sorted[1].meta.slug="stdlib"
 }
 

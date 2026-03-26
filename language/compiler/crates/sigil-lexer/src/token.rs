@@ -231,6 +231,9 @@ pub enum TokenType {
     #[token("※")]
     TestRoot,
 
+    #[token("µ")]
+    ProjectTypeRoot,
+
     #[token(".")]
     DOT,
 

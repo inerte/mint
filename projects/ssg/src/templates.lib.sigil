@@ -1,16 +1,16 @@
-λallDocsSection(config:•types.SiteBuildConfig,docs:[•types.SitePage])=>String="<section class=\"listing\"><h2>Docs</h2><ul class=\"page-list\">"++pageCards(config,docs)++"</ul></section>"
+λallDocsSection(config:µSiteBuildConfig,docs:[µSitePage])=>String="<section class=\"listing\"><h2>Docs</h2><ul class=\"page-list\">"++pageCards(config,docs)++"</ul></section>"
 
-λallSpecsSection(config:•types.SiteBuildConfig,spec:[•types.SitePage])=>String="<section class=\"listing\"><h2>Spec</h2><ul class=\"page-list\">"++pageCards(config,spec)++"</ul></section>"
+λallSpecsSection(config:µSiteBuildConfig,spec:[µSitePage])=>String="<section class=\"listing\"><h2>Spec</h2><ul class=\"page-list\">"++pageCards(config,spec)++"</ul></section>"
 
-λarticleListing(config:•types.SiteBuildConfig,pages:[•types.SitePage])=>String="<section class=\"listing\"><h2>Latest Articles</h2><ul class=\"page-list\">"++pageCards(config,pages)++"</ul></section>"
+λarticleListing(config:µSiteBuildConfig,pages:[µSitePage])=>String="<section class=\"listing\"><h2>Latest Articles</h2><ul class=\"page-list\">"++pageCards(config,pages)++"</ul></section>"
 
-λarticlePage(config:•types.SiteBuildConfig,navHtml:String,page:•types.SitePage)=>String=shell(sourceLink(config,page),config,breadcrumb(config,page),page.bodyHtml++navHtml,detailMeta(page),page.meta.title)
+λarticlePage(config:µSiteBuildConfig,navHtml:String,page:µSitePage)=>String=shell(sourceLink(config,page),config,breadcrumb(config,page),page.bodyHtml++navHtml,detailMeta(page),page.meta.title)
 
-λarticlesIndex(config:•types.SiteBuildConfig,introHtml:String,pages:[•types.SitePage])=>String=shell("",config,sectionIntro("Design notes and language decisions published from the repo.","Articles"),introHtml++articleListing(config,pages),"","Articles")
+λarticlesIndex(config:µSiteBuildConfig,introHtml:String,pages:[µSitePage])=>String=shell("",config,sectionIntro("Design notes and language decisions published from the repo.","Articles"),introHtml++articleListing(config,pages),"","Articles")
 
-λbreadcrumb(config:•types.SiteBuildConfig,page:•types.SitePage)=>String="<nav class=\"breadcrumb\"><a href=\""++siteUrl(config.basePath,"/")++"\">Home</a><span>/</span><a href=\""++sectionUrl(config.basePath,page.section)++"\">"++•content.sectionName(page.section)++"</a></nav>"
+λbreadcrumb(config:µSiteBuildConfig,page:µSitePage)=>String="<nav class=\"breadcrumb\"><a href=\""++siteUrl(config.basePath,"/")++"\">Home</a><span>/</span><a href=\""++sectionUrl(config.basePath,page.section)++"\">"++•content.sectionName(page.section)++"</a></nav>"
 
-λdetailMeta(page:•types.SitePage)=>String={
+λdetailMeta(page:µSitePage)=>String={
   l author=(page.meta.author:String);
   l date=(page.meta.date:String);
   match #author>0 or #date>0{
@@ -27,67 +27,67 @@
   }
 }
 
-λdocsIndex(config:•types.SiteBuildConfig,pages:[•types.SitePage])=>String=shell("",config,sectionIntro("Reference docs rendered directly from language/docs.","Docs"),"<section class=\"listing\"><ul class=\"page-list\">"++pageCards(config,pages)++"</ul></section>","","Docs")
+λdocsIndex(config:µSiteBuildConfig,pages:[µSitePage])=>String=shell("",config,sectionIntro("Reference docs rendered directly from language/docs.","Docs"),"<section class=\"listing\"><ul class=\"page-list\">"++pageCards(config,pages)++"</ul></section>","","Docs")
 
-λfooter(config:•types.SiteBuildConfig)=>String match #config.repoUrl>0{
+λfooter(config:µSiteBuildConfig)=>String match #config.repoUrl>0{
   true=>"<footer class=\"site-footer\"><a href=\""++config.repoUrl++"\">GitHub</a></footer>"|
   false=>"<footer class=\"site-footer\">Sigil</footer>"
 }
 
-λgithubNav(config:•types.SiteBuildConfig)=>String match #config.repoUrl>0{
+λgithubNav(config:µSiteBuildConfig)=>String match #config.repoUrl>0{
   true=>"<a href=\""++config.repoUrl++"\">GitHub</a>"|
   false=>""
 }
 
-λhomePage(articles:[•types.SitePage],config:•types.SiteBuildConfig,docs:[•types.SitePage],home:•types.SitePage,spec:[•types.SitePage])=>String=shell("",config,sectionIntro(config.siteDescription,config.siteTitle),home.bodyHtml++latestArticles(articles,config)++allDocsSection(config,docs)++allSpecsSection(config,spec),"",home.meta.title)
+λhomePage(articles:[µSitePage],config:µSiteBuildConfig,docs:[µSitePage],home:µSitePage,spec:[µSitePage])=>String=shell("",config,sectionIntro(config.siteDescription,config.siteTitle),home.bodyHtml++latestArticles(articles,config)++allDocsSection(config,docs)++allSpecsSection(config,spec),"",home.meta.title)
 
-λlatestArticles(articles:[•types.SitePage],config:•types.SiteBuildConfig)=>String="<section class=\"listing\"><h2>Latest Articles</h2><ul class=\"page-list\">"++pageCards(config,•content.takeFirst(5,articles))++"</ul><p><a href=\""++siteUrl(config.basePath,"/articles/")++"\" class=\"view-all\">View all articles =></a></p></section>"
+λlatestArticles(articles:[µSitePage],config:µSiteBuildConfig)=>String="<section class=\"listing\"><h2>Latest Articles</h2><ul class=\"page-list\">"++pageCards(config,•content.takeFirst(5,articles))++"</ul><p><a href=\""++siteUrl(config.basePath,"/articles/")++"\" class=\"view-all\">View all articles =></a></p></section>"
 
-λnav(config:•types.SiteBuildConfig)=>String="<header class=\"site-header\"><div class=\"site-brand\"><a href=\""++siteUrl(config.basePath,"/")++"\">"++config.siteTitle++"</a></div>"++searchSection(config)++"<nav class=\"site-nav\"><a href=\""++siteUrl(config.basePath,"/articles/")++"\">Articles</a><a href=\""++siteUrl(config.basePath,"/docs/")++"\">Docs</a><a href=\""++siteUrl(config.basePath,"/spec/")++"\">Spec</a>"++githubNav(config)++"</nav></header>"
+λnav(config:µSiteBuildConfig)=>String="<header class=\"site-header\"><div class=\"site-brand\"><a href=\""++siteUrl(config.basePath,"/")++"\">"++config.siteTitle++"</a></div>"++searchSection(config)++"<nav class=\"site-nav\"><a href=\""++siteUrl(config.basePath,"/articles/")++"\">Articles</a><a href=\""++siteUrl(config.basePath,"/docs/")++"\">Docs</a><a href=\""++siteUrl(config.basePath,"/spec/")++"\">Spec</a>"++githubNav(config)++"</nav></header>"
 
-λnotFoundPage(config:•types.SiteBuildConfig)=>String=shell("",config,sectionIntro("The requested route does not exist.","Page not found"),"<p><a href=\""++siteUrl(config.basePath,"/")++"\">Return home</a></p>","","Not Found")
+λnotFoundPage(config:µSiteBuildConfig)=>String=shell("",config,sectionIntro("The requested route does not exist.","Page not found"),"<p><a href=\""++siteUrl(config.basePath,"/")++"\">Return home</a></p>","","Not Found")
 
-λpageCard(config:•types.SiteBuildConfig,page:•types.SitePage)=>String="<li class=\"page-card\" data-section=\""++•content.sectionNameLowercase(page.section)++"\"><a class=\"page-link\" href=\""++siteUrl(config.basePath,•content.canonicalRoute(page))++"\">"++page.meta.title++"</a>"++pageCardMeta(page)++pageCardDescription(page)++"</li>"
+λpageCard(config:µSiteBuildConfig,page:µSitePage)=>String="<li class=\"page-card\" data-section=\""++•content.sectionNameLowercase(page.section)++"\"><a class=\"page-link\" href=\""++siteUrl(config.basePath,•content.canonicalRoute(page))++"\">"++page.meta.title++"</a>"++pageCardMeta(page)++pageCardDescription(page)++"</li>"
 
-λpageCardDescription(page:•types.SitePage)=>String match #page.meta.description>0{
+λpageCardDescription(page:µSitePage)=>String match #page.meta.description>0{
   true=>"<div class=\"page-card-desc\">"++page.meta.description++"</div>"|
   false=>""
 }
 
-λpageCardMeta(page:•types.SitePage)=>String match #page.meta.date>0{
+λpageCardMeta(page:µSitePage)=>String match #page.meta.date>0{
   true=>"<div class=\"page-card-meta\">"++page.meta.date++"</div>"|
   false=>""
 }
 
-λpageCards(config:•types.SiteBuildConfig,pages:[•types.SitePage])=>String match pages{
+λpageCards(config:µSiteBuildConfig,pages:[µSitePage])=>String match pages{
   []=>""|
   [page,.rest]=>pageCard(config,page)++pageCards(config,rest)
 }
 
-λreferenceList(config:•types.SiteBuildConfig,heading:String,pages:[•types.SitePage])=>String="<section class=\"listing compact\"><h2>"++heading++"</h2><ul class=\"page-list\">"++pageCards(config,•content.takeFirst(6,pages))++"</ul></section>"
+λreferenceList(config:µSiteBuildConfig,heading:String,pages:[µSitePage])=>String="<section class=\"listing compact\"><h2>"++heading++"</h2><ul class=\"page-list\">"++pageCards(config,•content.takeFirst(6,pages))++"</ul></section>"
 
-λreferenceLists(config:•types.SiteBuildConfig,docs:[•types.SitePage],spec:[•types.SitePage])=>String="<div class=\"home-grid secondary\">"++referenceList(config,"Docs",docs)++referenceList(config,"Spec",spec)++"</div>"
+λreferenceLists(config:µSiteBuildConfig,docs:[µSitePage],spec:[µSitePage])=>String="<div class=\"home-grid secondary\">"++referenceList(config,"Docs",docs)++referenceList(config,"Spec",spec)++"</div>"
 
-λsearchSection(config:•types.SiteBuildConfig)=>String="<section class=\"search-panel\" data-search-root data-search-index-url=\""++siteUrl(config.basePath,"/search-index.json")++"\"><input class=\"search-input\" data-search-input id=\"site-search\" placeholder=\"Search docs, articles, and spec pages\" type=\"search\"/><div class=\"search-dropdown\" data-search-dropdown hidden><p class=\"search-status\" data-search-status>Loading search index...</p><p class=\"search-empty\" data-search-empty hidden></p><ul class=\"page-list search-results\" data-search-results></ul></div></section>"
+λsearchSection(config:µSiteBuildConfig)=>String="<section class=\"search-panel\" data-search-root data-search-index-url=\""++siteUrl(config.basePath,"/search-index.json")++"\"><input class=\"search-input\" data-search-input id=\"site-search\" placeholder=\"Search docs, articles, and spec pages\" type=\"search\"/><div class=\"search-dropdown\" data-search-dropdown hidden><p class=\"search-status\" data-search-status>Loading search index...</p><p class=\"search-empty\" data-search-empty hidden></p><ul class=\"page-list search-results\" data-search-results></ul></div></section>"
 
-λsectionCard(body:String,config:•types.SiteBuildConfig,cta:String,heading:String,route:String)=>String="<section class=\"section-card\"><h2>"++heading++"</h2><p>"++body++"</p><a class=\"cta\" href=\""++siteUrl(config.basePath,route)++"\">"++cta++"</a></section>"
+λsectionCard(body:String,config:µSiteBuildConfig,cta:String,heading:String,route:String)=>String="<section class=\"section-card\"><h2>"++heading++"</h2><p>"++body++"</p><a class=\"cta\" href=\""++siteUrl(config.basePath,route)++"\">"++cta++"</a></section>"
 
 λsectionIntro(body:String,title:String)=>String="<section class=\"section-intro\"><h1>"++title++"</h1><p>"++body++"</p></section>"
 
-λsectionUrl(basePath:String,section:•types.Section)=>String match section{
-  •types.Article()=>siteUrl(basePath,"/articles/")|
-  •types.Doc()=>siteUrl(basePath,"/docs/")|
-  •types.Home()=>siteUrl(basePath,"/")|
-  •types.Spec()=>siteUrl(basePath,"/spec/")
+λsectionUrl(basePath:String,section:µSection)=>String match section{
+  µArticle()=>siteUrl(basePath,"/articles/")|
+  µDoc()=>siteUrl(basePath,"/docs/")|
+  µHome()=>siteUrl(basePath,"/")|
+  µSpec()=>siteUrl(basePath,"/spec/")
 }
 
-λshell(aside:String,config:•types.SiteBuildConfig,intro:String,mainHtml:String,meta:String,title:String)=>String="<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>"++title++" · "++config.siteTitle++"</title><meta name=\"description\" content=\""++config.siteDescription++"\"><link rel=\"stylesheet\" href=\""++siteUrl(config.basePath,"/assets/site.css")++"\"><link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css\"></head><body><div class=\"site-shell\">"++nav(config)++"<main class=\"site-main\">"++intro++meta++"<article class=\"prose\">"++mainHtml++"</article>"++aside++"</main>"++footer(config)++"</div><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js\"></script><script src=\""++siteUrl(config.basePath,"/assets/search.js")++"\"></script><script>hljs.highlightAll();</script></body></html>"
+λshell(aside:String,config:µSiteBuildConfig,intro:String,mainHtml:String,meta:String,title:String)=>String="<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>"++title++" · "++config.siteTitle++"</title><meta name=\"description\" content=\""++config.siteDescription++"\"><link rel=\"stylesheet\" href=\""++siteUrl(config.basePath,"/assets/site.css")++"\"><link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css\"></head><body><div class=\"site-shell\">"++nav(config)++"<main class=\"site-main\">"++intro++meta++"<article class=\"prose\">"++mainHtml++"</article>"++aside++"</main>"++footer(config)++"</div><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js\"></script><script src=\""++siteUrl(config.basePath,"/assets/search.js")++"\"></script><script>hljs.highlightAll();</script></body></html>"
 
 λsiteUrl(basePath:String,route:String)=>String=•content.basePathPrefix(basePath,route)
 
-λsourceLink(config:•types.SiteBuildConfig,page:•types.SitePage)=>String match #config.repoUrl>0{
+λsourceLink(config:µSiteBuildConfig,page:µSitePage)=>String match #config.repoUrl>0{
   true=>"<p class=\"source-link\"><a href=\""++config.repoUrl++"/blob/main/"++page.sourcePath++"\">View source on GitHub</a></p>"|
   false=>""
 }
 
-λspecIndex(config:•types.SiteBuildConfig,pages:[•types.SitePage])=>String=shell("",config,sectionIntro("Normative language and stdlib specifications rendered from language/spec.","Spec"),"<section class=\"listing\"><ul class=\"page-list\">"++pageCards(config,pages)++"</ul></section>","","Spec")
+λspecIndex(config:µSiteBuildConfig,pages:[µSitePage])=>String=shell("",config,sectionIntro("Normative language and stdlib specifications rendered from language/spec.","Spec"),"<section class=\"listing\"><ul class=\"page-list\">"++pageCards(config,pages)++"</ul></section>","","Spec")

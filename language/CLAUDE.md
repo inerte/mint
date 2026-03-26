@@ -36,7 +36,8 @@ This file is the local authority for:
 When in doubt: prefer fewer surface forms and better diagnostics.
 
 For type-system changes, preserve this semantic invariant:
-- aliases and named product types compare by normalized canonical form everywhere equality is checked
+- unconstrained aliases and unconstrained named product types compare by normalized canonical form everywhere equality is checked
+- constrained aliases and constrained named product types remain nominal unless the design explicitly changes
 - do not introduce checker-path-specific structural equality behavior
 - sum types remain nominal unless the design explicitly changes
 
@@ -102,9 +103,9 @@ Current high-signal printer choices:
 - no discretionary alternative layout for the same AST shape
 
 Current constructor and list invariants:
-- rooted sum-type constructors use fully qualified module syntax in both expressions and patterns
-- canonical example: `•graphTypes.Ordering([1,2,3])`
-- canonical imported nullary pattern example: `•graphTypes.CycleDetected()`
+- project-defined sum-type constructors from `src/types.lib.sigil` use `µ...` in both expressions and patterns
+- canonical example: `µOrdering([1,2,3])`
+- canonical rooted nullary pattern example: `µCycleDetected()`
 - list literals preserve nesting exactly as written
 - use `⧺` only for explicit concatenation; never rely on list literals to flatten values
 - if a canonical helper exists in `stdlib`, prefer it over project-local reimplementation
@@ -141,6 +142,9 @@ Current constructor and list invariants:
   - never blur them in syntax, docs, examples, or future features
   - records are exact and closed; Sigil does not have open records, row tails, or width subtyping
   - if a field may be absent, keep the record exact and use `Option[T]` for that field
+  - project-defined named types in projects live in `src/types.lib.sigil` and are referenced elsewhere as `µTypeName`
+  - `src/types.lib.sigil` is types-only and may reference only `§...` and `¶...` inside type definitions and constraints
+  - `where` on a type declaration adds semantic meaning to the type; it is pure, world-independent, and does not imply runtime validation
   - prefer early boundary conversion with `§decode` instead of carrying raw `JsonValue` deep into business logic
   - when a validated boundary value should remain distinct from a raw primitive, prefer a named wrapper type like `Email` or `UserId`
   - topology-aware projects must declare external HTTP/TCP dependencies and environment names in `src/topology.lib.sigil`
@@ -165,7 +169,7 @@ Error messages should:
 - give the required canonical form when possible
 
 Prefer:
-- `Use a root sigil and nested module separators only where needed (e.g., §list, ※check::log, †runtime.World)`
+- `Use a root or type sigil only where needed (e.g., §list, µTodo, ※check::log, †runtime.World)`
 
 Over:
 - vague parse failures with no remediation

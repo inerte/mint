@@ -3,7 +3,7 @@
   false=>acc⧺[value]
 }
 
-λcomponentMembers(frontier:[Int],graph:•graphTypes.Graph,seen:[Int])=>[Int] match frontier{
+λcomponentMembers(frontier:[Int],graph:µGraph,seen:[Int])=>[Int] match frontier{
   []=>seen|
   _=>{
     l nextSeen=(frontier reduce addUnique from seen:[Int]);
@@ -11,7 +11,7 @@
   }
 }
 
-λcomponentsFrom(acc:[[Int]],graph:•graphTypes.Graph,remaining:[Int])=>[[Int]] match remaining{
+λcomponentsFrom(acc:[[Int]],graph:µGraph,remaining:[Int])=>[[Int]] match remaining{
   []=>acc|
   [vertex,.tail]=>{
     l component=(componentMembers([vertex],graph,[]):[Int]);
@@ -19,6 +19,6 @@
   }
 }
 
-λconnectedComponents(graph:•graphTypes.Graph)=>[[Int]]=componentsFrom([],graph,•graphHelpers.vertices(graph))
+λconnectedComponents(graph:µGraph)=>[[Int]]=componentsFrom([],graph,•graphHelpers.vertices(graph))
 
 λuniqueInts(xs:[Int])=>[Int]=xs reduce addUnique from []

@@ -1,4 +1,4 @@
-λaliasRoutes()=>[•types.AliasRoute]=[{alias:"language/docs/CANONICAL_FORMS.md",route:"/docs/canonical-forms/"},{alias:"language/spec/cli-json.md",route:"/spec/cli-json/"},{alias:"website/articles/015-why-sigil-bans-shadowing.md",route:"/articles/015-why-sigil-bans-shadowing/"},{alias:"/articles/why-sigil-bans-shadowing",route:"/articles/015-why-sigil-bans-shadowing/"}]
+λaliasRoutes()=>[µAliasRoute]=[{alias:"language/docs/CANONICAL_FORMS.md",route:"/docs/canonical-forms/"},{alias:"language/spec/cli-json.md",route:"/spec/cli-json/"},{alias:"website/articles/015-why-sigil-bans-shadowing.md",route:"/articles/015-why-sigil-bans-shadowing/"},{alias:"/articles/why-sigil-bans-shadowing",route:"/articles/015-why-sigil-bans-shadowing/"}]
 
 λmain()=>Unit=()
 

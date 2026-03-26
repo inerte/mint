@@ -7,10 +7,17 @@ slug: canonical-type-equality
 
 # Canonical Type Equality
 
+> Update (2026-03-26): the structural-equality rule described here now applies
+> to unconstrained aliases and unconstrained named product types. Project
+> types declared in `src/types.lib.sigil` may also carry pure `where`
+> constraints and are referenced elsewhere through `µ...`; constrained project
+> types remain distinct instead of normalizing away. See
+> [/articles/centralized-project-types-and-constrained-type-meanings/](/articles/centralized-project-types-and-constrained-type-meanings/).
+
 Sigil already cared about canonical source. This change extended the same idea
-to type compatibility: aliases and named product types should compare by their
-normalized structural form everywhere the checker asks whether two types are the
-same.
+to type compatibility: unconstrained aliases and unconstrained named product
+types should compare by their normalized structural form everywhere the checker
+asks whether two types are the same.
 
 ## The Problem
 
@@ -25,10 +32,11 @@ depending on which checker path you happened to trigger.
 
 ## The Decision
 
-Sigil now normalizes aliases and named product types before equality checks
-throughout the checker. Sum types remain nominal; this change was specifically
-about structural equality for the kinds of types that already conceptually carry
-structural meaning.
+Sigil now normalizes unconstrained aliases and unconstrained named product types
+before equality checks throughout the checker. Sum types remain nominal, and
+constrained aliases/products also remain distinct; this change
+was specifically about structural equality for the kinds of types that already
+conceptually carry structural meaning.
 
 ## Why This Matters
 

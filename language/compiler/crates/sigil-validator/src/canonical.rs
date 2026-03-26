@@ -16,6 +16,7 @@ use sigil_typechecker::{
     EffectCatalog, PurityClass, TypedDeclaration, TypedExpr, TypedExprKind, TypedProgram,
 };
 use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Default)]
 pub struct ValidationOptions {
@@ -737,6 +738,10 @@ pub fn validate_canonical_form_with_options(
     }
 
     if let Err(e) = validate_effect_declaration_placement(program, file_path) {
+        errors.extend(e);
+    }
+
+    if let Err(e) = validate_project_type_declaration_placement(program, file_path) {
         errors.extend(e);
     }
 
@@ -2146,6 +2151,313 @@ fn validate_effect_declaration_placement(
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+fn validate_project_type_declaration_placement(
+    program: &Program,
+    file_path: Option<&str>,
+) -> Result<(), Vec<ValidationError>> {
+    let Some(path) = file_path else {
+        return Ok(());
+    };
+
+    if find_project_root(Path::new(path)).is_none() {
+        return Ok(());
+    }
+
+    let normalized_path = path.replace('\\', "/");
+    let is_types_file = normalized_path.ends_with("/src/types.lib.sigil");
+    let mut errors = Vec::new();
+
+    for decl in &program.declarations {
+        match decl {
+            Declaration::Type(type_decl) => {
+                if !is_types_file {
+                    errors.push(ValidationError::TypeDeclarationPlacement {
+                        message: "Project-defined types must live in src/types.lib.sigil"
+                            .to_string(),
+                        location: type_decl.location,
+                    });
+                } else {
+                    validate_types_file_type_decl(type_decl, &mut errors);
+                }
+            }
+            _ => {
+                if is_types_file {
+                    errors.push(ValidationError::TypeDeclarationPlacement {
+                        message: "src/types.lib.sigil may only contain type declarations"
+                            .to_string(),
+                        location: *get_declaration_location(decl),
+                    });
+                }
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+fn find_project_root(start_path: &Path) -> Option<PathBuf> {
+    let mut current = if start_path.is_file() {
+        start_path.parent()?.to_path_buf()
+    } else {
+        start_path.to_path_buf()
+    };
+
+    loop {
+        if current.join("sigil.json").exists() {
+            return Some(current);
+        }
+
+        current = current.parent()?.to_path_buf();
+    }
+}
+
+fn validate_types_file_type_decl(type_decl: &TypeDecl, errors: &mut Vec<ValidationError>) {
+    validate_types_file_type_roots_in_def(&type_decl.definition, errors);
+
+    if let Some(constraint) = &type_decl.constraint {
+        validate_types_file_expr_roots(constraint, errors);
+    }
+}
+
+fn validate_types_file_type_roots_in_def(type_def: &TypeDef, errors: &mut Vec<ValidationError>) {
+    match type_def {
+        TypeDef::Alias(alias) => validate_types_file_type_roots(&alias.aliased_type, errors),
+        TypeDef::Product(product) => {
+            for field in &product.fields {
+                validate_types_file_type_roots(&field.field_type, errors);
+            }
+        }
+        TypeDef::Sum(sum) => {
+            for variant in &sum.variants {
+                for typ in &variant.types {
+                    validate_types_file_type_roots(typ, errors);
+                }
+            }
+        }
+    }
+}
+
+fn validate_types_file_type_roots(typ: &Type, errors: &mut Vec<ValidationError>) {
+    match typ {
+        Type::Primitive(_) | Type::Variable(_) => {}
+        Type::List(list) => validate_types_file_type_roots(&list.element_type, errors),
+        Type::Map(map) => {
+            validate_types_file_type_roots(&map.key_type, errors);
+            validate_types_file_type_roots(&map.value_type, errors);
+        }
+        Type::Function(function) => {
+            for param in &function.param_types {
+                validate_types_file_type_roots(param, errors);
+            }
+            validate_types_file_type_roots(&function.return_type, errors);
+        }
+        Type::Constructor(constructor) => {
+            for arg in &constructor.type_args {
+                validate_types_file_type_roots(arg, errors);
+            }
+        }
+        Type::Tuple(tuple) => {
+            for elem in &tuple.types {
+                validate_types_file_type_roots(elem, errors);
+            }
+        }
+        Type::Qualified(qualified) => {
+            if !qualified
+                .module_path
+                .first()
+                .is_some_and(|root| root == "stdlib" || root == "core")
+            {
+                errors.push(ValidationError::TypeDeclarationPlacement {
+                    message:
+                        "src/types.lib.sigil may only reference § and ¶ roots inside type declarations"
+                            .to_string(),
+                    location: qualified.location,
+                });
+            }
+
+            for arg in &qualified.type_args {
+                validate_types_file_type_roots(arg, errors);
+            }
+        }
+    }
+}
+
+fn validate_types_file_expr_roots(expr: &Expr, errors: &mut Vec<ValidationError>) {
+    match expr {
+        Expr::Literal(_) | Expr::Identifier(_) => {}
+        Expr::Lambda(lambda) => {
+            for param in &lambda.params {
+                if let Some(type_annotation) = &param.type_annotation {
+                    validate_types_file_type_roots(type_annotation, errors);
+                }
+            }
+            validate_types_file_type_roots(&lambda.return_type, errors);
+            validate_types_file_expr_roots(&lambda.body, errors);
+        }
+        Expr::Application(app) => {
+            validate_types_file_expr_roots(&app.func, errors);
+            for arg in &app.args {
+                validate_types_file_expr_roots(arg, errors);
+            }
+        }
+        Expr::Binary(binary) => {
+            validate_types_file_expr_roots(&binary.left, errors);
+            validate_types_file_expr_roots(&binary.right, errors);
+        }
+        Expr::Unary(unary) => validate_types_file_expr_roots(&unary.operand, errors),
+        Expr::Match(match_expr) => {
+            validate_types_file_expr_roots(&match_expr.scrutinee, errors);
+            for arm in &match_expr.arms {
+                validate_types_file_pattern_roots(&arm.pattern, errors);
+                if let Some(guard) = &arm.guard {
+                    validate_types_file_expr_roots(guard, errors);
+                }
+                validate_types_file_expr_roots(&arm.body, errors);
+            }
+        }
+        Expr::Let(let_expr) => {
+            validate_types_file_pattern_roots(&let_expr.pattern, errors);
+            validate_types_file_expr_roots(&let_expr.value, errors);
+            validate_types_file_expr_roots(&let_expr.body, errors);
+        }
+        Expr::If(if_expr) => {
+            validate_types_file_expr_roots(&if_expr.condition, errors);
+            validate_types_file_expr_roots(&if_expr.then_branch, errors);
+            if let Some(else_branch) = &if_expr.else_branch {
+                validate_types_file_expr_roots(else_branch, errors);
+            }
+        }
+        Expr::List(list) => {
+            for elem in &list.elements {
+                validate_types_file_expr_roots(elem, errors);
+            }
+        }
+        Expr::Record(record) => {
+            for field in &record.fields {
+                validate_types_file_expr_roots(&field.value, errors);
+            }
+        }
+        Expr::MapLiteral(map) => {
+            for entry in &map.entries {
+                validate_types_file_expr_roots(&entry.key, errors);
+                validate_types_file_expr_roots(&entry.value, errors);
+            }
+        }
+        Expr::Tuple(tuple) => {
+            for elem in &tuple.elements {
+                validate_types_file_expr_roots(elem, errors);
+            }
+        }
+        Expr::FieldAccess(field_access) => {
+            validate_types_file_expr_roots(&field_access.object, errors);
+        }
+        Expr::Index(index) => {
+            validate_types_file_expr_roots(&index.object, errors);
+            validate_types_file_expr_roots(&index.index, errors);
+        }
+        Expr::Pipeline(pipeline) => {
+            validate_types_file_expr_roots(&pipeline.left, errors);
+            validate_types_file_expr_roots(&pipeline.right, errors);
+        }
+        Expr::Map(map_expr) => {
+            validate_types_file_expr_roots(&map_expr.list, errors);
+            validate_types_file_expr_roots(&map_expr.func, errors);
+        }
+        Expr::Filter(filter_expr) => {
+            validate_types_file_expr_roots(&filter_expr.list, errors);
+            validate_types_file_expr_roots(&filter_expr.predicate, errors);
+        }
+        Expr::Fold(fold_expr) => {
+            validate_types_file_expr_roots(&fold_expr.list, errors);
+            validate_types_file_expr_roots(&fold_expr.func, errors);
+            validate_types_file_expr_roots(&fold_expr.init, errors);
+        }
+        Expr::Concurrent(concurrent_expr) => {
+            validate_types_file_expr_roots(&concurrent_expr.width, errors);
+            if let Some(policy) = &concurrent_expr.policy {
+                for field in &policy.fields {
+                    validate_types_file_expr_roots(&field.value, errors);
+                }
+            }
+            for step in &concurrent_expr.steps {
+                match step {
+                    ConcurrentStep::Spawn(spawn) => {
+                        validate_types_file_expr_roots(&spawn.expr, errors)
+                    }
+                    ConcurrentStep::SpawnEach(spawn_each) => {
+                        validate_types_file_expr_roots(&spawn_each.list, errors);
+                        validate_types_file_expr_roots(&spawn_each.func, errors);
+                    }
+                }
+            }
+        }
+        Expr::MemberAccess(member_access) => {
+            if !member_access
+                .namespace
+                .first()
+                .is_some_and(|root| root == "stdlib" || root == "core")
+            {
+                errors.push(ValidationError::TypeDeclarationPlacement {
+                    message:
+                        "src/types.lib.sigil may only reference § and ¶ roots inside constraints"
+                            .to_string(),
+                    location: member_access.location,
+                });
+            }
+        }
+        Expr::TypeAscription(type_asc) => {
+            validate_types_file_expr_roots(&type_asc.expr, errors);
+            validate_types_file_type_roots(&type_asc.ascribed_type, errors);
+        }
+    }
+}
+
+fn validate_types_file_pattern_roots(pattern: &Pattern, errors: &mut Vec<ValidationError>) {
+    match pattern {
+        Pattern::Literal(_) | Pattern::Identifier(_) | Pattern::Wildcard(_) => {}
+        Pattern::Constructor(constructor) => {
+            if !constructor.module_path.is_empty()
+                && !constructor
+                    .module_path
+                    .first()
+                    .is_some_and(|root| root == "stdlib" || root == "core")
+            {
+                errors.push(ValidationError::TypeDeclarationPlacement {
+                    message:
+                        "src/types.lib.sigil may only reference § and ¶ roots inside constraint patterns"
+                            .to_string(),
+                    location: constructor.location,
+                });
+            }
+
+            for nested in &constructor.patterns {
+                validate_types_file_pattern_roots(nested, errors);
+            }
+        }
+        Pattern::List(list) => {
+            for nested in &list.patterns {
+                validate_types_file_pattern_roots(nested, errors);
+            }
+        }
+        Pattern::Record(record) => {
+            for field in &record.fields {
+                if let Some(pattern) = &field.pattern {
+                    validate_types_file_pattern_roots(pattern, errors);
+                }
+            }
+        }
+        Pattern::Tuple(tuple) => {
+            for nested in &tuple.patterns {
+                validate_types_file_pattern_roots(nested, errors);
+            }
+        }
     }
 }
 

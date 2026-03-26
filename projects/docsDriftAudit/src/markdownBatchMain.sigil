@@ -1,12 +1,10 @@
-t MarkdownTask={path:String,root:String,tempDir:String}
-
-λauditPaths(paths:[String],root:String)=>!AuditIo •docsDrift.MarkdownAudit={
+λauditPaths(paths:[String],root:String)=>!AuditIo µMarkdownAudit={
   l tempRoot=(§path.join(root,".local/docsDriftAuditBatch"):String);
   l _=(§file.removeTree(tempRoot):Unit);
   l _=(§file.makeDirs(tempRoot):Unit);
   match (mergeOutcomes((concurrent markdownFiles@4{
     spawnEach buildTasks(1,paths,root,tempRoot) runMarkdownTask
-  }:[ConcurrentOutcome[•docsDrift.MarkdownAudit,String]])):•docsDrift.MarkdownAudit){
+  }:[ConcurrentOutcome[µMarkdownAudit,String]])):µMarkdownAudit){
     audit=>{
       l _=(§file.removeTree(tempRoot):Unit);
       audit
@@ -14,7 +12,7 @@ t MarkdownTask={path:String,root:String,tempDir:String}
   }
 }
 
-λbuildTasks(index:Int,paths:[String],root:String,tempRoot:String)=>[MarkdownTask] match paths{
+λbuildTasks(index:Int,paths:[String],root:String,tempRoot:String)=>[µMarkdownTask] match paths{
   []=>[]|
   [head,.tail]=>[{path:head,root:root,tempDir:§path.join(tempRoot,"file-"++§string.intToString(index))}]⧺buildTasks(index+1,tail,root,tempRoot)
 }
@@ -32,7 +30,7 @@ t MarkdownTask={path:String,root:String,tempDir:String}
     }|
     false=>match •docsDrift.gitTopLevel(){
       Ok(root)=>{
-        l audit=(auditPaths(paths,root):•docsDrift.MarkdownAudit);
+        l audit=(auditPaths(paths,root):µMarkdownAudit);
         match #audit.issues=0{
           true=>{
             l _=(§file.writeText("",issuesPath):Unit);
@@ -58,11 +56,11 @@ t MarkdownTask={path:String,root:String,tempDir:String}
   }
 }
 
-λmergeAborted(merged:•docsDrift.MarkdownAudit)=>•docsDrift.MarkdownAudit={documentedRefs:merged.documentedRefs,issues:[{line:0,message:"markdown batch worker aborted",path:"projects/docsDriftAudit/src/markdownBatchMain.sigil"}]⧺merged.issues,snippetRefs:merged.snippetRefs}
+λmergeAborted(merged:µMarkdownAudit)=>µMarkdownAudit={documentedRefs:merged.documentedRefs,issues:[{line:0,message:"markdown batch worker aborted",path:"projects/docsDriftAudit/src/markdownBatchMain.sigil"}]⧺merged.issues,snippetRefs:merged.snippetRefs}
 
-λmergeFailure(merged:•docsDrift.MarkdownAudit,message:String)=>•docsDrift.MarkdownAudit={documentedRefs:merged.documentedRefs,issues:[{line:0,message:"markdown batch worker failed: "++message,path:"projects/docsDriftAudit/src/markdownBatchMain.sigil"}]⧺merged.issues,snippetRefs:merged.snippetRefs}
+λmergeFailure(merged:µMarkdownAudit,message:String)=>µMarkdownAudit={documentedRefs:merged.documentedRefs,issues:[{line:0,message:"markdown batch worker failed: "++message,path:"projects/docsDriftAudit/src/markdownBatchMain.sigil"}]⧺merged.issues,snippetRefs:merged.snippetRefs}
 
-λmergeOutcomes(outcomes:[ConcurrentOutcome[•docsDrift.MarkdownAudit,String]])=>•docsDrift.MarkdownAudit match outcomes{
+λmergeOutcomes(outcomes:[ConcurrentOutcome[µMarkdownAudit,String]])=>µMarkdownAudit match outcomes{
   []=>{documentedRefs:[],issues:[],snippetRefs:[]}|
   [head,.tail]=>match head{
     Success(audit)=>mergeSuccess(audit,mergeOutcomes(tail))|
@@ -71,7 +69,7 @@ t MarkdownTask={path:String,root:String,tempDir:String}
   }
 }
 
-λmergeSuccess(audit:•docsDrift.MarkdownAudit,merged:•docsDrift.MarkdownAudit)=>•docsDrift.MarkdownAudit={documentedRefs:mergeUnique(audit.documentedRefs,merged.documentedRefs),issues:audit.issues⧺merged.issues,snippetRefs:mergeUnique(audit.snippetRefs,merged.snippetRefs)}
+λmergeSuccess(audit:µMarkdownAudit,merged:µMarkdownAudit)=>µMarkdownAudit={documentedRefs:mergeUnique(audit.documentedRefs,merged.documentedRefs),issues:audit.issues⧺merged.issues,snippetRefs:mergeUnique(audit.snippetRefs,merged.snippetRefs)}
 
 λmergeUnique(left:[String],right:[String])=>[String] match right{
   []=>left|
@@ -83,9 +81,9 @@ t MarkdownTask={path:String,root:String,tempDir:String}
   [head,.tail]=>[prefix++head]⧺prefixed(prefix,tail)
 }
 
-λrenderIssue(issue:•types.Issue)=>String=issue.path++"\t"++§string.intToString(issue.line)++"\t"++issue.message
+λrenderIssue(issue:µIssue)=>String=issue.path++"\t"++§string.intToString(issue.line)++"\t"++issue.message
 
-λrenderIssues(issues:[•types.Issue])=>String match #issues=0{
+λrenderIssues(issues:[µIssue])=>String match #issues=0{
   true=>""|
   false=>§string.join("\n",issues map renderIssue)++"\n"
 }
@@ -95,6 +93,6 @@ t MarkdownTask={path:String,root:String,tempDir:String}
   false=>§string.join("\n",lines)++"\n"
 }
 
-λrunMarkdownTask(task:MarkdownTask)=>!AuditIo Result[•docsDrift.MarkdownAudit,String]=Ok(•docsDrift.processMarkdownFile(false,task.path,task.root,task.tempDir))
+λrunMarkdownTask(task:µMarkdownTask)=>!AuditIo Result[µMarkdownAudit,String]=Ok(•docsDrift.processMarkdownFile(false,task.path,task.root,task.tempDir))
 
 λusage()=>String="usage: sigil run src/markdownBatchMain.sigil -- <issues-output-path> <refs-output-path> <markdown-path>..."

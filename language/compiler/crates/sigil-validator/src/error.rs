@@ -177,6 +177,12 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
+    #[error("SIGIL-CANON-TYPE-DECL-PLACEMENT: {message}")]
+    TypeDeclarationPlacement {
+        message: String,
+        location: SourceLocation,
+    },
+
     #[error("SIGIL-CANON-IDENTIFIER-FORM: value identifiers must be lowerCamelCase\n\nFound: {found}\nExpected form: lowerCamelCase{suggestion}")]
     IdentifierForm {
         found: String,
@@ -518,6 +524,7 @@ impl ValidationError {
             ValidationError::FilenameFormat { location, .. } => *location,
             ValidationError::SourceForm { location, .. } => *location,
             ValidationError::EffectDeclarationPlacement { location, .. } => *location,
+            ValidationError::TypeDeclarationPlacement { location, .. } => *location,
             ValidationError::IdentifierForm { location, .. } => *location,
             ValidationError::TypeNameForm { location, .. } => *location,
             ValidationError::ConstructorNameForm { location, .. } => *location,

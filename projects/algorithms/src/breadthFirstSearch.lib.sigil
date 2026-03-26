@@ -1,4 +1,4 @@
-λbfsLoop(graph:•graphTypes.Graph,queue:[Int],visited:[Int])=>[Int] match queue{
+λbfsLoop(graph:µGraph,queue:[Int],visited:[Int])=>[Int] match queue{
   []=>visited|
   [head,.tail]=>match §list.contains(head,visited){
     true=>bfsLoop(graph,tail,visited)|
@@ -6,7 +6,7 @@
   }
 }
 
-λbreadthFirstSearch(graph:•graphTypes.Graph,start:Int)=>[Int] match •graphHelpers.hasVertex(graph,start){
+λbreadthFirstSearch(graph:µGraph,start:Int)=>[Int] match •graphHelpers.hasVertex(graph,start){
   true=>bfsLoop(graph,[start],[])|
   false=>[]
 }

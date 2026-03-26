@@ -5,7 +5,7 @@ test "extended gcd returns gcd 2 for 240 and 46" {
 }
 
 test "extended gcd satisfies bezout identity" {
-  l result=(•extendedGcd.extendedGcd(240,46):•extendedGcd.ExtendedGcd);
+  l result=(•extendedGcd.extendedGcd(240,46):µExtendedGcd);
   240*result.x+46*result.y=result.gcd
 }
 

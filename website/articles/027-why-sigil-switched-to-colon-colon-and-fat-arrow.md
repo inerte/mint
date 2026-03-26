@@ -7,6 +7,11 @@ slug: why-sigil-switched-to-colon-colon-and-fat-arrow
 
 # Why Sigil Uses Root Sigils and =>
 
+> Update (2026-03-26): Sigil now also reserves `µ` for project-defined types
+> and project sum constructors from `src/types.lib.sigil`. The rest of the
+> rooted-reference story below still holds. See
+> [/articles/centralized-project-types-and-constrained-type-meanings/](/articles/centralized-project-types-and-constrained-type-meanings/).
+
 Sigil uses explicit root sigils for module provenance and `=>` for function and
 match arrows.
 
@@ -23,11 +28,12 @@ That is why the language uses fixed roots:
 - `¤` for config modules
 - `†` for world modules
 - `※` for test modules
+- `µ` for project-defined types and project sum constructors
 
 Examples:
 
 - `§list.sum`
-- `•graphTypes.Ordering`
+- `µOrdering`
 - `†runtime.World`
 - `※check::log.contains`
 
@@ -40,7 +46,7 @@ The strongest token winner for module syntax was collapsing everything into `.`,
 but that would have blurred two different relationships:
 
 - `record.field`
-- `•graphTypes.Ordering`
+- `µOrdering`
 
 Sigil already uses `.` for member access. Keeping the root sigil separate and
 using `::` only after the root for deeper module descent preserves a cleaner

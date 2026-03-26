@@ -1,6 +1,4 @@
-t Bucket={count:Int,value:Int}
-
-λbuckets(histogram:{Int↦Int})=>[Bucket]=¶map.entries(histogram) map (λ(entry:¶map.Entry[Int,Int])=>Bucket={count:entry.value,value:entry.key})
+λbuckets(histogram:{Int↦Int})=>[µBucket]=¶map.entries(histogram) map (λ(entry:¶map.Entry[Int,Int])=>µBucket={count:entry.value,value:entry.key})
 
 λhistogram(xs:[Int])=>{Int↦Int}=xs reduce increment from (¶map.empty():{Int↦Int})
 

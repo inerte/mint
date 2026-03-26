@@ -35,8 +35,9 @@ Effectful test:
 ```sigil program tests/effectTest.sigil
 λmain()=>Unit=()
 
-test "writes log" =>!Log  {
-  §io.println("x")=()
+test "writes log" =>!Log {
+  l _=(§io.println("x"):Unit);
+  true
 }
 ```
 
@@ -48,7 +49,7 @@ World-derived test:
 test "captured log contains line" =>!Log world {
   c log=(†log.capture():†log.LogEntry)
 } {
-  §io.println("captured")=() and
+  l _=(§io.println("captured"):Unit);
   ※check::log.contains("captured")
 }
 ```
@@ -71,8 +72,10 @@ Test files are ordinary `.sigil` files and may also declare:
 
 - `λ`
 - `c`
-- `t`
 - `e`
+
+In projects with `sigil.json`, project-defined named types still live in
+`src/types.lib.sigil` and are referenced in tests through `µ...`.
 
 Test files are executable-oriented and must define `main`.
 

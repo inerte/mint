@@ -831,6 +831,7 @@ fn compile_module_graph(
                         TypeInfo {
                             type_params: type_decl.ast.type_params.clone(),
                             definition: type_decl.ast.definition.clone(),
+                            constraint: type_decl.ast.constraint.clone(),
                         },
                     )),
                     _ => None,
@@ -1742,6 +1743,7 @@ fn extract_type_registry(
                 TypeInfo {
                     type_params: type_decl.type_params.clone(),
                     definition: type_decl.definition.clone(),
+                    constraint: type_decl.constraint.clone(),
                 },
             );
         }
@@ -1760,6 +1762,7 @@ fn extract_type_registry(
                             &local_type_registry,
                             &type_decl.type_params,
                         ),
+                        constraint: type_decl.constraint.clone(),
                     },
                 );
             }

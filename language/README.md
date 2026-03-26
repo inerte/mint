@@ -48,7 +48,7 @@ Claude Code: "This function calculates the nth Fibonacci number with a helper
               helper into a loop"
 ```
 
-**20.7% fewer tokens than TypeScript in the current published benchmark corpus** - More code fits in LLM context windows.
+**21.3% fewer tokens than TypeScript in the current published benchmark corpus** - More code fits in LLM context windows.
 
 ## First-Class Testing (Agent-First)
 
@@ -81,7 +81,7 @@ import declaration surface.
 Canonical cross-module reference:
 
 ```sigil module projects/todo-app/src/countTodos.lib.sigil
-λtodoCount(todos:[•todoDomain.Todo])=>Int=#todos
+λtodoCount(todos:[µTodo])=>Int=•todoDomain.completedCount(todos)
 ```
 
 Module visibility is determined by file extension:
@@ -91,7 +91,8 @@ Module visibility is determined by file extension:
 
 No `export` keyword exists. The file extension declares the intent.
 
-- Only `•`, `¤`, `¶`, `§`, `†`, and `※` are valid Sigil module roots
+- `•`, `¤`, `¶`, `§`, `†`, and `※` are the module roots
+- `µ...` resolves project-defined types and project sum constructors from `src/types.lib.sigil`
 - `::` is only used after a root when descending into nested modules such as `※check::log`
 - Module cycles are compile errors
 - FFI (`e module::path`) remains trust-mode and link-time validated
@@ -145,6 +146,7 @@ Developers interact through **Claude Code**:
 - Type annotations required on all function signatures (canonical form)
 - No dynamic typing, no `any` type, controlled coercion
 - Algebraic data types (sum + product types)
+- Constrained user-defined types such as `t BirthYear=Int where value>1800 and value<10000`
 - Effect system for tracking side effects (planned)
 - Compile-time guarantees prevent runtime type errors
 - Better error messages than Hindley-Milner: "expected Int, got String"
@@ -163,7 +165,7 @@ Developers interact through **Claude Code**:
 Compact canonical syntax for model-facing efficiency:
 - `λ` for function (1 char vs 2-8)
 - `=>` for returns/maps-to
-- root sigils (`§`, `•`, `¶`, `¤`, `†`, `※`) for explicit module provenance
+- root/reference sigils (`§`, `•`, `¶`, `¤`, `†`, `※`, `µ`) for explicit provenance
 - `::` only for deeper nested module segments such as `※check::log`
 - `match` for pattern match (common keyword with strong model priors)
 - `Int` for integers, `Float` for reals, `Bool` for bool, `String` for string
@@ -253,9 +255,9 @@ See `benchmarks/tokens/RESULTS.md` for methodology and per-case results.
 
 | Subcorpus | Cases | Sigil Tokens | TypeScript Tokens | Sigil Fewer Tokens vs TS |
 |-----------|------:|-------------:|------------------:|-------------------------:|
-| Algorithms | 16 | 1746 | 2087 | 16.3% |
+| Algorithms | 16 | 1732 | 2087 | 17.0% |
 | Language-shaped (`concurrent`, `world`, `topology`) | 4 | 268 | 454 | 41.0% |
-| **Combined** | **20** | **2014** | **2541** | **20.7%** |
+| **Combined** | **20** | **2000** | **2541** | **21.3%** |
 
 **Practical takeaway:** current published evidence supports roughly **21% fewer tokens than TypeScript** across the active mixed 20-case corpus.
 
@@ -385,7 +387,7 @@ This is a research project exploring machine-first language design. Contribution
 1. **Unicode Tokenization**: Do modern LLM tokenizers handle `λ` as 1 token or multiple?
 2. **Generation Accuracy**: Can LLMs achieve >99% syntax correctness with canonical format?
 3. **Developer Experience**: Do developers prefer AI-mediated coding over direct writing?
-4. **Token Efficiency**: How much token reduction do we achieve in practice beyond the current 20.7% published benchmark result?
+4. **Token Efficiency**: How much token reduction do we achieve in practice beyond the current 21.3% published benchmark result?
 5. **Context Utilization**: Does denser code enable better LLM reasoning?
 
 ## License

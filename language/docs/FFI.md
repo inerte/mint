@@ -174,10 +174,14 @@ e fs::promises:{mkdir:λ(String,MkdirOptions)=>Unit}
 - Self-documenting external APIs
 
 Typed FFI relies on the same canonical structural equality rule used throughout the
-checker: aliases and named product types normalize before compatibility checks.
-That means `MkdirOptions` and `{recursive:Bool}` are treated as the same explicit type
-meaning when validating the `mkdir` call. This is canonical semantic comparison, not
-type inference.
+checker: unconstrained aliases and unconstrained named product types normalize before
+compatibility checks. That means `MkdirOptions` and `{recursive:Bool}` are treated as the
+same explicit type meaning when validating the `mkdir` call. Constrained user-defined
+types remain distinct. This is canonical semantic comparison, not type inference.
+
+In project code, named user-defined types live in `src/types.lib.sigil` and are
+referenced elsewhere through `µ...`. The local same-file `t MkdirOptions=...`
+form shown here is still valid for standalone non-project snippets.
 
 When modeling JavaScript data:
 - fixed-shape objects should use records like `{recursive:Bool}`

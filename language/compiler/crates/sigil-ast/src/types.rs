@@ -117,14 +117,14 @@ pub struct TupleType {
     pub location: SourceLocation,
 }
 
-/// Qualified type: src::types.ArticleMeta[T, E]
+/// Qualified type: src::types.ArticleMeta[T, E] or µArticleMeta[T, E]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct QualifiedType {
     #[cfg_attr(feature = "serde", serde(rename = "modulePath"))]
-    pub module_path: Vec<String>, // ['src', 'types'] from "src::types"
+    pub module_path: Vec<String>, // ['src', 'types'] from "src::types" or µ root
     #[cfg_attr(feature = "serde", serde(rename = "typeName"))]
-    pub type_name: String, // 'ArticleMeta' from "src::types.ArticleMeta"
+    pub type_name: String, // 'ArticleMeta' from "src::types.ArticleMeta" or "µArticleMeta"
     #[cfg_attr(feature = "serde", serde(rename = "typeArgs"))]
     pub type_args: Vec<Type>, // [T, E] for generic types like "Result[T, E]"
     pub location: SourceLocation,

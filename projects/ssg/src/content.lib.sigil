@@ -1,4 +1,4 @@
-λaddArticleAliases(page:•types.SitePage,routes:[•types.AliasRoute])=>[•types.AliasRoute]={
+λaddArticleAliases(page:µSitePage,routes:[µAliasRoute])=>[µAliasRoute]={
   l bareSlug=(stripNumericPrefix(page.meta.slug):String);
   match bareSlug=page.meta.slug{
     true=>routes|
@@ -6,22 +6,22 @@
   }
 }
 
-λaddKnownAliases(page:•types.SitePage,routes:[•types.AliasRoute])=>[•types.AliasRoute] match page.section{
-  •types.Article()=>addArticleAliases(page,routes)|
-  •types.Doc()=>match page.meta.slug{
+λaddKnownAliases(page:µSitePage,routes:[µAliasRoute])=>[µAliasRoute] match page.section{
+  µArticle()=>addArticleAliases(page,routes)|
+  µDoc()=>match page.meta.slug{
     "philosophy"=>routes⧺[{alias:"/about/philosophy",route:canonicalRoute(page)}]|
     _=>routes
   }|
   _=>routes
 }
 
-λaliasRoutesForPage(page:•types.SitePage)=>[•types.AliasRoute]={
+λaliasRoutesForPage(page:µSitePage)=>[µAliasRoute]={
   l route=(canonicalRoute(page):String);
-  l baseRoutes=([{alias:page.sourcePath,route:route},{alias:"/"++page.sourcePath,route:route},{alias:route,route:route}]:[•types.AliasRoute]);
+  l baseRoutes=([{alias:page.sourcePath,route:route},{alias:"/"++page.sourcePath,route:route},{alias:route,route:route}]:[µAliasRoute]);
   l withSourceDir=(match page.sourcePath{
     "website/articles/README.md"=>baseRoutes⧺[{alias:"website/articles",route:route}]⧺[{alias:"website/articles/",route:route}]|
     _=>baseRoutes
-  }:[•types.AliasRoute]);
+  }:[µAliasRoute]);
   addKnownAliases(page,match route{
     "/"=>withSourceDir|
     _=>withSourceDir⧺[{alias:trimTrailingSlash(route),route:route}]
@@ -34,16 +34,16 @@
   _=>trimTrailingSlash(basePath)++route
 }
 
-λblankPage(markdown:String,meta:•types.PageMeta,outputDir:String,section:•types.Section,sourcePath:String)=>•types.SitePage={bodyHtml:"",bodyMarkdown:markdown,meta:meta,outputDir:outputDir,section:section,sourcePath:sourcePath}
+λblankPage(markdown:String,meta:µPageMeta,outputDir:String,section:µSection,sourcePath:String)=>µSitePage={bodyHtml:"",bodyMarkdown:markdown,meta:meta,outputDir:outputDir,section:section,sourcePath:sourcePath}
 
-λbuildAliasRoutes(data:•types.SiteData)=>[•types.AliasRoute]=aliasRoutesForPage(data.home)⧺aliasRoutesForPage(data.articlesIntro)⧺pagesAliasRoutes(data.articles)⧺pagesAliasRoutes(data.docs)⧺pagesAliasRoutes(data.spec)⧺pagesAliasRoutes(data.standalone)
+λbuildAliasRoutes(data:µSiteData)=>[µAliasRoute]=aliasRoutesForPage(data.home)⧺aliasRoutesForPage(data.articlesIntro)⧺pagesAliasRoutes(data.articles)⧺pagesAliasRoutes(data.docs)⧺pagesAliasRoutes(data.spec)⧺pagesAliasRoutes(data.standalone)
 
-λcanonicalRoute(page:•types.SitePage)=>String match page.outputDir{
+λcanonicalRoute(page:µSitePage)=>String match page.outputDir{
   ""=>"/"|
   dir=>"/"++dir++"/"
 }
 
-λcompareArticlePages(left:•types.SitePage,right:•types.SitePage)=>Bool={
+λcompareArticlePages(left:µSitePage,right:µSitePage)=>Bool={
   l leftKey=(dateSortKey(left.meta.date):Int);
   l rightKey=(dateSortKey(right.meta.date):Int);
   match leftKey=rightKey{
@@ -65,7 +65,7 @@
   }
 }
 
-λcompareTitlePages(left:•types.SitePage,right:•types.SitePage)=>Bool=compareText(left.meta.slug,right.meta.slug)
+λcompareTitlePages(left:µSitePage,right:µSitePage)=>Bool=compareText(left.meta.slug,right.meta.slug)
 
 λdateSortKey(date:String)=>Int match §time.parseIso(date){
   Ok(instant)=>§time.toEpochMillis(instant)|
@@ -91,7 +91,7 @@
 
 λisExternalLink(target:§url.Url)=>Bool=§url.isAnchor(target) or target.protocol="http" or target.protocol="https" or target.protocol="mailto"
 
-λlookupAlias(alias:String,aliasRoutes:[•types.AliasRoute])=>String match aliasRoutes{
+λlookupAlias(alias:String,aliasRoutes:[µAliasRoute])=>String match aliasRoutes{
   []=>""|
   [route,.rest]=>match route.alias=alias{
     true=>route.route|
@@ -111,13 +111,13 @@
   }
 }
 
-λpagesAliasRoutes(pages:[•types.SitePage])=>[•types.AliasRoute]=§list.flatMap(aliasRoutesForPage,pages)
+λpagesAliasRoutes(pages:[µSitePage])=>[µAliasRoute]=§list.flatMap(aliasRoutesForPage,pages)
 
-λpagesNewestFirst(pages:[•types.SitePage])=>[•types.SitePage]=sortPagesInner(compareArticlePages,pages)
+λpagesNewestFirst(pages:[µSitePage])=>[µSitePage]=sortPagesInner(compareArticlePages,pages)
 
-λpagesSortedByTitle(pages:[•types.SitePage])=>[•types.SitePage]=sortPagesInner(compareTitlePages,pages)
+λpagesSortedByTitle(pages:[µSitePage])=>[µSitePage]=sortPagesInner(compareTitlePages,pages)
 
-λrenderPage(aliasRoutes:[•types.AliasRoute],basePath:String,page:•types.SitePage)=>•types.SitePage={bodyHtml:§markdown.parse(rewriteInternalLinks(aliasRoutes,basePath,page.bodyMarkdown,page.sourcePath)),bodyMarkdown:page.bodyMarkdown,meta:page.meta,outputDir:page.outputDir,section:page.section,sourcePath:page.sourcePath}
+λrenderPage(aliasRoutes:[µAliasRoute],basePath:String,page:µSitePage)=>µSitePage={bodyHtml:§markdown.parse(rewriteInternalLinks(aliasRoutes,basePath,page.bodyMarkdown,page.sourcePath)),bodyMarkdown:page.bodyMarkdown,meta:page.meta,outputDir:page.outputDir,section:page.section,sourcePath:page.sourcePath}
 
 λresolveRepoPath(sourcePath:String,targetPath:String)=>String match §string.startsWith("/",targetPath){
   true=>normalizeRepoPath(§string.substring(#targetPath,targetPath,1))|
@@ -133,7 +133,7 @@
   }
 }
 
-λrewriteInternalLinks(aliasRoutes:[•types.AliasRoute],basePath:String,markdown:String,sourcePath:String)=>String={
+λrewriteInternalLinks(aliasRoutes:[µAliasRoute],basePath:String,markdown:String,sourcePath:String)=>String={
   l openIdx=(§string.indexOf(markdown,"]("):Int);
   match openIdx<0{
     true=>markdown|
@@ -144,7 +144,7 @@
   }
 }
 
-λrewriteLinkTarget(aliasRoutes:[•types.AliasRoute],basePath:String,sourcePath:String,target:String)=>String match §url.parse(target){
+λrewriteLinkTarget(aliasRoutes:[µAliasRoute],basePath:String,sourcePath:String,target:String)=>String match §url.parse(target){
   Err(_)=>target|
   Ok(parsedTarget)=>match isExternalLink(parsedTarget){
     true=>target|
@@ -158,18 +158,18 @@
   }
 }
 
-λsectionName(section:•types.Section)=>String match section{
-  •types.Article()=>"Articles"|
-  •types.Doc()=>"Docs"|
-  •types.Home()=>"Home"|
-  •types.Spec()=>"Spec"
+λsectionName(section:µSection)=>String match section{
+  µArticle()=>"Articles"|
+  µDoc()=>"Docs"|
+  µHome()=>"Home"|
+  µSpec()=>"Spec"
 }
 
-λsectionNameLowercase(section:•types.Section)=>String match section{
-  •types.Article()=>"article"|
-  •types.Doc()=>"doc"|
-  •types.Home()=>"home"|
-  •types.Spec()=>"spec"
+λsectionNameLowercase(section:µSection)=>String match section{
+  µArticle()=>"article"|
+  µDoc()=>"doc"|
+  µHome()=>"home"|
+  µSpec()=>"spec"
 }
 
 λsortCharRank(ch:String)=>Int match ch{
@@ -215,7 +215,7 @@
   _=>90
 }
 
-λsortInsert(compare:λ(•types.SitePage,•types.SitePage)=>Bool,page:•types.SitePage,pages:[•types.SitePage])=>[•types.SitePage] match pages{
+λsortInsert(compare:λ(µSitePage,µSitePage)=>Bool,page:µSitePage,pages:[µSitePage])=>[µSitePage] match pages{
   []=>[page]|
   [head,.rest]=>match compare(page,head){
     true=>[page,head]⧺rest|
@@ -223,14 +223,14 @@
   }
 }
 
-λsortPagesInner(compare:λ(•types.SitePage,•types.SitePage)=>Bool,pages:[•types.SitePage])=>[•types.SitePage] match pages{
+λsortPagesInner(compare:λ(µSitePage,µSitePage)=>Bool,pages:[µSitePage])=>[µSitePage] match pages{
   []=>[]|
   [page,.rest]=>sortInsert(compare,page,sortPagesInner(compare,rest))
 }
 
 λstripNumericPrefix(slug:String)=>String=dropNumericPrefix(slug)
 
-λtakeFirst(count:Int,pages:[•types.SitePage])=>[•types.SitePage] match count≤0{
+λtakeFirst(count:Int,pages:[µSitePage])=>[µSitePage] match count≤0{
   true=>[]|
   false=>match pages{
     []=>[]|

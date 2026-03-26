@@ -1,7 +1,3 @@
-t Message={createdAt:§time.Instant,id:TodoId}
-
-t TodoId=TodoId(Int)
-
 λinstant(value:§json.JsonValue)=>Result[§time.Instant,§decode.DecodeError] match §decode.string(value){
   Ok(text)=>match §time.parseIso(text){
     Ok(decoded)=>Ok(decoded)|
@@ -12,7 +8,7 @@ t TodoId=TodoId(Int)
 
 λmain()=>Unit=()
 
-λmessage(value:§json.JsonValue)=>Result[Message,§decode.DecodeError] match §decode.field(instant,"createdAt")(value){
+λmessage(value:§json.JsonValue)=>Result[µMessage,§decode.DecodeError] match §decode.field(instant,"createdAt")(value){
   Ok(createdAt)=>match §decode.field(todoId,"id")(value){
     Ok(id)=>Ok({createdAt:createdAt,id:id})|
     Err(error)=>Err(error)
@@ -20,8 +16,8 @@ t TodoId=TodoId(Int)
   Err(error)=>Err(error)
 }
 
-λtodoId(value:§json.JsonValue)=>Result[TodoId,§decode.DecodeError] match §decode.int(value){
-  Ok(id)=>Ok(TodoId(id))|
+λtodoId(value:§json.JsonValue)=>Result[µTodoId,§decode.DecodeError] match §decode.int(value){
+  Ok(id)=>Ok(µTodoId(id))|
   Err(error)=>Err(error)
 }
 
@@ -65,7 +61,7 @@ test "decode.optionalField returns None when key is absent" {
 test "decode.parse builds trusted wrapper-backed message" {
   match §decode.parse(message,"{\"createdAt\":\"2026-03-07T00:00:00.000Z\",\"id\":\"42\"}"){
     Ok(decoded)=>match decoded.id{
-      TodoId(id)=>id=42 and decoded.createdAt.epochMillis>0
+      µTodoId(id)=>id=42 and decoded.createdAt.epochMillis>0
     }|
     Err(_)=>false
   }

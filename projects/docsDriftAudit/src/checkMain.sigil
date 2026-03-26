@@ -35,9 +35,9 @@
   }
 }
 
-λrenderIssue(issue:•types.Issue)=>String=issue.path++"\t"++§string.intToString(issue.line)++"\t"++issue.message
+λrenderIssue(issue:µIssue)=>String=issue.path++"\t"++§string.intToString(issue.line)++"\t"++issue.message
 
-λrenderIssues(issues:[•types.Issue])=>String match #issues=0{
+λrenderIssues(issues:[µIssue])=>String match #issues=0{
   true=>""|
   false=>§string.join("\n",issues map renderIssue)++"\n"
 }

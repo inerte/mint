@@ -37,10 +37,10 @@ e console
 λmain()=>Unit=console.log(§string.intToString(#[1,2,3])++" "++§time.formatIso(§time.fromEpochMillis(0)))
 ```
 
-**Design:** Sigil writes rooted module references directly at the use site.
+**Design:** Sigil writes rooted references directly at the use site.
 There are no import declarations, no selective imports, and no aliases. FFI
-still uses `e module::path`, but Sigil modules use roots like `§`, `•`, `¶`,
-`¤`, `†`, and `※`.
+still uses `e module::path`; Sigil modules use roots like `§`, `•`, `¶`, `¤`,
+`†`, and `※`, while project-defined types and project sum constructors use `µ`.
 
 ## Length Operator (`#`)
 
@@ -97,8 +97,8 @@ There is no `export` keyword.
 ```sigil program
 λmain()=>!Fs Unit={
   l out=(§path.join("/tmp","sigil.txt"):String);
-  l written=(§file.writeText("hello",out):Unit);
-  l text=(§file.readText(out):String);
+  l _=(§file.writeText("hello",out):Unit);
+  l _=(§file.readText(out):String);
   ()
 }
 ```
@@ -110,8 +110,8 @@ tooling and harness code.
 
 ```sigil program
 λmain()=>Unit={
-  l article=(§path.basename("website/articles/hello.md"):String);
-  l directory=(§path.join("website","articles"):String);
+  l _=(§path.basename("website/articles/hello.md"):String);
+  l _=(§path.join("website","articles"):String);
   ()
 }
 ```
@@ -147,7 +147,7 @@ Commands are argv-based only. Non-zero exit status is returned in
 λmain()=>Unit match §regex.compile("i","^(sigil)-(.*)$"){
   Ok(regex)=>match §regex.find("Sigil-lang",regex){
     Some(found)=>{
-      l matched=(found.full:String);
+      l _=(found.full:String);
       ()
     }|
     None()=>()
@@ -212,7 +212,7 @@ field. Sigil does not use open or partial records for this.
 ```sigil program
 λmain()=>Unit match §time.parseIso("2026-03-03"){
   Ok(instant)=>{
-    l millis=(§time.toEpochMillis(instant):Int);
+    l _=(§time.toEpochMillis(instant):Int);
     ()
   }|
   Err(_)=>()
@@ -227,8 +227,8 @@ process orchestration.
 ```sigil program
 λmain()=>Unit match §url.parse("../language/spec/cli-json.md?view=raw#schema"){
   Ok(url)=>{
-    l path=(url.path:String);
-    l suffix=(§url.suffix(url):String);
+    l _=(url.path:String);
+    l _=(§url.suffix(url):String);
     ()
   }|
   Err(_)=>()
@@ -245,11 +245,11 @@ raw-URL based:
 ```sigil program projects/topology-http/src/getClient.sigil
 λmain()=>!Http Unit match §httpClient.get(•topology.mailerApi,§httpClient.emptyHeaders(),"/health"){
   Ok(response)=>{
-    l body=(response.body:String);
+    l _=(response.body:String);
     ()
   }|
   Err(error)=>{
-    l message=(error.message:String);
+    l _=(error.message:String);
     ()
   }
 }
@@ -287,11 +287,11 @@ For topology-aware projects, the canonical surface is handle-based:
 ```sigil program projects/topology-tcp/src/pingClient.sigil
 λmain()=>!Tcp Unit match §tcpClient.send(•topology.eventStream,"ping"){
   Ok(response)=>{
-    l message=(response.message:String);
+    l _=(response.message:String);
     ()
   }|
   Err(error)=>{
-    l errorMessage=(error.message:String);
+    l _=(error.message:String);
     ()
   }
 }

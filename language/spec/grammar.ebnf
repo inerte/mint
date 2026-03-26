@@ -9,22 +9,22 @@ Program = { TopLevelDecl } ;
 
 TopLevelDecl = TypeDecl
              | ExternDecl
-             | ImportDecl
              | ConstDecl
              | FunctionDecl
              | TestDecl ;
 
 (* Canonical declaration order is enforced separately:
-   t => e => i => c => λ => test *)
+   t => e => c => λ => test *)
 
-ImportDecl = "i" , ModulePath ;
-ModulePath = Identifier , { "::" , Identifier } ;
+ModulePath = RootedModulePath ;
+RootedModulePath = RootSigil , Identifier , { "::" , Identifier } ;
+RootSigil = "§" | "•" | "¶" | "¤" | "†" | "※" ;
 
 ExternDecl = "e" , ModulePath , [ ":" , TypedMembers ] ;
 TypedMembers = "{" , TypedMember , { "," , TypedMember } , "}" ;
 TypedMember = Identifier , ":" , Type ;
 
-TypeDecl = "t" , TypeName , [ TypeParams ] , "=" , TypeDef ;
+TypeDecl = "t" , TypeName , [ TypeParams ] , "=" , TypeDef , [ "where" , Expr ] ;
 TypeName = UpperIdentifier ;
 TypeParams = "[" , TypeParam , { "," , TypeParam } , "]" ;
 TypeParam = UpperIdentifier ;
@@ -42,7 +42,8 @@ Type = PrimitiveType
      | MapType
      | FunctionType
      | TypeConstructor
-     | TypeVariable ;
+     | TypeVariable
+     | QualifiedType ;
 
 PrimitiveType = "Int" | "Float" | "Bool" | "String" | "Char" | "Unit" | "Never" ;
 ListType = "[" , Type , "]" ;
@@ -50,6 +51,9 @@ MapType = "{" , Type , "↦" , Type , "}" ;
 FunctionType = "λ(" , [ TypeList ] , ")" , "=>" , [ Effects ] , Type ;
 TypeConstructor = TypeName , [ "[" , TypeList , "]" ] ;
 TypeVariable = UpperIdentifier ;
+QualifiedType = RootedQualifiedType | ProjectTypeRef ;
+RootedQualifiedType = RootedModulePath , "." , TypeName , [ "[" , TypeList , "]" ] ;
+ProjectTypeRef = "µ" , TypeName , [ "[" , TypeList , "]" ] ;
 TypeList = Type , { "," , Type } ;
 
 ConstDecl = "c" , Identifier , "=" , "(" , Expr , ":" , Type , ")" ;
@@ -106,8 +110,9 @@ LiteralPattern = Literal ;
 VariablePattern = Identifier ;
 WildcardPattern = "_" ;
 ConstructorPattern = ConstructorRef , [ "(" , PatternList , ")" ] ;
-ConstructorRef = UpperIdentifier | QualifiedConstructorRef ;
+ConstructorRef = UpperIdentifier | QualifiedConstructorRef | ProjectConstructorRef ;
 QualifiedConstructorRef = ModulePath , "." , UpperIdentifier ;
+ProjectConstructorRef = "µ" , UpperIdentifier ;
 ListPattern = "[" , [ PatternList ] , "]"
             | "[" , Pattern , "," , ".." , Identifier , "]" ;
 RecordPattern = "{" , FieldPatternList , "}" ;

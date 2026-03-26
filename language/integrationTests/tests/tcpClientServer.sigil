@@ -4,7 +4,7 @@
 
 λrawClientFile()=>String=§path.join(projectDir(),"src/rawTcpClient.sigil")
 
-λrawClientSource()=>String="i §tcpClient\n\nλmain()=>!Tcp String match §tcpClient.send(\"ping\",\"127.0.0.1\"){\n  Ok(response)=>response.message|\n  Err(error)=>error.message\n}\n"
+λrawClientSource()=>String="λmain()=>!Tcp String match §tcpClient.send(\"ping\",\"127.0.0.1\"){\n  Ok(response)=>response.message|\n  Err(error)=>error.message\n}\n"
 
 λrawEndpointCompileOutput()=>!Fs!Process String={
   l _=(§file.writeText(rawClientSource(),rawClientFile()):Unit);

@@ -58,6 +58,9 @@ alone, such as:
 - declaration ordering
 - file-purpose rules
 - test location rules
+- project-defined type declarations only in `src/types.lib.sigil`
+- `src/types.lib.sigil` being types-only
+- `src/types.lib.sigil` using only `§...` and `¶...` inside type definitions and constraints
 - no dead extern declarations in executable `.sigil` files
 - no dead top-level declarations in executable `.sigil` files
 - no-shadowing
@@ -73,6 +76,7 @@ Current important examples:
 
 - named local bindings used zero times are rejected
 - pure single-use local bindings must be inlined
+- obvious literal contradictions against constrained types are rejected
 
 Executable note:
 

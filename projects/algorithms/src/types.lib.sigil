@@ -1,0 +1,17 @@
+t Bucket={count:Int,value:Int}
+
+t ExtendedGcd={gcd:Int,x:Int,y:Int}
+
+t FibFrame={fibM:Int,fibMm1:Int,fibMm2:Int,offset:Int}
+
+t Graph={nodes:[NodeNeighbors]}
+
+t IntTree=Empty()|Node([IntTree],Int)
+
+t NodeNeighbors={neighbors:[Int],vertex:Int}
+
+t Selection={chosen:Int,rest:[Int]}
+
+t TopologicalSortResult=CycleDetected()|Ordering([Int])
+
+t WordBucket={count:Int,word:String}

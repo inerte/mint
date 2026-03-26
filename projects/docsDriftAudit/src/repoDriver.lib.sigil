@@ -1,5 +1,3 @@
-t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[String]}
-
 λbatchSize()=>Int=32
 
 λcommand(args:[String],root:String)=>§process.Command=§process.withCwd(§process.command([§path.join(root,"language/compiler/target/debug/sigil"),"run"]⧺args),§path.join(root,"projects/docsDriftAudit"))
@@ -12,16 +10,16 @@ t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[St
   }
 }
 
-λemptyAudit()=>MarkdownAudit={documentedRefs:[],issues:[],snippetRefs:[]}
+λemptyAudit()=>µMarkdownAudit={documentedRefs:[],issues:[],snippetRefs:[]}
 
 λinsertUnique(item:String,items:[String])=>[String] match §list.contains(item,items){
   true=>items|
   false=>items⧺[item]
 }
 
-λmergeAudit(left:MarkdownAudit,right:MarkdownAudit)=>MarkdownAudit={documentedRefs:mergeUnique(left.documentedRefs,right.documentedRefs),issues:mergeIssues(left.issues,right.issues),snippetRefs:mergeUnique(left.snippetRefs,right.snippetRefs)}
+λmergeAudit(left:µMarkdownAudit,right:µMarkdownAudit)=>µMarkdownAudit={documentedRefs:mergeUnique(left.documentedRefs,right.documentedRefs),issues:mergeIssues(left.issues,right.issues),snippetRefs:mergeUnique(left.snippetRefs,right.snippetRefs)}
 
-λmergeIssues(left:[•types.Issue],right:[•types.Issue])=>[•types.Issue] match right{
+λmergeIssues(left:[µIssue],right:[µIssue])=>[µIssue] match right{
   []=>left|
   [head,.tail]=>mergeIssues(left⧺[head],tail)
 }
@@ -35,7 +33,7 @@ t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[St
 
 λoutputPath(fileName:String,root:String)=>String=§path.join(§path.join(root,".local/docsDriftAuditDriver"),fileName)
 
-λparseIssueLine(line:String)=>Option[•types.Issue] match §string.split("\t",line){
+λparseIssueLine(line:String)=>Option[µIssue] match §string.split("\t",line){
   [path,lineText,message]=>match §decode.intFromText(lineText){
     Ok(lineNumber)=>Some({line:lineNumber,message:message,path:path})|
     Err(_)=>None()
@@ -43,7 +41,7 @@ t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[St
   _=>None()
 }
 
-λparseIssueLines(lines:[String])=>[•types.Issue] match lines{
+λparseIssueLines(lines:[String])=>[µIssue] match lines{
   []=>[]|
   [head,.tail]=>match parseIssueLine(head){
     Some(issue)=>[issue]⧺parseIssueLines(tail)|
@@ -51,9 +49,9 @@ t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[St
   }
 }
 
-λparseRefs(lines:[String])=>MarkdownAudit=parseRefsInner(lines,emptyAudit())
+λparseRefs(lines:[String])=>µMarkdownAudit=parseRefsInner(lines,emptyAudit())
 
-λparseRefsInner(lines:[String],state:MarkdownAudit)=>MarkdownAudit match lines{
+λparseRefsInner(lines:[String],state:µMarkdownAudit)=>µMarkdownAudit match lines{
   []=>state|
   [head,.tail]=>match §string.startsWith("DOC ",head){
     true=>parseRefsInner(tail,{documentedRefs:insertUnique(§string.drop(4,head),state.documentedRefs),issues:state.issues,snippetRefs:state.snippetRefs})|
@@ -71,7 +69,7 @@ t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[St
 
 λreadLines(filePath:String)=>!Fs [String]=(§string.lines(§file.readText(filePath)):[String]) filter nonEmpty
 
-λrun()=>!AuditIo Result[[•types.Issue],String] match •docsDrift.gitTopLevel(){
+λrun()=>!AuditIo Result[[µIssue],String] match •docsDrift.gitTopLevel(){
   Ok(root)=>{
     l driverDir=(§path.join(root,".local/docsDriftAuditDriver"):String);
     l _=(§file.removeTree(driverDir):Unit);
@@ -102,9 +100,9 @@ t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[St
   Err(message)=>Err(message)
 }
 
-λrunMarkdown(paths:[String],root:String)=>!AuditIo Result[MarkdownAudit,String]=runMarkdownInner(emptyAudit(),paths,root)
+λrunMarkdown(paths:[String],root:String)=>!AuditIo Result[µMarkdownAudit,String]=runMarkdownInner(emptyAudit(),paths,root)
 
-λrunMarkdownInner(acc:MarkdownAudit,paths:[String],root:String)=>!AuditIo Result[MarkdownAudit,String] match paths{
+λrunMarkdownInner(acc:µMarkdownAudit,paths:[String],root:String)=>!AuditIo Result[µMarkdownAudit,String] match paths{
   []=>Ok(acc)|
   _=>match runMarkdownPath(takeBatch(paths,batchSize()),root){
     Ok(current)=>match #current.issues>0{
@@ -115,7 +113,7 @@ t MarkdownAudit={documentedRefs:[String],issues:[•types.Issue],snippetRefs:[St
   }
 }
 
-λrunMarkdownPath(filePaths:[String],root:String)=>!AuditIo Result[MarkdownAudit,String]={
+λrunMarkdownPath(filePaths:[String],root:String)=>!AuditIo Result[µMarkdownAudit,String]={
   l issuesPath=(outputPath("issues.txt",root):String);
   l refsPath=(outputPath("refs.txt",root):String);
   l _=(§file.writeText("",issuesPath):Unit);

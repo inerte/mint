@@ -56,6 +56,8 @@ pub struct TypeDecl {
     #[cfg_attr(feature = "serde", serde(rename = "typeParams"))]
     pub type_params: Vec<String>,
     pub definition: TypeDef,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub constraint: Option<Expr>,
     pub location: SourceLocation,
 }
 

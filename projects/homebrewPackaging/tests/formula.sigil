@@ -25,7 +25,7 @@ test "checksum line parts reject missing archive name" {
 }
 
 test "find checksum returns none for missing archive" {
-  match •formula.findChecksum("missing.tar.gz",[({archive:"sigil-2026-03-11T14-58-24Z-darwin-arm64.tar.gz",sha256:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}:•formula.ChecksumEntry)]){
+  match •formula.findChecksum("missing.tar.gz",[({archive:"sigil-2026-03-11T14-58-24Z-darwin-arm64.tar.gz",sha256:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}:µChecksumEntry)]){
     Some(_)=>false|
     None()=>true
   }

@@ -1,6 +1,4 @@
-t Todo={done:Bool,id:Int,text:String}
-
-λlenTodos(todos:[Todo])=>Int match todos{
+λlenTodos(todos:[µTodo])=>Int match todos{
   []=>0|
   [_,.rest]=>1+lenTodos(rest)
 }

@@ -26,7 +26,7 @@ For language/compiler work, prefer the deeper guide:
    - canonical syntax over stylistic flexibility
    - deterministic behavior and deterministic codegen where possible
    - tests/examples as source of truth over prose docs
-   - canonical semantic equality for structural types (aliases + named products normalize before comparison)
+   - canonical semantic equality for structural types (unconstrained aliases + unconstrained named products normalize before comparison)
    - first-party Sigil code outside `language/stdlib/` should use canonical stdlib helpers directly instead of locally redefining them
    - explicit named concurrent regions are the canonical widening surface; do not reintroduce a broad "concurrent by default" story in docs or code examples
 - For website/docs/article writing:
@@ -54,8 +54,9 @@ For language/compiler work, prefer the deeper guide:
 If a change affects language design (syntax, canonical forms, stdlib surface, codegen contracts), pause and clarify the intended invariant before implementing broad edits.
 
 When working on Sigil type compatibility:
-- aliases and named product types are structural everywhere in the checker
-- compare their normalized canonical forms, not raw unresolved names
+- unconstrained aliases and unconstrained named product types are structural everywhere in the checker
+- constrained aliases and constrained named product types remain nominal
+- compare structural types by their normalized canonical forms, not raw unresolved names
 - sum types remain nominal unless the language design is explicitly changed
 
 ## Development tips

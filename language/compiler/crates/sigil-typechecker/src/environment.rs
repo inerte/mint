@@ -5,7 +5,7 @@
 
 use crate::effects::EffectCatalog;
 use crate::types::{apply_subst, fresh_type_var, InferenceType, Substitution, TMap, TypeScheme};
-use sigil_ast::{TypeDef, Variant};
+use sigil_ast::{Expr, TypeDef, Variant};
 use std::collections::{HashMap, HashSet};
 
 /// Type information for user-defined types
@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 pub struct TypeInfo {
     pub type_params: Vec<String>, // Generic type parameters (e.g., ['T', 'E'] for Result[T,E])
     pub definition: TypeDef,      // The type definition (SumType, ProductType, or TypeAlias)
+    pub constraint: Option<Expr>, // Optional richer meaning for constrained project types
 }
 
 #[derive(Debug, Clone, Default)]
@@ -318,9 +319,16 @@ impl TypeEnvironment {
                 if let Some(type_info) = qualified_lookup.or(local_lookup) {
                     let type_param_bindings =
                         build_type_param_bindings(&type_info.type_params, &normalized_type_args);
+                    let is_constrained = type_info.constraint.is_some();
                     // Resolve type definition to its underlying structure
                     match &type_info.definition {
                         TypeDef::Alias(alias) => {
+                            if is_constrained {
+                                return InferenceType::Constructor(crate::types::TConstructor {
+                                    name: ctor.name.clone(),
+                                    type_args: normalized_type_args,
+                                });
+                            }
                             // Convert the aliased AST type to InferenceType and normalize recursively
                             use crate::types::ast_type_to_inference_type_with_params;
                             let underlying = ast_type_to_inference_type_with_params(
@@ -331,6 +339,12 @@ impl TypeEnvironment {
                             return self.normalize_type(&underlying);
                         }
                         TypeDef::Product(product) => {
+                            if is_constrained {
+                                return InferenceType::Constructor(crate::types::TConstructor {
+                                    name: ctor.name.clone(),
+                                    type_args: normalized_type_args,
+                                });
+                            }
                             // Convert product type to record type for structural comparison
                             let fields: std::collections::HashMap<String, InferenceType> = product
                                 .fields

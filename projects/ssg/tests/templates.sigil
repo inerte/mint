@@ -1,12 +1,12 @@
-λconfig()=>•types.SiteBuildConfig={basePath:"/",outputDir:".local/site",repoUrl:"https://github.com/inerte/sigil",siteDescription:"Machine-first programming language designed for canonical code generation.",siteTitle:"Sigil",siteUrl:"https://inerte.github.io/sigil"}
+λconfig()=>µSiteBuildConfig={basePath:"/",outputDir:".local/site",repoUrl:"https://github.com/inerte/sigil",siteDescription:"Machine-first programming language designed for canonical code generation.",siteTitle:"Sigil",siteUrl:"https://inerte.github.io/sigil"}
 
 λcontains(haystack:String,needle:String)=>Bool=§string.indexOf(haystack,needle)≥0
 
-λdocPage(slug:String)=>•types.SitePage=•content.blankPage("",{author:"",category:"",date:"2026-03-23",description:"Reference page",slug:slug,title:"Docs "++slug},"docs/"++slug,•types.Doc(),"language/docs/"++slug++".md")
+λdocPage(slug:String)=>µSitePage=•content.blankPage("",{author:"",category:"",date:"2026-03-23",description:"Reference page",slug:slug,title:"Docs "++slug},"docs/"++slug,µDoc(),"language/docs/"++slug++".md")
 
 λmain()=>Unit=()
 
-λspecPage(slug:String)=>•types.SitePage=•content.blankPage("",{author:"",category:"",date:"2026-03-23",description:"Spec page",slug:slug,title:"Spec "++slug},"spec/"++slug,•types.Spec(),"language/spec/"++slug++".md")
+λspecPage(slug:String)=>µSitePage=•content.blankPage("",{author:"",category:"",date:"2026-03-23",description:"Spec page",slug:slug,title:"Spec "++slug},"spec/"++slug,µSpec(),"language/spec/"++slug++".md")
 
 test "reference list renders heading and first pages" {
   l html=(•templates.referenceList(config(),"Docs",[docPage("stdlib"),docPage("testing")]):String);

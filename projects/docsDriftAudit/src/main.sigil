@@ -1,4 +1,4 @@
-λfinish(result:Result[[•types.Issue],String])=>!CliIo Unit match result{
+λfinish(result:Result[[µIssue],String])=>!CliIo Unit match result{
   Ok(issues)=>match #issues=0{
     true=>{
       l _=(§io.println("Docs/example drift OK"):Unit);

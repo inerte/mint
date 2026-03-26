@@ -1,5 +1,0 @@
-e console:{log:λ(String)=>Unit}
-
-λgood()=>Unit=console.log("type safe")
-
-λmain()=>Unit=()

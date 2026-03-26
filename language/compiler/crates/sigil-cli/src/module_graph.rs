@@ -76,6 +76,26 @@ impl ModuleGraph {
             topo_order: builder.topo_order,
         })
     }
+
+    pub fn build_many(entry_files: &[PathBuf]) -> Result<Self, ModuleGraphError> {
+        let mut builder = ModuleGraphBuilder::new();
+        let mut sorted_entries = entry_files.to_vec();
+        sorted_entries.sort();
+        for entry_file in sorted_entries {
+            builder.visit(&entry_file, None, None)?;
+        }
+        Ok(ModuleGraph {
+            modules: builder.modules,
+            topo_order: builder.topo_order,
+        })
+    }
+}
+
+pub fn entry_module_key(file_path: &Path) -> Result<String, ModuleGraphError> {
+    let abs_file = fs::canonicalize(file_path)?;
+    let project = get_project_config(&abs_file)?;
+    Ok(file_path_to_module_id(&abs_file, &project)
+        .unwrap_or_else(|| abs_file.to_string_lossy().to_string()))
 }
 
 struct ModuleGraphBuilder {

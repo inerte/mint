@@ -2,7 +2,7 @@
   l tempRoot=(§path.join(root,".local/docsDriftAuditBatch"):String);
   l _=(§file.removeTree(tempRoot):Unit);
   l _=(§file.makeDirs(tempRoot):Unit);
-  match (mergeOutcomes((concurrent markdownFiles@4{
+  match (mergeOutcomes((concurrent markdownFiles@8{
     spawnEach buildTasks(1,paths,root,tempRoot) runMarkdownTask
   }:[ConcurrentOutcome[µMarkdownAudit,String]])):µMarkdownAudit){
     audit=>{

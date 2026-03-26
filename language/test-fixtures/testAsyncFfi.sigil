@@ -1,5 +1,0 @@
-e fs::promises
-
-λmain()=>!Fs String=readFile("../test-fixtures/testAsyncFfi.sigil")
-
-λreadFile(path:String)=>!Fs String=fs::promises.readFile(path,"utf8")

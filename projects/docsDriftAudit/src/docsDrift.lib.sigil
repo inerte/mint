@@ -197,8 +197,8 @@
 λprepareSnippetWorkspace(filePath:String,root:String,tempDir:String,virtualPath:String)=>!AuditIo [µIssue] match projectRootFromVirtualPath(virtualPath){
   Some(projectRoot)=>{
     l targetProjectRoot=(§path.join(tempDir,projectRoot):String);
-    l _=(§file.makeDirs(§path.dirname(targetProjectRoot)):Unit);
-    l copyResult=(§process.run(§process.command(["cp","-R",§path.join(root,projectRoot),targetProjectRoot])):§process.ProcessResult);
+    l _=(§file.makeDirs(targetProjectRoot):Unit);
+    l copyResult=(§process.run(§process.command(["rsync"]⧺projectWorkspaceCopyArgs(projectRoot,root,targetProjectRoot))):§process.ProcessResult);
     match copyResult.code=0{
       true=>[]|
       false=>[{line:0,message:"failed to prepare snippet workspace for "++virtualPath++": "++processOutput(copyResult),path:filePath}]
@@ -251,6 +251,13 @@
 λprojectRootFromVirtualPathUsing(fallback:Option[String],marker:String,virtualPath:String)=>Option[String] match §string.indexOf(virtualPath,marker){
   idx when idx>0=>Some((§string.substring(idx,virtualPath,0):String))|
   _=>fallback
+}
+
+λprojectWorkspaceCopyArgs(projectRoot:String,root:String,targetProjectRoot:String)=>[String]=["-a"]⧺projectWorkspaceCopyPatternArgs(projectRoot)⧺["--exclude","*",§path.join(root,projectRoot)++"/",targetProjectRoot]
+
+λprojectWorkspaceCopyPatternArgs(projectRoot:String)=>[String] match projectRoot{
+  "language"=>["--include","/config/***","--include","/core/***","--include","/sigil.json","--include","/src/***","--include","/stdlib/***","--include","/test/***","--include","/tests/***","--include","/world/***"]|
+  _=>["--include","/config/***","--include","/sigil.json","--include","/src/***","--include","/tests/***"]
 }
 
 λreadCoverageRefs(paths:[String],root:String)=>!Fs [String]=readCoverageRefsInner([],paths,root)

@@ -40,18 +40,16 @@ are referenced through `µ...`.
 
 Example:
 
-```sigil
-⟦ src/types.lib.sigil ⟧
+```sigil module projects/algorithms/src/types.lib.sigil
 t BirthYear=Int where value>1800 and value<10000
-t User={birthYear:BirthYear,name:String}
+
 t TopologicalSortResult=CycleDetected()|Ordering([Int])
+
+t User={birthYear:BirthYear,name:String}
 ```
 
-```sigil
-⟦ src/profile.lib.sigil ⟧
-λbirthYear(user:µUser)=>µBirthYear=user.birthYear
-
-λproject(result:µTopologicalSortResult)=>[Int] match result{
+```sigil module projects/algorithms/src/topologicalSortView.lib.sigil
+λorderingValues(result:µTopologicalSortResult)=>[Int] match result{
   µOrdering(order)=>order|
   µCycleDetected()=>[]
 }
@@ -67,8 +65,9 @@ This does two things at once:
 
 Named user-defined types may also carry a pure `where` clause:
 
-```sigil
+```sigil module projects/algorithms/src/types.lib.sigil
 t BirthYear=Int where value>1800 and value<10000
+
 t DateRange={end:Int,start:Int} where value.end≥value.start
 ```
 

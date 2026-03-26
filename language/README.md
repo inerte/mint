@@ -48,7 +48,7 @@ Claude Code: "This function calculates the nth Fibonacci number with a helper
               helper into a loop"
 ```
 
-**21.3% fewer tokens than TypeScript in the current published benchmark corpus** - More code fits in LLM context windows.
+**21.1% fewer tokens than TypeScript in the current published benchmark corpus** - More code fits in LLM context windows.
 
 ## First-Class Testing (Agent-First)
 
@@ -256,8 +256,8 @@ See `benchmarks/tokens/RESULTS.md` for methodology and per-case results.
 | Subcorpus | Cases | Sigil Tokens | TypeScript Tokens | Sigil Fewer Tokens vs TS |
 |-----------|------:|-------------:|------------------:|-------------------------:|
 | Algorithms | 16 | 1732 | 2087 | 17.0% |
-| Language-shaped (`concurrent`, `world`, `topology`) | 4 | 268 | 454 | 41.0% |
-| **Combined** | **20** | **2000** | **2541** | **21.3%** |
+| Language-shaped (`concurrent`, `world`, `topology`) | 4 | 272 | 454 | 40.1% |
+| **Combined** | **20** | **2004** | **2541** | **21.1%** |
 
 **Practical takeaway:** current published evidence supports roughly **21% fewer tokens than TypeScript** across the active mixed 20-case corpus.
 
@@ -354,6 +354,9 @@ sigil --version
 # Compile to TypeScript
 sigil compile src/main.sigil -o dist/main.ts
 
+# Compile a whole tree through one compiler process
+sigil compile . --ignore .git --ignore-from .gitignore
+
 # Run tests
 sigil test
 ```
@@ -387,7 +390,7 @@ This is a research project exploring machine-first language design. Contribution
 1. **Unicode Tokenization**: Do modern LLM tokenizers handle `λ` as 1 token or multiple?
 2. **Generation Accuracy**: Can LLMs achieve >99% syntax correctness with canonical format?
 3. **Developer Experience**: Do developers prefer AI-mediated coding over direct writing?
-4. **Token Efficiency**: How much token reduction do we achieve in practice beyond the current 21.3% published benchmark result?
+4. **Token Efficiency**: How much token reduction do we achieve in practice beyond the current 21.1% published benchmark result?
 5. **Context Utilization**: Does denser code enable better LLM reasoning?
 
 ## License

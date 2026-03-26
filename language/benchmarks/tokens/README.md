@@ -82,7 +82,7 @@ Language-shaped cases:
 For these published cases:
 
 - the algorithm Sigil source of truth lives in `projects/algorithms/src/`
-- the language-shaped Sigil source of truth lives in first-party fixtures and projects such as `language/test-fixtures/` and `projects/topology-http/`
+- the language-shaped Sigil source of truth lives in first-party examples, tests, and projects such as `language/examples/`, `language/tests/`, and `projects/topology-http/`
 - the Python and TypeScript baselines live under `language/benchmarks/tokens/algorithms/` and `language/benchmarks/tokens/cases/`
 - some cases point at executable `.sigil` files, some at canonical `.lib.sigil` modules, and some at config/test-world files
 
@@ -191,8 +191,8 @@ but the exact gap varies a lot by construct.
 The published split is now:
 
 - **Algorithms subtotal**: 16 cases, **17.0% fewer tokens than TypeScript**
-- **Language-shaped subtotal**: 4 cases, **41.0% fewer tokens than TypeScript**
-- **Combined corpus**: 20 cases, **21.3% fewer tokens than TypeScript**
+- **Language-shaped subtotal**: 4 cases, **40.1% fewer tokens than TypeScript**
+- **Combined corpus**: 20 cases, **21.1% fewer tokens than TypeScript**
 
 The underlying hypothesis is still:
 

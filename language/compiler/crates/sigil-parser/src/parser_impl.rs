@@ -571,7 +571,7 @@ impl Parser {
             return Err(self.error("Expected module name"));
         }
 
-        // Handle hyphenated names like "test-fixtures"
+        // Handle hyphenated names in extern/module strings like "sigil-cli"
         while self.match_token(TokenType::MINUS) {
             parts.push("-".to_string());
             if self.match_token(TokenType::IDENTIFIER)

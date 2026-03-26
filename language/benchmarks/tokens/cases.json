@@ -8,7 +8,7 @@
   "concurrent-region": {
     "category": "language-shaped",
     "python": "language/benchmarks/tokens/cases/concurrent-region/concurrent-region.py",
-    "sigil": "language/test-fixtures/testConcurrentRegion.sigil",
+    "sigil": "language/examples/concurrentRegion.sigil",
     "typescript": "language/benchmarks/tokens/cases/concurrent-region/concurrent-region.ts"
   },
   "factorial": {
@@ -116,7 +116,7 @@
   "world-log-test": {
     "category": "language-shaped",
     "python": "language/benchmarks/tokens/cases/world-log-test/world-log-test.py",
-    "sigil": "language/test-fixtures/tests/testWorld.sigil",
+    "sigil": "language/tests/testWorld.sigil",
     "typescript": "language/benchmarks/tokens/cases/world-log-test/world-log-test.ts"
   }
 }

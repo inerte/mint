@@ -1,7 +1,0 @@
-t Todo={done:Bool,id:Int,text:String}
-
-λkeep(todo:Todo)=>Todo=todo
-
-λmain()=>Unit=()
-
-λtest()=>[Todo]=[{done:false,id:1,text:"one"}] map keep

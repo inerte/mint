@@ -77,7 +77,7 @@ test "run check finds no canonical stdlib duplicates in repo" =>!AuditIo {
 }
 
 test "same name with different shape is allowed" {
-  •canonicalStdlibUsage.analyzeFile("language/test-fixtures/example.sigil",compiledRules(),"λsum(acc:Int,x:Int)=>Int=acc+x\n")=[]
+  •canonicalStdlibUsage.analyzeFile("language/tests/addsNumbers.sigil",compiledRules(),"λsum(acc:Int,x:Int)=>Int=acc+x\n")=[]
 }
 
 test "stdlib path is ignored" {

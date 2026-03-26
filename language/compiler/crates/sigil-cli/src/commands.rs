@@ -1,9 +1,11 @@
 //! Command implementations for CLI
 
 use crate::module_graph::{
-    load_project_effect_catalog_for, LoadedModule, ModuleGraph, ModuleGraphError,
+    entry_module_key, load_project_effect_catalog_for, LoadedModule, ModuleGraph,
+    ModuleGraphError,
 };
 use crate::project::{get_project_config, ProjectConfigError};
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use rayon::{prelude::*, ThreadPoolBuilder};
 use serde_json::json;
 use sigil_ast::{Declaration, Program, Type, TypeDef};
@@ -103,6 +105,97 @@ fn output_json_error(
         }
     });
     println!("{}", serde_json::to_string(&output).unwrap());
+}
+
+struct CompileDirectoryIgnore {
+    root: PathBuf,
+    explicit_paths: Vec<PathBuf>,
+    gitignore: Option<Gitignore>,
+}
+
+impl CompileDirectoryIgnore {
+    fn new(
+        root: &Path,
+        ignore_paths: &[PathBuf],
+        ignore_from: Option<&Path>,
+    ) -> Result<Self, CliError> {
+        let root = fs::canonicalize(root)?;
+        let explicit_paths = ignore_paths
+            .iter()
+            .map(|path| {
+                if path.is_absolute() {
+                    Ok(path.to_path_buf())
+                } else {
+                    Ok(root.join(path))
+                }
+            })
+            .collect::<Result<Vec<_>, std::io::Error>>()?;
+
+        let gitignore = if let Some(ignore_from) = ignore_from {
+            let resolved_ignore_from = if ignore_from.is_absolute() {
+                ignore_from.to_path_buf()
+            } else {
+                std::env::current_dir()?.join(ignore_from)
+            };
+            let mut builder = GitignoreBuilder::new(&root);
+            if let Some(error) = builder.add(&resolved_ignore_from) {
+                return Err(CliError::Validation(format!(
+                    "failed to load ignore rules from '{}': {}",
+                    resolved_ignore_from.display(),
+                    error
+                )));
+            }
+            Some(builder.build().map_err(|error| {
+                CliError::Validation(format!(
+                    "failed to parse ignore rules from '{}': {}",
+                    resolved_ignore_from.display(),
+                    error
+                ))
+            })?)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            root,
+            explicit_paths,
+            gitignore,
+        })
+    }
+
+    fn should_ignore(&self, path: &Path, is_dir: bool) -> bool {
+        if path
+            .components()
+            .any(|component| component.as_os_str() == ".local")
+        {
+            return true;
+        }
+
+        if self.explicit_paths.iter().any(|ignore| path.starts_with(ignore)) {
+            return true;
+        }
+
+        self.gitignore
+            .as_ref()
+            .is_some_and(|gitignore| gitignore.matched_path_or_any_parents(path, is_dir).is_ignore())
+    }
+}
+
+#[derive(Clone)]
+struct CompileBatchGroup {
+    first_index: usize,
+    files: Vec<PathBuf>,
+}
+
+struct CompileEntryOutput {
+    input: PathBuf,
+    output: PathBuf,
+    project_root: Option<PathBuf>,
+}
+
+struct CompileBatchOutputs {
+    compiled_modules: usize,
+    entries: Vec<CompileEntryOutput>,
 }
 
 /// Lex command: tokenize a Sigil file
@@ -205,15 +298,182 @@ pub fn parse_command(file: &Path) -> Result<(), CliError> {
     Ok(())
 }
 
-/// Compile command: compile a Sigil file to TypeScript
-pub fn compile_command(
+fn is_sigil_source_file(path: &Path) -> bool {
+    path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("sigil")
+}
+
+fn walk_compile_directory(
+    dir: &Path,
+    ignore: &CompileDirectoryIgnore,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), CliError> {
+    let mut entries = fs::read_dir(dir)?
+        .collect::<Result<Vec<_>, std::io::Error>>()?
+        .into_iter()
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    entries.sort();
+
+    for path in entries {
+        let is_dir = path.is_dir();
+        if ignore.should_ignore(&path, is_dir) {
+            continue;
+        }
+
+        if is_dir {
+            walk_compile_directory(&path, ignore, files)?;
+        } else if is_sigil_source_file(&path) {
+            files.push(path);
+        }
+    }
+
+    Ok(())
+}
+
+fn collect_compile_targets(
+    path: &Path,
+    ignore_paths: &[PathBuf],
+    ignore_from: Option<&Path>,
+) -> Result<Vec<PathBuf>, CliError> {
+    if is_sigil_source_file(path) {
+        return Ok(vec![path.to_path_buf()]);
+    }
+
+    if path.is_file() {
+        return Err(CliError::Validation(format!(
+            "compile expects a .sigil file or directory, got '{}'",
+            path.display()
+        )));
+    }
+
+    let ignore = CompileDirectoryIgnore::new(path, ignore_paths, ignore_from)?;
+    let mut files = Vec::new();
+    walk_compile_directory(&ignore.root, &ignore, &mut files)?;
+    files.sort();
+    Ok(files)
+}
+
+fn group_compile_targets(files: &[PathBuf]) -> Result<Vec<CompileBatchGroup>, CliError> {
+    let mut project_buckets: HashMap<PathBuf, Vec<(usize, PathBuf, String)>> = HashMap::new();
+    let mut standalone_bucket: Vec<(usize, PathBuf, String)> = Vec::new();
+
+    for (index, file) in files.iter().enumerate() {
+        let module_key = entry_module_key(file)?;
+        if let Some(project) = get_project_config(file)? {
+            project_buckets
+                .entry(project.root.clone())
+                .or_default()
+                .push((index, file.clone(), module_key));
+        } else {
+            standalone_bucket.push((index, file.clone(), module_key));
+        }
+    }
+
+    let mut groups = Vec::new();
+
+    let mut project_roots = project_buckets.keys().cloned().collect::<Vec<_>>();
+    project_roots.sort();
+    for root in project_roots {
+        let mut bucket = project_buckets.remove(&root).unwrap_or_default();
+        bucket.sort_by(|a, b| a.1.cmp(&b.1));
+        let mut packed_groups: Vec<(CompileBatchGroup, HashSet<String>)> = Vec::new();
+        for (index, file, module_key) in bucket {
+            if let Some((group, seen_keys)) = packed_groups
+                .iter_mut()
+                .find(|(_, seen_keys)| !seen_keys.contains(&module_key))
+            {
+                group.files.push(file);
+                seen_keys.insert(module_key);
+            } else {
+                let mut seen_keys = HashSet::new();
+                seen_keys.insert(module_key);
+                packed_groups.push((
+                    CompileBatchGroup {
+                        first_index: index,
+                        files: vec![file],
+                    },
+                    seen_keys,
+                ));
+            }
+        }
+        groups.extend(packed_groups.into_iter().map(|(group, _)| group));
+    }
+
+    if !standalone_bucket.is_empty() {
+        standalone_bucket.sort_by(|a, b| a.1.cmp(&b.1));
+        groups.push(CompileBatchGroup {
+            first_index: standalone_bucket
+                .iter()
+                .map(|(index, _, _)| *index)
+                .min()
+                .unwrap_or(0),
+            files: standalone_bucket
+                .into_iter()
+                .map(|(_, file, _)| file)
+                .collect(),
+        });
+    }
+
+    groups.sort_by_key(|group| group.first_index);
+    for group in &mut groups {
+        group.files.sort();
+    }
+    Ok(groups)
+}
+
+fn compile_group(group: &CompileBatchGroup) -> Result<CompileBatchOutputs, CliError> {
+    let graph = ModuleGraph::build_many(&group.files)?;
+    let compiled_modules = graph.topo_order.len();
+    let entry_modules = group
+        .files
+        .iter()
+        .map(|file| {
+            let module_key = entry_module_key(file)?;
+            let module = graph.modules.get(&module_key).ok_or_else(|| {
+                CliError::Codegen(format!(
+                    "batch compile could not resolve entry module '{}'",
+                    file.display()
+                ))
+            })?;
+            Ok((
+                file.clone(),
+                module_key,
+                module.project.as_ref().map(|project| project.root.clone()),
+            ))
+        })
+        .collect::<Result<Vec<_>, CliError>>()?;
+
+    let compiled = compile_module_graph(graph, None)?;
+    let entries = entry_modules
+        .into_iter()
+        .map(|(input, module_id, project_root)| {
+            let output = compiled.module_outputs.get(&module_id).cloned().ok_or_else(|| {
+                CliError::Codegen(format!(
+                    "batch compile did not produce output for '{}'",
+                    input.display()
+                ))
+            })?;
+            Ok(CompileEntryOutput {
+                input,
+                output,
+                project_root,
+            })
+        })
+        .collect::<Result<Vec<_>, CliError>>()?;
+
+    Ok(CompileBatchOutputs {
+        compiled_modules,
+        entries,
+    })
+}
+
+fn compile_single_file_command(
     file: &Path,
     output: Option<&Path>,
     show_types: bool,
 ) -> Result<(), CliError> {
-    // Build module graph
     let graph = match ModuleGraph::build(file) {
-        Ok(g) => g,
+        Ok(graph) => graph,
         Err(ModuleGraphError::Validation(errors)) => {
             if let Some(first_error) = errors.first() {
                 let error_msg = first_error.to_string();
@@ -226,121 +486,53 @@ pub fn compile_command(
                     &error_msg,
                     json!({
                         "file": file.to_string_lossy(),
-                        "errors": errors.iter().map(|e| e.to_string()).collect::<Vec<_>>()
+                        "errors": errors.iter().map(|error| error.to_string()).collect::<Vec<_>>()
                     }),
                 );
             }
             return Err(ModuleGraphError::Validation(errors).into());
         }
-        Err(e) => return Err(e.into()),
+        Err(error) => return Err(error.into()),
     };
 
-    let mut compiled_modules = HashMap::new();
-    let mut compiled_schemes = HashMap::new();
-    let mut type_registries = HashMap::new();
-    let mut output_files = Vec::new();
-    let mut module_outputs: HashMap<String, PathBuf> = HashMap::new(); // Track module ID -> output path
-
-    // Compile modules in topological order
-    for module_id in &graph.topo_order {
-        let module = &graph.modules[module_id];
-
-        // Build imported namespaces from already-compiled dependencies
-        let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
-        let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
-        let imported_value_schemes = build_imported_value_schemes(&module.ast, &compiled_schemes);
-        let effect_catalog = load_project_effect_catalog_for(&module.file_path)?;
-
-        // Type check with cross-module context
-        let typecheck_result = type_check(
-            &module.ast,
-            &module.source,
-            Some(TypeCheckOptions {
-                effect_catalog,
-                imported_namespaces: Some(imported_namespaces),
-                imported_type_registries: Some(imported_type_regs.clone()),
-                imported_value_schemes: Some(imported_value_schemes),
-                source_file: Some(module.file_path.to_string_lossy().to_string()),
-            }),
-        )
-        .map_err(|error: TypeError| CliError::Type(format!("{}", error)))?;
-
-        validate_typed_canonical_form(
-            &typecheck_result.typed_program,
-            Some(module.file_path.to_string_lossy().as_ref()),
-        )
-            .map_err(|errors| CliError::Validation(format_validation_errors(&errors)))?;
-
-        // Determine output path
-        let output_path = if module_id == graph.topo_order.last().unwrap() && output.is_some() {
-            // Entry module with explicit output path
-            output.unwrap().to_path_buf()
-        } else {
-            // Use standard output path based on module ID
-            get_module_output_path(module)
-        };
-
-        // Generate TypeScript
-        let codegen_options = CodegenOptions {
-            module_id: Some(module_id.clone()),
-            source_file: Some(module.file_path.to_string_lossy().to_string()),
-            output_file: Some(output_path.to_string_lossy().to_string()),
-        };
-        let mut codegen = TypeScriptGenerator::new(codegen_options);
-        let ts_code = codegen
-            .generate(&typecheck_result.typed_program)
-            .map_err(|e| CliError::Codegen(format!("{}", e)))?;
-
-        // Create output directory
-        if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        // Write output file
-        fs::write(&output_path, ts_code)?;
-        output_files.push(output_path.clone());
-        module_outputs.insert(module_id.clone(), output_path);
-
-        // Track for dependents
-        compiled_schemes.insert(
-            module_id.clone(),
-            typecheck_result.declaration_schemes.clone(),
-        );
-        compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
-        type_registries.insert(
-            module_id.clone(),
-            extract_type_registry(&module.ast, &module.file_path, module_id),
-        );
-    }
-
-    // Find entry module output
-    let entry_output = output_files.last().unwrap();
-    let entry_module = graph.modules.get(graph.topo_order.last().unwrap()).unwrap();
-
-    let all_modules: Vec<serde_json::Value> = graph
+    let entry_module_id = graph.topo_order.last().unwrap().clone();
+    let entry_module = graph.modules.get(&entry_module_id).unwrap();
+    let all_module_sources = graph
         .topo_order
         .iter()
         .map(|module_id| {
-            let module = &graph.modules[module_id];
-            let output_file = module_outputs
-                .get(module_id)
-                .map(|p| p.to_string_lossy().to_string())
+            (
+                module_id.clone(),
+                graph.modules[module_id].file_path.to_string_lossy().to_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let project_json = entry_module.project.as_ref().map(|project| {
+        serde_json::json!({
+            "root": project.root.to_string_lossy(),
+            "layout": serde_json::to_value(&project.layout).unwrap_or(serde_json::json!({}))
+        })
+    });
+
+    let compiled = compile_module_graph(graph, output)?;
+    let entry_output = compiled.entry_output_path.clone();
+
+    let all_modules: Vec<serde_json::Value> = all_module_sources
+        .into_iter()
+        .map(|(module_id, source_file)| {
+            let output_file = compiled
+                .module_outputs
+                .get(&module_id)
+                .map(|path| path.to_string_lossy().to_string())
                 .unwrap_or_default();
 
             serde_json::json!({
                 "moduleId": module_id,
-                "sourceFile": module.file_path.to_string_lossy(),
+                "sourceFile": source_file,
                 "outputFile": output_file
             })
         })
         .collect();
-
-    let project_json = entry_module.project.as_ref().map(|proj| {
-        serde_json::json!({
-            "root": proj.root.to_string_lossy(),
-            "layout": serde_json::to_value(&proj.layout).unwrap_or(serde_json::json!({}))
-        })
-    });
 
     let output_json = serde_json::json!({
         "formatVersion": 1,
@@ -363,6 +555,113 @@ pub fn compile_command(
     println!("{}", serde_json::to_string(&output_json).unwrap());
 
     Ok(())
+}
+
+fn compile_directory_command(
+    path: &Path,
+    ignore_paths: &[PathBuf],
+    ignore_from: Option<&Path>,
+) -> Result<(), CliError> {
+    let start_time = Instant::now();
+    let files = collect_compile_targets(path, ignore_paths, ignore_from)?;
+    let groups = group_compile_targets(&files)?;
+    let group_count = groups.len();
+    let file_order = files
+        .iter()
+        .enumerate()
+        .map(|(index, file)| (file.clone(), index))
+        .collect::<HashMap<_, _>>();
+
+    let mut compiled_file_count = 0usize;
+    let mut compiled_module_count = 0usize;
+    let mut compiled_entries = Vec::new();
+
+    for group in groups {
+        let first_file = group.files.first().cloned();
+        let batch = match compile_group(&group) {
+            Ok(batch) => batch,
+            Err(error) => {
+                let message = error.to_string();
+                let error_code = extract_error_code(&message);
+                output_json_error(
+                    "sigilc compile",
+                    "codegen",
+                    &error_code,
+                    &message,
+                    json!({
+                        "input": path.to_string_lossy(),
+                        "file": first_file.map(|file| file.to_string_lossy().to_string()),
+                        "discovered": files.len(),
+                        "compiled": compiled_file_count,
+                        "durationMs": start_time.elapsed().as_millis()
+                    }),
+                );
+                return Err(error);
+            }
+        };
+
+        compiled_module_count += batch.compiled_modules;
+        compiled_file_count += batch.entries.len();
+        compiled_entries.extend(batch.entries);
+    }
+
+    compiled_entries.sort_by_key(|entry| {
+        file_order
+            .get(&entry.input)
+            .copied()
+            .unwrap_or(usize::MAX)
+    });
+    let file_results = compiled_entries
+        .into_iter()
+        .map(|entry| {
+            serde_json::json!({
+                "input": entry.input.to_string_lossy(),
+                "rootTs": entry.output.to_string_lossy(),
+                "projectRoot": entry.project_root.map(|root| root.to_string_lossy().to_string())
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let output_json = serde_json::json!({
+        "formatVersion": 1,
+        "command": "sigilc compile",
+        "ok": true,
+        "phase": "codegen",
+        "data": {
+            "input": path.to_string_lossy(),
+            "summary": {
+                "discovered": files.len(),
+                "compiled": compiled_file_count,
+                "groups": group_count,
+                "modules": compiled_module_count,
+                "durationMs": start_time.elapsed().as_millis()
+            },
+            "files": file_results
+        }
+    });
+    println!("{}", serde_json::to_string(&output_json).unwrap());
+
+    Ok(())
+}
+
+/// Compile command: compile a Sigil file to TypeScript
+pub fn compile_command(
+    path: &Path,
+    output: Option<&Path>,
+    show_types: bool,
+    ignore_paths: &[PathBuf],
+    ignore_from: Option<&Path>,
+) -> Result<(), CliError> {
+    if path.is_dir() {
+        if output.is_some() {
+            return Err(CliError::Validation(
+                "compile -o is only valid when compiling a single file".to_string(),
+            ));
+        }
+        compile_directory_command(path, ignore_paths, ignore_from)
+    } else {
+        compile_single_file_command(path, output, show_types)
+    }
 }
 
 /// Run command: compile and execute a Sigil file
@@ -776,6 +1075,7 @@ struct CoverageObservation {
 
 struct CompiledGraphOutputs {
     entry_output_path: PathBuf,
+    module_outputs: HashMap<String, PathBuf>,
     coverage_targets: Vec<CoverageTarget>,
 }
 
@@ -880,6 +1180,7 @@ fn compile_module_graph(
 
     Ok(CompiledGraphOutputs {
         entry_output_path,
+        module_outputs,
         coverage_targets,
     })
 }

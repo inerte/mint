@@ -1,9 +1,0 @@
-t MkdirOptions={recursive:Bool}
-
-e fs::promises:{mkdir:λ(String,MkdirOptions)=>Unit}
-
-c opts=({recursive:true}:MkdirOptions)
-
-λensureDir(dir:String)=>Unit=fs::promises.mkdir(dir,opts)
-
-λmain()=>Unit=()

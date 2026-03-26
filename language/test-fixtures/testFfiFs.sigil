@@ -1,3 +1,0 @@
-e fs::promises
-
-λmain()=>Unit=fs::promises.writeFile("test.txt","Hello from Sigil!")

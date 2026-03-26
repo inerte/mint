@@ -69,7 +69,7 @@ test "writes log" =>!Log {
 
 Tests may also derive a local world:
 
-```sigil program language/test-fixtures/tests/testWorld.sigil
+```sigil program language/tests/testWorld.sigil
 λmain()=>Unit=()
 
 test "worlds capture logs" =>!Log world {
@@ -105,7 +105,7 @@ Canonical note:
 
 Example:
 
-```sigil program language/test-fixtures/tests/testWorld.sigil
+```sigil program language/tests/testWorld.sigil
 λmain()=>Unit=()
 
 test "captured log contains line" =>!Log world {

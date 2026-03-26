@@ -1,3 +1,0 @@
-λmain()=>Unit=()
-
-λuseOption()=>Option[Int]=Some(42)

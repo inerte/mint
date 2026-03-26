@@ -1,9 +1,0 @@
-t State={items:[Int],names:[String]}
-
-λemptyState()=>State={items:[],names:[]}
-
-λinitialState()=>State={items:[1,2,3],names:["a","b"]}
-
-λmain()=>Unit=()
-
-λpartialState()=>State={items:[],names:["test"]}

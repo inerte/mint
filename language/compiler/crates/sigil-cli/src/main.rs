@@ -43,16 +43,24 @@ enum Command {
 
     /// Compile a Sigil file to TypeScript
     Compile {
-        /// Input .sigil file
-        file: PathBuf,
+        /// Input .sigil file or directory
+        path: PathBuf,
 
-        /// Output file path
+        /// Output file path (single-file compile only)
         #[arg(short = 'o')]
         output: Option<PathBuf>,
 
         /// Show inferred types in output
         #[arg(long)]
         show_types: bool,
+
+        /// Ignore an additional path while compiling a directory
+        #[arg(long)]
+        ignore: Vec<PathBuf>,
+
+        /// Load gitignore-style ignore rules from a file while compiling a directory
+        #[arg(long = "ignore-from")]
+        ignore_from: Option<PathBuf>,
     },
 
     /// Compile and run a Sigil file
@@ -103,10 +111,18 @@ fn main() {
         Command::Lex { file } => lex_command(&file),
         Command::Parse { file } => parse_command(&file),
         Command::Compile {
-            file,
+            path,
             output,
             show_types,
-        } => compile_command(&file, output.as_deref(), show_types),
+            ignore,
+            ignore_from,
+        } => compile_command(
+            &path,
+            output.as_deref(),
+            show_types,
+            &ignore,
+            ignore_from.as_deref(),
+        ),
         Command::Run { file, env, args } => run_command(&file, env.as_deref(), &args),
         Command::Test { path, env, r#match } => {
             test_command(&path, env.as_deref(), r#match.as_deref())

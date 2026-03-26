@@ -1,0 +1,5 @@
+λmain()=>Unit=()
+
+test "adds numbers" {
+  1+1=2
+}

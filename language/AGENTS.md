@@ -21,7 +21,7 @@ This file is the local authority for:
 - `compiler/` — lexer, parser, validator, typechecker, codegen, CLI
 - `stdlib/` — canonical Sigil modules
 - `examples/` — runnable/demo Sigil snippets
-- `test-fixtures/` — compile/run regression fixtures
+- `tests/` — language-level Sigil tests exercised by `sigil test`
 - `docs/` and `spec/` — syntax/specification/reference docs
 - `tools/` — LSP / VS Code extension (language tooling)
 
@@ -53,7 +53,7 @@ If you change syntax, audit all impacted layers:
 - codegen expectations/comments
 - CLI/help/error messages
 - docs/spec examples
-- runnable examples/tests/fixtures
+- runnable examples/tests
 - editor grammar (`tools/vscode-extension`)
 
 Current canonical boolean operators:
@@ -187,6 +187,7 @@ When adding or relying on stdlib functions:
 
 Before assuming syntax is valid, verify with:
 - `cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile <file>`
+- `cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile <dir> --ignore .git --ignore-from .gitignore`
 - parser/validator/typechecker tests
 
 If docs disagree with implementation, either:
@@ -199,7 +200,7 @@ For non-trivial language changes (syntax, semantics, codegen contracts):
 
 1. Confirm current behavior with a minimal failing/working example
 2. Implement frontend/compiler changes
-3. Update fixtures/examples that exercise the changed syntax
+3. Update examples/tests that exercise the changed syntax
 4. Update docs/specs in the same change
 5. Run targeted tests/compiles
 6. Summarize unrelated failures explicitly
@@ -216,6 +217,12 @@ Compile one Sigil file:
 
 ```bash
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile language/examples/listOperations.sigil
+```
+
+Compile a directory recursively:
+
+```bash
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile language/examples --ignore .git --ignore-from .gitignore
 ```
 
 Run one Sigil file:

@@ -177,8 +177,9 @@ function getValidationPlan(relPath, projectDir) {
     return plan;
   }
 
-  if (relPath.startsWith('language/test-fixtures/')) {
-    plan.description = 'Test fixture updated';
+  if (relPath.startsWith('language/tests/') && relPath.endsWith('.sigil')) {
+    const testName = path.basename(relPath, '.sigil');
+    plan.description = 'Language test updated';
     plan.checks.push({
       label: 'Building compiler',
       cmd: 'cargo',
@@ -186,10 +187,10 @@ function getValidationPlan(relPath, projectDir) {
       critical: true,
     });
     plan.checks.push({
-      label: 'Checking fixture compiles/fails as expected',
+      label: `Running ${testName}`,
       cmd: COMPILER_BINARY,
-      args: ['compile', relPath],
-      allowFailure: true,
+      args: ['test', relPath],
+      critical: true,
     });
     plan.checks.push({
       label: 'Running canonical form tests',
@@ -299,7 +300,7 @@ async function main() {
     const passed = result.status === 0;
     if (!passed) {
       if (check.allowFailure) {
-        console.log(`⚠️  ${check.label} - Failed (expected for some fixtures)`);
+        console.log(`⚠️  ${check.label} - Failed (allowed for this check)`);
       } else {
         console.log(`❌ ${check.label} - FAILED`);
         allPassed = false;

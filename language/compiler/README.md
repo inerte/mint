@@ -31,6 +31,9 @@ cargo build --manifest-path language/compiler/Cargo.toml -p sigil-cli
 # Compile a file
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile projects/algorithms/src/fibonacci.sigil
 
+# Compile a directory recursively
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile projects/algorithms --ignore .git --ignore-from .gitignore
+
 # Run a file
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run projects/algorithms/src/fibonacci.sigil
 
@@ -45,6 +48,7 @@ For automation after the build:
 
 ```bash
 language/compiler/target/debug/sigil compile projects/algorithms/src/fibonacci.sigil
+language/compiler/target/debug/sigil compile . --ignore .git --ignore-from .gitignore
 ```
 
 ## Notes

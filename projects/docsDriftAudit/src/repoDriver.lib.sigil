@@ -1,4 +1,4 @@
-λbatchSize()=>Int=32
+λbatchSize()=>Int=128
 
 λcommand(args:[String],root:String)=>§process.Command=§process.withCwd(§process.command([§path.join(root,"language/compiler/target/debug/sigil"),"run"]⧺args),§path.join(root,"projects/docsDriftAudit"))
 

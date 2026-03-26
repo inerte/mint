@@ -1,3 +1,0 @@
-e console
-
-λmain()=>Unit=console.log("Hello from Sigil FFI!")

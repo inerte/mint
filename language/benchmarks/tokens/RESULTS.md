@@ -7,11 +7,11 @@
 
 ## Executive Summary
 
-Across the current published corpus, Sigil uses **2000 tokens** where the
+Across the current published corpus, Sigil uses **2004 tokens** where the
 TypeScript baseline uses **2541**. That is:
 
-- **21.3% fewer tokens than TypeScript**
-- **1.271x TypeScript efficiency** when measured as `TypeScript / Sigil`
+- **21.1% fewer tokens than TypeScript**
+- **1.268x TypeScript efficiency** when measured as `TypeScript / Sigil`
 - **34.4% fewer characters** than the same TypeScript corpus
 
 Python is still slightly smaller than the TypeScript baseline in this mixed
@@ -25,8 +25,8 @@ corpus:
 | Subcorpus | Cases | Sigil | TypeScript | Python | TS / Sigil | Sigil Fewer Tokens vs TS |
 |-----------|------:|------:|-----------:|-------:|-----------:|-------------------------:|
 | Algorithms | 16 | 1732 | 2087 | 2113 | 1.205x | 17.0% |
-| Language-shaped | 4 | 268 | 454 | 392 | 1.694x | 41.0% |
-| **Combined** | **20** | **2000** | **2541** | **2505** | **1.271x** | **21.3%** |
+| Language-shaped | 4 | 272 | 454 | 392 | 1.669x | 40.1% |
+| **Combined** | **20** | **2004** | **2541** | **2505** | **1.268x** | **21.1%** |
 
 ## Per-Case Results
 
@@ -51,9 +51,9 @@ corpus:
 | topology-http-client | language-shaped | 55 | 70 | 71 | 1.273x | 21.4% |
 | topology-http-test-world | language-shaped | 59 | 117 | 87 | 1.983x | 49.6% |
 | word-frequency | algorithm | 188 | 210 | 223 | 1.117x | 10.5% |
-| world-log-test | language-shaped | 93 | 87 | 82 | 0.935x | -6.9% |
-| **Average** | **mixed** | **100.0** | **127.1** | **125.3** | **1.271x** | **21.3%** |
-| **Total** | **mixed** | **2000** | **2541** | **2505** | **1.271x** | **21.3%** |
+| world-log-test | language-shaped | 97 | 87 | 82 | 0.897x | -11.5% |
+| **Average** | **mixed** | **100.2** | **127.1** | **125.3** | **1.268x** | **21.1%** |
+| **Total** | **mixed** | **2004** | **2541** | **2505** | **1.268x** | **21.1%** |
 
 ## Current Takeaways
 
@@ -61,7 +61,7 @@ corpus:
 
 The earlier import-based surface still showed a healthy advantage, but the
 current no-import, root-sigil surface moves the mixed published corpus to
-**21.3% fewer tokens than TypeScript**.
+**21.1% fewer tokens than TypeScript**.
 
 This is the more relevant number now because it reflects the actual canonical
 language surface.
@@ -71,7 +71,7 @@ language surface.
 The current TypeScript wins are:
 
 - `fibonacci`: **3.3% fewer tokens** in TypeScript
-- `world-log-test`: **6.9% fewer tokens** in TypeScript
+- `world-log-test`: **11.5% fewer tokens** in TypeScript
 
 Everything else in the active published corpus favors Sigil.
 
@@ -81,7 +81,7 @@ The most interesting change in the refreshed corpus is the language-shaped
 subtotal:
 
 - algorithms: **17.0% fewer**
-- language-shaped: **41.0% fewer**
+- language-shaped: **40.1% fewer**
 
 That means the current syntax is not only compact on small algorithmic examples.
 It is especially compact on the Sigil-specific surfaces that matter for the
@@ -115,7 +115,7 @@ without changing the overall conclusion.
 The current benchmark story is:
 
 - Sigil is more token-efficient than TypeScript overall on the current mixed corpus.
-- The published gap is now **21.3%**, with explicit algorithm vs language-shaped subtotals.
+- The published gap is now **21.1%**, with explicit algorithm vs language-shaped subtotals.
 - The current root-sigil surface is materially better than the older import-based surface.
 - Sigil-specific runtime/testing/config code is now one of the strongest parts of the benchmark.
 - Python stays close to the TypeScript baseline overall.

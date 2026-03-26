@@ -1,5 +1,0 @@
-e fs::promises:{readdir:λ(String)=>[String]}
-
-λcountFiles(dir:String)=>Int=#(fs::promises.readdir(dir):[String])
-
-λmain()=>Unit=()

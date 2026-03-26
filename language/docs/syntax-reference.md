@@ -484,7 +484,7 @@ plumbing:
 
 Tests are top-level declarations and must live under `tests/`:
 
-```sigil program language/test-fixtures/tests/addsNumbers.sigil
+```sigil program language/tests/addsNumbers.sigil
 λmain()=>Unit=()
 
 test "adds numbers" {
@@ -505,7 +505,7 @@ test "writes log" =>!Log {
 
 Tests may also derive the active world locally:
 
-```sigil program language/test-fixtures/tests/testWorld.sigil
+```sigil program language/tests/testWorld.sigil
 λmain()=>Unit=()
 
 test "captured log contains line" =>!Log world {

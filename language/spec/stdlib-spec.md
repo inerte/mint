@@ -158,6 +158,20 @@ t DivMod={quotient:Int,remainder:Int}
 λsign(x:Int)=>Int
 ```
 
+### Implemented `§random` Functions
+
+```sigil decl §random
+λintBetween(max:Int,min:Int)=>!Random Int
+λpick[T](items:[T])=>!Random Option[T]
+λshuffle[T](items:[T])=>!Random [T]
+```
+
+Semantics:
+- `intBetween` is inclusive and order-insensitive over its two bounds
+- `pick([])` returns `None()`
+- `shuffle` returns a full permutation of the input list
+- runtime behavior comes from the active world's `random` entry
+
 ## String Operations
 
 ```sigil decl §string
@@ -627,6 +641,7 @@ Effects are tracked at type level:
 - `!Http`
 - `!Log`
 - `!Process`
+- `!Random`
 - `!Tcp`
 - `!Timer`
 - Pure functions have no effect annotation
@@ -638,7 +653,6 @@ Projects may define reusable multi-effect aliases in `src/effects.lib.sigil`.
 Planned for future stdlib versions:
 
 - **§crypto** - Cryptographic functions
-- **§random** - Random number generation
 - **§stream** - Streaming I/O
 - **§concurrency** - Threads and channels
 

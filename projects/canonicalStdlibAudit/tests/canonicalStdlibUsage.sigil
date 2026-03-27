@@ -49,7 +49,7 @@ test "parse tracked files rejects failed git output" {
 }
 
 test "git tracked files surfaces git failure" =>!Process world {
-  c process=(†process.fixture([†process.rule(["git","ls-files","*.sigil","*.lib.sigil"],None(),{code:1,stderr:"boom",stdout:""})]):†process.ProcessEntry)
+  c process=(†process.fixture([†process.rule(["git","ls-files","--cached","--others","--exclude-standard","*.sigil","*.lib.sigil"],None(),{code:1,stderr:"boom",stdout:""})]):†process.ProcessEntry)
 } {
   match •canonicalStdlibUsage.gitTrackedFiles(){
     Ok(_)=>false|

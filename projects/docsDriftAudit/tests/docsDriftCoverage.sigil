@@ -291,7 +291,7 @@ test "git rev parse failure propagates through wrappers" =>!AuditIo world {
 }
 
 test "git list failures surface from process fixtures" =>!Process world {
-  c process=(†process.fixture([†process.rule(["git","ls-files","*.md"],None(),{code:1,stderr:"md boom",stdout:""}),†process.rule(["git","ls-files","language/stdlib/*.lib.sigil"],None(),{code:1,stderr:"stdlib boom",stdout:""}),†process.rule(["git","ls-files","language/stdlib-tests/tests/*.sigil"],None(),{code:1,stderr:"tests boom",stdout:""})]):†process.ProcessEntry)
+  c process=(†process.fixture([†process.rule(["git","ls-files","--cached","--others","--exclude-standard","*.md"],None(),{code:1,stderr:"md boom",stdout:""}),†process.rule(["git","ls-files","--cached","--others","--exclude-standard","language/stdlib/*.lib.sigil"],None(),{code:1,stderr:"stdlib boom",stdout:""}),†process.rule(["git","ls-files","--cached","--others","--exclude-standard","language/stdlib-tests/tests/*.sigil"],None(),{code:1,stderr:"tests boom",stdout:""})]):†process.ProcessEntry)
 } {
   allOk([match •docsDrift.gitTrackedMarkdown(){
     Ok(_)=>false|
@@ -317,9 +317,9 @@ test "print issues writes formatted lines to captured log" =>!Log world {
 
 test "repo style checks succeed under a controlled world" =>!AuditIo world {
   c process=(†process.fixture([†process.rule(["git","rev-parse","--show-toplevel"],None(),{code:0,stderr:"",stdout:"/Users/jnobreganetto/Documents/GitHub/ai-pl
-"}),†process.rule(["git","ls-files","*.md"],None(),{code:0,stderr:"",stdout:".local/docsDriftAuditCoverage/runAll/sample.md
-"}),†process.rule(["git","ls-files","language/stdlib/*.lib.sigil"],None(),{code:0,stderr:"",stdout:"language/stdlib/string.lib.sigil
-"}),†process.rule(["git","ls-files","language/stdlib-tests/tests/*.sigil"],None(),{code:0,stderr:"",stdout:".local/docsDriftAuditCoverage/runAll/stdlibTests.sigil
+"}),†process.rule(["git","ls-files","--cached","--others","--exclude-standard","*.md"],None(),{code:0,stderr:"",stdout:".local/docsDriftAuditCoverage/runAll/sample.md
+"}),†process.rule(["git","ls-files","--cached","--others","--exclude-standard","language/stdlib/*.lib.sigil"],None(),{code:0,stderr:"",stdout:"language/stdlib/string.lib.sigil
+"}),†process.rule(["git","ls-files","--cached","--others","--exclude-standard","language/stdlib-tests/tests/*.sigil"],None(),{code:0,stderr:"",stdout:".local/docsDriftAuditCoverage/runAll/stdlibTests.sigil
 "}),†process.rule([§path.join("/Users/jnobreganetto/Documents/GitHub/ai-pl","language/compiler/target/debug/sigil"),"parse",§path.join("/Users/jnobreganetto/Documents/GitHub/ai-pl","language/stdlib/string.lib.sigil")],Some("/Users/jnobreganetto/Documents/GitHub/ai-pl"),{code:0,stderr:"",stdout:"{\"type\":\"FunctionDecl\",\"name\":\"trim\"}"})]):†process.ProcessEntry)
 } {
   l _=(§file.makeDirs(".local/docsDriftAuditCoverage/runAll"):Unit);

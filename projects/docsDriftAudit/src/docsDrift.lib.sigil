@@ -98,11 +98,11 @@
   }
 }
 
-λgitTrackedMarkdown()=>!Process Result[[String],String]=parseTrackedFiles(§process.run(§process.command(["git","ls-files","*.md"])))
+λgitTrackedMarkdown()=>!Process Result[[String],String]=parseTrackedFiles(§process.run(§process.command(["git","ls-files","--cached","--others","--exclude-standard","*.md"])))
 
-λgitTrackedStdlib()=>!Process Result[[String],String]=parseTrackedFiles(§process.run(§process.command(["git","ls-files","language/stdlib/*.lib.sigil"])))
+λgitTrackedStdlib()=>!Process Result[[String],String]=parseTrackedFiles(§process.run(§process.command(["git","ls-files","--cached","--others","--exclude-standard","language/stdlib/*.lib.sigil"])))
 
-λgitTrackedStdlibTests()=>!Process Result[[String],String]=parseTrackedFiles(§process.run(§process.command(["git","ls-files","language/stdlib-tests/tests/*.sigil"])))
+λgitTrackedStdlibTests()=>!Process Result[[String],String]=parseTrackedFiles(§process.run(§process.command(["git","ls-files","--cached","--others","--exclude-standard","language/stdlib-tests/tests/*.sigil"])))
 
 λhasTopLevelPrefix(lines:[String],prefix:String)=>Bool match lines{
   []=>false|

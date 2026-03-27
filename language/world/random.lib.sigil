@@ -1,0 +1,7 @@
+t RandomEntry=FixtureRandom([Int])|RealRandom()|SeededRandom(Int)
+
+λfixture(draws:[Int])=>RandomEntry=FixtureRandom(draws)
+
+λreal()=>RandomEntry=RealRandom()
+
+λseeded(seed:Int)=>RandomEntry=SeededRandom(seed)

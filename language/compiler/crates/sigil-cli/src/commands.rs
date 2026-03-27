@@ -1406,7 +1406,7 @@ function __sigil_runtime_read_world(configExports) {{
   if (!world || typeof world !== 'object') {{
     __sigil_runtime_fail("{invalid_config}", "config module must export a 'world' value");
   }}
-  for (const field of ['clock', 'fs', 'http', 'log', 'process', 'tcp', 'timer']) {{
+  for (const field of ['clock', 'fs', 'http', 'log', 'process', 'random', 'tcp', 'timer']) {{
     if (!(field in world)) {{
       __sigil_runtime_fail("{invalid_config}", `world is missing '${{field}}'`);
     }}

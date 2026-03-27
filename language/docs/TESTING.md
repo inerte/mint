@@ -101,7 +101,7 @@ Instead:
 
 - `config/<env>.lib.sigil` exports the baseline `world`
 - each `test` may derive that world locally with `world { ... }`
-- `†...` builds world entries for `Clock`, `Fs`, `Http`, `Log`, `Process`, `Tcp`, and `Timer`
+- `†...` builds world entries for `Clock`, `Fs`, `Http`, `Log`, `Process`, `Random`, `Tcp`, and `Timer`
 - `※observe::...` exposes raw traces from the active test world
 - `※check::...` exposes Bool-returning helpers over those traces
 

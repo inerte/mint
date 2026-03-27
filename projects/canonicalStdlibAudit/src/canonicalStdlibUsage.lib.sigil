@@ -13,7 +13,7 @@
   }
 }
 
-λgitTrackedFiles()=>!Process Result[[String],String]=parseTrackedFiles(§process.run(§process.command(["git","ls-files","*.sigil","*.lib.sigil"])))
+λgitTrackedFiles()=>!Process Result[[String],String]=parseTrackedFiles(§process.run(§process.command(["git","ls-files","--cached","--others","--exclude-standard","*.sigil","*.lib.sigil"])))
 
 λignorePath(path:String)=>Bool=§string.startsWith("language/stdlib/",path)
 

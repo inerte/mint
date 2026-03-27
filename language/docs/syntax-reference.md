@@ -131,6 +131,7 @@ The built-in primitive effects are:
 - `Http`
 - `Log`
 - `Process`
+- `Random`
 - `Tcp`
 - `Timer`
 

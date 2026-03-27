@@ -92,7 +92,7 @@ Baseline world:
 Test-local derivation:
 
 - `test ... world { ... } { ... }` overlays entries onto the selected env world
-- singleton entries such as `†clock.*` or `†log.*` replace that kind
+- singleton entries such as `†clock.*`, `†log.*`, or `†random.*` replace that kind
 - topology-indexed `†http.*` and `†tcp.*` replace by dependency handle
 
 Observation surface:

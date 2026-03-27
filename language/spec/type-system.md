@@ -173,6 +173,7 @@ Sigil ships with primitive effects:
 - `Http`
 - `Log`
 - `Process`
+- `Random`
 - `Tcp`
 - `Timer`
 

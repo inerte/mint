@@ -1,0 +1,9 @@
+λdescribePick(picked:Option[String])=>String match picked{
+  None()=>"picked none"|
+  Some(name)=>"picked "++name
+}
+
+λmain()=>!Random String={
+  l deck=(§random.shuffle(["orc","slime","bat"]):[String]);
+  describePick(§random.pick(deck))
+}

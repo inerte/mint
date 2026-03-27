@@ -15,6 +15,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ String predicates (prefix/suffix checking) - `stdlib/string`
 - ✅ File system operations - `stdlib/file`
 - ✅ Process execution for harnesses and tooling - `stdlib/process`
+- ✅ Random number generation and collection helpers - `stdlib/random`
 - ✅ Regular-expression compile/test/search - `stdlib/regex`
 - ✅ HTTP and TCP clients and servers - `stdlib/httpClient`, `stdlib/httpServer`, `stdlib/tcpClient`, `stdlib/tcpServer`
 - ✅ Runtime dependency topology - `stdlib/topology`
@@ -90,7 +91,7 @@ Sigil uses file-based visibility:
 
 There is no `export` keyword.
 
-## File, Path, Process, JSON, Time, and URL
+## File, Path, Process, Random, JSON, Time, and URL
 
 `§file` exposes canonical UTF-8 filesystem helpers:
 
@@ -140,6 +141,25 @@ The canonical process surface is:
 
 Commands are argv-based only. Non-zero exit status is returned in
 `ProcessResult.code`; it is not a separate failure channel.
+
+`§random` exposes the canonical runtime random surface:
+
+```sigil program
+λmain()=>!Random Unit={
+  l _=(§random.intBetween(6,1):Int);
+  l deck=(§random.shuffle(["orc","slime","bat"]):[String]);
+  l _=(§random.pick(deck):Option[String]);
+  ()
+}
+```
+
+The canonical random surface is:
+- `intBetween`
+- `pick`
+- `shuffle`
+
+Randomness is world-driven through `†random.real()`, `†random.seeded(seed)`,
+and `†random.fixture(draws)`.
 
 `§regex` exposes a small JavaScript-backed regular-expression surface:
 

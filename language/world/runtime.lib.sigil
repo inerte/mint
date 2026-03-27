@@ -1,3 +1,3 @@
-t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
+t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
 
-λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World={clock:clock,fs:fs,http:http,log:log,process:process,tcp:tcp,timer:timer}
+λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World={clock:clock,fs:fs,http:http,log:log,process:process,random:random,tcp:tcp,timer:timer}

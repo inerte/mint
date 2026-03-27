@@ -1,7 +1,9 @@
 use sigil_ast::{Declaration, EffectDecl, Program};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-pub const PRIMITIVE_EFFECTS: [&str; 7] = ["Clock", "Fs", "Http", "Log", "Process", "Tcp", "Timer"];
+pub const PRIMITIVE_EFFECTS: [&str; 8] = [
+    "Clock", "Fs", "Http", "Log", "Process", "Random", "Tcp", "Timer",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectAlias {

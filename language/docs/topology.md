@@ -70,7 +70,7 @@ Those belong in config.
 Each declared environment gets one config module exporting `world`:
 
 ```sigil module projects/topology-http/config/test.lib.sigil
-c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy("http://127.0.0.1:45110",•topology.mailerApi)],†log.capture(),†process.deny(),[],†timer.virtual()):†runtime.World)
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy("http://127.0.0.1:45110",•topology.mailerApi)],†log.capture(),†process.deny(),†random.seeded(1337),[],†timer.virtual()):†runtime.World)
 ```
 
 Production-style config can read env vars, but only there:
@@ -78,7 +78,7 @@ Production-style config can read env vars, but only there:
 ```sigil module projects/topology-http/config/prod.lib.sigil
 e process
 
-c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy((process.env.mailerApiUrl:String),•topology.mailerApi)],†log.stdout(),†process.real(),[],†timer.real()):†runtime.World)
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy((process.env.mailerApiUrl:String),•topology.mailerApi)],†log.stdout(),†process.real(),†random.real(),[],†timer.real()):†runtime.World)
 ```
 
 ## Application Code Uses Handles, Not Endpoints

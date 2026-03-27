@@ -1,11 +1,11 @@
 # Dungeon Random Rooms (Sigil Project)
 
-Pure-Sigil ASCII dungeon generator (deterministic first pass).
+Pure-Sigil ASCII dungeon generator using `§random`.
 
 Current stage:
-- fixed rooms and corridors
+- random room generation with canonical `!Random` effects
+- fixed corridor layout between generated rooms
 - recursive rendering (`tileAt(x,y)` model)
-- no randomness yet
 
 Run from repo root:
 

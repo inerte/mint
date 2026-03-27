@@ -41,9 +41,9 @@ t TcpServiceDependency=TcpServiceDependency(String)
 `†runtime` and world entry roots define the canonical env surface:
 
 ```sigil decl †runtime
-t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
+t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
 
-λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World
+λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World
 ```
 
 ## Compile-Time Rules

@@ -163,6 +163,7 @@ effects:
 - `Http`
 - `Log`
 - `Process`
+- `Random`
 - `Tcp`
 - `Timer`
 

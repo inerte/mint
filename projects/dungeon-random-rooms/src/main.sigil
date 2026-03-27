@@ -2,8 +2,6 @@ e console:{log:λ(String)=>!Log Unit}
 
 c height=(18:Int)
 
-c seed0=(1337:Int)
-
 c width=(48:Int)
 
 λcenterX(room:µRoom)=>Int=room.x+halfFloor(room.w)
@@ -32,12 +30,12 @@ c width=(48:Int)
 
 λisPlayer(world:µWorld,x:Int,y:Int)=>Bool=x=centerX(world.room1) and y=centerY(world.room1)
 
-λmain()=>!Log Unit=console.log(renderRows(makeWorld(seed0),0))
+λmain()=>!Log!Random Unit=console.log(renderRows(makeWorld(),0))
 
-λmakeWorld(seed:Int)=>µWorld={
-  l r1=(randRoomInZone({seed:seed},6,13,2,2):µRoomRoll);
-  l r2=(randRoomInZone(r1.rng,7,14,18,2):µRoomRoll);
-  {room1:r1.room,room2:r2.room,room3:(randRoomInZone(r2.rng,6,12,32,9):µRoomRoll).room}
+λmakeWorld()=>!Random µWorld={
+  l room1=(randRoomInZone(6,13,2,2):µRoom);
+  l room2=(randRoomInZone(7,14,18,2):µRoom);
+  {room1:room1,room2:room2,room3:(randRoomInZone(6,12,32,9):µRoom)}
 }
 
 λmax2(a:Int,b:Int)=>Int match a>b{
@@ -50,19 +48,11 @@ c width=(48:Int)
   _=>b
 }
 
-λnextRng(rng:µRng)=>µRng={seed:rng.seed*48271%2147483647}
-
-λrandInt(max:Int,min:Int,rng:µRng)=>µIntRoll={
-  l next=(nextRng(rng):µRng);
-  {rng:next,value:(min+next.seed%(max-min+1):Int)}
-}
-
-λrandRoomInZone(rng:µRng,zh:Int,zw:Int,zx:Int,zy:Int)=>µRoomRoll={
-  l wRoll=(randInt(zw-1,5,rng):µIntRoll);
-  l hRoll=(randInt(zh-1,4,wRoll.rng):µIntRoll);
-  l xRoll=(randInt(zx+zw-wRoll.value,zx,hRoll.rng):µIntRoll);
-  l yRoll=(randInt(zy+zh-hRoll.value,zy,xRoll.rng):µIntRoll);
-  {rng:yRoll.rng,room:{h:hRoll.value,w:wRoll.value,x:xRoll.value,y:yRoll.value}}
+λrandRoomInZone(zh:Int,zw:Int,zx:Int,zy:Int)=>!Random µRoom={
+  l w=(§random.intBetween(zw-1,5):Int);
+  l h=(§random.intBetween(zh-1,4):Int);
+  l x=(§random.intBetween(zx+zw-w,zx):Int);
+  {h:h,w:w,x:x,y:(§random.intBetween(zy+zh-h,zy):Int)}
 }
 
 λrenderRow(world:µWorld,x:Int,y:Int)=>String match width-x{

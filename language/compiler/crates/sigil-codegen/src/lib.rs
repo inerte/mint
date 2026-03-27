@@ -41,6 +41,7 @@ function __sigil_world_host_template() {
     http: Object.create(null),
     log: { kind: 'stdout' },
     process: { kind: 'real' },
+    random: { kind: 'real' },
     tcp: Object.create(null),
     timer: { kind: 'real' }
   };
@@ -112,6 +113,42 @@ function __sigil_world_parse_process(value) {
   }
   if (value?.__tag === 'RealProcess') return { kind: 'real' };
   __sigil_world_error('world.process must be world::process.ProcessEntry');
+}
+function __sigil_world_random_normalize_seed(seed) {
+  const modulus = 2147483647;
+  let value = Math.trunc(Number(seed));
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  value %= modulus;
+  if (value <= 0) {
+    value += modulus - 1;
+  }
+  return value;
+}
+function __sigil_world_parse_random(value) {
+  if (value?.__tag === 'FixtureRandom') {
+    return {
+      kind: 'fixture',
+      draws: Array.isArray(value.__fields?.[0])
+        ? value.__fields[0].map((item) => {
+            const normalized = Math.trunc(Number(item));
+            return Number.isFinite(normalized) ? normalized : 0;
+          })
+        : [],
+      index: 0
+    };
+  }
+  if (value?.__tag === 'RealRandom') {
+    return { kind: 'real' };
+  }
+  if (value?.__tag === 'SeededRandom') {
+    return {
+      kind: 'seeded',
+      state: __sigil_world_random_normalize_seed(value.__fields?.[0] ?? 1)
+    };
+  }
+  __sigil_world_error('world.random must be world::random.RandomEntry');
 }
 function __sigil_world_parse_timer(value) {
   if (value?.__tag === 'RealTimer') return { kind: 'real', nowMs: null };
@@ -233,6 +270,7 @@ function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
   template.fs = __sigil_world_parse_fs(worldValue.fs);
   template.log = __sigil_world_parse_log(worldValue.log);
   template.process = __sigil_world_parse_process(worldValue.process);
+  template.random = __sigil_world_parse_random(worldValue.random);
   template.timer = __sigil_world_parse_timer(worldValue.timer);
   template.http = Object.create(null);
   for (const value of worldValue.http ?? []) {
@@ -325,6 +363,11 @@ function __sigil_world_apply_overrides(world, overrides) {
       case 'RealProcess':
         world.process = __sigil_world_parse_process(value);
         break;
+      case 'FixtureRandom':
+      case 'RealRandom':
+      case 'SeededRandom':
+        world.random = __sigil_world_parse_random(value);
+        break;
       case 'RealTimer':
       case 'VirtualTimer':
         world.timer = __sigil_world_parse_timer(value);
@@ -408,6 +451,47 @@ function __sigil_world_now_ms(world) {
     return Number(world.timer.nowMs);
   }
   return Date.now();
+}
+function __sigil_world_random_next_int(world) {
+  if (world.random.kind === 'fixture') {
+    if (world.random.index >= world.random.draws.length) {
+      __sigil_world_error('random fixture exhausted');
+    }
+    const draw = world.random.draws[world.random.index];
+    world.random.index += 1;
+    return Math.trunc(Number(draw));
+  }
+  if (world.random.kind === 'seeded') {
+    world.random.state = (world.random.state * 48271) % 2147483647;
+    return world.random.state;
+  }
+  return Math.floor(Math.random() * 2147483646) + 1;
+}
+function __sigil_world_random_int_between(left, right) {
+  const world = __sigil_current_world();
+  const min = Math.min(Math.trunc(Number(left)), Math.trunc(Number(right)));
+  const max = Math.max(Math.trunc(Number(left)), Math.trunc(Number(right)));
+  const width = max - min + 1;
+  const raw = __sigil_world_random_next_int(world);
+  const offset = ((raw % width) + width) % width;
+  return min + offset;
+}
+function __sigil_world_random_pick(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { __tag: 'None', __fields: [] };
+  }
+  const index = __sigil_world_random_int_between(0, items.length - 1);
+  return { __tag: 'Some', __fields: [items[index]] };
+}
+function __sigil_world_random_shuffle(items) {
+  const values = Array.isArray(items) ? items.slice() : [];
+  for (let index = values.length - 1; index > 0; index -= 1) {
+    const swapIndex = __sigil_world_random_int_between(0, index);
+    const nextValue = values[index];
+    values[index] = values[swapIndex];
+    values[swapIndex] = nextValue;
+  }
+  return values;
 }
 function __sigil_world_http_entry_name(entry) {
   if (entry?.__tag !== 'HttpEntry') {
@@ -2320,6 +2404,9 @@ impl TypeScriptGenerator {
                 if module == "stdlib/process" {
                     return self.generate_process_intrinsic(member, args);
                 }
+                if module == "stdlib/random" {
+                    return self.generate_random_intrinsic(member, args);
+                }
                 if module == "stdlib/url" {
                     return self.generate_url_intrinsic(member, args);
                 }
@@ -2398,6 +2485,13 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/process.lib.sigil"))
                 {
                     return self.generate_process_intrinsic(&name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/random.lib.sigil"))
+                {
+                    return self.generate_random_intrinsic(&name.name, args);
                 }
                 if self
                     .source_file
@@ -2913,6 +3007,33 @@ impl TypeScriptGenerator {
         }
     }
 
+    fn generate_random_intrinsic(
+        &mut self,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+
+        match member {
+            "intBetween" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__max, __min]) => __sigil_world_random_int_between(__max, __min))",
+                self.js_all(&generated_args)
+            ))),
+            "pick" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__items) => __sigil_world_random_pick(__items))",
+                generated_args[0]
+            ))),
+            "shuffle" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__items) => __sigil_world_random_shuffle(__items))",
+                generated_args[0]
+            ))),
+            _ => Ok(None),
+        }
+    }
+
     fn generate_http_client_intrinsic(
         &mut self,
         member: &str,
@@ -3129,6 +3250,11 @@ impl TypeScriptGenerator {
         }
         if call.namespace.join("/") == "stdlib/process" {
             if let Some(intrinsic) = self.generate_process_intrinsic(&call.member, &call.args)? {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/") == "stdlib/random" {
+            if let Some(intrinsic) = self.generate_random_intrinsic(&call.member, &call.args)? {
                 return Ok(intrinsic);
             }
         }

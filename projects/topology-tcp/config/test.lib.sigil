@@ -1,1 +1,1 @@
-c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.capture(),†process.deny(),[†tcp.proxy(•topology.eventStream,"127.0.0.1",45120)],†timer.virtual()):†runtime.World)
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.capture(),†process.deny(),†random.seeded(1337),[†tcp.proxy(•topology.eventStream,"127.0.0.1",45120)],†timer.virtual()):†runtime.World)

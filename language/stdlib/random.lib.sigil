@@ -1,0 +1,5 @@
+λintBetween(max:Int,min:Int)=>!Random Int=0
+
+λpick[T](items:[T])=>!Random Option[T]=None()
+
+λshuffle[T](items:[T])=>!Random [T]=[]

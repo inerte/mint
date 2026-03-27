@@ -25,6 +25,7 @@ In Sigil, functions declare which effects they may use:
 - `!Http`
 - `!Log`
 - `!Process`
+- `!Random`
 - `!Tcp`
 - `!Timer`
 
@@ -69,7 +70,7 @@ This encourages higher-level tests (also known as integration or end-to-end test
 The environment contract is now explicit and uniform:
 
 ```sigil module
-c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.stdout(),†process.real(),[],†timer.real()):†runtime.World)
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.stdout(),†process.real(),†random.real(),[],†timer.real()):†runtime.World)
 ```
 
 Every environment config module exports `world`. There is no optional fallback,

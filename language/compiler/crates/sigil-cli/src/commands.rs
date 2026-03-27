@@ -24,8 +24,10 @@ use sigil_validator::{
 };
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::thread;
 use std::time::Instant;
 use thiserror::Error;
 
@@ -59,6 +61,18 @@ pub enum CliError {
 
     #[error("Project config error: {0}")]
     ProjectConfig(#[from] ProjectConfigError),
+
+    #[error("reported")]
+    Reported(i32),
+}
+
+impl CliError {
+    pub fn reported_exit_code(&self) -> Option<i32> {
+        match self {
+            CliError::Reported(exit_code) => Some(*exit_code),
+            _ => None,
+        }
+    }
 }
 
 /// Extract error code from error message (format: "SIGIL-CANON-XXX: message")
@@ -90,6 +104,17 @@ fn output_json_error(
     message: &str,
     details: serde_json::Value,
 ) {
+    output_json_error_to(command, phase, error_code, message, details, false);
+}
+
+fn output_json_error_to(
+    command: &str,
+    phase: &str,
+    error_code: &str,
+    message: &str,
+    details: serde_json::Value,
+    to_stderr: bool,
+) {
     let output = json!({
         "formatVersion": 1,
         "command": command,
@@ -102,7 +127,16 @@ fn output_json_error(
             "details": details
         }
     });
-    println!("{}", serde_json::to_string(&output).unwrap());
+    output_json_value(&output, to_stderr);
+}
+
+fn output_json_value(output: &serde_json::Value, to_stderr: bool) {
+    let serialized = serde_json::to_string(output).unwrap();
+    if to_stderr {
+        eprintln!("{}", serialized);
+    } else {
+        println!("{}", serialized);
+    }
 }
 
 fn type_error_json_details(error: &TypeError) -> serde_json::Value {
@@ -768,15 +802,92 @@ pub fn compile_command(
 /// Run command: compile and execute a Sigil file
 pub fn run_command(
     file: &Path,
+    json_output: bool,
     selected_env: Option<&str>,
     args: &[String],
 ) -> Result<(), CliError> {
+    let run_target = match build_run_target(file, selected_env) {
+        Ok(run_target) => run_target,
+        Err(error) => {
+            output_run_error(file, &error, !json_output);
+            return Err(CliError::Reported(1));
+        }
+    };
+
+    let runtime_output = match execute_runner(&run_target.runner_path, args, !json_output) {
+        Ok(runtime_output) => runtime_output,
+        Err(error) => {
+            output_run_error(file, &error, !json_output);
+            return Err(CliError::Reported(1));
+        }
+    };
+
+    if runtime_output.exit_code != 0 {
+        let output_json = serde_json::json!({
+            "formatVersion": 1,
+            "command": "sigilc run",
+            "ok": false,
+            "phase": "runtime",
+            "error": {
+                "code": codes::runtime::CHILD_EXIT,
+                "phase": "runtime",
+                "message": format!("child process exited with nonzero status: {}", runtime_output.exit_code),
+                "details": {
+                    "exitCode": runtime_output.exit_code,
+                    "stdout": runtime_output.stdout,
+                    "stderr": runtime_output.stderr
+                }
+            }
+        });
+        output_json_value(&output_json, !json_output);
+        return Err(CliError::Reported(1));
+    }
+
+    if json_output {
+        let output_json = serde_json::json!({
+            "formatVersion": 1,
+            "command": "sigilc run",
+            "ok": true,
+            "phase": "runtime",
+            "data": {
+                "compile": {
+                    "input": file.to_string_lossy(),
+                    "output": run_target.entry_output_path.to_string_lossy(),
+                    "runnerFile": run_target.runner_path.to_string_lossy()
+                },
+                "runtime": {
+                    "engine": "node+tsx",
+                    "exitCode": runtime_output.exit_code,
+                    "durationMs": runtime_output.duration_ms,
+                    "stdout": runtime_output.stdout,
+                    "stderr": runtime_output.stderr
+                }
+            }
+        });
+        output_json_value(&output_json, false);
+    }
+
+    Ok(())
+}
+
+struct RunTarget {
+    entry_output_path: PathBuf,
+    runner_path: PathBuf,
+}
+
+struct RuntimeOutput {
+    exit_code: i32,
+    duration_ms: u128,
+    stdout: String,
+    stderr: String,
+}
+
+fn build_run_target(file: &Path, selected_env: Option<&str>) -> Result<RunTarget, CliError> {
     let graph = ModuleGraph::build(file)?;
     let topology_prelude = runner_prelude(file, &graph, selected_env)?.unwrap_or_default();
     let compiled = compile_module_graph(graph, None)?;
     let entry_output_path = compiled.entry_output_path;
 
-    // Create runner file
     let runner_path = entry_output_path.with_extension("run.ts");
     let module_name = entry_output_path
         .file_stem()
@@ -807,79 +918,265 @@ if (result !== undefined) {{
     );
 
     fs::write(&runner_path, runner_code)?;
+    Ok(RunTarget {
+        entry_output_path,
+        runner_path,
+    })
+}
 
-    // Execute the runner (use absolute path to avoid path resolution issues)
-    let abs_runner_path = std::fs::canonicalize(&runner_path)?;
+fn execute_runner(
+    runner_path: &Path,
+    args: &[String],
+    stream_output: bool,
+) -> Result<RuntimeOutput, CliError> {
+    let abs_runner_path = std::fs::canonicalize(runner_path)?;
     let start_time = Instant::now();
+    if stream_output {
+        let mut child = Command::new("pnpm")
+            .args(["exec", "node", "--import", "tsx"])
+            .arg(&abs_runner_path)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(map_runner_launch_error)?;
+
+        let stdout = child.stdout.take().ok_or_else(|| {
+            CliError::Runtime(format!(
+                "{}: failed to capture child stdout",
+                codes::cli::UNEXPECTED
+            ))
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            CliError::Runtime(format!(
+                "{}: failed to capture child stderr",
+                codes::cli::UNEXPECTED
+            ))
+        })?;
+
+        let stdout_handle = thread::spawn(move || tee_reader(stdout, io::stdout()));
+        let stderr_handle = thread::spawn(move || tee_reader(stderr, io::stderr()));
+
+        let status = child.wait()?;
+        let stdout_bytes = join_tee_output(stdout_handle, "stdout")?;
+        let stderr_bytes = join_tee_output(stderr_handle, "stderr")?;
+
+        return Ok(RuntimeOutput {
+            exit_code: status.code().unwrap_or(-1),
+            duration_ms: start_time.elapsed().as_millis(),
+            stdout: String::from_utf8_lossy(&stdout_bytes).to_string(),
+            stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
+        });
+    }
+
     let output = Command::new("pnpm")
-        .args(&["exec", "node", "--import", "tsx"])
+        .args(["exec", "node", "--import", "tsx"])
         .arg(&abs_runner_path)
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                CliError::Runtime(
-                    "pnpm not found. Please install pnpm to run Sigil programs.".to_string(),
-                )
-            } else {
-                CliError::Runtime(format!("Failed to execute: {}", e))
-            }
-        })?;
+        .map_err(map_runner_launch_error)?;
 
-    let duration_ms = start_time.elapsed().as_millis();
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let exit_code = output.status.code().unwrap_or(-1);
+    Ok(RuntimeOutput {
+        exit_code: output.status.code().unwrap_or(-1),
+        duration_ms: start_time.elapsed().as_millis(),
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+    })
+}
 
-    if exit_code != 0 {
-        let output_json = serde_json::json!({
-            "formatVersion": 1,
-            "command": "sigilc run",
-            "ok": false,
-            "phase": "runtime",
-            "error": {
-                "code": "SIGIL-RUNTIME-CHILD-EXIT",
-                "phase": "runtime",
-                "message": format!("child process exited with nonzero status: {}", exit_code),
-                "details": {
-                    "exitCode": exit_code,
-                    "stdout": stdout.to_string(),
-                    "stderr": stderr.to_string()
-                }
-            }
-        });
-        println!("{}", serde_json::to_string(&output_json).unwrap());
-        return Err(CliError::Runtime(format!(
-            "Process exited with code {}",
-            exit_code
-        )));
-    }
-
-    let output_json = serde_json::json!({
-        "formatVersion": 1,
-        "command": "sigilc run",
-        "ok": true,
-        "phase": "runtime",
-        "data": {
-            "compile": {
-                "input": file.to_string_lossy(),
-                "output": entry_output_path.to_string_lossy(),
-                "runnerFile": runner_path.to_string_lossy()
-            },
-            "runtime": {
-                "engine": "node+tsx",
-                "exitCode": exit_code,
-                "durationMs": duration_ms,
-                "stdout": stdout.to_string(),
-                "stderr": stderr.to_string()
-            }
+fn tee_reader<R: Read, W: Write>(mut reader: R, mut writer: W) -> io::Result<Vec<u8>> {
+    let mut capture = Vec::new();
+    let mut buffer = [0u8; 8192];
+    loop {
+        let read = reader.read(&mut buffer)?;
+        if read == 0 {
+            break;
         }
-    });
-    println!("{}", serde_json::to_string(&output_json).unwrap());
+        writer.write_all(&buffer[..read])?;
+        writer.flush()?;
+        capture.extend_from_slice(&buffer[..read]);
+    }
+    Ok(capture)
+}
 
-    Ok(())
+fn join_tee_output(
+    handle: thread::JoinHandle<io::Result<Vec<u8>>>,
+    stream_name: &str,
+) -> Result<Vec<u8>, CliError> {
+    match handle.join() {
+        Ok(Ok(bytes)) => Ok(bytes),
+        Ok(Err(error)) => Err(CliError::Io(error)),
+        Err(_) => Err(CliError::Runtime(format!(
+            "{}: run {} forwarding thread panicked",
+            codes::cli::UNEXPECTED,
+            stream_name
+        ))),
+    }
+}
+
+fn map_runner_launch_error(error: io::Error) -> CliError {
+    if error.kind() == io::ErrorKind::NotFound {
+        CliError::Runtime(format!(
+            "{}: pnpm not found. Please install pnpm to run Sigil programs.",
+            codes::runtime::ENGINE_NOT_FOUND
+        ))
+    } else {
+        CliError::Runtime(format!(
+            "{}: failed to execute run target: {}",
+            codes::cli::UNEXPECTED,
+            error
+        ))
+    }
+}
+
+fn output_run_error(file: &Path, error: &CliError, to_stderr: bool) {
+    match error {
+        CliError::Type(type_error) => output_json_error_to(
+            "sigilc run",
+            "typecheck",
+            &type_error.code,
+            &type_error.message,
+            type_error_json_details(type_error),
+            to_stderr,
+        ),
+        CliError::ModuleGraph(ModuleGraphError::Validation(errors)) => {
+            let message = errors
+                .first()
+                .map(|error| error.to_string())
+                .unwrap_or_else(|| "validation errors".to_string());
+            let error_code = extract_error_code(&message);
+            output_json_error_to(
+                "sigilc run",
+                "canonical",
+                &error_code,
+                &message,
+                json!({
+                    "file": file.to_string_lossy(),
+                    "errors": errors.iter().map(|error| error.to_string()).collect::<Vec<_>>()
+                }),
+                to_stderr,
+            );
+        }
+        CliError::ModuleGraph(ModuleGraphError::ImportNotFound {
+            module_id,
+            expected_path,
+        }) => output_json_error_to(
+            "sigilc run",
+            "cli",
+            codes::cli::IMPORT_NOT_FOUND,
+            &format!("module not found: {}", module_id),
+            json!({
+                "file": file.to_string_lossy(),
+                "moduleId": module_id,
+                "expectedPath": expected_path
+            }),
+            to_stderr,
+        ),
+        CliError::ModuleGraph(ModuleGraphError::ImportCycle(cycle)) => output_json_error_to(
+            "sigilc run",
+            "cli",
+            codes::cli::IMPORT_CYCLE,
+            "module import cycle detected",
+            json!({
+                "file": file.to_string_lossy(),
+                "cycle": cycle
+            }),
+            to_stderr,
+        ),
+        CliError::ModuleGraph(ModuleGraphError::Io(error)) => output_json_error_to(
+            "sigilc run",
+            "io",
+            codes::cli::UNEXPECTED,
+            &error.to_string(),
+            json!({
+                "file": file.to_string_lossy()
+            }),
+            to_stderr,
+        ),
+        CliError::ModuleGraph(ModuleGraphError::Lexer(message))
+        | CliError::ModuleGraph(ModuleGraphError::Parser(message))
+        | CliError::Lexer(message)
+        | CliError::Parser(message)
+        | CliError::Validation(message)
+        | CliError::Runtime(message) => {
+            output_run_message_error(file, message, to_stderr);
+        }
+        CliError::ModuleGraph(ModuleGraphError::ProjectConfig(project_error))
+        | CliError::ProjectConfig(project_error) => output_json_error_to(
+            "sigilc run",
+            "cli",
+            codes::cli::UNEXPECTED,
+            &project_error.to_string(),
+            json!({
+                "file": file.to_string_lossy()
+            }),
+            to_stderr,
+        ),
+        CliError::Io(error) => output_json_error_to(
+            "sigilc run",
+            "io",
+            codes::cli::UNEXPECTED,
+            &error.to_string(),
+            json!({
+                "file": file.to_string_lossy()
+            }),
+            to_stderr,
+        ),
+        CliError::Codegen(message) => output_json_error_to(
+            "sigilc run",
+            "codegen",
+            codes::cli::UNEXPECTED,
+            message,
+            json!({
+                "file": file.to_string_lossy()
+            }),
+            to_stderr,
+        ),
+        CliError::Reported(_) => {}
+    }
+}
+
+fn output_run_message_error(file: &Path, message: &str, to_stderr: bool) {
+    let error_code = extract_error_code(message);
+    let (code, phase) = if error_code.starts_with("SIGIL-") {
+        let phase = phase_for_code(&error_code);
+        (error_code, phase)
+    } else {
+        (codes::cli::UNEXPECTED.to_string(), "cli")
+    };
+
+    output_json_error_to(
+        "sigilc run",
+        phase,
+        &code,
+        message,
+        json!({
+            "file": file.to_string_lossy()
+        }),
+        to_stderr,
+    );
+}
+
+fn phase_for_code(code: &str) -> &'static str {
+    if code.starts_with("SIGIL-LEX-") {
+        "lexer"
+    } else if code.starts_with("SIGIL-PARSE-") {
+        "parser"
+    } else if code.starts_with("SIGIL-CANON-") {
+        "canonical"
+    } else if code.starts_with("SIGIL-TYPE-") {
+        "typecheck"
+    } else if code.starts_with("SIGIL-TOPO-") {
+        "topology"
+    } else if code.starts_with("SIGIL-RUNTIME-") || code.starts_with("SIGIL-RUN-") {
+        "runtime"
+    } else if code.starts_with("SIGIL-MUTABILITY-") {
+        "mutability"
+    } else {
+        "cli"
+    }
 }
 
 /// Test command: run Sigil tests from a directory

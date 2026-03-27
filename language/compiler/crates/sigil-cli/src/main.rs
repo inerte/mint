@@ -68,6 +68,10 @@ enum Command {
         /// Input .sigil file
         file: PathBuf,
 
+        /// Emit a machine-readable JSON result envelope even on success
+        #[arg(long)]
+        json: bool,
+
         /// Runtime topology environment name (required for topology-aware projects)
         #[arg(long)]
         env: Option<String>,
@@ -123,7 +127,12 @@ fn main() {
             &ignore,
             ignore_from.as_deref(),
         ),
-        Command::Run { file, env, args } => run_command(&file, env.as_deref(), &args),
+        Command::Run {
+            file,
+            json,
+            env,
+            args,
+        } => run_command(&file, json, env.as_deref(), &args),
         Command::Test { path, env, r#match } => {
             test_command(&path, env.as_deref(), r#match.as_deref())
         }
@@ -131,6 +140,9 @@ fn main() {
     };
 
     if let Err(e) = result {
+        if let Some(exit_code) = e.reported_exit_code() {
+            process::exit(exit_code);
+        }
         eprintln!("Error: {}", e);
         process::exit(1);
     }

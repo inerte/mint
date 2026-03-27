@@ -5,9 +5,14 @@ Sigil CLI commands are machine-first. JSON is the default output mode for:
 - `sigilc lex`
 - `sigilc parse`
 - `sigilc compile`
-- `sigilc run`
 - `sigilc test`
 - `sigilc` usage/unknown-command failures
+
+`sigilc run` is split:
+
+- plain `sigil run <file>` streams raw program stdout/stderr on success
+- plain `sigil run <file>` emits structured JSON on failure
+- `sigil run --json <file>` emits the structured JSON envelope on both success and failure
 
 ## Canonical Schema
 
@@ -54,6 +59,7 @@ Failures emit:
 ```
 
 `sigilc test` keeps a specialized top-level `summary` / `results` envelope.
+`sigilc run` uses the `runEnvelope` schema in `--json` mode and for failure payloads.
 
 ## Diagnostics
 

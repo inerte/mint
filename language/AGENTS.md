@@ -23,7 +23,6 @@ This file is the local authority for:
 - `examples/` — runnable/demo Sigil snippets
 - `tests/` — language-level Sigil tests exercised by `sigil test`
 - `docs/` and `spec/` — syntax/specification/reference docs
-- `tools/` — LSP / VS Code extension (language tooling)
 
 ## Sigil Priorities (for language changes)
 
@@ -54,7 +53,6 @@ If you change syntax, audit all impacted layers:
 - CLI/help/error messages
 - docs/spec examples
 - runnable examples/tests
-- editor grammar (`tools/vscode-extension`)
 
 Current canonical boolean operators:
 - `and`
@@ -458,10 +456,6 @@ cargo test --manifest-path language/compiler/Cargo.toml
   - `sigil invalid-module`
   - `sigil invalid-expr`
   - `sigil invalid-type`
-
-### `tools/vscode-extension`
-- Update syntax highlighting patterns when syntax tokens/operators change.
-- Highlighting is secondary to compiler correctness, but should ship in the same change for syntax updates.
 
 ## What to Include in Change Summaries
 

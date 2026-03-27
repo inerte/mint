@@ -2817,9 +2817,8 @@ fn synthesize_let(
     // Synthesize binding value type
     let value_type = synthesize(env, &let_expr.value)?;
 
-    // Check pattern and get bindings
-    // For now, support identifier and wildcard patterns
-    // TODO: Full pattern matching support (tuples, records, etc.)
+    // Let bindings currently support identifier and wildcard patterns only.
+    // Match expressions handle the richer tuple/list/sum pattern surface.
     let mut bindings = HashMap::new();
     match &let_expr.pattern {
         Pattern::Identifier(id_pattern) => {

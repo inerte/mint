@@ -5532,8 +5532,7 @@ mod tests {
 
     #[test]
     fn test_simple_recursion_allowed() {
-        // TODO: Parser bug - match expressions with scrutinee (match n{...}) don't work yet
-        // For now, test with a simple recursive function without pattern matching
+        // This stays minimal because the test is about recursion validation, not match coverage.
         let source = "λfactorial(n:Int)=>Int=factorial(n-1)\n";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.lib.sigil").unwrap();

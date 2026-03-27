@@ -144,10 +144,10 @@ Developers interact through **Claude Code**:
 
 - Bidirectional type checking (synthesis ⇒ and checking ⇐ modes)
 - Type annotations required on all function signatures (canonical form)
-- No dynamic typing, no `any` type, controlled coercion
+- No dynamic typing; `Any` is reserved for untyped FFI trust mode, and coercion is controlled
 - Algebraic data types (sum + product types)
 - Constrained user-defined types such as `t BirthYear=Int where value>1800 and value<10000`
-- Effect system for tracking side effects (planned)
+- Primitive effects plus project-defined multi-effect aliases track side effects explicitly
 - Compile-time guarantees prevent runtime type errors
 - Better error messages than Hindley-Milner: "expected Int, got String"
 

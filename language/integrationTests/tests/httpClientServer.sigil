@@ -1,3 +1,5 @@
+λhttpClientEnv(baseUrl:String)=>{String↦String}={"sigilHttpTestBaseUrl"↦baseUrl}
+
 λhttpCommand(args:[String])=>§process.Command=•support.sigilIn(args,projectDir())
 
 λmain()=>Unit=()
@@ -19,15 +21,20 @@
   •support.combinedOutput(result)
 }
 
-λrunClientOutput(target:String)=>!Process!Timer String={
-  l server=(§process.start(httpCommand(["run","src/httpRoundtripServer.sigil","--env","test"])):§process.RunningProcess);
-  l ready=(•support.retryRunStdoutContains(50,httpCommand(["run","src/getClient.sigil","--env","test"]),200,"200:healthy"):§process.ProcessResult);
-  l result=match •support.runStdoutContains("200:healthy",ready){
-    true=>(§process.run(httpCommand(["run",target,"--env","test"])):§process.ProcessResult)|
-    false=>ready
+λrunClientOutput(target:String)=>!Clock!Fs!Process!Timer String={
+  l server=(•support.startReadyServer(httpCommand(["run","src/httpRoundtripServer.sigil","--env","test","--"]),"http-server-","0"):µReadyServer);
+  l result=match •support.waitForReadyPort(50,200,server.readyFile){
+    Ok(port)=>{
+      l baseUrl=("http://127.0.0.1:"++§string.intToString(port):String);
+      l ready=(•support.retryRunStdoutContains(50,•support.commandWithEnv(httpCommand(["run","src/getClient.sigil","--env","test"]),(httpClientEnv(baseUrl):{String↦String})),200,"200:healthy"):§process.ProcessResult);
+      match •support.runStdoutContains("200:healthy",ready){
+        true=>(§process.run(•support.commandWithEnv(httpCommand(["run",target,"--env","test"]),(httpClientEnv(baseUrl):{String↦String}))):§process.ProcessResult)|
+        false=>ready
+      }
+    }|
+    Err(message)=>{code:-1,stderr:message,stdout:""}
   };
-  l _=(§process.kill(server):Unit);
-  l _=(§process.wait(server):§process.ProcessResult);
+  l _=(•support.stopReadyServer(server):Unit);
   •support.combinedOutput(result)
 }
 
@@ -38,27 +45,27 @@ test "http topology validates for test env" =>!Process {
   result.code=0
 }
 
-test "http get client reaches roundtrip server" =>!Process!Timer {
+test "http get client reaches roundtrip server" =>!Clock!Fs!Process!Timer {
   §string.indexOf(runClientOutput("src/getClient.sigil"),"200:healthy")≥0=true
 }
 
-test "http post client reaches roundtrip server" =>!Process!Timer {
+test "http post client reaches roundtrip server" =>!Clock!Fs!Process!Timer {
   §string.indexOf(runClientOutput("src/postClient.sigil"),"201:echoed")≥0=true
 }
 
-test "http json client reaches roundtrip server" =>!Process!Timer {
+test "http json client reaches roundtrip server" =>!Clock!Fs!Process!Timer {
   §string.indexOf(runClientOutput("src/jsonClient.sigil"),"{\"ok\":true}")≥0=true
 }
 
-test "http headers client reaches roundtrip server" =>!Process!Timer {
+test "http headers client reaches roundtrip server" =>!Clock!Fs!Process!Timer {
   §string.indexOf(runClientOutput("src/headersClient.sigil"),"202:abc-123")≥0=true
 }
 
-test "http missing client returns 404" =>!Process!Timer {
+test "http missing client returns 404" =>!Clock!Fs!Process!Timer {
   §string.indexOf(runClientOutput("src/missingClient.sigil"),"404:<h1>404 Not Found</h1>")≥0=true
 }
 
-test "http routes client returns canonical route summary" =>!Process!Timer {
+test "http routes client returns canonical route summary" =>!Clock!Fs!Process!Timer {
   l output=(runClientOutput("src/routesClient.sigil"):String);
   §string.indexOf(output,"200:/echo")≥0=true and §string.indexOf(output,"/routes")≥0=true
 }

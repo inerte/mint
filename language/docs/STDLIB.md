@@ -295,8 +295,19 @@ The split is:
 λmain()=>!Http Unit=§httpServer.serve(handle,8080)
 ```
 
-`serve` is a long-lived runtime entrypoint: once the server is listening, the
-process stays open until it is terminated externally.
+The public server surface is:
+- `listen`
+- `port`
+- `serve`
+- `wait`
+
+`serve` remains the canonical blocking entrypoint for normal programs. `listen`
+returns a `§httpServer.Server` handle, `port` reports the actual bound port, and
+`wait` blocks on that handle. This is mainly for harnesses and supervisors that
+need to bind first, observe the assigned port, and then keep the process open.
+
+Passing `0` to `listen` or `serve` asks the OS for any free ephemeral port. Use
+`§httpServer.port(server)` after `listen` when the actual port matters.
 
 ## TCP Client and Server
 
@@ -333,8 +344,18 @@ The canonical framing model is:
 λmain()=>!Tcp Unit=§tcpServer.serve(handle,45120)
 ```
 
-`serve` is long-lived: once the TCP server is listening, the process stays open
-until it is terminated externally.
+The public server surface is:
+- `listen`
+- `port`
+- `serve`
+- `wait`
+
+`serve` remains the canonical blocking entrypoint for normal programs. `listen`
+returns a `§tcpServer.Server` handle, `port` reports the actual bound port, and
+`wait` blocks on that handle.
+
+Passing `0` to `listen` or `serve` asks the OS for any free ephemeral port. Use
+`§tcpServer.port(server)` after `listen` when the actual port matters.
 
 ## Topology
 

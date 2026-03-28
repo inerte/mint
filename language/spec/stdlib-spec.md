@@ -567,19 +567,27 @@ Canonical request/response HTTP server.
 t Headers={String↦String}
 t Request={body:String,headers:Headers,method:String,path:String}
 t Response={body:String,headers:Headers,status:Int}
+t Server={port:Int}
 
 λresponse(body:String,contentType:String,status:Int)=>Response
 λok(body:String)=>Response
 λjson(body:String,status:Int)=>Response
+λlisten(handler:λ(Request)=>Response,port:Int)=>!Http Server
 λnotFound()=>Response
 λnotFoundMsg(message:String)=>Response
+λport(server:Server)=>Int
 λserverError(message:String)=>Response
 λlogRequest(request:Request)=>!Log Unit
 λserve(handler:λ(Request)=>Response,port:Int)=>!Http Unit
+λwait(server:Server)=>!Http Unit
 ```
 
-`serve` is long-lived: once the server is listening, the process remains active
-until it is terminated externally.
+Semantics:
+- `serve(handler,port)` is equivalent to blocking on a started server
+- `listen` returns a server handle that can be observed with `port` and awaited with `wait`
+- passing `0` as the port asks the OS to choose any free ephemeral port
+- `port(server)` returns the actual bound port, including after a `0` bind
+- `serve` and `wait` are long-lived once listening succeeds
 
 ### §tcpClient
 
@@ -607,16 +615,24 @@ Canonical one-request, one-response TCP server.
 ```sigil decl §tcpServer
 t Request={host:String,message:String,port:Int}
 t Response={message:String}
+t Server={port:Int}
 
+λlisten(handler:λ(Request)=>Response,port:Int)=>!Tcp Server
+λport(server:Server)=>Int
 λresponse(message:String)=>Response
 λserve(handler:λ(Request)=>Response,port:Int)=>!Tcp Unit
+λwait(server:Server)=>!Tcp Unit
 ```
 
 Semantics:
 - the server reads one UTF-8 line per connection
 - the handler returns one UTF-8 line response
 - the server closes each connection after the response is written
-- `serve` is long-lived once listening succeeds
+- `serve(handler,port)` is equivalent to blocking on a started server
+- `listen` returns a server handle that can be observed with `port` and awaited with `wait`
+- passing `0` as the port asks the OS to choose any free ephemeral port
+- `port(server)` returns the actual bound port, including after a `0` bind
+- `serve` and `wait` are long-lived once listening succeeds
 
 ### Testing
 

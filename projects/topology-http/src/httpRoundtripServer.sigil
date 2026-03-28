@@ -7,4 +7,24 @@
   _=>§httpServer.notFound()
 }
 
-λmain()=>!Http Unit=§httpServer.serve(handleRequest,45110)
+λlistenAndServe(port:Int,readyFile:Option[String])=>!Fs!Http Unit={
+  l server=(§httpServer.listen(handleRequest,port):§httpServer.Server);
+  l _=(writeReadyPort(readyFile,server):Unit);
+  §httpServer.wait(server)
+}
+
+λmain()=>!Fs!Http!Process Unit match §process.argv(){
+  [portText,readyFile]=>listenAndServe(parseRequestedPort(portText),Some(readyFile))|
+  [portText]=>listenAndServe(parseRequestedPort(portText),None())|
+  _=>listenAndServe(45110,None())
+}
+
+λparseRequestedPort(text:String)=>Int match §decode.intFromText(text){
+  Ok(port)=>port|
+  Err(_)=>45110
+}
+
+λwriteReadyPort(readyFile:Option[String],server:§httpServer.Server)=>!Fs Unit match readyFile{
+  Some(path)=>(§file.writeText(§string.intToString(§httpServer.port(server)),path):Unit)|
+  None()=>()
+}

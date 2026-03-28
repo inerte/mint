@@ -1,3 +1,7 @@
+λalgorithmsSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","projects/algorithms/tests"],root),label:"algorithms suite"}
+
+λcanonicalIntegrationSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","language/integrationTests/tests/canonical.sigil"],root),label:"canonical integration"}
+
 λcanonicalStdlibRoot(root:String)=>String=§path.join(§path.join(root,"projects"),"canonicalStdlibAudit")
 
 λcargo(args:[String],root:String)=>§process.Command=§process.withCwd(§process.command(["cargo"]⧺args),root)
@@ -10,6 +14,8 @@
   Some(value)=>" (cwd "++value++")"|
   None()=>""
 }:String)++" (exit "++(§string.intToString(result.code):String)++")"
+
+λfailedSuiteMessage(suite:µSuiteResult)=>String=failedCommandMessage(suite.command,suite.result)
 
 λfinish(result:Result[Unit,String])=>!CliIo Unit match result{
   Ok(_)=>{
@@ -26,14 +32,24 @@
 
 λhttpTestCommand(root:String)=>§process.Command=sigilCommand(["test","language/integrationTests/tests/httpClientServer.sigil"],root)
 
-λlanguageTestCommand(root:String)=>§process.Command=sigilCommand(["test","language/tests"],root)
+λlanguageSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","language/tests"],root),label:"language suite"}
 
 λmain()=>!CliIo Unit match repoRoot(){
   Ok(root)=>finish(runSteps(steps(root)))|
   Err(message)=>finish(Err(message))
 }
 
-λmultimoduleTestCommand(root:String)=>§process.Command=sigilCommand(["test","language/integrationTests/tests/multimodule.sigil"],root)
+λmultimoduleSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","language/integrationTests/tests/multimodule.sigil"],root),label:"multimodule integration"}
+
+λparallelSuites(root:String)=>[µParallelSuite]=[algorithmsSuite(root),canonicalIntegrationSuite(root),languageSuite(root),multimoduleSuite(root),roguelikeSuite(root),ssgSuite(root),stdlibSuite(root),todoSuite(root)]
+
+λprintBatchResults(results:[µSuiteResult])=>!CliIo Unit match results{
+  []=>()|
+  [head,.tail]=>{
+    l _=(printSuiteResult(head):Unit);
+    printBatchResults(tail)
+  }
+}
 
 λprintResultOutput(result:§process.ProcessResult)=>!CliIo Unit={
   l _=(match #result.stdout>0{
@@ -44,6 +60,12 @@
     true=>(§io.eprintln(result.stderr):Unit)|
     false=>()
   }
+}
+
+λprintSuiteResult(suite:µSuiteResult)=>!CliIo Unit={
+  l _=(§io.println(""):Unit);
+  l _=(§io.println("==> "++suite.label):Unit);
+  printResultOutput(suite.result)
 }
 
 λrepoRoot()=>!Process Result[String,String]={
@@ -59,29 +81,43 @@
 
 λroguelikeRoot(root:String)=>String=§path.join(§path.join(root,"projects"),"roguelike-autoplay")
 
-λroguelikeTestCommand(root:String)=>§process.Command=sigilCommandIn(["test","tests"],roguelikeRoot(root),root)
-
-λrunCommand(command:§process.Command)=>!CliIo Result[Unit,String]={
-  l result=(§process.run(command):§process.ProcessResult);
-  l _=(printResultOutput(result):Unit);
-  match result.code=0{
-    true=>Ok(())|
-    false=>Err(failedCommandMessage(command,result))
-  }
-}
+λroguelikeSuite(root:String)=>µParallelSuite={command:sigilCommandIn(["test","tests"],roguelikeRoot(root),root),label:"roguelike suite"}
 
 λrunCommands(commands:[§process.Command])=>!CliIo Result[Unit,String] match commands{
   []=>Ok(())|
-  [command,.rest]=>match runCommand(command){
-    Ok(_)=>runCommands(rest)|
-    Err(message)=>Err(message)
+  [command,.rest]=>{
+    l result=(§process.run(command):§process.ProcessResult);
+    l _=(printResultOutput(result):Unit);
+    match result.code=0{
+      true=>runCommands(rest)|
+      false=>Err(failedCommandMessage(command,result))
+    }
   }
 }
 
-λrunStep(step:µStep)=>!CliIo Result[Unit,String]={
+λrunParallelBatch(suites:[µParallelSuite])=>!CliIo Result[Unit,String]={
+  l started=(startSuites(suites):[µStartedSuite]);
+  l results=(waitSuites(started):[µSuiteResult]);
+  l _=(printBatchResults(results):Unit);
+  match suiteFailure(results){
+    Some(message)=>Err(message)|
+    None()=>Ok(())
+  }
+}
+
+λrunSerialStep(step:µSerialStep)=>!CliIo Result[Unit,String]={
   l _=(§io.println(""):Unit);
   l _=(§io.println("==> "++step.label):Unit);
   runCommands(step.commands)
+}
+
+λrunStep(step:µStep)=>!CliIo Result[Unit,String] match step{
+  µParallel(suites)=>{
+    l _=(§io.println(""):Unit);
+    l _=(§io.println("==> parallel Sigil suites"):Unit);
+    runParallelBatch(suites)
+  }|
+  µSerial(serial)=>runSerialStep(serial)
 }
 
 λrunSteps(all:[µStep])=>!CliIo Result[Unit,String] match all{
@@ -96,8 +132,36 @@
 
 λsigilCommandIn(args:[String],cwd:String,root:String)=>§process.Command=§process.withCwd(§process.command([compilerBin(root)]⧺args),cwd)
 
-λssgTestCommand(root:String)=>§process.Command=sigilCommand(["test","projects/ssg/tests"],root)
+λssgSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","projects/ssg/tests"],root),label:"ssg suite"}
 
-λsteps(root:String)=>[µStep]=[{commands:[cargo(["test","--manifest-path","language/compiler/Cargo.toml"],root)],label:"compiler tests"},{commands:[sigilCommandIn(["test","tests"],canonicalStdlibRoot(root),root),sigilCommandIn(["run","src/main.sigil"],canonicalStdlibRoot(root),root)],label:"canonical stdlib audit"},{commands:[sigilCommandIn(["test","tests"],docsDriftRoot(root),root),sigilCommandIn(["run","src/main.sigil"],docsDriftRoot(root),root)],label:"docs drift audit"},{commands:[languageTestCommand(root)],label:"language suite"},{commands:[sigilCommand(["test","language/stdlib-tests/tests"],root)],label:"stdlib suite"},{commands:[homebrewCommand(root)],label:"homebrew packaging"},{commands:[httpTestCommand(root)],label:"http integration"},{commands:[tcpTestCommand(root)],label:"tcp integration"},{commands:[sigilCommand(["test","projects/algorithms/tests"],root)],label:"algorithms suite"},{commands:[roguelikeTestCommand(root)],label:"roguelike suite"},{commands:[ssgTestCommand(root)],label:"ssg suite"},{commands:[sigilCommand(["test","projects/todo-app/tests"],root)],label:"todo app suite"},{commands:[multimoduleTestCommand(root)],label:"multimodule integration"},{commands:[sigilCommand(["test","language/integrationTests/tests/canonical.sigil"],root)],label:"canonical integration"}]
+λstartSuites(suites:[µParallelSuite])=>!Process [µStartedSuite] match suites{
+  []=>[]|
+  [head,.tail]=>{
+    l process=(§process.start(head.command):§process.RunningProcess);
+    [{command:head.command,label:head.label,process:process}]⧺startSuites(tail)
+  }
+}
+
+λstdlibSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","language/stdlib-tests/tests"],root),label:"stdlib suite"}
+
+λsteps(root:String)=>[µStep]=[µSerial({commands:[cargo(["test","--manifest-path","language/compiler/Cargo.toml"],root)],label:"compiler tests"}),µSerial({commands:[sigilCommandIn(["test","tests"],canonicalStdlibRoot(root),root),sigilCommandIn(["run","src/main.sigil"],canonicalStdlibRoot(root),root)],label:"canonical stdlib audit"}),µSerial({commands:[sigilCommandIn(["test","tests"],docsDriftRoot(root),root),sigilCommandIn(["run","src/main.sigil"],docsDriftRoot(root),root)],label:"docs drift audit"}),µParallel(parallelSuites(root)),µSerial({commands:[homebrewCommand(root)],label:"homebrew packaging"}),µSerial({commands:[httpTestCommand(root)],label:"http integration"}),µSerial({commands:[tcpTestCommand(root)],label:"tcp integration"})]
+
+λsuiteFailure(results:[µSuiteResult])=>Option[String] match results{
+  []=>None()|
+  [head,.tail]=>match head.result.code=0{
+    true=>suiteFailure(tail)|
+    false=>Some(failedSuiteMessage(head))
+  }
+}
 
 λtcpTestCommand(root:String)=>§process.Command=sigilCommand(["test","language/integrationTests/tests/tcpClientServer.sigil"],root)
+
+λtodoSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","projects/todo-app/tests"],root),label:"todo app suite"}
+
+λwaitSuites(started:[µStartedSuite])=>!Process [µSuiteResult] match started{
+  []=>[]|
+  [head,.tail]=>{
+    l result=(§process.wait(head.process):§process.ProcessResult);
+    [{command:head.command,label:head.label,result:result}]⧺waitSuites(tail)
+  }
+}

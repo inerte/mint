@@ -1,1 +1,20 @@
-c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.capture(),†process.deny(),†random.seeded(1337),[†tcp.proxy(•topology.eventStream,"127.0.0.1",45120)],†timer.virtual()):†runtime.World)
+e process
+
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.capture(),†process.real(),†random.seeded(1337),[†tcp.proxy(•topology.eventStream,eventStreamHost(),eventStreamPort())],†timer.virtual()):†runtime.World)
+
+λeventStreamHost()=>String=eventStreamHostFromProperty(process.env.hasOwnProperty("sigilTcpTestHost"))
+
+λeventStreamHostFromProperty(hasValue:Bool)=>String match hasValue{
+  true=>(process.env.sigilTcpTestHost:String)|
+  false=>"127.0.0.1"
+}
+
+λeventStreamPort()=>Int=eventStreamPortFromProperty(process.env.hasOwnProperty("sigilTcpTestPort"))
+
+λeventStreamPortFromProperty(hasValue:Bool)=>Int match hasValue{
+  true=>match §decode.intFromText((process.env.sigilTcpTestPort:String)){
+    Ok(port)=>port|
+    Err(_)=>45120
+  }|
+  false=>45120
+}

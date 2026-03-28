@@ -1,1 +1,10 @@
-c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy("http://127.0.0.1:45110",•topology.mailerApi)],†log.capture(),†process.deny(),†random.seeded(1337),[],†timer.virtual()):†runtime.World)
+e process
+
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy(mailerApiBaseUrl(),•topology.mailerApi)],†log.capture(),†process.real(),†random.seeded(1337),[],†timer.virtual()):†runtime.World)
+
+λmailerApiBaseUrl()=>String=mailerApiBaseUrlFromProperty(process.env.hasOwnProperty("sigilHttpTestBaseUrl"))
+
+λmailerApiBaseUrlFromProperty(hasValue:Bool)=>String match hasValue{
+  true=>(process.env.sigilHttpTestBaseUrl:String)|
+  false=>"http://127.0.0.1:45110"
+}

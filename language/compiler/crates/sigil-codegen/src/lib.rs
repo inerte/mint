@@ -1454,9 +1454,13 @@ impl TypeScriptGenerator {
         self.emit("    return '/';");
         self.emit("  }");
         self.emit("}");
-        self.emit("async function __sigil_http_serve(handler, port) {");
+        self.emit("function __sigil_http_listen_result(server, port, done) {");
+        self.emit("  return { __sigil_server: server, __sigil_done: done, port: Number(port) };");
+        self.emit("}");
+        self.emit("async function __sigil_http_listen(handler, port) {");
         self.emit("  const { createServer } = await import('node:http');");
         self.emit("  const { text } = await import('stream/consumers');");
+        self.emit("  let assignedPort = Number(port ?? 0);");
         self.emit("  const server = createServer(async (req, res) => {");
         self.emit("    try {");
         self.emit("      const request = {");
@@ -1476,12 +1480,28 @@ impl TypeScriptGenerator {
         self.emit("      res.end(message);");
         self.emit("    }");
         self.emit("  });");
+        self.emit("  const done = new Promise((resolve, reject) => {");
+        self.emit("    server.once('close', () => resolve(undefined));");
+        self.emit("    server.once('error', reject);");
+        self.emit("  });");
         self.emit("  await new Promise((resolve, reject) => {");
         self.emit("    server.once('error', reject);");
         self.emit("    server.listen(port, () => resolve(undefined));");
         self.emit("  });");
-        self.emit("  console.log(`Server running at http://localhost:${String(port)}`);");
-        self.emit("  await new Promise(() => {});");
+        self.emit("  const address = server.address();");
+        self.emit("  if (address && typeof address === 'object' && 'port' in address) {");
+        self.emit("    assignedPort = Number(address.port ?? assignedPort);");
+        self.emit("  }");
+        self.emit("  console.log(`Server running at http://localhost:${String(assignedPort)}`);");
+        self.emit("  return __sigil_http_listen_result(server, assignedPort, done);");
+        self.emit("}");
+        self.emit("async function __sigil_http_wait(serverHandle) {");
+        self.emit("  await Promise.resolve(serverHandle?.__sigil_done);");
+        self.emit("  return null;");
+        self.emit("}");
+        self.emit("async function __sigil_http_serve(handler, port) {");
+        self.emit("  const server = await __sigil_http_listen(handler, port);");
+        self.emit("  return __sigil_http_wait(server);");
         self.emit("}");
         self.emit("function __sigil_tcp_error(kind, message) {");
         self.emit("  return { kind: { __tag: kind, __fields: [] }, message: String(message) };");
@@ -1496,8 +1516,12 @@ impl TypeScriptGenerator {
         self.emit("  const index = buffer.indexOf('\\n');");
         self.emit("  return index === -1 ? null : buffer.slice(0, index).replace(/\\r$/, '');");
         self.emit("}");
-        self.emit("async function __sigil_tcp_serve(handler, port) {");
+        self.emit("function __sigil_tcp_listen_result(server, port, done) {");
+        self.emit("  return { __sigil_done: done, __sigil_server: server, port: Number(port) };");
+        self.emit("}");
+        self.emit("async function __sigil_tcp_listen(handler, port) {");
         self.emit("  const { createServer } = await import('node:net');");
+        self.emit("  let assignedPort = Number(port ?? 0);");
         self.emit("  const server = createServer((socket) => {");
         self.emit("    socket.setEncoding('utf8');");
         self.emit("    let received = '';");
@@ -1512,7 +1536,7 @@ impl TypeScriptGenerator {
         self.emit("        const request = {");
         self.emit("          host: String(socket.remoteAddress ?? ''),");
         self.emit("          message: line,");
-        self.emit("          port: Number(port)");
+        self.emit("          port: assignedPort");
         self.emit("        };");
         self.emit("        const response = await Promise.resolve(handler(request));");
         self.emit("        socket.write(`${String(response.message)}\\n`, () => socket.end());");
@@ -1532,12 +1556,28 @@ impl TypeScriptGenerator {
         self.emit("      socket.destroy();");
         self.emit("    });");
         self.emit("  });");
+        self.emit("  const done = new Promise((resolve, reject) => {");
+        self.emit("    server.once('close', () => resolve(undefined));");
+        self.emit("    server.once('error', reject);");
+        self.emit("  });");
         self.emit("  await new Promise((resolve, reject) => {");
         self.emit("    server.once('error', reject);");
         self.emit("    server.listen(port, () => resolve(undefined));");
         self.emit("  });");
-        self.emit("  console.log(`TCP server running at tcp://127.0.0.1:${String(port)}`);");
-        self.emit("  await new Promise(() => {});");
+        self.emit("  const address = server.address();");
+        self.emit("  if (address && typeof address === 'object' && 'port' in address) {");
+        self.emit("    assignedPort = Number(address.port ?? assignedPort);");
+        self.emit("  }");
+        self.emit("  console.log(`TCP server running at tcp://127.0.0.1:${String(assignedPort)}`);");
+        self.emit("  return __sigil_tcp_listen_result(server, assignedPort, done);");
+        self.emit("}");
+        self.emit("async function __sigil_tcp_wait(serverHandle) {");
+        self.emit("  await Promise.resolve(serverHandle?.__sigil_done);");
+        self.emit("  return null;");
+        self.emit("}");
+        self.emit("async function __sigil_tcp_serve(handler, port) {");
+        self.emit("  const server = await __sigil_tcp_listen(handler, port);");
+        self.emit("  return __sigil_tcp_wait(server);");
         self.emit("}");
         self.emit("function __sigil_is_map(value) {");
         self.emit(
@@ -1623,7 +1663,28 @@ impl TypeScriptGenerator {
         self.emit("  return { ok: false, failure: { kind: 'comparison_mismatch', message: 'Comparison test failed', operator: op, actual: __sigil_preview(actual), expected: __sigil_preview(expected), diffHint: __sigil_diff_hint(actual, expected) } };");
         self.emit("}");
         self.emit("function __sigil_call(_key, actualFn, args = []) {");
-        self.emit("  return Promise.resolve().then(() => actualFn(...args));");
+        self.emit("  return Promise.resolve().then(() => {");
+        self.emit("    switch (_key) {");
+        self.emit("      case 'extern:stdlib/httpServer.listen':");
+        self.emit("        return __sigil_http_listen(args[0], args[1]);");
+        self.emit("      case 'extern:stdlib/httpServer.port':");
+        self.emit("        return Number(args[0]?.port ?? 0);");
+        self.emit("      case 'extern:stdlib/httpServer.serve':");
+        self.emit("        return __sigil_http_serve(args[0], args[1]);");
+        self.emit("      case 'extern:stdlib/httpServer.wait':");
+        self.emit("        return __sigil_http_wait(args[0]);");
+        self.emit("      case 'extern:stdlib/tcpServer.listen':");
+        self.emit("        return __sigil_tcp_listen(args[0], args[1]);");
+        self.emit("      case 'extern:stdlib/tcpServer.port':");
+        self.emit("        return Number(args[0]?.port ?? 0);");
+        self.emit("      case 'extern:stdlib/tcpServer.serve':");
+        self.emit("        return __sigil_tcp_serve(args[0], args[1]);");
+        self.emit("      case 'extern:stdlib/tcpServer.wait':");
+        self.emit("        return __sigil_tcp_wait(args[0]);");
+        self.emit("      default:");
+        self.emit("        return actualFn(...args);");
+        self.emit("    }");
+        self.emit("  });");
         self.emit("}");
     }
 
@@ -3091,9 +3152,21 @@ impl TypeScriptGenerator {
             .collect::<Result<Vec<_>, CodegenError>>()?;
 
         match member {
+            "listen" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handler, __port]) => __sigil_http_listen(__handler, __port))",
+                self.js_all(&generated_args)
+            ))),
+            "port" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__server) => Number(__server?.port ?? 0))",
+                generated_args[0]
+            ))),
             "serve" if generated_args.len() == 2 => Ok(Some(format!(
                 "{}.then(([__handler, __port]) => __sigil_http_serve(__handler, __port))",
                 self.js_all(&generated_args)
+            ))),
+            "wait" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__server) => __sigil_http_wait(__server))",
+                generated_args[0]
             ))),
             _ => Ok(None),
         }
@@ -3129,9 +3202,21 @@ impl TypeScriptGenerator {
             .collect::<Result<Vec<_>, CodegenError>>()?;
 
         match member {
+            "listen" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handler, __port]) => __sigil_tcp_listen(__handler, __port))",
+                self.js_all(&generated_args)
+            ))),
+            "port" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__server) => Number(__server?.port ?? 0))",
+                generated_args[0]
+            ))),
             "serve" if generated_args.len() == 2 => Ok(Some(format!(
                 "{}.then(([__handler, __port]) => __sigil_tcp_serve(__handler, __port))",
                 self.js_all(&generated_args)
+            ))),
+            "wait" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__server) => __sigil_tcp_wait(__server))",
+                generated_args[0]
             ))),
             _ => Ok(None),
         }

@@ -2,6 +2,14 @@ t Request={host:String,message:String,port:Int}
 
 t Response={message:String}
 
+t Server={port:Int}
+
+λlisten(handler:λ(Request)=>Response,port:Int)=>!Tcp Server={port:port}
+
+λport(server:Server)=>Int=server.port
+
 λresponse(message:String)=>Response={message:message}
 
 λserve(handler:λ(Request)=>Response,port:Int)=>!Tcp Unit=()
+
+λwait(server:Server)=>!Tcp Unit=()

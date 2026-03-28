@@ -1,0 +1,19 @@
+t Actor={hp:Int,id:Int,kind:ActorKind,pos:Point}
+
+t ActorKind=Goblin()|Player()
+
+t Advance={frame:Frame,outcome:Option[Outcome],state:GameState}
+
+t Frame={map:String,status:String,turn:Int}
+
+t GameState={actors:[Actor],exit:Point,room1:Room,room2:Room,room3:Room,turn:Int}
+
+t Outcome=Escaped(Int)|Slain(Int)|Stalled(Int)
+
+t PathNode={first:Point,pos:Point}
+
+t Point={x:Int,y:Int}
+
+t Replay={frames:[Frame],outcome:Outcome}
+
+t Room={h:Int,w:Int,x:Int,y:Int}

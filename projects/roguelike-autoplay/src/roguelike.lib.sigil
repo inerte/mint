@@ -1,0 +1,363 @@
+c height=(18:Int)
+
+c width=(48:Int)
+
+λactorAt(pos:µPoint,state:µGameState)=>Option[µActor]=actorAtInner(state.actors,pos)
+
+λactorAtExcept(actorId:Int,pos:µPoint,state:µGameState)=>Option[µActor]=actorAtExceptInner(actorId,state.actors,pos)
+
+λactorAtExceptInner(actorId:Int,actors:[µActor],pos:µPoint)=>Option[µActor] match actors{
+  []=>None()|
+  [head,.tail]=>match alive(head) and head.id≠actorId and samePoint(head.pos,pos){
+    true=>Some(head)|
+    _=>actorAtExceptInner(actorId,tail,pos)
+  }
+}
+
+λactorAtInner(actors:[µActor],pos:µPoint)=>Option[µActor] match actors{
+  []=>None()|
+  [head,.tail]=>match alive(head) and samePoint(head.pos,pos){
+    true=>Some(head)|
+    _=>actorAtInner(tail,pos)
+  }
+}
+
+λadjacentGoblin(pos:µPoint,state:µGameState)=>Option[µActor]=adjacentGoblinInner(neighbors(pos),state)
+
+λadjacentGoblinInner(points:[µPoint],state:µGameState)=>Option[µActor] match points{
+  []=>None()|
+  [head,.tail]=>match actorAt(head,state){
+    Some(actor)=>match isGoblin(actor){
+      true=>Some(actor)|
+      _=>adjacentGoblinInner(tail,state)
+    }|
+    None()=>adjacentGoblinInner(tail,state)
+  }
+}
+
+λadvance(state:µGameState)=>µAdvance={
+  l afterPlayer=(stepPlayer(state):µGameState);
+  match playerAtExit(afterPlayer){
+    true=>{
+      l next=(withTurn(afterPlayer,state.turn+1):µGameState);
+      {frame:renderFrame(next),outcome:Some(µEscaped(next.turn)),state:next}
+    }|
+    _=>{
+      l next=(withTurn(stepGoblins(afterPlayer),state.turn+1):µGameState);
+      match player(next){
+        Some(_)=>{frame:renderFrame(next),outcome:None(),state:next}|
+        None()=>{frame:renderFrame(next),outcome:Some(µSlain(next.turn)),state:next}
+      }
+    }
+  }
+}
+
+λalive(actor:µActor)=>Bool=actor.hp>0
+
+λappendNodes(acc:[µPathNode],head:µPathNode,tail:[µPathNode])=>[µPathNode]=acc⧺[head]⧺tail
+
+λcenterX(room:µRoom)=>Int=room.x+halfFloor(room.w)
+
+λcenterY(room:µRoom)=>Int=room.y+halfFloor(room.h)
+
+λcorridorL(a:µRoom,b:µRoom,x:Int,y:Int)=>Bool=inH(centerY(a),x,centerX(a),centerX(b),y) or inV(centerX(b),x,y,centerY(a),centerY(b))
+
+λdamageActor(actorId:Int,amount:Int,state:µGameState)=>µGameState=withActors(removeDeadActors(damageActors(actorId,state.actors,amount)),state)
+
+λdamageActors(actorId:Int,actors:[µActor],amount:Int)=>[µActor] match actors{
+  []=>[]|
+  [head,.tail]=>match head.id=actorId{
+    true=>[{hp:head.hp-amount,id:head.id,kind:head.kind,pos:head.pos}]⧺damageActors(actorId,tail,amount)|
+    _=>[head]⧺damageActors(actorId,tail,amount)
+  }
+}
+
+λdemoState(actors:[µActor],exit:µPoint,turn:Int)=>µGameState={actors:actors,exit:exit,room1:{h:6,w:13,x:2,y:2},room2:{h:7,w:14,x:18,y:2},room3:{h:6,w:12,x:32,y:9},turn:turn}
+
+λexpandNodes(actorId:Int,allowTargetOccupied:Bool,current:µPathNode,queue:[µPathNode],state:µGameState,target:µPoint,visited:[µPoint])=>[µPathNode]=expandNodesInner(actorId,allowTargetOccupied,current.first,neighbors(current.pos),queue,state,target,visited)
+
+λexpandNodesInner(actorId:Int,allowTargetOccupied:Bool,first:µPoint,points:[µPoint],queue:[µPathNode],state:µGameState,target:µPoint,visited:[µPoint])=>[µPathNode] match points{
+  []=>[]|
+  [head,.tail]=>match searchWalkable(actorId,allowTargetOccupied,head,state,target) and ¬pointIn(visited,head) and ¬nodePosIn(queue,head){
+    true=>[{first:first,pos:head}]⧺expandNodesInner(actorId,allowTargetOccupied,first,tail,appendNodes([],{first:first,pos:head},queue),state,target,visited)|
+    _=>expandNodesInner(actorId,allowTargetOccupied,first,tail,queue,state,target,visited)
+  }
+}
+
+λfindActorById(actorId:Int,actors:[µActor])=>Option[µActor] match actors{
+  []=>None()|
+  [head,.tail]=>match alive(head) and head.id=actorId{
+    true=>Some(head)|
+    _=>findActorById(actorId,tail)
+  }
+}
+
+λfindPlayer(actors:[µActor])=>Option[µActor] match actors{
+  []=>None()|
+  [head,.tail]=>match alive(head) and isPlayer(head){
+    true=>Some(head)|
+    _=>findPlayer(tail)
+  }
+}
+
+λframeText(frame:µFrame)=>String=frame.map++"
+"++frame.status
+
+λgoblinActor(hp:Int,id:Int,pos:µPoint)=>µActor={hp:hp,id:id,kind:µGoblin(),pos:pos}
+
+λgoblinIds(actors:[µActor])=>[Int] match actors{
+  []=>[]|
+  [head,.tail]=>match alive(head) and isGoblin(head){
+    true=>[head.id]⧺goblinIds(tail)|
+    _=>goblinIds(tail)
+  }
+}
+
+λhalfFloor(n:Int)=>Int match n{
+  0=>0|
+  1=>0|
+  value=>1+halfFloor(value-2)
+}
+
+λinBounds(pos:µPoint)=>Bool=pos.x≥0 and pos.x<width and (pos.y≥0 and pos.y<height)
+
+λinH(cy:Int,x:Int,x1:Int,x2:Int,y:Int)=>Bool=y=cy and x≥min2(x1,x2) and x≤max2(x1,x2)
+
+λinRect(rh:Int,rw:Int,rx:Int,ry:Int,x:Int,y:Int)=>Bool=x≥rx and x<rx+rw and (y≥ry and y<ry+rh)
+
+λinRoom(room:µRoom,x:Int,y:Int)=>Bool=inRect(room.h,room.w,room.x,room.y,x,y)
+
+λinV(cx:Int,x:Int,y:Int,y1:Int,y2:Int)=>Bool=x=cx and y≥min2(y1,y2) and y≤max2(y1,y2)
+
+λinitialNodes(actorId:Int,allowTargetOccupied:Bool,points:[µPoint],start:µPoint,state:µGameState,target:µPoint)=>[µPathNode] match points{
+  []=>[]|
+  [head,.tail]=>match searchWalkable(actorId,allowTargetOccupied,head,state,target){
+    true=>[{first:head,pos:head}]⧺initialNodes(actorId,allowTargetOccupied,tail,start,state,target)|
+    _=>initialNodes(actorId,allowTargetOccupied,tail,start,state,target)
+  }
+}
+
+λisFloor(state:µGameState,x:Int,y:Int)=>Bool=inRoom(state.room1,x,y) or inRoom(state.room2,x,y) or inRoom(state.room3,x,y) or corridorL(state.room1,state.room2,x,y) or corridorL(state.room2,state.room3,x,y)
+
+λisGoblin(actor:µActor)=>Bool match actor.kind{
+  µGoblin()=>true|
+  _=>false
+}
+
+λisPlayer(actor:µActor)=>Bool match actor.kind{
+  µPlayer()=>true|
+  _=>false
+}
+
+λlivingGoblinCount(actors:[µActor])=>Int match actors{
+  []=>0|
+  [head,.tail]=>match alive(head) and isGoblin(head){
+    true=>1+livingGoblinCount(tail)|
+    _=>livingGoblinCount(tail)
+  }
+}
+
+λmakeGame()=>!Random µGameState={
+  l room1=(randRoomInZone(6,13,2,2):µRoom);
+  l room2=(randRoomInZone(7,14,18,2):µRoom);
+  l room3=(randRoomInZone(6,12,32,9):µRoom);
+  l exit=(point(centerX(room3),centerY(room3)):µPoint);
+  l goblin1=(randomPointInRoom(([]:[µPoint]),room2):µPoint);
+  l goblin2=(randomPointInRoom([exit],room3):µPoint);
+  {actors:[playerActor(5,1,point(centerX(room1),centerY(room1))),goblinActor(2,2,goblin1),goblinActor(2,3,goblin2)],exit:exit,room1:room1,room2:room2,room3:room3,turn:0}
+}
+
+λmax2(a:Int,b:Int)=>Int match a>b{
+  true=>a|
+  _=>b
+}
+
+λmin2(a:Int,b:Int)=>Int match a<b{
+  true=>a|
+  _=>b
+}
+
+λmoveActor(actorId:Int,next:µPoint,state:µGameState)=>µGameState=withActors(moveActors(actorId,state.actors,next),state)
+
+λmoveActors(actorId:Int,actors:[µActor],next:µPoint)=>[µActor] match actors{
+  []=>[]|
+  [head,.tail]=>match head.id=actorId{
+    true=>[{hp:head.hp,id:head.id,kind:head.kind,pos:next}]⧺moveActors(actorId,tail,next)|
+    _=>[head]⧺moveActors(actorId,tail,next)
+  }
+}
+
+λneighbors(pos:µPoint)=>[µPoint]=[point(pos.x,pos.y-1),point(pos.x-1,pos.y),point(pos.x+1,pos.y),point(pos.x,pos.y+1)]
+
+λnextStepToward(actorId:Int,allowTargetOccupied:Bool,start:µPoint,state:µGameState,target:µPoint)=>Option[µPoint] match samePoint(start,target){
+  true=>None()|
+  _=>searchQueue(actorId,allowTargetOccupied,initialNodes(actorId,allowTargetOccupied,neighbors(start),start,state,target),state,target,[start])
+}
+
+λnodePosIn(nodes:[µPathNode],pos:µPoint)=>Bool match nodes{
+  []=>false|
+  [head,.tail]=>samePoint(head.pos,pos) or nodePosIn(tail,pos)
+}
+
+λoutcomeText(outcome:µOutcome)=>String match outcome{
+  µEscaped(turn)=>"Escaped on turn "++§string.intToString(turn)|
+  µSlain(turn)=>"Slain on turn "++§string.intToString(turn)|
+  µStalled(turn)=>"Stalled on turn "++§string.intToString(turn)
+}
+
+λplay(maxTurns:Int)=>!Random µReplay=simulate(maxTurns,makeGame())
+
+λplayer(state:µGameState)=>Option[µActor]=findPlayer(state.actors)
+
+λplayerActor(hp:Int,id:Int,pos:µPoint)=>µActor={hp:hp,id:id,kind:µPlayer(),pos:pos}
+
+λplayerAtExit(state:µGameState)=>Bool match player(state){
+  Some(actor)=>samePoint(actor.pos,state.exit)|
+  None()=>false
+}
+
+λplayerHp(state:µGameState)=>Int match player(state){
+  Some(actor)=>actor.hp|
+  None()=>0
+}
+
+λpoint(x:Int,y:Int)=>µPoint={x:x,y:y}
+
+λpointIn(points:[µPoint],pos:µPoint)=>Bool match points{
+  []=>false|
+  [head,.tail]=>samePoint(head,pos) or pointIn(tail,pos)
+}
+
+λrandRoomInZone(zh:Int,zw:Int,zx:Int,zy:Int)=>!Random µRoom={
+  l w=(§random.intBetween(zw-1,5):Int);
+  l h=(§random.intBetween(zh-1,4):Int);
+  l x=(§random.intBetween(zx+zw-w,zx):Int);
+  {h:h,w:w,x:x,y:(§random.intBetween(zy+zh-h,zy):Int)}
+}
+
+λrandomPointInRoom(blocked:[µPoint],room:µRoom)=>!Random µPoint={
+  l candidate=(point((§random.intBetween(room.x+room.w-1,room.x):Int),(§random.intBetween(room.y+room.h-1,room.y):Int)):µPoint);
+  match pointIn(blocked,candidate){
+    true=>randomPointInRoom(blocked,room)|
+    _=>candidate
+  }
+}
+
+λremoveDeadActors(actors:[µActor])=>[µActor] match actors{
+  []=>[]|
+  [head,.tail]=>match alive(head){
+    true=>[head]⧺removeDeadActors(tail)|
+    _=>removeDeadActors(tail)
+  }
+}
+
+λrenderFrame(state:µGameState)=>µFrame={map:renderRows(state,0),status:statusLine(state),turn:state.turn}
+
+λrenderRow(state:µGameState,x:Int,y:Int)=>String match width-x{
+  0=>""|
+  _=>tileAt(point(x,y),state)++renderRow(state,x+1,y)
+}
+
+λrenderRows(state:µGameState,y:Int)=>String match height-y{
+  0=>""|
+  _=>renderRow(state,0,y)++"
+"++renderRows(state,y+1)
+}
+
+λsamePoint(a:µPoint,b:µPoint)=>Bool=a.x=b.x and a.y=b.y
+
+λsearchQueue(actorId:Int,allowTargetOccupied:Bool,queue:[µPathNode],state:µGameState,target:µPoint,visited:[µPoint])=>Option[µPoint] match queue{
+  []=>None()|
+  [head,.tail]=>match samePoint(head.pos,target){
+    true=>Some(head.first)|
+    _=>{
+      l nextVisited=(visited⧺[head.pos]:[µPoint]);
+      searchQueue(actorId,allowTargetOccupied,tail⧺expandNodes(actorId,allowTargetOccupied,head,tail,state,target,nextVisited),state,target,nextVisited)
+    }
+  }
+}
+
+λsearchWalkable(actorId:Int,allowTargetOccupied:Bool,pos:µPoint,state:µGameState,target:µPoint)=>Bool match inBounds(pos) and isFloor(state,pos.x,pos.y){
+  true=>match samePoint(pos,target){
+    true=>match allowTargetOccupied{
+      true=>true|
+      _=>match actorAtExcept(actorId,pos,state){
+        Some(_)=>false|
+        None()=>true
+      }
+    }|
+    _=>match actorAtExcept(actorId,pos,state){
+      Some(_)=>false|
+      None()=>true
+    }
+  }|
+  _=>false
+}
+
+λsimulate(maxTurns:Int,state:µGameState)=>µReplay=simulateLoop([renderFrame(state)],maxTurns,state)
+
+λsimulateLoop(frames:[µFrame],maxTurns:Int,state:µGameState)=>µReplay match state.turn≥maxTurns{
+  true=>{frames:frames,outcome:µStalled(state.turn)}|
+  _=>{
+    l step=(advance(state):µAdvance);
+    match step.outcome{
+      Some(outcome)=>{frames:frames⧺[step.frame],outcome:outcome}|
+      None()=>simulateLoop(frames⧺[step.frame],maxTurns,step.state)
+    }
+  }
+}
+
+λstatusLine(state:µGameState)=>String="Turn "++§string.intToString(state.turn)++" HP "++§string.intToString(playerHp(state))++" Goblins "++§string.intToString(livingGoblinCount(state.actors))
+
+λstepGoblin(actorId:Int,state:µGameState)=>µGameState match player(state){
+  Some(target)=>match findActorById(actorId,state.actors){
+    Some(goblin)=>match pointIn(neighbors(goblin.pos),target.pos){
+      true=>damageActor(target.id,1,state)|
+      _=>match nextStepToward(actorId,true,goblin.pos,state,target.pos){
+        Some(next)=>moveActor(actorId,next,state)|
+        None()=>state
+      }
+    }|
+    None()=>state
+  }|
+  None()=>state
+}
+
+λstepGoblins(state:µGameState)=>µGameState=stepGoblinsById(goblinIds(state.actors),state)
+
+λstepGoblinsById(ids:[Int],state:µGameState)=>µGameState match ids{
+  []=>state|
+  [head,.tail]=>match player(state){
+    Some(_)=>stepGoblinsById(tail,stepGoblin(head,state))|
+    None()=>state
+  }
+}
+
+λstepPlayer(state:µGameState)=>µGameState match player(state){
+  Some(actor)=>match adjacentGoblin(actor.pos,state){
+    Some(target)=>damageActor(target.id,1,state)|
+    None()=>match nextStepToward(actor.id,false,actor.pos,state,state.exit){
+      Some(next)=>moveActor(actor.id,next,state)|
+      None()=>state
+    }
+  }|
+  None()=>state
+}
+
+λtileAt(pos:µPoint,state:µGameState)=>String match actorAt(pos,state){
+  Some(actor)=>match actor.kind{
+    µPlayer()=>"@"|
+    µGoblin()=>"g"
+  }|
+  None()=>match samePoint(pos,state.exit){
+    true=>">"|
+    _=>match isFloor(state,pos.x,pos.y){
+      true=>"."|
+      _=>"#"
+    }
+  }
+}
+
+λwithActors(actors:[µActor],state:µGameState)=>µGameState={actors:actors,exit:state.exit,room1:state.room1,room2:state.room2,room3:state.room3,turn:state.turn}
+
+λwithTurn(state:µGameState,turn:Int)=>µGameState={actors:state.actors,exit:state.exit,room1:state.room1,room2:state.room2,room3:state.room3,turn:turn}

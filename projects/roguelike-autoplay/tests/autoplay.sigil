@@ -1,0 +1,41 @@
+λmain()=>Unit=()
+
+test "findActorById returns none for a missing actor" {
+  match •roguelike.findActorById(9,[•roguelike.playerActor(5,1,•roguelike.point(4,4))]){
+    None()=>true|
+    Some(_)=>false
+  }
+}
+
+test "frameText includes map and status line" {
+  •roguelike.frameText({map:"##
+..",status:"Turn 0",turn:0})="##
+..
+Turn 0"
+}
+
+test "outcomeText renders escaped turn" {
+  •roguelike.outcomeText(µEscaped(7))="Escaped on turn 7"
+}
+
+test "rendered frame contains player goblin and exit glyphs" {
+  l frame=(•roguelike.renderFrame(•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(20,4))],•roguelike.point(35,12),0)):µFrame);
+  §string.indexOf(frame.map,"@")≥0 and §string.indexOf(frame.map,"g")≥0 and §string.indexOf(frame.map,">")≥0
+}
+
+test "seeded autoplay escapes under a fixed random world" =>!Random world {
+  c random=(†random.seeded(1337):†random.RandomEntry)
+} {
+  match •roguelike.play(80).outcome{
+    µEscaped(turn)=>turn>0 and turn≤80|
+    _=>false
+  }
+}
+
+test "simulate returns slain when a weak player starts beside a goblin" {
+  •roguelike.simulate(1,•roguelike.demoState([•roguelike.playerActor(1,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(5,4))],•roguelike.point(35,12),0)).outcome=µSlain(1)
+}
+
+test "simulate returns stalled when the turn budget expires" {
+  •roguelike.simulate(1,•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4))],•roguelike.point(35,12),0)).outcome=µStalled(1)
+}

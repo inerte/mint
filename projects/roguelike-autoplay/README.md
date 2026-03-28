@@ -1,6 +1,6 @@
 # Roguelike Autoplay (Sigil Project)
 
-Tiny seeded ASCII roguelike demo with generated rooms, two goblins, and an animated auto-play replay.
+Tiny seeded ASCII roguelike demo with branching dungeon generation, goblins, pickups, treasure scoring, and an animated auto-play replay.
 
 Run from repo root:
 

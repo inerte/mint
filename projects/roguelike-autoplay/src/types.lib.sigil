@@ -6,11 +6,17 @@ t Advance={frame:Frame,outcome:Option[Outcome],state:GameState}
 
 t Frame={map:String,status:String,turn:Int}
 
-t GameState={actors:[Actor],exit:Point,room1:Room,room2:Room,room3:Room,turn:Int}
+t GameState={actors:[Actor],carriedPotions:Int,collectedTreasure:Int,exit:Point,floors:[Point],pickups:[Pickup],rooms:[Room],turn:Int}
 
 t Outcome=Escaped(Int)|Slain(Int)|Stalled(Int)
 
-t PathNode={first:Point,pos:Point}
+t PathNode={distance:Int,first:Point,pos:Point}
+
+t PathTarget={distance:Int,pos:Point}
+
+t Pickup={kind:PickupKind,pos:Point}
+
+t PickupKind=Potion()|Treasure()
 
 t Point={x:Int,y:Int}
 

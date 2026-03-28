@@ -11,7 +11,7 @@ e console:{clear:λ()=>!Log Unit,log:λ(String)=>!Log Unit}
 }
 
 λmain()=>!Log!Random!Timer Unit={
-  l replay=(•roguelike.play(80):µReplay);
+  l replay=(•roguelike.play(120):µReplay);
   l _=(animateFrames(replay.frames):Unit);
   console.log(•roguelike.outcomeText(replay.outcome))
 }

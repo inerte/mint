@@ -1,5 +1,27 @@
 λmain()=>Unit=()
 
+test "bestStepToward returns none from a blocked wall position" {
+  match •roguelike.bestStepToward(1,false,•roguelike.point(0,0),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(0,0))],•roguelike.point(35,12),([]:[µPickup]),0),•roguelike.point(1,1)){
+    None()=>true|
+    Some(_)=>false
+  }
+}
+
+test "bestStepToward returns some on a connected demo route" {
+  match •roguelike.bestStepToward(1,false,•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4))],•roguelike.point(35,12),([]:[µPickup]),0),•roguelike.point(35,12)){
+    Some(_)=>true|
+    None()=>false
+  }
+}
+
+test "collectPickup adds potion inventory and clears tile" {
+  •roguelike.collectPickup(•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(6,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(4,4))],0)).carriedPotions=1 and •roguelike.collectPickup(•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(6,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(4,4))],0)).collectedTreasure=0 and #•roguelike.collectPickup(•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(6,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(4,4))],0)).pickups=0
+}
+
+test "collectPickup adds treasure score and clears tile" {
+  •roguelike.collectPickup(•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(6,4))],•roguelike.point(35,12),[•roguelike.treasurePickup(•roguelike.point(4,4))],0)).carriedPotions=0 and •roguelike.collectPickup(•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(6,4))],•roguelike.point(35,12),[•roguelike.treasurePickup(•roguelike.point(4,4))],0)).collectedTreasure=1 and #•roguelike.collectPickup(•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(6,4))],•roguelike.point(35,12),[•roguelike.treasurePickup(•roguelike.point(4,4))],0)).pickups=0
+}
+
 test "findActorById returns none for a missing actor" {
   match •roguelike.findActorById(9,[•roguelike.playerActor(5,1,•roguelike.point(4,4))]){
     None()=>true|
@@ -14,28 +36,74 @@ test "frameText includes map and status line" {
 Turn 0"
 }
 
+test "generated game has five rooms and five pickups" =>!Random world {
+  c random=(†random.seeded(1337):†random.RandomEntry)
+} {
+  l state=(•roguelike.makeGame():µGameState);
+  #state.pickups=5 and #state.rooms=5
+}
+
+test "healActor caps at player max hp" {
+  •roguelike.playerHp(•roguelike.healActor(1,10,•roguelike.demoStateWithInventory([•roguelike.playerActor(4,1,•roguelike.point(4,4))],0,0,•roguelike.point(35,12),([]:[µPickup]),0)))=5
+}
+
+test "isPickupPotion distinguishes potion and treasure" {
+  •roguelike.isPickupPotion(•roguelike.potionPickup(•roguelike.point(4,4))) and ¬•roguelike.isPickupPotion(•roguelike.treasurePickup(•roguelike.point(4,4)))
+}
+
+test "nearestPotionTarget finds the closest potion" {
+  match •roguelike.nearestPotionTarget(1,•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(5,4)),•roguelike.potionPickup(•roguelike.point(20,4))],0)){
+    Some(target)=>•roguelike.samePoint(target.pos,•roguelike.point(5,4))|
+    None()=>false
+  }
+}
+
+test "nextStepToward finds a route through the demo map" {
+  match •roguelike.nextStepToward(1,false,•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4))],•roguelike.point(35,12),([]:[µPickup]),0),•roguelike.point(35,12)){
+    Some(_)=>true|
+    None()=>false
+  }
+}
+
 test "outcomeText renders escaped turn" {
   •roguelike.outcomeText(µEscaped(7))="Escaped on turn 7"
 }
 
-test "rendered frame contains player goblin and exit glyphs" {
-  l frame=(•roguelike.renderFrame(•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(20,4))],•roguelike.point(35,12),0)):µFrame);
-  §string.indexOf(frame.map,"@")≥0 and §string.indexOf(frame.map,"g")≥0 and §string.indexOf(frame.map,">")≥0
+test "pathDistance returns none from a blocked wall position" {
+  match •roguelike.pathDistance(1,false,•roguelike.point(0,0),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(0,0))],•roguelike.point(35,12),([]:[µPickup]),0),•roguelike.point(35,12)){
+    Some(_)=>false|
+    None()=>true
+  }
+}
+
+test "pathDistance returns some for a connected demo route" {
+  match •roguelike.pathDistance(1,false,•roguelike.point(4,4),•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4))],•roguelike.point(35,12),([]:[µPickup]),0),•roguelike.point(35,12)){
+    Some(distance)=>distance>0|
+    None()=>false
+  }
+}
+
+test "rendered frame contains player goblin exit and pickup glyphs" {
+  §string.indexOf(•roguelike.renderFrame(•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(20,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(21,4)),•roguelike.treasurePickup(•roguelike.point(19,4))],0)).map,"@")≥0 and §string.indexOf(•roguelike.renderFrame(•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(20,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(21,4)),•roguelike.treasurePickup(•roguelike.point(19,4))],0)).map,"g")≥0 and §string.indexOf(•roguelike.renderFrame(•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(20,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(21,4)),•roguelike.treasurePickup(•roguelike.point(19,4))],0)).map,">")≥0 and (§string.indexOf(•roguelike.renderFrame(•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(20,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(21,4)),•roguelike.treasurePickup(•roguelike.point(19,4))],0)).map,"!")≥0 and §string.indexOf(•roguelike.renderFrame(•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(20,4))],•roguelike.point(35,12),[•roguelike.potionPickup(•roguelike.point(21,4)),•roguelike.treasurePickup(•roguelike.point(19,4))],0)).map,"$")≥0)
 }
 
 test "seeded autoplay escapes under a fixed random world" =>!Random world {
   c random=(†random.seeded(1337):†random.RandomEntry)
 } {
-  match •roguelike.play(80).outcome{
-    µEscaped(turn)=>turn>0 and turn≤80|
+  match •roguelike.play(120).outcome{
+    µEscaped(turn)=>turn>0 and turn≤120|
     _=>false
   }
 }
 
 test "simulate returns slain when a weak player starts beside a goblin" {
-  •roguelike.simulate(1,•roguelike.demoState([•roguelike.playerActor(1,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(5,4))],•roguelike.point(35,12),0)).outcome=µSlain(1)
+  •roguelike.simulate(1,•roguelike.demoState([•roguelike.playerActor(1,1,•roguelike.point(4,4)),•roguelike.goblinActor(2,2,•roguelike.point(5,4))],•roguelike.point(35,12),([]:[µPickup]),0)).outcome=µSlain(1)
 }
 
 test "simulate returns stalled when the turn budget expires" {
-  •roguelike.simulate(1,•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4))],•roguelike.point(35,12),0)).outcome=µStalled(1)
+  •roguelike.simulate(1,•roguelike.demoState([•roguelike.playerActor(5,1,•roguelike.point(4,4))],•roguelike.point(35,12),([]:[µPickup]),0)).outcome=µStalled(1)
+}
+
+test "usePotionIfNeeded consumes one potion at low hp" {
+  •roguelike.usePotionIfNeeded(•roguelike.demoStateWithInventory([•roguelike.playerActor(2,1,•roguelike.point(4,4))],1,0,•roguelike.point(35,12),([]:[µPickup]),0)).carriedPotions=0 and •roguelike.playerHp(•roguelike.usePotionIfNeeded(•roguelike.demoStateWithInventory([•roguelike.playerActor(2,1,•roguelike.point(4,4))],1,0,•roguelike.point(35,12),([]:[µPickup]),0)))=4
 }

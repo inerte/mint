@@ -1,12 +1,14 @@
-t Actor={hp:Int,id:Int,kind:ActorKind,pos:Point}
+t Actor={ammo:Int,hp:Int,id:Int,kind:ActorKind,pos:Point}
 
-t ActorKind=Goblin()|Player()
+t ActorKind=Archer()|Brute()|Goblin()|Player()|Shaman()
 
 t Advance={frame:Frame,outcome:Option[Outcome],state:GameState}
 
 t Frame={map:String,status:String,turn:Int}
 
-t GameState={actors:[Actor],carriedPotions:Int,collectedTreasure:Int,exit:Point,floors:[Point],pickups:[Pickup],rooms:[Room],turn:Int}
+t GameState={actors:[Actor],collectedTreasure:Int,exit:Point,floors:[Point],lastAction:String,loadout:PlayerLoadout,pickups:[Pickup],rooms:[Room],turn:Int}
+
+t MeleeWeapon=Spear()|Sword()
 
 t Outcome=Escaped(Int)|Slain(Int)|Stalled(Int)
 
@@ -16,9 +18,13 @@ t PathTarget={distance:Int,pos:Point}
 
 t Pickup={kind:PickupKind,pos:Point}
 
-t PickupKind=Potion()|Treasure()
+t PickupKind=BlinkPickup()|BombPickup()|PotionPickup()|SpearPickup()|TreasurePickup()
+
+t PlayerLoadout={arrows:Int,blinks:Int,bombs:Int,melee:MeleeWeapon,potions:Int,ranged:Option[RangedWeapon]}
 
 t Point={x:Int,y:Int}
+
+t RangedWeapon=Bow()
 
 t Replay={frames:[Frame],outcome:Outcome}
 

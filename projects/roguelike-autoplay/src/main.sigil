@@ -1,19 +1,23 @@
 e console:{clear:λ()=>!Log Unit,log:λ(String)=>!Log Unit}
 
-λanimateFrames(frames:[µFrame])=>!Log!Timer Unit match frames{
-  []=>()|
-  [head]=>showFrame(head)|
-  [head,.tail]=>{
-    l _=(showFrame(head):Unit);
+λanimateFrames(maxTurns:Int,state:µGameState)=>!Log!Random!Timer µOutcome match state.turn≥maxTurns{
+  true=>µStalled(state.turn)|
+  _=>{
+    l step=(•roguelike.advance(state):µAdvance);
     l _=(§time.sleepMs(100):Unit);
-    animateFrames(tail)
+    l _=(showFrame(step.frame):Unit);
+    match step.outcome{
+      Some(outcome)=>outcome|
+      None()=>animateFrames(maxTurns,step.state)
+    }
   }
 }
 
 λmain()=>!Log!Random!Timer Unit={
-  l replay=(•roguelike.play(120):µReplay);
-  l _=(animateFrames(replay.frames):Unit);
-  console.log(•roguelike.outcomeText(replay.outcome))
+  l state=(•roguelike.makeGame():µGameState);
+  l _=(showFrame(•roguelike.renderFrame(state)):Unit);
+  l outcome=(animateFrames(120,state):µOutcome);
+  console.log(•roguelike.outcomeText(outcome))
 }
 
 λshowFrame(frame:µFrame)=>!Log Unit={

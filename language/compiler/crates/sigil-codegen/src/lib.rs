@@ -25,6 +25,13 @@ use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
 
+mod span_map;
+
+pub use span_map::{
+    collect_module_span_map, CollectedModuleSpanMap, DebugSpanKind, DebugSpanRecord,
+    GeneratedLineRange, ModuleSpanMap, SPAN_MAP_FORMAT_VERSION,
+};
+
 const WORLD_RUNTIME_HELPERS: &str = r#"function __sigil_world_error(message) {
   throw new Error(String(message));
 }
@@ -925,8 +932,10 @@ impl Default for CodegenOptions {
 
 pub struct TypeScriptGenerator {
     indent: usize,
+    declaration_span_ids: Vec<Option<String>>,
     module_id: Option<String>,
     output: Vec<String>,
+    span_map: Option<ModuleSpanMap>,
     source_file: Option<String>,
     output_file: Option<String>,
     test_meta_entries: Vec<String>,
@@ -936,8 +945,10 @@ impl TypeScriptGenerator {
     pub fn new(options: CodegenOptions) -> Self {
         Self {
             indent: 0,
+            declaration_span_ids: Vec::new(),
             module_id: options.module_id,
             output: Vec::new(),
+            span_map: None,
             source_file: options.source_file,
             output_file: options.output_file,
             test_meta_entries: Vec::new(),
@@ -958,6 +969,8 @@ impl TypeScriptGenerator {
     pub fn generate(&mut self, program: &TypedProgram) -> Result<String, CodegenError> {
         self.output.clear();
         self.indent = 0;
+        self.declaration_span_ids.clear();
+        self.span_map = self.build_span_map(program);
         self.test_meta_entries.clear();
         // Emit runtime helpers first
         self.emit_runtime_helpers();
@@ -969,8 +982,11 @@ impl TypeScriptGenerator {
         self.emit_runtime_module_imports(program)?;
 
         // Generate code for all declarations
-        for decl in &program.declarations {
+        for (index, decl) in program.declarations.iter().enumerate() {
+            let start_line = self.current_generated_line();
             self.generate_declaration(decl)?;
+            let end_line = self.current_generated_line().saturating_sub(1);
+            self.annotate_declaration_generated_range(index, start_line, end_line);
             self.output.push("\n".to_string());
         }
 
@@ -988,6 +1004,10 @@ impl TypeScriptGenerator {
         }
 
         Ok(self.output.join(""))
+    }
+
+    pub fn generated_span_map(&self) -> Option<&ModuleSpanMap> {
+        self.span_map.as_ref()
     }
 
     fn emit_core_prelude_runtime_import(&mut self) -> Result<(), CodegenError> {
@@ -1038,6 +1058,42 @@ impl TypeScriptGenerator {
     fn emit(&mut self, line: &str) {
         let indentation = "  ".repeat(self.indent);
         self.output.push(format!("{}{}\n", indentation, line));
+    }
+
+    fn current_generated_line(&self) -> usize {
+        self.output
+            .iter()
+            .map(|segment| segment.bytes().filter(|byte| *byte == b'\n').count())
+            .sum::<usize>()
+            + 1
+    }
+
+    fn build_span_map(&mut self, program: &TypedProgram) -> Option<ModuleSpanMap> {
+        let (Some(module_id), Some(source_file), Some(output_file)) = (
+            self.module_id.as_deref(),
+            self.source_file.as_deref(),
+            self.output_file.as_deref(),
+        ) else {
+            return None;
+        };
+        let collected = collect_module_span_map(module_id, source_file, output_file, program);
+        self.declaration_span_ids = collected.declaration_span_ids;
+        Some(collected.span_map)
+    }
+
+    fn annotate_declaration_generated_range(
+        &mut self,
+        declaration_index: usize,
+        start_line: usize,
+        end_line: usize,
+    ) {
+        let Some(span_map) = self.span_map.as_mut() else {
+            return;
+        };
+        let Some(Some(span_id)) = self.declaration_span_ids.get(declaration_index) else {
+            return;
+        };
+        span_map.annotate_generated_range(span_id, start_line, end_line);
     }
 
     fn emit_block(&mut self, block: &str) {
@@ -4438,6 +4494,63 @@ mod tests {
         assert!(result.contains("name: \"smoke\""));
         assert!(result.contains("description: \"smoke\""));
         assert!(result.contains("location: { start: { line: 3, column: 1 } }"));
+    }
+
+    #[test]
+    fn test_generate_span_map_includes_function_and_nested_expression_spans() {
+        let source = "λmain()=>Int=1+2";
+        let program = typed_program_for(source, "test.sigil");
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: Some("src::main".to_string()),
+            source_file: Some("test.sigil".to_string()),
+            output_file: Some("/tmp/test.js".to_string()),
+        });
+        gen.generate(&program).unwrap();
+
+        let span_map = gen.generated_span_map().unwrap();
+        assert_eq!(span_map.module_id, "src::main");
+        assert_eq!(span_map.source_file, "test.sigil");
+        assert_eq!(span_map.output_file, "/tmp/test.js");
+        assert!(span_map.spans.iter().any(|span| {
+            span.kind == DebugSpanKind::FunctionDecl
+                && span.label.as_deref() == Some("main")
+                && span.generated_range.is_some()
+        }));
+        assert!(span_map
+            .spans
+            .iter()
+            .any(|span| span.kind == DebugSpanKind::ExprBinary && span.generated_range.is_none()));
+    }
+
+    #[test]
+    fn test_generate_span_map_includes_match_arm_hierarchy() {
+        let source = "λmain(x:Bool)=>Int match x{true=>1|false=>0}";
+        let program = typed_program_for(source, "test.sigil");
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: Some("src::main".to_string()),
+            source_file: Some("test.sigil".to_string()),
+            output_file: Some("/tmp/test.js".to_string()),
+        });
+        gen.generate(&program).unwrap();
+
+        let span_map = gen.generated_span_map().unwrap();
+        let match_span_id = span_map
+            .spans
+            .iter()
+            .find(|span| span.kind == DebugSpanKind::ExprMatch)
+            .map(|span| span.span_id.clone())
+            .unwrap();
+        let arm_spans = span_map
+            .spans
+            .iter()
+            .filter(|span| span.kind == DebugSpanKind::MatchArm)
+            .collect::<Vec<_>>();
+        assert_eq!(arm_spans.len(), 2);
+        assert!(arm_spans
+            .iter()
+            .all(|span| span.parent_span_id.as_deref() == Some(match_span_id.as_str())));
     }
 
     #[test]

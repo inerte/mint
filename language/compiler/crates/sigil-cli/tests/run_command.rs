@@ -85,6 +85,12 @@ fn run_json_preserves_success_envelope() {
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["runtime"]["stdout"], "json ok\n");
     assert_eq!(json["data"]["runtime"]["stderr"], "");
+    assert!(PathBuf::from(
+        json["data"]["compile"]["spanMapFile"]
+            .as_str()
+            .expect("spanMapFile path")
+    )
+    .exists());
 }
 
 #[test]

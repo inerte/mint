@@ -14,7 +14,7 @@
   "$defs": {
     "phase": {
       "type": "string",
-      "enum": ["cli", "io", "surface", "lexer", "parser", "canonical", "typecheck", "mutability", "extern", "codegen", "mapgen", "runtime"]
+      "enum": ["cli", "io", "surface", "lexer", "parser", "canonical", "typecheck", "mutability", "extern", "codegen", "runtime"]
     },
     "sourcePoint": {
       "type": "object",
@@ -226,28 +226,47 @@
         }
       ]
     },
-    "compileData": {
+    "moduleCompileOutput": {
+      "type": "object",
+      "required": ["moduleId", "sourceFile", "outputFile", "spanMapFile"],
+      "properties": {
+        "moduleId": { "type": "string" },
+        "sourceFile": { "type": "string" },
+        "outputFile": { "type": "string" },
+        "spanMapFile": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "compileEntryOutput": {
+      "type": "object",
+      "required": ["input", "rootTs", "rootSpanMap"],
+      "properties": {
+        "input": { "type": "string" },
+        "rootTs": { "type": "string" },
+        "rootSpanMap": { "type": "string" },
+        "projectRoot": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "compileSingleFileData": {
       "type": "object",
       "required": ["input", "outputs", "typecheck"],
       "properties": {
         "input": { "type": "string" },
         "outputs": {
           "type": "object",
-          "required": ["rootTs", "allModules"],
+          "required": ["rootTs", "rootSpanMap", "allModules"],
           "properties": {
             "rootTs": { "type": "string" },
+            "rootSpanMap": { "type": "string" },
             "allModules": {
               "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["moduleId", "sourceFile", "outputFile"],
-                "properties": {
-                  "moduleId": { "type": "string" },
-                  "sourceFile": { "type": "string" },
-                  "outputFile": { "type": "string" }
-                },
-                "additionalProperties": false
-              }
+              "items": { "$ref": "#/$defs/moduleCompileOutput" }
             }
           },
           "additionalProperties": false
@@ -298,6 +317,36 @@
       },
       "additionalProperties": false
     },
+    "compileDirectoryData": {
+      "type": "object",
+      "required": ["input", "summary", "files"],
+      "properties": {
+        "input": { "type": "string" },
+        "summary": {
+          "type": "object",
+          "required": ["discovered", "compiled", "groups", "modules", "durationMs"],
+          "properties": {
+            "discovered": { "type": "integer", "minimum": 0 },
+            "compiled": { "type": "integer", "minimum": 0 },
+            "groups": { "type": "integer", "minimum": 0 },
+            "modules": { "type": "integer", "minimum": 0 },
+            "durationMs": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/compileEntryOutput" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "compileData": {
+      "oneOf": [
+        { "$ref": "#/$defs/compileSingleFileData" },
+        { "$ref": "#/$defs/compileDirectoryData" }
+      ]
+    },
     "compileEnvelope": {
       "allOf": [
         { "$ref": "#/$defs/baseEnvelope" },
@@ -320,11 +369,12 @@
       "properties": {
         "compile": {
           "type": "object",
-          "required": ["input", "output", "runnerFile"],
+          "required": ["input", "output", "runnerFile", "spanMapFile"],
           "properties": {
             "input": { "type": "string" },
             "output": { "type": "string" },
-            "runnerFile": { "type": "string" }
+            "runnerFile": { "type": "string" },
+            "spanMapFile": { "type": "string" }
           },
           "additionalProperties": false
         },

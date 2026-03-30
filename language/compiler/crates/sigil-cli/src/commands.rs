@@ -8,7 +8,7 @@ use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use rayon::{prelude::*, ThreadPoolBuilder};
 use serde_json::json;
 use sigil_ast::{Declaration, Program, Type, TypeDef};
-use sigil_codegen::{CodegenOptions, TypeScriptGenerator};
+use sigil_codegen::{CodegenOptions, ModuleSpanMap, TypeScriptGenerator};
 use sigil_diagnostics::codes;
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
@@ -276,6 +276,7 @@ struct CompileBatchGroup {
 struct CompileEntryOutput {
     input: PathBuf,
     output: PathBuf,
+    span_map: PathBuf,
     project_root: Option<PathBuf>,
 }
 
@@ -543,9 +544,20 @@ fn compile_group(group: &CompileBatchGroup) -> Result<CompileBatchOutputs, CliEr
                         input.display()
                     ))
                 })?;
+            let span_map = compiled
+                .span_map_outputs
+                .get(&module_id)
+                .cloned()
+                .ok_or_else(|| {
+                    CliError::Codegen(format!(
+                        "batch compile did not produce span map for '{}'",
+                        input.display()
+                    ))
+                })?;
             Ok(CompileEntryOutput {
                 input,
                 output,
+                span_map,
                 project_root,
             })
         })
@@ -631,11 +643,17 @@ fn compile_single_file_command(
                 .get(&module_id)
                 .map(|path| path.to_string_lossy().to_string())
                 .unwrap_or_default();
+            let span_map_file = compiled
+                .span_map_outputs
+                .get(&module_id)
+                .map(|path| path.to_string_lossy().to_string())
+                .unwrap_or_default();
 
             serde_json::json!({
                 "moduleId": module_id,
                 "sourceFile": source_file,
-                "outputFile": output_file
+                "outputFile": output_file,
+                "spanMapFile": span_map_file
             })
         })
         .collect();
@@ -649,6 +667,7 @@ fn compile_single_file_command(
             "input": file.to_string_lossy(),
             "outputs": {
                 "rootTs": entry_output.to_string_lossy(),
+                "rootSpanMap": compiled.entry_span_map_path.to_string_lossy(),
                 "allModules": all_modules
             },
             "project": project_json,
@@ -752,6 +771,7 @@ fn compile_directory_command(
             serde_json::json!({
                 "input": entry.input.to_string_lossy(),
                 "rootTs": entry.output.to_string_lossy(),
+                "rootSpanMap": entry.span_map.to_string_lossy(),
                 "projectRoot": entry.project_root.map(|root| root.to_string_lossy().to_string())
             })
         })
@@ -853,7 +873,8 @@ pub fn run_command(
                 "compile": {
                     "input": file.to_string_lossy(),
                     "output": run_target.entry_output_path.to_string_lossy(),
-                    "runnerFile": run_target.runner_path.to_string_lossy()
+                    "runnerFile": run_target.runner_path.to_string_lossy(),
+                    "spanMapFile": run_target.entry_span_map_path.to_string_lossy()
                 },
                 "runtime": {
                     "engine": "node+tsx",
@@ -872,6 +893,7 @@ pub fn run_command(
 
 struct RunTarget {
     entry_output_path: PathBuf,
+    entry_span_map_path: PathBuf,
     runner_path: PathBuf,
 }
 
@@ -887,6 +909,7 @@ fn build_run_target(file: &Path, selected_env: Option<&str>) -> Result<RunTarget
     let topology_prelude = runner_prelude(file, &graph, selected_env)?.unwrap_or_default();
     let compiled = compile_module_graph(graph, None)?;
     let entry_output_path = compiled.entry_output_path;
+    let entry_span_map_path = compiled.entry_span_map_path;
 
     let runner_path = entry_output_path.with_extension("run.ts");
     let module_name = entry_output_path
@@ -920,6 +943,7 @@ if (result !== undefined) {{
     fs::write(&runner_path, runner_code)?;
     Ok(RunTarget {
         entry_output_path,
+        entry_span_map_path,
         runner_path,
     })
 }
@@ -1490,7 +1514,9 @@ struct CoverageObservation {
 
 struct CompiledGraphOutputs {
     entry_output_path: PathBuf,
+    entry_span_map_path: PathBuf,
     module_outputs: HashMap<String, PathBuf>,
+    span_map_outputs: HashMap<String, PathBuf>,
     coverage_targets: Vec<CoverageTarget>,
 }
 
@@ -1503,7 +1529,9 @@ fn compile_module_graph(
     let mut coverage_targets = Vec::new();
     let mut type_registries = HashMap::new();
     let mut module_outputs = HashMap::new();
+    let mut span_map_outputs = HashMap::new();
     let mut entry_output_path = PathBuf::new();
+    let mut entry_span_map_path = PathBuf::new();
 
     for module_id in &graph.topo_order {
         let module = &graph.modules[module_id];
@@ -1570,16 +1598,26 @@ fn compile_module_graph(
         let ts_code = codegen
             .generate(&typecheck_result.typed_program)
             .map_err(|e| CliError::Codegen(format!("{}", e)))?;
+        let span_map = codegen.generated_span_map().cloned().ok_or_else(|| {
+            CliError::Codegen(format!(
+                "codegen did not produce a span map for '{}'",
+                module.file_path.display()
+            ))
+        })?;
+        let span_map_path = span_map_output_path(&output_path);
 
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent)?;
         }
 
         fs::write(&output_path, ts_code)?;
+        write_span_map_file(&span_map_path, &span_map)?;
         module_outputs.insert(module_id.clone(), output_path.clone());
+        span_map_outputs.insert(module_id.clone(), span_map_path.clone());
 
         if module_id == graph.topo_order.last().unwrap() {
             entry_output_path = output_path;
+            entry_span_map_path = span_map_path;
         }
 
         compiled_schemes.insert(
@@ -1595,9 +1633,22 @@ fn compile_module_graph(
 
     Ok(CompiledGraphOutputs {
         entry_output_path,
+        entry_span_map_path,
         module_outputs,
+        span_map_outputs,
         coverage_targets,
     })
+}
+
+fn span_map_output_path(output_path: &Path) -> PathBuf {
+    output_path.with_extension("span.json")
+}
+
+fn write_span_map_file(path: &Path, span_map: &ModuleSpanMap) -> Result<(), CliError> {
+    let serialized = serde_json::to_string(span_map)
+        .map_err(|error| CliError::Codegen(format!("failed to serialize span map: {}", error)))?;
+    fs::write(path, serialized)?;
+    Ok(())
 }
 
 fn topology_source_path(project_root: &Path) -> PathBuf {

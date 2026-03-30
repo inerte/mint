@@ -79,7 +79,8 @@ Diagnostics are structured and machine-oriented:
 The current implementation uses:
 
 - `"sigilc ..."` strings in JSON `command` fields
-- no `semanticMap` field in successful `compile` output
+- successful `compile` output reports `.span.json` sidecars via `rootSpanMap` and per-module `spanMapFile`
+- successful `run --json` output reports the entry module `.span.json` sidecar via `data.compile.spanMapFile`
 - a specialized `test` result shape with `location: {line,column}`
 
 If prose and runtime output disagree, the implementation and

@@ -15,6 +15,7 @@ Sigil CLI commands are machine-first. JSON is the default output mode for:
 - plain `sigil run <file>` streams raw program stdout/stderr on success
 - plain `sigil run <file>` emits structured JSON on failure
 - `sigil run --json <file>` emits the structured JSON envelope on both success and failure
+- `sigil run --json --trace <file>` adds a bounded inline execution trace to that envelope
 
 ## Canonical Schema
 
@@ -93,12 +94,59 @@ usual top-level diagnostic shape and may enrich `error.details` with:
   - `durationMs`
   - `stdout`
   - `stderr`
+- optional `trace`
+  - `enabled`
+  - `truncated`
+  - `totalEvents`
+  - `returnedEvents`
+  - `droppedEvents`
+  - `events`
 - `exception` for uncaught runtime exceptions
   - `name`
   - `message`
   - `rawStack`
   - optional `generatedFrame`
   - optional `sigilFrame`
+
+## Run Trace Details
+
+`sigil run --trace` currently requires `--json`.
+
+When enabled, `sigil run` includes a bounded rolling trace window:
+
+- only the most recent `256` events are returned inline
+- older events are dropped and reflected through:
+  - `truncated`
+  - `totalEvents`
+  - `returnedEvents`
+  - `droppedEvents`
+
+Current trace event kinds:
+
+- `call`
+- `return`
+- `branch_if`
+- `branch_match`
+- `effect_call`
+- `effect_result`
+
+Every trace event includes:
+
+- `seq`
+- `kind`
+- `depth`
+- `moduleId`
+- `sourceFile`
+- `spanId`
+
+Events may also include:
+
+- declaration context such as `declarationKind` / `declarationLabel`
+- `functionName`
+- `args`
+- `result`
+- branch selection details such as `taken`, `armSpanId`, `armIndex`, `hasGuard`
+- effect details such as `effectFamily` and `operation`
 
 `sigilFrame` is declaration-level in v1:
 
@@ -113,7 +161,9 @@ The current implementation uses:
 - `"sigilc ..."` strings in JSON `command` fields
 - successful `compile` output reports `.span.json` sidecars via `rootSpanMap` and per-module `spanMapFile`
 - successful `run --json` output reports the entry module `.span.json` sidecar via `data.compile.spanMapFile`
+- successful `run --json --trace` output reports inline bounded trace events via `data.trace`
 - runtime `run` failures may include declaration-level `sigilFrame` and generated TypeScript `generatedFrame` context when an uncaught exception stack is available
+- traced `run` failures may include bounded inline trace events via `error.details.trace`
 - `inspect types` is top-level declaration-focused in v1; it does not report nested expression types yet
 - `inspect validate` returns canonical printer output even when `validation.ok` is `false`, as long as lexing and parsing succeeded
 - a specialized `test` result shape with `location: {line,column}`

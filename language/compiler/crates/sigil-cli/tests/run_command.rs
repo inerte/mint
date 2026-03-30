@@ -94,6 +94,72 @@ fn run_json_preserves_success_envelope() {
 }
 
 #[test]
+fn run_trace_requires_json() {
+    let dir = temp_dir("trace-requires-json");
+    let file = write_program(&dir, "main.sigil", "λmain()=>Int=1\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--trace")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+
+    let json = parse_json(output.stderr.trim_ascii());
+    assert_eq!(json["command"], "sigilc run");
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["phase"], "cli");
+    assert_eq!(json["error"]["code"], "SIGIL-CLI-USAGE");
+    assert!(json["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("--json"));
+}
+
+#[test]
+fn run_json_trace_success_includes_call_branch_and_effect_events() {
+    let dir = temp_dir("trace-success");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        "λhelper(flag:Bool)=>!Random Int match flag{\n  true=>§random.intBetween(1,1)|\n  false=>0\n}\n\nλmain()=>!Random Int=helper(true)\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--trace")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc run");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["data"]["trace"]["enabled"], true);
+    let events = json["data"]["trace"]["events"]
+        .as_array()
+        .expect("trace events array");
+    assert!(events.iter().any(|event| event["kind"] == "call"));
+    assert!(events.iter().any(|event| event["kind"] == "branch_match"));
+    assert!(events.iter().any(|event| event["kind"] == "effect_call"));
+    assert!(events.iter().any(|event| event["kind"] == "effect_result"));
+    assert!(events.iter().any(|event| {
+        event["kind"] == "effect_call"
+            && event["effectFamily"] == "random"
+            && event["operation"] == "intBetween"
+    }));
+}
+
+#[test]
 fn run_emits_json_error_on_compile_failure() {
     let dir = temp_dir("compile-failure");
     let file = write_program(&dir, "broken.sigil", "λmain()=>Unit={\n");
@@ -196,6 +262,38 @@ e process:{exit:λ(Int)=>Unit}\n\
 }
 
 #[test]
+fn run_json_trace_preserves_child_exit_failures_with_trace_details() {
+    let dir = temp_dir("json-trace-child-exit");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        "λmain()=>!Process Unit=§process.exit(1)\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--trace")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["error"]["code"], "SIGIL-RUNTIME-CHILD-EXIT");
+    assert_eq!(json["error"]["details"]["trace"]["enabled"], true);
+    assert!(json["error"]["details"]["trace"]["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|event| event["kind"] == "effect_call"));
+    assert!(json["error"]["details"]["exception"].is_null());
+}
+
+#[test]
 fn run_json_enriches_uncaught_runtime_exceptions() {
     let dir = temp_dir("json-runtime-exception");
     let file = write_program(
@@ -269,6 +367,37 @@ fn run_json_enriches_uncaught_runtime_exceptions() {
 }
 
 #[test]
+fn run_json_trace_failure_includes_trace_details() {
+    let dir = temp_dir("json-trace-runtime-exception");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        "e boom:{explode:λ()=>Int}\n\nλmain()=>Int=boom.explode()\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--trace")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["error"]["code"], "SIGIL-RUNTIME-UNCAUGHT-EXCEPTION");
+    assert_eq!(json["error"]["details"]["trace"]["enabled"], true);
+    assert!(json["error"]["details"]["trace"]["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|event| event["kind"] == "call"));
+}
+
+#[test]
 fn run_json_enriches_import_time_runtime_exceptions() {
     let dir = temp_dir("json-import-runtime-exception");
     let file = write_program(
@@ -308,6 +437,36 @@ fn run_json_enriches_import_time_runtime_exceptions() {
             .unwrap()
             .contains("c bad=(boom.explode():Int)")
     );
+}
+
+#[test]
+fn run_json_trace_truncates_large_event_streams() {
+    let dir = temp_dir("trace-truncation");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        "λloop(n:Int)=>Int match n=0{\n  true=>0|\n  false=>loop(n-1)\n}\n\nλmain()=>Int=loop(400)\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--trace")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["data"]["trace"]["enabled"], true);
+    assert_eq!(json["data"]["trace"]["truncated"], true);
+    assert_eq!(json["data"]["trace"]["returnedEvents"], 256);
+    assert!(
+        json["data"]["trace"]["totalEvents"].as_u64().unwrap()
+            > json["data"]["trace"]["returnedEvents"].as_u64().unwrap()
+    );
+    assert!(json["data"]["trace"]["droppedEvents"].as_u64().unwrap() > 0);
 }
 
 #[test]

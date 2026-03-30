@@ -11,7 +11,7 @@
 
 use sigil_ast::{
     BinaryOperator, ExternDecl, LiteralExpr, LiteralValue, Pattern, PatternLiteralValue,
-    PipelineOperator, TypeDecl, TypeDef, UnaryOperator,
+    PipelineOperator, SourceLocation, TypeDecl, TypeDef, UnaryOperator,
 };
 use sigil_typechecker::typed_ir::{
     MethodSelector, TypedBinaryExpr, TypedCallExpr, TypedConcurrentExpr, TypedConcurrentStep,
@@ -918,6 +918,7 @@ pub struct CodegenOptions {
     pub module_id: Option<String>,
     pub source_file: Option<String>,
     pub output_file: Option<String>,
+    pub trace: bool,
 }
 
 impl Default for CodegenOptions {
@@ -926,11 +927,19 @@ impl Default for CodegenOptions {
             module_id: None,
             source_file: None,
             output_file: None,
+            trace: false,
         }
     }
 }
 
+#[derive(Debug, Clone)]
+struct TraceOwner {
+    declaration_kind: &'static str,
+    declaration_label: String,
+}
+
 pub struct TypeScriptGenerator {
+    current_trace_owner: Option<TraceOwner>,
     indent: usize,
     declaration_span_ids: Vec<Option<String>>,
     module_id: Option<String>,
@@ -939,11 +948,13 @@ pub struct TypeScriptGenerator {
     source_file: Option<String>,
     output_file: Option<String>,
     test_meta_entries: Vec<String>,
+    trace_enabled: bool,
 }
 
 impl TypeScriptGenerator {
     pub fn new(options: CodegenOptions) -> Self {
         Self {
+            current_trace_owner: None,
             indent: 0,
             declaration_span_ids: Vec::new(),
             module_id: options.module_id,
@@ -952,6 +963,7 @@ impl TypeScriptGenerator {
             source_file: options.source_file,
             output_file: options.output_file,
             test_meta_entries: Vec::new(),
+            trace_enabled: options.trace,
         }
     }
 
@@ -969,6 +981,7 @@ impl TypeScriptGenerator {
     pub fn generate(&mut self, program: &TypedProgram) -> Result<String, CodegenError> {
         self.output.clear();
         self.indent = 0;
+        self.current_trace_owner = None;
         self.declaration_span_ids.clear();
         self.span_map = self.build_span_map(program);
         self.test_meta_entries.clear();
@@ -1094,6 +1107,143 @@ impl TypeScriptGenerator {
             return;
         };
         span_map.annotate_generated_range(span_id, start_line, end_line);
+    }
+
+    fn with_trace_owner<T, F>(
+        &mut self,
+        declaration_kind: &'static str,
+        declaration_label: String,
+        f: F,
+    ) -> Result<T, CodegenError>
+    where
+        F: FnOnce(&mut Self) -> Result<T, CodegenError>,
+    {
+        let previous = self.current_trace_owner.clone();
+        self.current_trace_owner = Some(TraceOwner {
+            declaration_kind,
+            declaration_label,
+        });
+        let result = f(self);
+        self.current_trace_owner = previous;
+        result
+    }
+
+    fn json_string_literal(&self, value: &str) -> Result<String, CodegenError> {
+        serde_json::to_string(value).map_err(|error| {
+            CodegenError::General(format!("Failed to JSON-encode string: {error}"))
+        })
+    }
+
+    fn span_id_for_expr(&self, kind: DebugSpanKind, location: SourceLocation) -> Option<&str> {
+        self.span_map
+            .as_ref()?
+            .spans
+            .iter()
+            .find(|span| span.kind == kind && debug_span_matches_location(span, location))
+            .map(|span| span.span_id.as_str())
+    }
+
+    fn span_id_for_match_arm(&self, location: SourceLocation) -> Option<&str> {
+        self.span_map
+            .as_ref()?
+            .spans
+            .iter()
+            .find(|span| {
+                span.kind == DebugSpanKind::MatchArm && debug_span_matches_location(span, location)
+            })
+            .map(|span| span.span_id.as_str())
+    }
+
+    fn trace_meta_literal(
+        &self,
+        span_id: Option<&str>,
+        extra_fields: &[(&str, String)],
+    ) -> Result<String, CodegenError> {
+        let mut fields = vec![
+            format!(
+                "moduleId: {}",
+                self.json_string_literal(self.module_id.as_deref().unwrap_or("<unknown>"))?
+            ),
+            format!(
+                "sourceFile: {}",
+                self.json_string_literal(self.source_file.as_deref().unwrap_or("<unknown>"))?
+            ),
+            format!(
+                "spanId: {}",
+                self.json_string_literal(span_id.unwrap_or(""))?
+            ),
+        ];
+        if let Some(owner) = &self.current_trace_owner {
+            fields.push(format!(
+                "declarationKind: {}",
+                self.json_string_literal(owner.declaration_kind)?
+            ));
+            fields.push(format!(
+                "declarationLabel: {}",
+                self.json_string_literal(&owner.declaration_label)?
+            ));
+        }
+        for (name, value) in extra_fields {
+            fields.push(format!("{name}: {value}"));
+        }
+        Ok(format!("{{ {} }}", fields.join(", ")))
+    }
+
+    fn wrap_declared_function_trace(
+        &self,
+        func_name: &str,
+        span_id: Option<&str>,
+        args_expr: &str,
+        body_expr: &str,
+    ) -> Result<String, CodegenError> {
+        if !self.trace_enabled {
+            return Ok(body_expr.to_string());
+        }
+        let meta = self.trace_meta_literal(
+            span_id,
+            &[("functionName", self.json_string_literal(func_name)?)],
+        )?;
+        Ok(format!(
+            "__sigil_trace_wrap_call({}, {}, () => {})",
+            meta, args_expr, body_expr
+        ))
+    }
+
+    fn wrap_effect_trace(
+        &self,
+        span_id: Option<&str>,
+        family: &str,
+        operation: &str,
+        args_expr: &str,
+        body_expr: &str,
+        target: Option<&str>,
+    ) -> Result<String, CodegenError> {
+        if !self.trace_enabled {
+            return Ok(body_expr.to_string());
+        }
+        let mut extra_fields = vec![
+            ("effectFamily", self.json_string_literal(family)?),
+            ("operation", self.json_string_literal(operation)?),
+        ];
+        if let Some(target) = target {
+            extra_fields.push(("target", self.json_string_literal(target)?));
+        }
+        let meta = self.trace_meta_literal(span_id, &extra_fields)?;
+        Ok(format!(
+            "__sigil_trace_wrap_effect({}, {}, () => {})",
+            meta, args_expr, body_expr
+        ))
+    }
+
+    fn trace_declared_return(
+        &self,
+        func_name: &str,
+        args_expr: &str,
+        span_id: Option<&str>,
+        body_expr: &str,
+    ) -> Result<String, CodegenError> {
+        let traced = self.wrap_declared_function_trace(func_name, span_id, args_expr, body_expr)?;
+        Ok(traced)
     }
 
     fn emit_block(&mut self, block: &str) {
@@ -1624,7 +1774,9 @@ impl TypeScriptGenerator {
         self.emit("  if (address && typeof address === 'object' && 'port' in address) {");
         self.emit("    assignedPort = Number(address.port ?? assignedPort);");
         self.emit("  }");
-        self.emit("  console.log(`TCP server running at tcp://127.0.0.1:${String(assignedPort)}`);");
+        self.emit(
+            "  console.log(`TCP server running at tcp://127.0.0.1:${String(assignedPort)}`);",
+        );
         self.emit("  return __sigil_tcp_listen_result(server, assignedPort, done);");
         self.emit("}");
         self.emit("async function __sigil_tcp_wait(serverHandle) {");
@@ -1719,7 +1871,7 @@ impl TypeScriptGenerator {
         self.emit("  return { ok: false, failure: { kind: 'comparison_mismatch', message: 'Comparison test failed', operator: op, actual: __sigil_preview(actual), expected: __sigil_preview(expected), diffHint: __sigil_diff_hint(actual, expected) } };");
         self.emit("}");
         self.emit("function __sigil_call(_key, actualFn, args = []) {");
-        self.emit("  return Promise.resolve().then(() => {");
+        self.emit("  const __sigil_run = () => Promise.resolve().then(() => {");
         self.emit("    switch (_key) {");
         self.emit("      case 'extern:stdlib/httpServer.listen':");
         self.emit("        return __sigil_http_listen(args[0], args[1]);");
@@ -1741,7 +1893,117 @@ impl TypeScriptGenerator {
         self.emit("        return actualFn(...args);");
         self.emit("    }");
         self.emit("  });");
+        self.emit("  return __sigil_run();");
         self.emit("}");
+        if self.trace_enabled {
+            self.emit_trace_helpers();
+        }
+    }
+
+    fn emit_trace_helpers(&mut self) {
+        self.emit("function __sigil_trace_enabled() {");
+        self.emit("  return !!globalThis.__sigil_trace_config?.enabled;");
+        self.emit("}");
+        self.emit("function __sigil_trace_init_state() {");
+        self.emit("  const maxEvents = Math.max(1, Number(globalThis.__sigil_trace_config?.maxEvents ?? 256));");
+        self.emit("  return { enabled: true, truncated: false, totalEvents: 0, droppedEvents: 0, maxEvents, nextSeq: 1, depth: 0, events: [] };");
+        self.emit("}");
+        self.emit("function __sigil_trace_state() {");
+        self.emit("  if (!__sigil_trace_enabled()) {");
+        self.emit("    return null;");
+        self.emit("  }");
+        self.emit("  if (!globalThis.__sigil_trace_current || typeof globalThis.__sigil_trace_current !== 'object') {");
+        self.emit("    globalThis.__sigil_trace_current = __sigil_trace_init_state();");
+        self.emit("  }");
+        self.emit("  return globalThis.__sigil_trace_current;");
+        self.emit("}");
+        self.emit("function __sigil_trace_summary(value, depth = 0) {");
+        self.emit("  if (value === null || value === undefined) return { kind: 'unit' };");
+        self.emit("  const valueType = typeof value;");
+        self.emit("  if (valueType === 'boolean') return { kind: 'bool', value: !!value };");
+        self.emit("  if (valueType === 'number') return Number.isInteger(value) ? { kind: 'int', value } : { kind: 'float', value };");
+        self.emit("  if (valueType === 'string') {");
+        self.emit("    const truncated = value.length > 80;");
+        self.emit("    return { kind: 'string', value: truncated ? `${value.slice(0, 80)}…` : value, truncated };");
+        self.emit("  }");
+        self.emit("  if (valueType === 'function') return { kind: 'function' };");
+        self.emit("  if (Array.isArray(value)) return { kind: 'list', size: value.length };");
+        self.emit("  if (value && valueType === 'object' && Array.isArray(value.__sigil_map)) return { kind: 'map', size: value.__sigil_map.length };");
+        self.emit("  if (value && valueType === 'object' && typeof value.__tag === 'string') return { kind: 'sum', tag: value.__tag, arity: Array.isArray(value.__fields) ? value.__fields.length : 0 };");
+        self.emit("  if (value && valueType === 'object') {");
+        self.emit("    const keys = Object.keys(value).sort();");
+        self.emit("    return { kind: depth > 0 ? 'object' : 'record', size: keys.length, fields: keys.slice(0, 6) };");
+        self.emit("  }");
+        self.emit("  return { kind: valueType };");
+        self.emit("}");
+        self.emit("function __sigil_trace_push(event) {");
+        self.emit("  const state = __sigil_trace_state();");
+        self.emit("  if (!state) return;");
+        self.emit("  const normalized = { seq: state.nextSeq, ...event };");
+        self.emit("  state.nextSeq += 1;");
+        self.emit("  state.totalEvents += 1;");
+        self.emit("  if (state.events.length >= state.maxEvents) {");
+        self.emit("    state.events.shift();");
+        self.emit("    state.droppedEvents += 1;");
+        self.emit("    state.truncated = true;");
+        self.emit("  }");
+        self.emit("  state.events.push(normalized);");
+        self.emit("}");
+        self.emit("function __sigil_trace_snapshot() {");
+        self.emit("  const state = __sigil_trace_state();");
+        self.emit("  if (!state) {");
+        self.emit("    return { enabled: false, truncated: false, totalEvents: 0, returnedEvents: 0, droppedEvents: 0, events: [] };");
+        self.emit("  }");
+        self.emit("  return { enabled: true, truncated: !!state.truncated, totalEvents: state.totalEvents, returnedEvents: state.events.length, droppedEvents: state.droppedEvents, events: state.events.slice() };");
+        self.emit("}");
+        self.emit("function __sigil_trace_wrap_call(meta, args, thunk) {");
+        self.emit("  if (!__sigil_trace_enabled()) return thunk();");
+        self.emit("  const state = __sigil_trace_state();");
+        self.emit("  const depth = state ? state.depth : 0;");
+        self.emit("  __sigil_trace_push({ kind: 'call', depth, ...meta, functionName: String(meta.functionName ?? ''), args: Array.isArray(args) ? args.map((value) => __sigil_trace_summary(value, 1)) : [] });");
+        self.emit("  if (state) state.depth = depth + 1;");
+        self.emit("  const finish = (value) => {");
+        self.emit("    if (state) state.depth = depth;");
+        self.emit("    __sigil_trace_push({ kind: 'return', depth, ...meta, functionName: String(meta.functionName ?? ''), result: __sigil_trace_summary(value, 1) });");
+        self.emit("    return value;");
+        self.emit("  };");
+        self.emit("  try {");
+        self.emit("    const result = thunk();");
+        self.emit("    if (result && typeof result.then === 'function') {");
+        self.emit("      return result.then((value) => finish(value), (error) => { if (state) state.depth = depth; throw error; });");
+        self.emit("    }");
+        self.emit("    return finish(result);");
+        self.emit("  } catch (error) {");
+        self.emit("    if (state) state.depth = depth;");
+        self.emit("    throw error;");
+        self.emit("  }");
+        self.emit("}");
+        self.emit("function __sigil_trace_branch_if(meta, condition, taken) {");
+        self.emit("  if (!__sigil_trace_enabled()) return;");
+        self.emit("  const state = __sigil_trace_state();");
+        self.emit("  __sigil_trace_push({ kind: 'branch_if', depth: state ? state.depth : 0, ...meta, taken: String(taken), condition: __sigil_trace_summary(condition, 1) });");
+        self.emit("}");
+        self.emit("function __sigil_trace_branch_match(meta, armSpanId, armIndex, hasGuard) {");
+        self.emit("  if (!__sigil_trace_enabled()) return;");
+        self.emit("  const state = __sigil_trace_state();");
+        self.emit("  __sigil_trace_push({ kind: 'branch_match', depth: state ? state.depth : 0, ...meta, armSpanId: String(armSpanId ?? ''), armIndex: Number(armIndex), hasGuard: !!hasGuard });");
+        self.emit("}");
+        self.emit("function __sigil_trace_wrap_effect(meta, args, thunk) {");
+        self.emit("  if (!__sigil_trace_enabled()) return thunk();");
+        self.emit("  const state = __sigil_trace_state();");
+        self.emit("  const depth = state ? state.depth : 0;");
+        self.emit("  __sigil_trace_push({ kind: 'effect_call', depth, ...meta, effectFamily: String(meta.effectFamily ?? ''), operation: String(meta.operation ?? ''), args: Array.isArray(args) ? args.map((value) => __sigil_trace_summary(value, 1)) : [] });");
+        self.emit("  const finish = (value) => {");
+        self.emit("    __sigil_trace_push({ kind: 'effect_result', depth, ...meta, effectFamily: String(meta.effectFamily ?? ''), operation: String(meta.operation ?? ''), result: __sigil_trace_summary(value, 1) });");
+        self.emit("    return value;");
+        self.emit("  };");
+        self.emit("  const result = thunk();");
+        self.emit("  if (result && typeof result.then === 'function') {");
+        self.emit("    return result.then((value) => finish(value));");
+        self.emit("  }");
+        self.emit("  return finish(result);");
+        self.emit("}");
+        self.emit("globalThis.__sigil_trace_snapshot = __sigil_trace_snapshot;");
     }
 
     fn generate_declaration(&mut self, decl: &TypedDeclaration) -> Result<(), CodegenError> {
@@ -1838,6 +2100,9 @@ impl TypeScriptGenerator {
             .unwrap_or("<unknown>")
             .replace('\"', "\\\"");
         let coverage_function_name = func.name.replace('\"', "\\\"");
+        let function_span_id = self
+            .span_id_for_expr(DebugSpanKind::FunctionDecl, func.location)
+            .map(str::to_string);
 
         self.emit(&format!("{} {}({}) {{", fn_keyword, func_name, params_str));
         self.indent += 1;
@@ -1846,11 +2111,19 @@ impl TypeScriptGenerator {
             "__sigil_record_coverage_call(\"{}\", \"{}\");",
             coverage_module_id, coverage_function_name
         ));
-        let body_code = self.generate_expression(&func.body)?;
-        self.emit(&format!(
-            "return __sigil_record_coverage_result(\"{}\", \"{}\", {});",
-            coverage_module_id, coverage_function_name, body_code
-        ));
+        let body_code = self.with_trace_owner("function_decl", func.name.clone(), |generator| {
+            generator.generate_expression(&func.body)
+        })?;
+        let traced_body = self.trace_declared_return(
+            &func.name,
+            &format!("[{}]", params_str),
+            function_span_id.as_deref(),
+            &format!(
+                "__sigil_record_coverage_result(\"{}\", \"{}\", {})",
+                coverage_module_id, coverage_function_name, body_code
+            ),
+        )?;
+        self.emit(&format!("return {};", traced_body));
 
         self.indent -= 1;
         self.emit("}");
@@ -2034,6 +2307,9 @@ impl TypeScriptGenerator {
             .unwrap_or("<unknown>")
             .replace('\"', "\\\"");
         let coverage_function_name = func.name.replace('\"', "\\\"");
+        let function_span_id = self
+            .span_id_for_expr(DebugSpanKind::FunctionDecl, func.location)
+            .map(str::to_string);
 
         self.emit(&format!(
             "{} {}({}) {{",
@@ -2046,10 +2322,16 @@ impl TypeScriptGenerator {
             "__sigil_record_coverage_call(\"{}\", \"{}\");",
             coverage_module_id, coverage_function_name
         ));
-        self.emit(&format!(
-            "return __sigil_record_coverage_result(\"{}\", \"{}\", {});",
-            coverage_module_id, coverage_function_name, body
-        ));
+        let traced_body = self.trace_declared_return(
+            &func.name,
+            &format!("[{}]", params_str),
+            function_span_id.as_deref(),
+            &format!(
+                "__sigil_record_coverage_result(\"{}\", \"{}\", {})",
+                coverage_module_id, coverage_function_name, body
+            ),
+        )?;
+        self.emit(&format!("return {};", traced_body));
         self.indent -= 1;
         self.emit("}");
         Ok(true)
@@ -2255,7 +2537,9 @@ impl TypeScriptGenerator {
     }
 
     fn generate_const(&mut self, const_decl: &TypedConstDecl) -> Result<(), CodegenError> {
-        let value = self.generate_expression(&const_decl.value)?;
+        let value = self.with_trace_owner("const_decl", const_decl.name.clone(), |generator| {
+            generator.generate_expression(&const_decl.value)
+        })?;
         // Export consts from .lib.sigil files
         let export_keyword = if self.should_export_from_lib() {
             "export "
@@ -2347,11 +2631,19 @@ impl TypeScriptGenerator {
         let mut world_binding_names = Vec::new();
         for binding in &test.world_bindings {
             let binding_name = sanitize_js_identifier(&binding.name);
-            let binding_value = self.generate_expression(&binding.value)?;
-            self.emit(&format!("const {} = await {};", binding_name, binding_value));
+            let binding_value =
+                self.with_trace_owner("test_decl", test.description.clone(), |generator| {
+                    generator.generate_expression(&binding.value)
+                })?;
+            self.emit(&format!(
+                "const {} = await {};",
+                binding_name, binding_value
+            ));
             world_binding_names.push(binding_name);
         }
-        let body = self.generate_expression(&test.body)?;
+        let body = self.with_trace_owner("test_decl", test.description.clone(), |generator| {
+            generator.generate_expression(&test.body)
+        })?;
         self.emit(&format!(
             "return await __sigil_run_test_world([{}], async () => {});",
             world_binding_names.join(", "),
@@ -2391,15 +2683,15 @@ impl TypeScriptGenerator {
                 sanitize_js_identifier(member)
             ))),
             TypedExprKind::Lambda(lambda) => self.generate_lambda(lambda),
-            TypedExprKind::Call(call) => self.generate_call(call),
+            TypedExprKind::Call(call) => self.generate_call(expr, call),
             TypedExprKind::ConstructorCall(call) => self.generate_constructor_call(call),
-            TypedExprKind::ExternCall(call) => self.generate_extern_call(call),
+            TypedExprKind::ExternCall(call) => self.generate_extern_call(expr, call),
             TypedExprKind::MethodCall(call) => self.generate_method_call(call),
             TypedExprKind::Binary(bin) => self.generate_binary(bin),
             TypedExprKind::Unary(un) => self.generate_unary(un),
-            TypedExprKind::Match(match_expr) => self.generate_match(match_expr),
+            TypedExprKind::Match(match_expr) => self.generate_match(expr, match_expr),
             TypedExprKind::Let(let_expr) => self.generate_let(let_expr),
-            TypedExprKind::If(if_expr) => self.generate_if(if_expr),
+            TypedExprKind::If(if_expr) => self.generate_if(expr, if_expr),
             TypedExprKind::List(list) => self.generate_list(list),
             TypedExprKind::Tuple(tuple) => self.generate_tuple(tuple),
             TypedExprKind::Record(record) => self.generate_record(record),
@@ -2437,8 +2729,12 @@ impl TypeScriptGenerator {
         Ok(format!("(({}) => {})", params_str, body))
     }
 
-    fn generate_call(&mut self, call: &TypedCallExpr) -> Result<String, CodegenError> {
-        if let Some(intrinsic) = self.try_generate_typed_intrinsic(&call.func, &call.args)? {
+    fn generate_call(
+        &mut self,
+        expr: &TypedExpr,
+        call: &TypedCallExpr,
+    ) -> Result<String, CodegenError> {
+        if let Some(intrinsic) = self.try_generate_typed_intrinsic(expr, &call.func, &call.args)? {
             return Ok(intrinsic);
         }
 
@@ -2460,12 +2756,28 @@ impl TypeScriptGenerator {
                     sanitize_js_identifier(&namespace.join("_")),
                     sanitize_js_identifier(member)
                 );
+                let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, expr.location);
+                let namespace_name = namespace.join("::");
                 Ok(format!(
-                    "{}.then((__sigil_args) => __sigil_call(\"extern:{}.{}\", {}, __sigil_args))",
+                    "{}.then((__sigil_args) => {})",
                     self.js_all(&args),
-                    namespace.join("/"),
-                    member,
-                    func_ref
+                    self.wrap_effect_trace(
+                        span_id,
+                        if namespace_name.is_empty() {
+                            "extern"
+                        } else {
+                            &namespace_name
+                        },
+                        member,
+                        "__sigil_args",
+                        &format!(
+                            "__sigil_call(\"extern:{}.{}\", {}, __sigil_args)",
+                            namespace.join("/"),
+                            member,
+                            func_ref
+                        ),
+                        None,
+                    )?
                 ))
             }
             _ => {
@@ -2482,6 +2794,7 @@ impl TypeScriptGenerator {
 
     fn try_generate_typed_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         func: &TypedExpr,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -2489,46 +2802,46 @@ impl TypeScriptGenerator {
             TypedExprKind::NamespaceMember { namespace, member } => {
                 let module = namespace.join("/");
                 if module == "stdlib/string" {
-                    return self.generate_string_intrinsic(member, args);
+                    return self.generate_string_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/json" {
-                    return self.generate_json_intrinsic(member, args);
+                    return self.generate_json_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/file" {
-                    return self.generate_file_intrinsic(member, args);
+                    return self.generate_file_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/httpClient" {
-                    return self.generate_http_client_intrinsic(member, args);
+                    return self.generate_http_client_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/httpServer" {
-                    return self.generate_http_server_intrinsic(member, args);
+                    return self.generate_http_server_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/tcpClient" {
-                    return self.generate_tcp_client_intrinsic(member, args);
+                    return self.generate_tcp_client_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/tcpServer" {
-                    return self.generate_tcp_server_intrinsic(member, args);
+                    return self.generate_tcp_server_intrinsic(call_expr, member, args);
                 }
                 if module.starts_with("test/observe/") {
-                    return self.generate_test_observe_intrinsic(&module, member, args);
+                    return self.generate_test_observe_intrinsic(call_expr, &module, member, args);
                 }
                 if module == "stdlib/time" {
-                    return self.generate_time_intrinsic(member, args);
+                    return self.generate_time_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/io" {
-                    return self.generate_io_intrinsic(member, args);
+                    return self.generate_io_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/process" {
-                    return self.generate_process_intrinsic(member, args);
+                    return self.generate_process_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/random" {
-                    return self.generate_random_intrinsic(member, args);
+                    return self.generate_random_intrinsic(call_expr, member, args);
                 }
                 if module == "stdlib/url" {
-                    return self.generate_url_intrinsic(member, args);
+                    return self.generate_url_intrinsic(call_expr, member, args);
                 }
                 if module == "core/map" {
-                    return self.generate_map_intrinsic(member, args);
+                    return self.generate_map_intrinsic(call_expr, member, args);
                 }
                 Ok(None)
             }
@@ -2538,77 +2851,77 @@ impl TypeScriptGenerator {
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/string.lib.sigil"))
                 {
-                    return self.generate_string_intrinsic(&name.name, args);
+                    return self.generate_string_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/json.lib.sigil"))
                 {
-                    return self.generate_json_intrinsic(&name.name, args);
+                    return self.generate_json_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/file.lib.sigil"))
                 {
-                    return self.generate_file_intrinsic(&name.name, args);
+                    return self.generate_file_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/httpClient.lib.sigil"))
                 {
-                    return self.generate_http_client_intrinsic(&name.name, args);
+                    return self.generate_http_client_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/httpServer.lib.sigil"))
                 {
-                    return self.generate_http_server_intrinsic(&name.name, args);
+                    return self.generate_http_server_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/tcpClient.lib.sigil"))
                 {
-                    return self.generate_tcp_client_intrinsic(&name.name, args);
+                    return self.generate_tcp_client_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/tcpServer.lib.sigil"))
                 {
-                    return self.generate_tcp_server_intrinsic(&name.name, args);
+                    return self.generate_tcp_server_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/time.lib.sigil"))
                 {
-                    return self.generate_time_intrinsic(&name.name, args);
+                    return self.generate_time_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/io.lib.sigil"))
                 {
-                    return self.generate_io_intrinsic(&name.name, args);
+                    return self.generate_io_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/process.lib.sigil"))
                 {
-                    return self.generate_process_intrinsic(&name.name, args);
+                    return self.generate_process_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/random.lib.sigil"))
                 {
-                    return self.generate_random_intrinsic(&name.name, args);
+                    return self.generate_random_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
@@ -2626,6 +2939,7 @@ impl TypeScriptGenerator {
                         .replace(".sigil", "")
                         .replace('/', "::");
                     return self.generate_test_observe_intrinsic(
+                        call_expr,
                         &module.replace("::", "/"),
                         &name.name,
                         args,
@@ -2636,14 +2950,14 @@ impl TypeScriptGenerator {
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/stdlib/url.lib.sigil"))
                 {
-                    return self.generate_url_intrinsic(&name.name, args);
+                    return self.generate_url_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
                     .as_deref()
                     .is_some_and(|path| path.ends_with("language/core/map.lib.sigil"))
                 {
-                    return self.generate_map_intrinsic(&name.name, args);
+                    return self.generate_map_intrinsic(call_expr, &name.name, args);
                 }
                 Ok(None)
             }
@@ -2653,6 +2967,7 @@ impl TypeScriptGenerator {
 
     fn generate_string_intrinsic(
         &mut self,
+        _call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -2717,6 +3032,7 @@ impl TypeScriptGenerator {
 
     fn generate_map_intrinsic(
         &mut self,
+        _call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -2819,6 +3135,7 @@ impl TypeScriptGenerator {
 
     fn generate_json_intrinsic(
         &mut self,
+        _call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -2874,6 +3191,7 @@ impl TypeScriptGenerator {
 
     fn generate_file_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -2881,47 +3199,128 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
             "appendText" if generated_args.len() == 2 => Ok(Some(format!(
-                "{}.then(([__content, __path]) => __sigil_world_file_appendText(__content, __path))",
-                self.js_all(&generated_args)
+                "{}.then(([__content, __path]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "appendText",
+                    "[__content, __path]",
+                    "__sigil_world_file_appendText(__content, __path)",
+                    None,
+                )?
             ))),
             "exists" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__path) => __sigil_world_file_exists(__path))",
-                generated_args[0]
+                "{}.then((__path) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "exists",
+                    "[__path]",
+                    "__sigil_world_file_exists(__path)",
+                    None,
+                )?
             ))),
             "listDir" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__path) => __sigil_world_file_listDir(__path))",
-                generated_args[0]
+                "{}.then((__path) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "listDir",
+                    "[__path]",
+                    "__sigil_world_file_listDir(__path)",
+                    None,
+                )?
             ))),
             "makeDir" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__path) => __sigil_world_file_makeDir(__path))",
-                generated_args[0]
+                "{}.then((__path) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "makeDir",
+                    "[__path]",
+                    "__sigil_world_file_makeDir(__path)",
+                    None,
+                )?
             ))),
             "makeDirs" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__path) => __sigil_world_file_makeDirs(__path))",
-                generated_args[0]
+                "{}.then((__path) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "makeDirs",
+                    "[__path]",
+                    "__sigil_world_file_makeDirs(__path)",
+                    None,
+                )?
             ))),
             "makeTempDir" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__prefix) => __sigil_world_file_makeTempDir(__prefix))",
-                generated_args[0]
+                "{}.then((__prefix) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "makeTempDir",
+                    "[__prefix]",
+                    "__sigil_world_file_makeTempDir(__prefix)",
+                    None,
+                )?
             ))),
             "readText" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__path) => __sigil_world_file_readText(__path))",
-                generated_args[0]
+                "{}.then((__path) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "readText",
+                    "[__path]",
+                    "__sigil_world_file_readText(__path)",
+                    None,
+                )?
             ))),
             "remove" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__path) => __sigil_world_file_remove(__path))",
-                generated_args[0]
+                "{}.then((__path) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "remove",
+                    "[__path]",
+                    "__sigil_world_file_remove(__path)",
+                    None,
+                )?
             ))),
             "removeTree" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__path) => __sigil_world_file_removeTree(__path))",
-                generated_args[0]
+                "{}.then((__path) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "removeTree",
+                    "[__path]",
+                    "__sigil_world_file_removeTree(__path)",
+                    None,
+                )?
             ))),
             "writeText" if generated_args.len() == 2 => Ok(Some(format!(
-                "{}.then(([__content, __path]) => __sigil_world_file_writeText(__content, __path))",
-                self.js_all(&generated_args)
+                "{}.then(([__content, __path]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "file",
+                    "writeText",
+                    "[__content, __path]",
+                    "__sigil_world_file_writeText(__content, __path)",
+                    None,
+                )?
             ))),
             _ => Ok(None),
         }
@@ -2929,6 +3328,7 @@ impl TypeScriptGenerator {
 
     fn generate_io_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -2936,27 +3336,68 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
             "debug" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__message) => __sigil_world_log_debug(__message))",
-                generated_args[0]
+                "{}.then((__message) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "log",
+                    "debug",
+                    "[__message]",
+                    "__sigil_world_log_debug(__message)",
+                    None
+                )?
             ))),
             "eprintln" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__message) => __sigil_world_log_eprintln(__message))",
-                generated_args[0]
+                "{}.then((__message) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "log",
+                    "eprintln",
+                    "[__message]",
+                    "__sigil_world_log_eprintln(__message)",
+                    None
+                )?
             ))),
             "print" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__message) => __sigil_world_log_print(__message))",
-                generated_args[0]
+                "{}.then((__message) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "log",
+                    "print",
+                    "[__message]",
+                    "__sigil_world_log_print(__message)",
+                    None
+                )?
             ))),
             "println" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__message) => __sigil_world_log_println(__message))",
-                generated_args[0]
+                "{}.then((__message) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "log",
+                    "println",
+                    "[__message]",
+                    "__sigil_world_log_println(__message)",
+                    None
+                )?
             ))),
             "warn" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__message) => __sigil_world_log_warn(__message))",
-                generated_args[0]
+                "{}.then((__message) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "log",
+                    "warn",
+                    "[__message]",
+                    "__sigil_world_log_warn(__message)",
+                    None
+                )?
             ))),
             _ => Ok(None),
         }
@@ -2964,6 +3405,7 @@ impl TypeScriptGenerator {
 
     fn generate_test_observe_intrinsic(
         &mut self,
+        _call_expr: &TypedExpr,
         module: &str,
         member: &str,
         args: &[TypedExpr],
@@ -3002,9 +3444,9 @@ impl TypeScriptGenerator {
                 "{}.then((__entry) => __sigil_test_http_requests(__entry))",
                 generated_args[0]
             ))),
-            ("test/observe/log", "entries", 0) => {
-                Ok(Some("__sigil_ready(__sigil_test_log_entries())".to_string()))
-            }
+            ("test/observe/log", "entries", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_log_entries())".to_string(),
+            )),
             ("test/observe/process", "callCount", 0) => Ok(Some(
                 "__sigil_ready(__sigil_test_process_call_count())".to_string(),
             )),
@@ -3023,9 +3465,9 @@ impl TypeScriptGenerator {
                 "{}.then((__entry) => __sigil_test_tcp_requests(__entry))",
                 generated_args[0]
             ))),
-            ("test/observe/time", "currentIso", 0) => {
-                Ok(Some("__sigil_ready(__sigil_test_current_iso())".to_string()))
-            }
+            ("test/observe/time", "currentIso", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_current_iso())".to_string(),
+            )),
             ("test/observe/timer", "lastSleepMs", 0) => Ok(Some(
                 "__sigil_ready(__sigil_test_timer_last_sleep_ms())".to_string(),
             )),
@@ -3038,6 +3480,7 @@ impl TypeScriptGenerator {
 
     fn generate_time_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3045,6 +3488,7 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
             "compare" if generated_args.len() == 2 => Ok(Some(format!(
@@ -3067,16 +3511,22 @@ impl TypeScriptGenerator {
                 "{}.then(([__left, __right]) => __left.epochMillis < __right.epochMillis)",
                 self.js_all(&generated_args)
             ))),
-            "now" if generated_args.is_empty() => Ok(Some(
-                "__sigil_ready(__sigil_world_time_now_instant())".to_string(),
-            )),
+            "now" if generated_args.is_empty() => Ok(Some(self.wrap_effect_trace(
+                span_id,
+                "time",
+                "now",
+                "[]",
+                "__sigil_ready(__sigil_world_time_now_instant())",
+                None,
+            )?)),
             "parseIso" if generated_args.len() == 1 => Ok(Some(format!(
                 "{}.then((__input) => __sigil_time_parse_iso_result(__input))",
                 generated_args[0]
             ))),
             "sleepMs" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__ms) => __sigil_world_timer_sleep(__ms))",
-                generated_args[0]
+                "{}.then((__ms) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(span_id, "timer", "sleepMs", "[__ms]", "__sigil_world_timer_sleep(__ms)", None)?
             ))),
             "toEpochMillis" if generated_args.len() == 1 => Ok(Some(format!(
                 "{}.then((__instant) => __instant.epochMillis)",
@@ -3088,6 +3538,7 @@ impl TypeScriptGenerator {
 
     fn generate_process_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3095,30 +3546,76 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
-            "argv" if generated_args.is_empty() => {
-                Ok(Some("__sigil_world_process_argv()".to_string()))
-            }
+            "argv" if generated_args.is_empty() => Ok(Some(self.wrap_effect_trace(
+                span_id,
+                "process",
+                "argv",
+                "[]",
+                "__sigil_world_process_argv()",
+                None,
+            )?)),
             "kill" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__process) => __sigil_world_process_kill(__process))",
-                generated_args[0]
+                "{}.then((__process) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "process",
+                    "kill",
+                    "[__process]",
+                    "__sigil_world_process_kill(__process)",
+                    None
+                )?
             ))),
             "run" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__command) => __sigil_world_process_run(__command))",
-                generated_args[0]
+                "{}.then((__command) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "process",
+                    "run",
+                    "[__command]",
+                    "__sigil_world_process_run(__command)",
+                    None
+                )?
             ))),
             "exit" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__code) => __sigil_world_process_exit(__code))",
-                generated_args[0]
+                "{}.then((__code) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "process",
+                    "exit",
+                    "[__code]",
+                    "__sigil_world_process_exit(__code)",
+                    None
+                )?
             ))),
             "start" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__command) => __sigil_world_process_spawn(__command))",
-                generated_args[0]
+                "{}.then((__command) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "process",
+                    "start",
+                    "[__command]",
+                    "__sigil_world_process_spawn(__command)",
+                    None
+                )?
             ))),
             "wait" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__process) => __sigil_world_process_wait(__process))",
-                generated_args[0]
+                "{}.then((__process) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "process",
+                    "wait",
+                    "[__process]",
+                    "__sigil_world_process_wait(__process)",
+                    None
+                )?
             ))),
             _ => Ok(None),
         }
@@ -3126,6 +3623,7 @@ impl TypeScriptGenerator {
 
     fn generate_random_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3133,19 +3631,44 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
             "intBetween" if generated_args.len() == 2 => Ok(Some(format!(
-                "{}.then(([__max, __min]) => __sigil_world_random_int_between(__max, __min))",
-                self.js_all(&generated_args)
+                "{}.then(([__max, __min]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "random",
+                    "intBetween",
+                    "[__max, __min]",
+                    "__sigil_world_random_int_between(__max, __min)",
+                    None
+                )?
             ))),
             "pick" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__items) => __sigil_world_random_pick(__items))",
-                generated_args[0]
+                "{}.then((__items) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "random",
+                    "pick",
+                    "[__items]",
+                    "__sigil_world_random_pick(__items)",
+                    None
+                )?
             ))),
             "shuffle" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__items) => __sigil_world_random_shuffle(__items))",
-                generated_args[0]
+                "{}.then((__items) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "random",
+                    "shuffle",
+                    "[__items]",
+                    "__sigil_world_random_shuffle(__items)",
+                    None
+                )?
             ))),
             _ => Ok(None),
         }
@@ -3153,6 +3676,7 @@ impl TypeScriptGenerator {
 
     fn generate_http_client_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3160,11 +3684,20 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
             "request" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__request) => __sigil_world_http_request(__request))",
-                generated_args[0]
+                "{}.then((__request) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "http",
+                    "request",
+                    "[__request]",
+                    "__sigil_world_http_request(__request)",
+                    None
+                )?
             ))),
             _ => Ok(None),
         }
@@ -3172,6 +3705,7 @@ impl TypeScriptGenerator {
 
     fn generate_regex_intrinsic(
         &mut self,
+        _call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3199,6 +3733,7 @@ impl TypeScriptGenerator {
 
     fn generate_http_server_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3206,23 +3741,48 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
             "listen" if generated_args.len() == 2 => Ok(Some(format!(
-                "{}.then(([__handler, __port]) => __sigil_http_listen(__handler, __port))",
-                self.js_all(&generated_args)
+                "{}.then(([__handler, __port]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "httpServer",
+                    "listen",
+                    "[__handler, __port]",
+                    "__sigil_http_listen(__handler, __port)",
+                    None
+                )?
             ))),
             "port" if generated_args.len() == 1 => Ok(Some(format!(
                 "{}.then((__server) => Number(__server?.port ?? 0))",
                 generated_args[0]
             ))),
             "serve" if generated_args.len() == 2 => Ok(Some(format!(
-                "{}.then(([__handler, __port]) => __sigil_http_serve(__handler, __port))",
-                self.js_all(&generated_args)
+                "{}.then(([__handler, __port]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "httpServer",
+                    "serve",
+                    "[__handler, __port]",
+                    "__sigil_http_serve(__handler, __port)",
+                    None
+                )?
             ))),
             "wait" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__server) => __sigil_http_wait(__server))",
-                generated_args[0]
+                "{}.then((__server) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "httpServer",
+                    "wait",
+                    "[__server]",
+                    "__sigil_http_wait(__server)",
+                    None
+                )?
             ))),
             _ => Ok(None),
         }
@@ -3230,6 +3790,7 @@ impl TypeScriptGenerator {
 
     fn generate_tcp_client_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3237,11 +3798,20 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
             "request" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__request) => __sigil_world_tcp_request(__request))",
-                generated_args[0]
+                "{}.then((__request) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "tcp",
+                    "request",
+                    "[__request]",
+                    "__sigil_world_tcp_request(__request)",
+                    None
+                )?
             ))),
             _ => Ok(None),
         }
@@ -3249,6 +3819,7 @@ impl TypeScriptGenerator {
 
     fn generate_tcp_server_intrinsic(
         &mut self,
+        call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3256,23 +3827,48 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
 
         match member {
             "listen" if generated_args.len() == 2 => Ok(Some(format!(
-                "{}.then(([__handler, __port]) => __sigil_tcp_listen(__handler, __port))",
-                self.js_all(&generated_args)
+                "{}.then(([__handler, __port]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "tcpServer",
+                    "listen",
+                    "[__handler, __port]",
+                    "__sigil_tcp_listen(__handler, __port)",
+                    None
+                )?
             ))),
             "port" if generated_args.len() == 1 => Ok(Some(format!(
                 "{}.then((__server) => Number(__server?.port ?? 0))",
                 generated_args[0]
             ))),
             "serve" if generated_args.len() == 2 => Ok(Some(format!(
-                "{}.then(([__handler, __port]) => __sigil_tcp_serve(__handler, __port))",
-                self.js_all(&generated_args)
+                "{}.then(([__handler, __port]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "tcpServer",
+                    "serve",
+                    "[__handler, __port]",
+                    "__sigil_tcp_serve(__handler, __port)",
+                    None
+                )?
             ))),
             "wait" if generated_args.len() == 1 => Ok(Some(format!(
-                "{}.then((__server) => __sigil_tcp_wait(__server))",
-                generated_args[0]
+                "{}.then((__server) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "tcpServer",
+                    "wait",
+                    "[__server]",
+                    "__sigil_tcp_wait(__server)",
+                    None
+                )?
             ))),
             _ => Ok(None),
         }
@@ -3280,6 +3876,7 @@ impl TypeScriptGenerator {
 
     fn generate_url_intrinsic(
         &mut self,
+        _call_expr: &TypedExpr,
         member: &str,
         args: &[TypedExpr],
     ) -> Result<Option<String>, CodegenError> {
@@ -3349,70 +3946,85 @@ impl TypeScriptGenerator {
         ))
     }
 
-    fn generate_extern_call(&mut self, call: &TypedExternCallExpr) -> Result<String, CodegenError> {
+    fn generate_extern_call(
+        &mut self,
+        expr: &TypedExpr,
+        call: &TypedExternCallExpr,
+    ) -> Result<String, CodegenError> {
         if call.namespace.join("/") == "stdlib/string" {
-            if let Some(intrinsic) = self.generate_string_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) =
+                self.generate_string_intrinsic(expr, &call.member, &call.args)?
+            {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/json" {
-            if let Some(intrinsic) = self.generate_json_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) = self.generate_json_intrinsic(expr, &call.member, &call.args)? {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/file" {
-            if let Some(intrinsic) = self.generate_file_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) = self.generate_file_intrinsic(expr, &call.member, &call.args)? {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/io" {
-            if let Some(intrinsic) = self.generate_io_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) = self.generate_io_intrinsic(expr, &call.member, &call.args)? {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/httpClient" {
             if let Some(intrinsic) =
-                self.generate_http_client_intrinsic(&call.member, &call.args)?
+                self.generate_http_client_intrinsic(expr, &call.member, &call.args)?
             {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/tcpClient" {
             if let Some(intrinsic) =
-                self.generate_tcp_client_intrinsic(&call.member, &call.args)?
+                self.generate_tcp_client_intrinsic(expr, &call.member, &call.args)?
             {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/time" {
-            if let Some(intrinsic) = self.generate_time_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) = self.generate_time_intrinsic(expr, &call.member, &call.args)? {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/process" {
-            if let Some(intrinsic) = self.generate_process_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) =
+                self.generate_process_intrinsic(expr, &call.member, &call.args)?
+            {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/random" {
-            if let Some(intrinsic) = self.generate_random_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) =
+                self.generate_random_intrinsic(expr, &call.member, &call.args)?
+            {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/regex" {
-            if let Some(intrinsic) = self.generate_regex_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) =
+                self.generate_regex_intrinsic(expr, &call.member, &call.args)?
+            {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/") == "stdlib/url" {
-            if let Some(intrinsic) = self.generate_url_intrinsic(&call.member, &call.args)? {
+            if let Some(intrinsic) = self.generate_url_intrinsic(expr, &call.member, &call.args)? {
                 return Ok(intrinsic);
             }
         }
         if call.namespace.join("/").starts_with("test/observe/") {
-            if let Some(intrinsic) =
-                self.generate_test_observe_intrinsic(&call.namespace.join("/"), &call.member, &call.args)?
-            {
+            if let Some(intrinsic) = self.generate_test_observe_intrinsic(
+                expr,
+                &call.namespace.join("/"),
+                &call.member,
+                &call.args,
+            )? {
                 return Ok(intrinsic);
             }
         }
@@ -3427,11 +4039,26 @@ impl TypeScriptGenerator {
             .iter()
             .map(|arg| self.generate_expression(arg))
             .collect::<Result<_, _>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprExternCall, expr.location);
+        let namespace_name = call.namespace.join("::");
         Ok(format!(
-            "{}.then((__sigil_args) => __sigil_call(\"{}\", {}, __sigil_args))",
+            "{}.then((__sigil_args) => {})",
             self.js_all(&args),
-            call.mock_key,
-            func_ref
+            self.wrap_effect_trace(
+                span_id,
+                if namespace_name.is_empty() {
+                    "extern"
+                } else {
+                    &namespace_name
+                },
+                &call.member,
+                "__sigil_args",
+                &format!(
+                    "__sigil_call(\"{}\", {}, __sigil_args)",
+                    call.mock_key, func_ref
+                ),
+                None,
+            )?
         ))
     }
 
@@ -3540,21 +4167,46 @@ impl TypeScriptGenerator {
         }
     }
 
-    fn generate_if(&mut self, if_expr: &TypedIfExpr) -> Result<String, CodegenError> {
+    fn generate_if(
+        &mut self,
+        expr: &TypedExpr,
+        if_expr: &TypedIfExpr,
+    ) -> Result<String, CodegenError> {
         let condition = self.generate_expression(&if_expr.condition)?;
         let then_branch = self.generate_expression(&if_expr.then_branch)?;
+        let trace_span_id = self.span_id_for_expr(DebugSpanKind::ExprIf, expr.location);
+        let trace_meta = if self.trace_enabled {
+            Some(self.trace_meta_literal(trace_span_id, &[])?)
+        } else {
+            None
+        };
 
         if let Some(ref else_branch) = if_expr.else_branch {
             let else_code = self.generate_expression(else_branch)?;
             Ok(format!(
-                "{}.then((__cond) => (__cond ? {} : {}))",
-                condition, then_branch, else_code
+                "{}.then((__cond) => {{ {} return __cond ? {} : {}; }})",
+                condition,
+                trace_meta
+                    .map(|meta| format!(
+                        "__sigil_trace_branch_if({}, __cond, __cond ? \"then\" : \"else\"); ",
+                        meta
+                    ))
+                    .unwrap_or_default(),
+                then_branch,
+                else_code
             ))
         } else {
             // No else branch - return null for the false case
             Ok(format!(
-                "{}.then((__cond) => (__cond ? {} : __sigil_ready(null)))",
-                condition, then_branch
+                "{}.then((__cond) => {{ {} return __cond ? {} : __sigil_ready(null); }})",
+                condition,
+                trace_meta
+                    .map(|meta| format!(
+                        "__sigil_trace_branch_if({}, __cond, __cond ? \"then\" : \"else\"); ",
+                        meta
+                    ))
+                    .unwrap_or_default(),
+                then_branch
             ))
         }
     }
@@ -3673,18 +4325,38 @@ impl TypeScriptGenerator {
         Ok(lines.join("\n"))
     }
 
-    fn generate_match(&mut self, match_expr: &TypedMatchExpr) -> Result<String, CodegenError> {
+    fn generate_match(
+        &mut self,
+        expr: &TypedExpr,
+        match_expr: &TypedMatchExpr,
+    ) -> Result<String, CodegenError> {
         // Generate an async IIFE that implements pattern matching
         let scrutinee = self.generate_expression(&match_expr.scrutinee)?;
+        let trace_span_id = self.span_id_for_expr(DebugSpanKind::ExprMatch, expr.location);
+        let trace_meta = if self.trace_enabled {
+            Some(self.trace_meta_literal(trace_span_id, &[])?)
+        } else {
+            None
+        };
 
         let mut lines = Vec::new();
         lines.push("(async () => {".to_string());
         lines.push(format!("  const __match = await {};", scrutinee));
 
-        for arm in &match_expr.arms {
+        for (arm_index, arm) in match_expr.arms.iter().enumerate() {
             let condition = self.generate_pattern_condition(&arm.pattern, "__match")?;
             let body = self.generate_expression(&arm.body)?;
             let bindings = self.generate_pattern_bindings(&arm.pattern, "__match")?;
+            let arm_span_id = self.span_id_for_match_arm(arm.location).unwrap_or("");
+            let trace_line = trace_meta.as_ref().map(|meta| {
+                format!(
+                    "      __sigil_trace_branch_match({}, {}, {}, {});",
+                    meta,
+                    serde_json::to_string(arm_span_id).unwrap(),
+                    arm_index,
+                    arm.guard.is_some()
+                )
+            });
 
             lines.push(format!("  if ({}) {{", condition));
 
@@ -3696,9 +4368,15 @@ impl TypeScriptGenerator {
             if let Some(ref guard) = arm.guard {
                 let guard_expr = self.generate_expression(guard)?;
                 lines.push(format!("    if (await {}) {{", guard_expr));
+                if let Some(trace_line) = &trace_line {
+                    lines.push(trace_line.clone());
+                }
                 lines.push(format!("      return {};", body));
                 lines.push("    }".to_string());
             } else {
+                if let Some(trace_line) = &trace_line {
+                    lines.push(trace_line.clone());
+                }
                 lines.push(format!("    return {};", body));
             }
 
@@ -3987,6 +4665,16 @@ impl TypeScriptGenerator {
         }
     }
 }
+
+fn debug_span_matches_location(span: &DebugSpanRecord, location: SourceLocation) -> bool {
+    span.location.start.line == location.start.line
+        && span.location.start.column == location.start.column
+        && span.location.start.offset == location.start.offset
+        && span.location.end.line == location.end.line
+        && span.location.end.column == location.end.column
+        && span.location.end.offset == location.end.offset
+}
+
 fn sanitize_js_identifier(raw: &str) -> String {
     let mut sanitized = String::with_capacity(raw.len());
 
@@ -4273,8 +4961,8 @@ mod tests {
     use super::*;
     use sigil_lexer::{tokenize, Position, SourceLocation};
     use sigil_parser::parse;
-    use sigil_typechecker::typed_ir::{PurityClass, StrictnessClass};
     use sigil_typechecker::type_check;
+    use sigil_typechecker::typed_ir::{PurityClass, StrictnessClass};
     use sigil_typechecker::types::{InferenceType, TList};
     use std::collections::HashSet;
 
@@ -4363,6 +5051,7 @@ mod tests {
             module_id: None,
             source_file: Some("projects/algorithms/tests/rot13Encoder.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/tests/rot13Encoder.ts".to_string()),
+            trace: false,
         });
         gen.emit_module_import("src::rot13Encoder").unwrap();
         let result = gen.output.join("");
@@ -4378,6 +5067,7 @@ mod tests {
             output_file: Some(
                 "/tmp/language/stdlib-tests/.local/tests/numericPredicates.ts".to_string(),
             ),
+            trace: false,
         });
         gen.emit_module_import("stdlib::numeric").unwrap();
         let result = gen.output.join("");
@@ -4471,6 +5161,7 @@ mod tests {
             module_id: None,
             source_file: Some("projects/algorithms/src/topologicalSort.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/src/topologicalSort.ts".to_string()),
+            trace: false,
         });
         let result = gen.generate(&program).unwrap();
 
@@ -4487,6 +5178,7 @@ mod tests {
             module_id: None,
             source_file: Some("tests/smoke.sigil".to_string()),
             output_file: Some("/tmp/tests/smoke.ts".to_string()),
+            trace: false,
         });
         let result = gen.generate(&program).unwrap();
 
@@ -4505,6 +5197,7 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            trace: false,
         });
         gen.generate(&program).unwrap();
 
@@ -4532,6 +5225,7 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            trace: false,
         });
         gen.generate(&program).unwrap();
 
@@ -4551,6 +5245,43 @@ mod tests {
         assert!(arm_spans
             .iter()
             .all(|span| span.parent_span_id.as_deref() == Some(match_span_id.as_str())));
+    }
+
+    #[test]
+    fn test_generate_trace_enabled_instruments_declared_calls_and_match_selection() {
+        let source =
+            "λhelper(flag:Bool)=>Int match flag{true=>1|false=>0}\nλmain()=>Int=helper(true)";
+        let program = typed_program_for(source, "test.sigil");
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: Some("src::main".to_string()),
+            source_file: Some("test.sigil".to_string()),
+            output_file: Some("/tmp/test.js".to_string()),
+            trace: true,
+        });
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("function __sigil_trace_wrap_call("));
+        assert!(result.contains("__sigil_trace_branch_match("));
+        assert!(result.contains("__sigil_trace_wrap_call({ moduleId: \"src::main\""));
+    }
+
+    #[test]
+    fn test_generate_trace_enabled_instruments_effectful_extern_calls() {
+        let source =
+            "e process:{argv:λ()=>!Process [String]}\nλmain()=>!Process [String]=process.argv()";
+        let program = typed_program_for(source, "test.sigil");
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: Some("src::main".to_string()),
+            source_file: Some("test.sigil".to_string()),
+            output_file: Some("/tmp/test.js".to_string()),
+            trace: true,
+        });
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("__sigil_trace_wrap_effect("));
+        assert!(result.contains("__sigil_call("));
     }
 
     #[test]

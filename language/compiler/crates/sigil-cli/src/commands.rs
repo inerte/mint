@@ -1367,7 +1367,7 @@ fn compile_group(group: &CompileBatchGroup) -> Result<CompileBatchOutputs, CliEr
         })
         .collect::<Result<Vec<_>, CliError>>()?;
 
-    let compiled = compile_module_graph(graph, None)?;
+    let compiled = compile_module_graph(graph, None, false)?;
     let entries = entry_modules
         .into_iter()
         .map(|(input, module_id, project_root)| {
@@ -1451,7 +1451,7 @@ fn compile_single_file_command(
         .collect::<Vec<_>>();
     let project_json = project_json(entry_module.project.as_ref());
 
-    let compiled = match compile_module_graph(graph, output) {
+    let compiled = match compile_module_graph(graph, output, false) {
         Ok(compiled) => compiled,
         Err(CliError::Type(type_error)) => {
             output_json_error(
@@ -1655,10 +1655,27 @@ pub fn compile_command(
 pub fn run_command(
     file: &Path,
     json_output: bool,
+    trace_output: bool,
     selected_env: Option<&str>,
     args: &[String],
 ) -> Result<(), CliError> {
-    let run_target = match build_run_target(file, selected_env) {
+    if trace_output && !json_output {
+        output_json_error_to(
+            "sigilc run",
+            "cli",
+            codes::cli::USAGE,
+            "`--trace` requires `--json`",
+            json!({
+                "file": file.to_string_lossy(),
+                "option": "--trace",
+                "requires": "--json"
+            }),
+            true,
+        );
+        return Err(CliError::Reported(1));
+    }
+
+    let run_target = match build_run_target(file, selected_env, trace_output) {
         Ok(run_target) => run_target,
         Err(error) => {
             output_run_error(file, &error, !json_output);
@@ -1669,6 +1686,7 @@ pub fn run_command(
     let runtime_output = match execute_runner(
         &run_target.runner_path,
         &run_target.runtime_error_path,
+        run_target.runtime_trace_path.as_deref(),
         args,
         !json_output,
     ) {
@@ -1686,7 +1704,7 @@ pub fn run_command(
     }
 
     if json_output {
-        let output_json = serde_json::json!({
+        let mut output_json = serde_json::json!({
             "formatVersion": 1,
             "command": "sigilc run",
             "ok": true,
@@ -1704,9 +1722,18 @@ pub fn run_command(
                     "durationMs": runtime_output.duration_ms,
                     "stdout": runtime_output.stdout,
                     "stderr": runtime_output.stderr
-                }
+                },
+                "trace": runtime_trace_json(runtime_output.trace_capture.as_ref())
             }
         });
+        if !trace_output {
+            if let Some(data) = output_json
+                .get_mut("data")
+                .and_then(|value| value.as_object_mut())
+            {
+                data.remove("trace");
+            }
+        }
         output_json_value(&output_json, false);
     }
 
@@ -1718,6 +1745,8 @@ struct RunTarget {
     entry_span_map_path: PathBuf,
     runner_path: PathBuf,
     runtime_error_path: PathBuf,
+    runtime_trace_path: Option<PathBuf>,
+    trace_enabled: bool,
     module_debug_outputs: Vec<RuntimeModuleDebugOutput>,
 }
 
@@ -1743,18 +1772,36 @@ struct RuntimeOutput {
     stdout: String,
     stderr: String,
     exception_capture: Option<RuntimeExceptionCapture>,
+    trace_capture: Option<RuntimeTraceCapture>,
 }
 
-fn build_run_target(file: &Path, selected_env: Option<&str>) -> Result<RunTarget, CliError> {
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeTraceCapture {
+    enabled: bool,
+    truncated: bool,
+    total_events: usize,
+    returned_events: usize,
+    dropped_events: usize,
+    #[serde(default)]
+    events: Vec<serde_json::Value>,
+}
+
+fn build_run_target(
+    file: &Path,
+    selected_env: Option<&str>,
+    trace_enabled: bool,
+) -> Result<RunTarget, CliError> {
     let graph = ModuleGraph::build(file)?;
     let topology_prelude = runner_prelude(file, &graph, selected_env)?.unwrap_or_default();
-    let compiled = compile_module_graph(graph, None)?;
+    let compiled = compile_module_graph(graph, None, trace_enabled)?;
     let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
     let entry_output_path = compiled.entry_output_path;
     let entry_span_map_path = compiled.entry_span_map_path;
 
     let runner_path = entry_output_path.with_extension("run.ts");
     let runtime_error_path = unique_runtime_error_path(&entry_output_path);
+    let runtime_trace_path = trace_enabled.then(|| unique_runtime_trace_path(&entry_output_path));
     let module_name = entry_output_path
         .file_stem()
         .unwrap()
@@ -1764,11 +1811,58 @@ fn build_run_target(file: &Path, selected_env: Option<&str>) -> Result<RunTarget
     let filename_json = serde_json::to_string(&file.to_string_lossy().to_string()).unwrap();
     let runtime_error_path_json =
         serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
+    let trace_import = if trace_enabled {
+        "import { writeFileSync } from 'node:fs';".to_string()
+    } else {
+        String::new()
+    };
+    let trace_config = if trace_enabled {
+        "globalThis.__sigil_trace_config = { enabled: true, maxEvents: 256 };\nglobalThis.__sigil_trace_current = undefined;".to_string()
+    } else {
+        String::new()
+    };
+    let trace_capture = if let Some(runtime_trace_path) = &runtime_trace_path {
+        let runtime_trace_path_json =
+            serde_json::to_string(&runtime_trace_path.to_string_lossy().to_string()).unwrap();
+        format!(
+            r#"
+const __sigil_runtime_trace_file = {runtime_trace_path_json};
+
+function __sigil_runtime_trace_payload() {{
+  if (typeof globalThis.__sigil_trace_snapshot === 'function') {{
+    try {{
+      return globalThis.__sigil_trace_snapshot();
+    }} catch (_traceError) {{
+      return {{ enabled: true, truncated: false, totalEvents: 0, returnedEvents: 0, droppedEvents: 0, events: [] }};
+    }}
+  }}
+  return {{ enabled: true, truncated: false, totalEvents: 0, returnedEvents: 0, droppedEvents: 0, events: [] }};
+}}
+
+function __sigil_runtime_capture_trace_sync() {{
+  try {{
+    writeFileSync(__sigil_runtime_trace_file, JSON.stringify(__sigil_runtime_trace_payload()));
+  }} catch (_captureTraceError) {{
+    // Best-effort debug plumbing only.
+  }}
+}}
+
+process.on('exit', () => {{
+  __sigil_runtime_capture_trace_sync();
+}});
+"#
+        )
+    } else {
+        String::new()
+    };
 
     let runner_code = format!(
         r#"import {{ writeFile }} from 'node:fs/promises';
+{trace_import}
 
 const __sigil_runtime_error_file = {runtime_error_path_json};
+{trace_capture}
+{trace_config}
 
 function __sigil_runtime_exception_name(error) {{
   if (error instanceof Error && error.name) {{
@@ -1841,7 +1935,10 @@ try {{
         topology_prelude = topology_prelude,
         filename_json = filename_json,
         module_specifier_json = module_specifier_json,
-        runtime_error_path_json = runtime_error_path_json
+        runtime_error_path_json = runtime_error_path_json,
+        trace_capture = trace_capture,
+        trace_config = trace_config,
+        trace_import = trace_import
     );
 
     fs::write(&runner_path, runner_code)?;
@@ -1850,6 +1947,8 @@ try {{
         entry_span_map_path,
         runner_path,
         runtime_error_path,
+        runtime_trace_path,
+        trace_enabled,
         module_debug_outputs,
     })
 }
@@ -1857,11 +1956,15 @@ try {{
 fn execute_runner(
     runner_path: &Path,
     runtime_error_path: &Path,
+    runtime_trace_path: Option<&Path>,
     args: &[String],
     stream_output: bool,
 ) -> Result<RuntimeOutput, CliError> {
     let abs_runner_path = std::fs::canonicalize(runner_path)?;
     let _ = fs::remove_file(runtime_error_path);
+    if let Some(runtime_trace_path) = runtime_trace_path {
+        let _ = fs::remove_file(runtime_trace_path);
+    }
     let start_time = Instant::now();
     if stream_output {
         if io::stdout().is_terminal() || io::stderr().is_terminal() {
@@ -1880,6 +1983,7 @@ fn execute_runner(
                 stdout: String::new(),
                 stderr: String::new(),
                 exception_capture: read_runtime_exception_capture(runtime_error_path),
+                trace_capture: read_runtime_trace_capture(runtime_trace_path),
             });
         }
 
@@ -1918,6 +2022,7 @@ fn execute_runner(
             stdout: String::from_utf8_lossy(&stdout_bytes).to_string(),
             stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
             exception_capture: read_runtime_exception_capture(runtime_error_path),
+            trace_capture: read_runtime_trace_capture(runtime_trace_path),
         });
     }
 
@@ -1936,6 +2041,7 @@ fn execute_runner(
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
         exception_capture: read_runtime_exception_capture(runtime_error_path),
+        trace_capture: read_runtime_trace_capture(runtime_trace_path),
     })
 }
 
@@ -2007,11 +2113,61 @@ fn unique_runtime_error_path(entry_output_path: &Path) -> PathBuf {
         .join(format!("{stem}.{unique}.runtime-error.json"))
 }
 
+fn unique_runtime_trace_path(entry_output_path: &Path) -> PathBuf {
+    let unique = format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let stem = entry_output_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
+    entry_output_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!("{stem}.{unique}.runtime-trace.json"))
+}
+
 fn read_runtime_exception_capture(path: &Path) -> Option<RuntimeExceptionCapture> {
     let contents = fs::read_to_string(path).ok();
     let _ = fs::remove_file(path);
     let contents = contents?;
     serde_json::from_str(&contents).ok()
+}
+
+fn read_runtime_trace_capture(path: Option<&Path>) -> Option<RuntimeTraceCapture> {
+    let path = path?;
+    let contents = fs::read_to_string(path).ok();
+    let _ = fs::remove_file(path);
+    let contents = contents?;
+    serde_json::from_str(&contents).ok()
+}
+
+fn runtime_trace_json(trace_capture: Option<&RuntimeTraceCapture>) -> serde_json::Value {
+    match trace_capture {
+        Some(trace_capture) => serde_json::to_value(trace_capture).unwrap_or_else(|_| {
+            json!({
+                "enabled": true,
+                "truncated": false,
+                "totalEvents": 0,
+                "returnedEvents": 0,
+                "droppedEvents": 0,
+                "events": []
+            })
+        }),
+        None => json!({
+            "enabled": true,
+            "truncated": false,
+            "totalEvents": 0,
+            "returnedEvents": 0,
+            "droppedEvents": 0,
+            "events": []
+        }),
+    }
 }
 
 fn build_runtime_failure_output(
@@ -2032,14 +2188,25 @@ fn build_runtime_failure_output(
         "stdout": runtime_output.stdout,
         "stderr": runtime_output.stderr
     });
+    let trace = run_target
+        .trace_enabled
+        .then(|| runtime_trace_json(runtime_output.trace_capture.as_ref()));
 
     if let Some(capture) = &runtime_output.exception_capture {
         return build_runtime_exception_output(
             compile,
             runtime,
+            trace,
             &run_target.module_debug_outputs,
             capture,
         );
+    }
+
+    let mut details = serde_json::Map::new();
+    details.insert("compile".to_string(), compile);
+    details.insert("runtime".to_string(), runtime);
+    if let Some(trace) = trace {
+        details.insert("trace".to_string(), trace);
     }
 
     json!({
@@ -2054,10 +2221,7 @@ fn build_runtime_failure_output(
                 "child process exited with nonzero status: {}",
                 runtime_output.exit_code
             ),
-            "details": {
-                "compile": compile,
-                "runtime": runtime
-            }
+            "details": serde_json::Value::Object(details)
         }
     })
 }
@@ -2065,6 +2229,7 @@ fn build_runtime_failure_output(
 fn build_runtime_exception_output(
     compile: serde_json::Value,
     runtime: serde_json::Value,
+    trace: Option<serde_json::Value>,
     module_debug_outputs: &[RuntimeModuleDebugOutput],
     capture: &RuntimeExceptionCapture,
 ) -> serde_json::Value {
@@ -2080,6 +2245,9 @@ fn build_runtime_exception_output(
     let mut details = serde_json::Map::new();
     details.insert("compile".to_string(), compile);
     details.insert("runtime".to_string(), runtime);
+    if let Some(trace) = trace {
+        details.insert("trace".to_string(), trace);
+    }
     details.insert(
         "exception".to_string(),
         runtime_exception_json(capture, &normalized_message, &analysis),
@@ -2901,6 +3069,7 @@ fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphOutputs, Cli
 fn compile_module_graph(
     graph: ModuleGraph,
     output_override: Option<&Path>,
+    trace: bool,
 ) -> Result<CompiledGraphOutputs, CliError> {
     let analyzed = analyze_module_graph(&graph)?;
     let mut module_outputs = HashMap::new();
@@ -2928,6 +3097,7 @@ fn compile_module_graph(
             module_id: Some(module_id.clone()),
             source_file: Some(module.file_path.to_string_lossy().to_string()),
             output_file: Some(output_path.to_string_lossy().to_string()),
+            trace,
         };
         let mut codegen = TypeScriptGenerator::new(codegen_options);
         let ts_code = codegen
@@ -2996,7 +3166,7 @@ fn compile_topology_module(project_root: &Path) -> Result<CompiledGraphOutputs, 
     }
 
     let graph = ModuleGraph::build(&topology_source)?;
-    compile_module_graph(graph, None)
+    compile_module_graph(graph, None, false)
 }
 
 fn compile_config_module(
@@ -3014,7 +3184,7 @@ fn compile_config_module(
     }
 
     let graph = ModuleGraph::build(&config_source)?;
-    compile_module_graph(graph, None)
+    compile_module_graph(graph, None, false)
 }
 
 fn build_world_runtime_prelude(
@@ -3231,7 +3401,7 @@ fn compile_and_run_tests(
 ) -> Result<TestRunResult, CliError> {
     let graph = ModuleGraph::build(file)?;
     let topology_prelude = runner_prelude(file, &graph, selected_env)?;
-    let compiled = compile_module_graph(graph, None)?;
+    let compiled = compile_module_graph(graph, None, false)?;
     run_test_module(
         &compiled.entry_output_path,
         &compiled.coverage_targets,

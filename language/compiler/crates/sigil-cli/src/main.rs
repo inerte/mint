@@ -79,6 +79,10 @@ enum Command {
         #[arg(long)]
         json: bool,
 
+        /// Capture a bounded structured execution trace (requires --json)
+        #[arg(long)]
+        trace: bool,
+
         /// Runtime topology environment name (required for topology-aware projects)
         #[arg(long)]
         env: Option<String>,
@@ -190,9 +194,10 @@ fn main() {
         Command::Run {
             file,
             json,
+            trace,
             env,
             args,
-        } => run_command(&file, json, env.as_deref(), &args),
+        } => run_command(&file, json, trace, env.as_deref(), &args),
         Command::Test { path, env, r#match } => {
             test_command(&path, env.as_deref(), r#match.as_deref())
         }

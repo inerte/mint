@@ -581,6 +581,62 @@
       },
       "additionalProperties": false
     },
+    "runTraceValueSummary": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string" },
+        "value": true,
+        "tag": { "type": "string" },
+        "arity": { "type": "integer", "minimum": 0 },
+        "size": { "type": "integer", "minimum": 0 },
+        "fields": { "type": "array", "items": { "type": "string" } },
+        "truncated": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "runTraceEvent": {
+      "type": "object",
+      "required": ["seq", "kind", "depth", "moduleId", "sourceFile", "spanId"],
+      "properties": {
+        "seq": { "type": "integer", "minimum": 1 },
+        "kind": {
+          "type": "string",
+          "enum": ["call", "return", "branch_if", "branch_match", "effect_call", "effect_result"]
+        },
+        "depth": { "type": "integer", "minimum": 0 },
+        "moduleId": { "type": "string" },
+        "sourceFile": { "type": "string" },
+        "spanId": { "type": "string" },
+        "declarationKind": { "type": "string" },
+        "declarationLabel": { "type": "string" },
+        "functionName": { "type": "string" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/runTraceValueSummary" } },
+        "result": { "$ref": "#/$defs/runTraceValueSummary" },
+        "taken": { "type": "string" },
+        "condition": { "$ref": "#/$defs/runTraceValueSummary" },
+        "armSpanId": { "type": "string" },
+        "armIndex": { "type": "integer", "minimum": 0 },
+        "hasGuard": { "type": "boolean" },
+        "effectFamily": { "type": "string" },
+        "operation": { "type": "string" },
+        "target": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "runTrace": {
+      "type": "object",
+      "required": ["enabled", "truncated", "totalEvents", "returnedEvents", "droppedEvents", "events"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "truncated": { "type": "boolean" },
+        "totalEvents": { "type": "integer", "minimum": 0 },
+        "returnedEvents": { "type": "integer", "minimum": 0 },
+        "droppedEvents": { "type": "integer", "minimum": 0 },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/runTraceEvent" } }
+      },
+      "additionalProperties": false
+    },
     "runSigilFrame": {
       "type": "object",
       "required": ["spanId", "kind", "file", "location"],
@@ -612,6 +668,7 @@
       "properties": {
         "compile": { "$ref": "#/$defs/runCompileInfo" },
         "runtime": { "$ref": "#/$defs/runRuntimeInfo" },
+        "trace": { "$ref": "#/$defs/runTrace" },
         "exception": { "$ref": "#/$defs/runExceptionDetails" }
       },
       "additionalProperties": false
@@ -621,7 +678,8 @@
       "required": ["compile", "runtime"],
       "properties": {
         "compile": { "$ref": "#/$defs/runCompileInfo" },
-        "runtime": { "$ref": "#/$defs/runRuntimeInfo" }
+        "runtime": { "$ref": "#/$defs/runRuntimeInfo" },
+        "trace": { "$ref": "#/$defs/runTrace" }
       },
       "additionalProperties": false
     },

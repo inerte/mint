@@ -8,7 +8,10 @@ use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use rayon::{prelude::*, ThreadPoolBuilder};
 use serde_json::json;
 use sigil_ast::{Declaration, Program, SourceLocation, Type, TypeDef};
-use sigil_codegen::{collect_module_span_map, CodegenOptions, ModuleSpanMap, TypeScriptGenerator};
+use sigil_codegen::{
+    collect_module_span_map, CodegenOptions, DebugSpanKind, DebugSpanRecord, ModuleSpanMap,
+    TypeScriptGenerator,
+};
 use sigil_diagnostics::codes;
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
@@ -19,9 +22,8 @@ use sigil_typechecker::{
     type_check, TypeCheckOptions, TypeError, TypeInfo, TypeScheme, TypedDeclaration, TypedProgram,
 };
 use sigil_validator::{
-    print_canonical_program_with_effects,
-    validate_canonical_form_with_options, validate_typed_canonical_form, ValidationError,
-    ValidationOptions,
+    print_canonical_program_with_effects, validate_canonical_form_with_options,
+    validate_typed_canonical_form, ValidationError, ValidationOptions,
 };
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -29,7 +31,7 @@ use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 const TEST_WORKER_STACK_BYTES: usize = 8 * 1024 * 1024;
@@ -654,11 +656,9 @@ fn collect_quantified_var_names(
         InferenceType::Primitive(_) | InferenceType::Any => {}
         InferenceType::Var(var) => {
             if quantified_vars.contains(&var.id) {
-                names.entry(var.id).or_insert_with(|| {
-                    var.name
-                        .clone()
-                        .unwrap_or_else(|| format!("α{}", var.id))
-                });
+                names
+                    .entry(var.id)
+                    .or_insert_with(|| var.name.clone().unwrap_or_else(|| format!("α{}", var.id)));
             }
             if let Some(instance) = &var.instance {
                 collect_quantified_var_names(instance, quantified_vars, names);
@@ -709,9 +709,7 @@ fn format_type_scheme(scheme: &TypeScheme) -> String {
         .iter()
         .map(|id| {
             (
-                names.get(id)
-                    .cloned()
-                    .unwrap_or_else(|| format!("α{}", id)),
+                names.get(id).cloned().unwrap_or_else(|| format!("α{}", id)),
                 *id,
             )
         })
@@ -1087,19 +1085,19 @@ fn inspect_types_directory_command(
     ignore_from: Option<&Path>,
 ) -> Result<(), CliError> {
     let start_time = Instant::now();
-    let files = match collect_sigil_targets(InspectMode::Types.verb(), path, ignore_paths, ignore_from)
-    {
-        Ok(files) => files,
-        Err(error) => {
-            output_inspect_error(
-                InspectMode::Types.command_name(),
-                path,
-                &error,
-                serde_json::Map::new(),
-            );
-            return Err(CliError::Reported(1));
-        }
-    };
+    let files =
+        match collect_sigil_targets(InspectMode::Types.verb(), path, ignore_paths, ignore_from) {
+            Ok(files) => files,
+            Err(error) => {
+                output_inspect_error(
+                    InspectMode::Types.command_name(),
+                    path,
+                    &error,
+                    serde_json::Map::new(),
+                );
+                return Err(CliError::Reported(1));
+            }
+        };
     let groups = match group_compile_targets(&files) {
         Ok(groups) => groups,
         Err(error) => {
@@ -1124,16 +1122,20 @@ fn inspect_types_directory_command(
     let mut file_results = Vec::new();
 
     for group in groups {
-        let first_file = group.files.first().cloned().unwrap_or_else(|| path.to_path_buf());
+        let first_file = group
+            .files
+            .first()
+            .cloned()
+            .unwrap_or_else(|| path.to_path_buf());
         let graph = match ModuleGraph::build_many(&group.files) {
             Ok(graph) => graph,
             Err(error) => {
                 let mut extra = serde_json::Map::new();
-                extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
                 extra.insert(
-                    "discovered".to_string(),
-                    json!(files.len()),
+                    "input".to_string(),
+                    json!(path.to_string_lossy().to_string()),
                 );
+                extra.insert("discovered".to_string(), json!(files.len()));
                 extra.insert("inspected".to_string(), json!(inspected_file_count));
                 extra.insert(
                     "durationMs".to_string(),
@@ -1152,11 +1154,11 @@ fn inspect_types_directory_command(
             Ok(analyzed) => analyzed,
             Err(error) => {
                 let mut extra = serde_json::Map::new();
-                extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
                 extra.insert(
-                    "discovered".to_string(),
-                    json!(files.len()),
+                    "input".to_string(),
+                    json!(path.to_string_lossy().to_string()),
                 );
+                extra.insert("discovered".to_string(), json!(files.len()));
                 extra.insert("inspected".to_string(), json!(inspected_file_count));
                 extra.insert(
                     "durationMs".to_string(),
@@ -1178,11 +1180,11 @@ fn inspect_types_directory_command(
                 Ok(module_id) => module_id,
                 Err(error) => {
                     let mut extra = serde_json::Map::new();
-                    extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
                     extra.insert(
-                        "discovered".to_string(),
-                        json!(files.len()),
+                        "input".to_string(),
+                        json!(path.to_string_lossy().to_string()),
                     );
+                    extra.insert("discovered".to_string(), json!(files.len()));
                     extra.insert("inspected".to_string(), json!(inspected_file_count));
                     extra.insert(
                         "durationMs".to_string(),
@@ -1308,19 +1310,17 @@ fn inspect_validate_directory_command(
             }
             Err(error) => {
                 let mut extra = serde_json::Map::new();
-                extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
+                extra.insert(
+                    "input".to_string(),
+                    json!(path.to_string_lossy().to_string()),
+                );
                 extra.insert("discovered".to_string(), json!(files.len()));
                 extra.insert("inspected".to_string(), json!(inspected_file_count));
                 extra.insert(
                     "durationMs".to_string(),
                     json!(start_time.elapsed().as_millis()),
                 );
-                output_inspect_error(
-                    InspectMode::Validate.command_name(),
-                    file,
-                    &error,
-                    extra,
-                );
+                output_inspect_error(InspectMode::Validate.command_name(), file, &error, extra);
                 return Err(CliError::Reported(1));
             }
         }
@@ -1666,7 +1666,12 @@ pub fn run_command(
         }
     };
 
-    let runtime_output = match execute_runner(&run_target.runner_path, args, !json_output) {
+    let runtime_output = match execute_runner(
+        &run_target.runner_path,
+        &run_target.runtime_error_path,
+        args,
+        !json_output,
+    ) {
         Ok(runtime_output) => runtime_output,
         Err(error) => {
             output_run_error(file, &error, !json_output);
@@ -1675,22 +1680,7 @@ pub fn run_command(
     };
 
     if runtime_output.exit_code != 0 {
-        let output_json = serde_json::json!({
-            "formatVersion": 1,
-            "command": "sigilc run",
-            "ok": false,
-            "phase": "runtime",
-            "error": {
-                "code": codes::runtime::CHILD_EXIT,
-                "phase": "runtime",
-                "message": format!("child process exited with nonzero status: {}", runtime_output.exit_code),
-                "details": {
-                    "exitCode": runtime_output.exit_code,
-                    "stdout": runtime_output.stdout,
-                    "stderr": runtime_output.stderr
-                }
-            }
-        });
+        let output_json = build_runtime_failure_output(file, &run_target, &runtime_output);
         output_json_value(&output_json, !json_output);
         return Err(CliError::Reported(1));
     }
@@ -1727,6 +1717,24 @@ struct RunTarget {
     entry_output_path: PathBuf,
     entry_span_map_path: PathBuf,
     runner_path: PathBuf,
+    runtime_error_path: PathBuf,
+    module_debug_outputs: Vec<RuntimeModuleDebugOutput>,
+}
+
+#[derive(Debug, Clone)]
+struct RuntimeModuleDebugOutput {
+    output_file: PathBuf,
+    span_map_file: PathBuf,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeExceptionCapture {
+    name: String,
+    message: String,
+    stack: String,
+    #[serde(default)]
+    sigil_code: Option<String>,
 }
 
 struct RuntimeOutput {
@@ -1734,42 +1742,106 @@ struct RuntimeOutput {
     duration_ms: u128,
     stdout: String,
     stderr: String,
+    exception_capture: Option<RuntimeExceptionCapture>,
 }
 
 fn build_run_target(file: &Path, selected_env: Option<&str>) -> Result<RunTarget, CliError> {
     let graph = ModuleGraph::build(file)?;
     let topology_prelude = runner_prelude(file, &graph, selected_env)?.unwrap_or_default();
     let compiled = compile_module_graph(graph, None)?;
+    let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
     let entry_output_path = compiled.entry_output_path;
     let entry_span_map_path = compiled.entry_span_map_path;
 
     let runner_path = entry_output_path.with_extension("run.ts");
+    let runtime_error_path = unique_runtime_error_path(&entry_output_path);
     let module_name = entry_output_path
         .file_stem()
         .unwrap()
         .to_string_lossy()
         .to_string();
+    let module_specifier_json = serde_json::to_string(&format!("./{}", module_name)).unwrap();
+    let filename_json = serde_json::to_string(&file.to_string_lossy().to_string()).unwrap();
+    let runtime_error_path_json =
+        serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
 
     let runner_code = format!(
-        r#"{topology_prelude}
-import {{ main }} from './{module_name}';
+        r#"import {{ writeFile }} from 'node:fs/promises';
 
-if (typeof main !== 'function') {{
-  console.error('Error: No main() function found in {filename}');
-  console.error('Add a main() function to make this program runnable.');
-  process.exit(1);
+const __sigil_runtime_error_file = {runtime_error_path_json};
+
+function __sigil_runtime_exception_name(error) {{
+  if (error instanceof Error && error.name) {{
+    return String(error.name);
+  }}
+  if (error && typeof error === 'object' && 'name' in error && error.name != null) {{
+    return String(error.name);
+  }}
+  return 'Error';
 }}
 
-// Call main and handle the result (all Sigil functions are async)
-const result = await main();
+function __sigil_runtime_exception_message(error) {{
+  if (error instanceof Error) {{
+    return String(error.message ?? '');
+  }}
+  return String(error);
+}}
 
-// If main returns a value (not Unit/undefined), show it
-if (result !== undefined) {{
-  console.log(result);
+function __sigil_runtime_exception_stack(error) {{
+  if (error instanceof Error && typeof error.stack === 'string') {{
+    return error.stack;
+  }}
+  return '';
+}}
+
+async function __sigil_runtime_capture_error(error) {{
+  const sigilCode =
+    error && typeof error === 'object' && 'sigilCode' in error && error.sigilCode != null
+      ? String(error.sigilCode)
+      : null;
+  const payload = {{
+    message: __sigil_runtime_exception_message(error),
+    name: __sigil_runtime_exception_name(error),
+    sigilCode,
+    stack: __sigil_runtime_exception_stack(error)
+  }};
+  try {{
+    await writeFile(__sigil_runtime_error_file, JSON.stringify(payload));
+  }} catch (_captureError) {{
+    // Best-effort debug plumbing only.
+  }}
+  return payload;
+}}
+
+try {{
+{topology_prelude}
+  const __sigil_module = await import({module_specifier_json});
+  const main = __sigil_module.main;
+  if (typeof main !== 'function') {{
+    console.error('Error: No main() function found in ' + {filename_json});
+    console.error('Add a main() function to make this program runnable.');
+    process.exit(1);
+  }}
+
+  const result = await main();
+  if (result !== undefined) {{
+    console.log(result);
+  }}
+}} catch (error) {{
+  const captured = await __sigil_runtime_capture_error(error);
+  const renderedStack = captured.stack;
+  if (renderedStack) {{
+    console.error(renderedStack);
+  }} else {{
+    console.error(`${{captured.name}}: ${{captured.message}}`);
+  }}
+  process.exit(1);
 }}
 "#,
         topology_prelude = topology_prelude,
-        filename = file.to_string_lossy()
+        filename_json = filename_json,
+        module_specifier_json = module_specifier_json,
+        runtime_error_path_json = runtime_error_path_json
     );
 
     fs::write(&runner_path, runner_code)?;
@@ -1777,15 +1849,19 @@ if (result !== undefined) {{
         entry_output_path,
         entry_span_map_path,
         runner_path,
+        runtime_error_path,
+        module_debug_outputs,
     })
 }
 
 fn execute_runner(
     runner_path: &Path,
+    runtime_error_path: &Path,
     args: &[String],
     stream_output: bool,
 ) -> Result<RuntimeOutput, CliError> {
     let abs_runner_path = std::fs::canonicalize(runner_path)?;
+    let _ = fs::remove_file(runtime_error_path);
     let start_time = Instant::now();
     if stream_output {
         if io::stdout().is_terminal() || io::stderr().is_terminal() {
@@ -1803,6 +1879,7 @@ fn execute_runner(
                 duration_ms: start_time.elapsed().as_millis(),
                 stdout: String::new(),
                 stderr: String::new(),
+                exception_capture: read_runtime_exception_capture(runtime_error_path),
             });
         }
 
@@ -1840,6 +1917,7 @@ fn execute_runner(
             duration_ms: start_time.elapsed().as_millis(),
             stdout: String::from_utf8_lossy(&stdout_bytes).to_string(),
             stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
+            exception_capture: read_runtime_exception_capture(runtime_error_path),
         });
     }
 
@@ -1857,6 +1935,378 @@ fn execute_runner(
         duration_ms: start_time.elapsed().as_millis(),
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        exception_capture: read_runtime_exception_capture(runtime_error_path),
+    })
+}
+
+#[derive(Debug, Clone)]
+struct ParsedGeneratedFrame {
+    file: String,
+    line: usize,
+    column: usize,
+}
+
+#[derive(Debug, Clone)]
+struct SourceExcerpt {
+    start_line: usize,
+    end_line: usize,
+    text: String,
+}
+
+#[derive(Debug, Clone)]
+struct MappedSigilFrame {
+    span: DebugSpanRecord,
+    excerpt: Option<SourceExcerpt>,
+}
+
+#[derive(Debug, Clone)]
+struct RuntimeExceptionAnalysis {
+    generated_frame: Option<ParsedGeneratedFrame>,
+    sigil_frame: Option<MappedSigilFrame>,
+}
+
+fn build_runtime_module_debug_outputs(
+    compiled: &CompiledGraphOutputs,
+) -> Result<Vec<RuntimeModuleDebugOutput>, CliError> {
+    let mut outputs = Vec::new();
+    for (module_id, output_file) in &compiled.module_outputs {
+        let span_map_file = compiled.span_map_outputs.get(module_id).ok_or_else(|| {
+            CliError::Codegen(format!(
+                "run target missing span map output for module '{}'",
+                module_id
+            ))
+        })?;
+        outputs.push(RuntimeModuleDebugOutput {
+            output_file: canonicalize_existing_path(output_file),
+            span_map_file: canonicalize_existing_path(span_map_file),
+        });
+    }
+    Ok(outputs)
+}
+
+fn canonicalize_existing_path(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn unique_runtime_error_path(entry_output_path: &Path) -> PathBuf {
+    let unique = format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let stem = entry_output_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
+    entry_output_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!("{stem}.{unique}.runtime-error.json"))
+}
+
+fn read_runtime_exception_capture(path: &Path) -> Option<RuntimeExceptionCapture> {
+    let contents = fs::read_to_string(path).ok();
+    let _ = fs::remove_file(path);
+    let contents = contents?;
+    serde_json::from_str(&contents).ok()
+}
+
+fn build_runtime_failure_output(
+    file: &Path,
+    run_target: &RunTarget,
+    runtime_output: &RuntimeOutput,
+) -> serde_json::Value {
+    let compile = json!({
+        "input": file.to_string_lossy(),
+        "output": run_target.entry_output_path.to_string_lossy(),
+        "runnerFile": run_target.runner_path.to_string_lossy(),
+        "spanMapFile": run_target.entry_span_map_path.to_string_lossy()
+    });
+    let runtime = json!({
+        "engine": "node+tsx",
+        "exitCode": runtime_output.exit_code,
+        "durationMs": runtime_output.duration_ms,
+        "stdout": runtime_output.stdout,
+        "stderr": runtime_output.stderr
+    });
+
+    if let Some(capture) = &runtime_output.exception_capture {
+        return build_runtime_exception_output(
+            compile,
+            runtime,
+            &run_target.module_debug_outputs,
+            capture,
+        );
+    }
+
+    json!({
+        "formatVersion": 1,
+        "command": "sigilc run",
+        "ok": false,
+        "phase": "runtime",
+        "error": {
+            "code": codes::runtime::CHILD_EXIT,
+            "phase": "runtime",
+            "message": format!(
+                "child process exited with nonzero status: {}",
+                runtime_output.exit_code
+            ),
+            "details": {
+                "compile": compile,
+                "runtime": runtime
+            }
+        }
+    })
+}
+
+fn build_runtime_exception_output(
+    compile: serde_json::Value,
+    runtime: serde_json::Value,
+    module_debug_outputs: &[RuntimeModuleDebugOutput],
+    capture: &RuntimeExceptionCapture,
+) -> serde_json::Value {
+    let code = capture
+        .sigil_code
+        .as_deref()
+        .filter(|code| !code.is_empty())
+        .unwrap_or(codes::runtime::UNCAUGHT_EXCEPTION);
+    let phase = phase_for_code(code);
+    let normalized_message = normalize_runtime_exception_message(capture, code);
+    let analysis = analyze_runtime_exception(capture, module_debug_outputs);
+
+    let mut details = serde_json::Map::new();
+    details.insert("compile".to_string(), compile);
+    details.insert("runtime".to_string(), runtime);
+    details.insert(
+        "exception".to_string(),
+        runtime_exception_json(capture, &normalized_message, &analysis),
+    );
+
+    let mut error = serde_json::Map::new();
+    error.insert("code".to_string(), json!(code));
+    error.insert("phase".to_string(), json!(phase));
+    error.insert("message".to_string(), json!(normalized_message));
+    error.insert("details".to_string(), serde_json::Value::Object(details));
+    if let Some(sigil_frame) = &analysis.sigil_frame {
+        error.insert(
+            "location".to_string(),
+            serde_json::to_value(&sigil_frame.span.location).unwrap(),
+        );
+    }
+
+    json!({
+        "formatVersion": 1,
+        "command": "sigilc run",
+        "ok": false,
+        "phase": phase,
+        "error": error
+    })
+}
+
+fn normalize_runtime_exception_message(capture: &RuntimeExceptionCapture, code: &str) -> String {
+    if code == codes::runtime::UNCAUGHT_EXCEPTION {
+        if capture.message.is_empty() {
+            format!("uncaught runtime exception: {}", capture.name)
+        } else {
+            format!(
+                "uncaught runtime exception: {}: {}",
+                capture.name, capture.message
+            )
+        }
+    } else if let Some(message) = capture
+        .message
+        .strip_prefix(&format!("{code}: "))
+        .filter(|message| !message.is_empty())
+    {
+        message.to_string()
+    } else {
+        capture.message.clone()
+    }
+}
+
+fn runtime_exception_json(
+    capture: &RuntimeExceptionCapture,
+    normalized_message: &str,
+    analysis: &RuntimeExceptionAnalysis,
+) -> serde_json::Value {
+    let mut exception = serde_json::Map::new();
+    exception.insert("name".to_string(), json!(capture.name));
+    exception.insert("message".to_string(), json!(normalized_message));
+    exception.insert("rawStack".to_string(), json!(capture.stack));
+
+    if let Some(frame) = &analysis.generated_frame {
+        exception.insert(
+            "generatedFrame".to_string(),
+            json!({
+                "file": frame.file,
+                "line": frame.line,
+                "column": frame.column
+            }),
+        );
+    }
+
+    if let Some(sigil_frame) = &analysis.sigil_frame {
+        let mut frame = serde_json::Map::new();
+        frame.insert("spanId".to_string(), json!(sigil_frame.span.span_id));
+        frame.insert(
+            "kind".to_string(),
+            serde_json::to_value(&sigil_frame.span.kind).unwrap(),
+        );
+        if let Some(label) = &sigil_frame.span.label {
+            frame.insert("label".to_string(), json!(label));
+        }
+        frame.insert("file".to_string(), json!(sigil_frame.span.source_file));
+        frame.insert(
+            "location".to_string(),
+            serde_json::to_value(&sigil_frame.span.location).unwrap(),
+        );
+        if let Some(excerpt) = &sigil_frame.excerpt {
+            frame.insert(
+                "excerpt".to_string(),
+                json!({
+                    "startLine": excerpt.start_line,
+                    "endLine": excerpt.end_line,
+                    "text": excerpt.text
+                }),
+            );
+        }
+        exception.insert("sigilFrame".to_string(), serde_json::Value::Object(frame));
+    }
+
+    serde_json::Value::Object(exception)
+}
+
+fn analyze_runtime_exception(
+    capture: &RuntimeExceptionCapture,
+    module_debug_outputs: &[RuntimeModuleDebugOutput],
+) -> RuntimeExceptionAnalysis {
+    let frames = parse_generated_stack_frames(&capture.stack);
+    for frame in &frames {
+        if let Some(sigil_frame) = map_generated_frame_to_sigil(frame, module_debug_outputs) {
+            return RuntimeExceptionAnalysis {
+                generated_frame: Some(frame.clone()),
+                sigil_frame: Some(sigil_frame),
+            };
+        }
+    }
+
+    RuntimeExceptionAnalysis {
+        generated_frame: frames.into_iter().next(),
+        sigil_frame: None,
+    }
+}
+
+fn parse_generated_stack_frames(stack: &str) -> Vec<ParsedGeneratedFrame> {
+    stack
+        .lines()
+        .filter_map(parse_generated_stack_frame_line)
+        .collect()
+}
+
+fn parse_generated_stack_frame_line(line: &str) -> Option<ParsedGeneratedFrame> {
+    let trimmed = line.trim();
+    if !trimmed.starts_with("at ") {
+        return None;
+    }
+
+    let candidate = if trimmed.ends_with(')') {
+        let close = trimmed.rfind(')')?;
+        let open = trimmed[..close].rfind('(')?;
+        &trimmed[open + 1..close]
+    } else {
+        trimmed.strip_prefix("at ")?.trim()
+    };
+
+    let mut parts = candidate.rsplitn(3, ':');
+    let column = parts.next()?.parse::<usize>().ok()?;
+    let line = parts.next()?.parse::<usize>().ok()?;
+    let file = normalize_generated_frame_path(parts.next()?);
+    Some(ParsedGeneratedFrame {
+        file: file.to_string_lossy().to_string(),
+        line,
+        column,
+    })
+}
+
+fn normalize_generated_frame_path(raw: &str) -> PathBuf {
+    let trimmed = raw.trim();
+    let without_file_scheme = trimmed.strip_prefix("file://").unwrap_or(trimmed);
+    canonicalize_existing_path(Path::new(without_file_scheme))
+}
+
+fn map_generated_frame_to_sigil(
+    frame: &ParsedGeneratedFrame,
+    module_debug_outputs: &[RuntimeModuleDebugOutput],
+) -> Option<MappedSigilFrame> {
+    let frame_path = normalize_generated_frame_path(&frame.file);
+    let module = module_debug_outputs
+        .iter()
+        .find(|module| module.output_file == frame_path)?;
+    let span_map = load_module_span_map(&module.span_map_file)?;
+    let span = span_for_generated_line(&span_map, frame.line)?;
+    Some(MappedSigilFrame {
+        excerpt: declaration_excerpt(&span),
+        span,
+    })
+}
+
+fn load_module_span_map(path: &Path) -> Option<ModuleSpanMap> {
+    let contents = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&contents).ok()
+}
+
+fn span_for_generated_line(span_map: &ModuleSpanMap, line: usize) -> Option<DebugSpanRecord> {
+    span_map
+        .spans
+        .iter()
+        .filter(|span| {
+            span.parent_span_id.is_none()
+                && matches!(
+                    span.kind,
+                    DebugSpanKind::FunctionDecl
+                        | DebugSpanKind::ConstDecl
+                        | DebugSpanKind::TestDecl
+                )
+        })
+        .filter_map(|span| {
+            let range = span.generated_range.as_ref()?;
+            if line < range.start_line || line > range.end_line {
+                return None;
+            }
+            Some((
+                range.end_line.saturating_sub(range.start_line),
+                span.clone(),
+            ))
+        })
+        .min_by_key(|(width, _)| *width)
+        .map(|(_, span)| span)
+}
+
+fn declaration_excerpt(span: &DebugSpanRecord) -> Option<SourceExcerpt> {
+    let source = fs::read_to_string(&span.source_file).ok()?;
+    let lines = source.lines().collect::<Vec<_>>();
+    if lines.is_empty() {
+        return None;
+    }
+
+    let decl_line = span.location.start.line.max(1);
+    let start_line = if decl_line > 1 { decl_line - 1 } else { 1 };
+    let end_line = usize::min(lines.len(), decl_line + 2);
+    let text = (start_line..=end_line)
+        .map(|line| {
+            let content = lines.get(line - 1).copied().unwrap_or("");
+            format!("{line:>4} | {content}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Some(SourceExcerpt {
+        start_line,
+        end_line,
+        text,
     })
 }
 

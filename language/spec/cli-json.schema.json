@@ -117,7 +117,10 @@
         "location": { "$ref": "#/$defs/sourceSpan" },
         "found": true,
         "expected": true,
-        "details": { "type": "object" },
+        "details": {
+          "type": "object",
+          "description": "Command-specific machine-readable details. Runtime failures from `sigilc run` commonly use the `runFailureDetails` shape."
+        },
         "fixits": { "type": "array", "items": { "$ref": "#/$defs/fixit" } },
         "suggestions": { "type": "array", "items": { "$ref": "#/$defs/suggestion" } }
       },
@@ -535,33 +538,90 @@
         }
       ]
     },
+    "runCompileInfo": {
+      "type": "object",
+      "required": ["input", "output", "runnerFile", "spanMapFile"],
+      "properties": {
+        "input": { "type": "string" },
+        "output": { "type": "string" },
+        "runnerFile": { "type": "string" },
+        "spanMapFile": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "runRuntimeInfo": {
+      "type": "object",
+      "required": ["engine", "exitCode", "durationMs", "stdout", "stderr"],
+      "properties": {
+        "engine": { "type": "string" },
+        "exitCode": { "type": "integer" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "stdout": { "type": "string" },
+        "stderr": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "runGeneratedFrame": {
+      "type": "object",
+      "required": ["file", "line", "column"],
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "runSourceExcerpt": {
+      "type": "object",
+      "required": ["startLine", "endLine", "text"],
+      "properties": {
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "runSigilFrame": {
+      "type": "object",
+      "required": ["spanId", "kind", "file", "location"],
+      "properties": {
+        "spanId": { "type": "string" },
+        "kind": { "type": "string" },
+        "label": { "type": "string" },
+        "file": { "type": "string" },
+        "location": { "$ref": "#/$defs/sourceSpan" },
+        "excerpt": { "$ref": "#/$defs/runSourceExcerpt" }
+      },
+      "additionalProperties": false
+    },
+    "runExceptionDetails": {
+      "type": "object",
+      "required": ["name", "message", "rawStack"],
+      "properties": {
+        "name": { "type": "string" },
+        "message": { "type": "string" },
+        "rawStack": { "type": "string" },
+        "generatedFrame": { "$ref": "#/$defs/runGeneratedFrame" },
+        "sigilFrame": { "$ref": "#/$defs/runSigilFrame" }
+      },
+      "additionalProperties": false
+    },
+    "runFailureDetails": {
+      "type": "object",
+      "required": ["compile", "runtime"],
+      "properties": {
+        "compile": { "$ref": "#/$defs/runCompileInfo" },
+        "runtime": { "$ref": "#/$defs/runRuntimeInfo" },
+        "exception": { "$ref": "#/$defs/runExceptionDetails" }
+      },
+      "additionalProperties": false
+    },
     "runData": {
       "type": "object",
       "required": ["compile", "runtime"],
       "properties": {
-        "compile": {
-          "type": "object",
-          "required": ["input", "output", "runnerFile", "spanMapFile"],
-          "properties": {
-            "input": { "type": "string" },
-            "output": { "type": "string" },
-            "runnerFile": { "type": "string" },
-            "spanMapFile": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "runtime": {
-          "type": "object",
-          "required": ["engine", "exitCode", "durationMs", "stdout", "stderr"],
-          "properties": {
-            "engine": { "type": "string" },
-            "exitCode": { "type": "integer" },
-            "durationMs": { "type": "integer", "minimum": 0 },
-            "stdout": { "type": "string" },
-            "stderr": { "type": "string" }
-          },
-          "additionalProperties": false
-        }
+        "compile": { "$ref": "#/$defs/runCompileInfo" },
+        "runtime": { "$ref": "#/$defs/runRuntimeInfo" }
       },
       "additionalProperties": false
     },

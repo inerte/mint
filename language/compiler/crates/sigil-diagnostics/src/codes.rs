@@ -158,6 +158,7 @@ pub mod topology {
 /// Runtime error codes (SIGIL-RUNTIME-*, SIGIL-RUN-*)
 pub mod runtime {
     pub const CHILD_EXIT: &str = "SIGIL-RUNTIME-CHILD-EXIT";
+    pub const UNCAUGHT_EXCEPTION: &str = "SIGIL-RUNTIME-UNCAUGHT-EXCEPTION";
     pub const ENGINE_NOT_FOUND: &str = "SIGIL-RUN-ENGINE-NOT-FOUND";
 }
 
@@ -276,8 +277,9 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     topology::MISSING_CONFIG_MODULE,
     topology::MISSING_MODULE,
     topology::RAW_ENDPOINT_FORBIDDEN,
-    // Runtime (2 codes)
+    // Runtime (3 codes)
     runtime::CHILD_EXIT,
+    runtime::UNCAUGHT_EXCEPTION,
     runtime::ENGINE_NOT_FOUND,
 ];
 
@@ -312,8 +314,8 @@ mod tests {
         // Keep this in sync when adding or removing diagnostic codes.
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            108,
-            "Expected 108 error codes, found {}",
+            109,
+            "Expected 109 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

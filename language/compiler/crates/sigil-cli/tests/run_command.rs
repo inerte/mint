@@ -145,7 +145,15 @@ e process:{exit:λ(Int)=>Unit}\n\
     assert_eq!(json["command"], "sigilc run");
     assert_eq!(json["ok"], false);
     assert_eq!(json["error"]["code"], "SIGIL-RUNTIME-CHILD-EXIT");
-    assert_eq!(json["error"]["details"]["stdout"], "before exit\n");
+    assert_eq!(
+        json["error"]["details"]["runtime"]["stdout"],
+        "before exit\n"
+    );
+    assert_eq!(
+        json["error"]["details"]["compile"]["input"],
+        file.to_string_lossy().to_string()
+    );
+    assert!(json["error"]["details"]["exception"].is_null());
 }
 
 #[test]
@@ -176,5 +184,189 @@ e process:{exit:λ(Int)=>Unit}\n\
     assert_eq!(json["command"], "sigilc run");
     assert_eq!(json["ok"], false);
     assert_eq!(json["error"]["code"], "SIGIL-RUNTIME-CHILD-EXIT");
-    assert_eq!(json["error"]["details"]["stdout"], "json before exit\n");
+    assert_eq!(
+        json["error"]["details"]["runtime"]["stdout"],
+        "json before exit\n"
+    );
+    assert_eq!(
+        json["error"]["details"]["compile"]["input"],
+        file.to_string_lossy().to_string()
+    );
+    assert!(json["error"]["details"]["exception"].is_null());
+}
+
+#[test]
+fn run_json_enriches_uncaught_runtime_exceptions() {
+    let dir = temp_dir("json-runtime-exception");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        "e boom:{explode:λ()=>Unit}\n\nλmain()=>Unit=boom.explode()\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc run");
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["phase"], "runtime");
+    assert_eq!(json["error"]["code"], "SIGIL-RUNTIME-UNCAUGHT-EXCEPTION");
+    assert_eq!(
+        json["error"]["location"]["file"],
+        file.to_string_lossy().to_string()
+    );
+    assert_eq!(
+        json["error"]["details"]["compile"]["input"],
+        file.to_string_lossy().to_string()
+    );
+    assert!(PathBuf::from(
+        json["error"]["details"]["compile"]["spanMapFile"]
+            .as_str()
+            .expect("spanMapFile path")
+    )
+    .exists());
+    assert!(json["error"]["details"]["runtime"]["stderr"]
+        .as_str()
+        .unwrap()
+        .contains("ReferenceError"));
+    assert_eq!(
+        json["error"]["details"]["exception"]["name"],
+        "ReferenceError"
+    );
+    assert_eq!(
+        json["error"]["details"]["exception"]["sigilFrame"]["label"],
+        "main"
+    );
+    assert_eq!(
+        json["error"]["details"]["exception"]["sigilFrame"]["kind"],
+        "function_decl"
+    );
+    assert_eq!(
+        json["error"]["details"]["exception"]["sigilFrame"]["file"],
+        file.to_string_lossy().to_string()
+    );
+    assert!(
+        json["error"]["details"]["exception"]["generatedFrame"]["file"]
+            .as_str()
+            .unwrap()
+            .ends_with(".ts")
+    );
+    assert!(
+        json["error"]["details"]["exception"]["sigilFrame"]["excerpt"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("λmain()=>Unit=boom.explode()")
+    );
+}
+
+#[test]
+fn run_json_enriches_import_time_runtime_exceptions() {
+    let dir = temp_dir("json-import-runtime-exception");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        "e boom:{explode:λ()=>Int}\n\nc bad=(boom.explode():Int)\n\nλmain()=>Int=bad\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["error"]["code"], "SIGIL-RUNTIME-UNCAUGHT-EXCEPTION");
+    assert_eq!(
+        json["error"]["location"]["file"],
+        file.to_string_lossy().to_string()
+    );
+    assert_eq!(
+        json["error"]["details"]["exception"]["sigilFrame"]["label"],
+        "bad"
+    );
+    assert_eq!(
+        json["error"]["details"]["exception"]["sigilFrame"]["kind"],
+        "const_decl"
+    );
+    assert!(
+        json["error"]["details"]["exception"]["sigilFrame"]["excerpt"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("c bad=(boom.explode():Int)")
+    );
+}
+
+#[test]
+fn run_json_preserves_topology_codes_for_bootstrap_failures() {
+    let dir = temp_dir("json-topology-runtime-failure");
+    let src_dir = dir.join("src");
+    let config_dir = dir.join("config");
+    fs::create_dir_all(&src_dir).unwrap();
+    fs::create_dir_all(&config_dir).unwrap();
+    fs::write(
+        dir.join("sigil.json"),
+        "{\n  \"name\": \"topology-runtime-failure\",\n  \"version\": \"0.1.0\"\n}\n",
+    )
+    .unwrap();
+    let file = write_program(&src_dir, "main.sigil", "λmain()=>Int=1\n");
+    write_program(
+        &src_dir,
+        "topology.lib.sigil",
+        "c local=(§topology.environment(\"local\"):§topology.Environment)\n",
+    );
+    fs::write(
+        config_dir.join("staging.lib.sigil"),
+        "e process\n\nc world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.capture(),†process.real(),†random.seeded(1337),[],†timer.virtual()):†runtime.World)\n",
+    )
+    .unwrap();
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--env")
+        .arg("staging")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc run");
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["phase"], "topology");
+    assert_eq!(json["error"]["code"], "SIGIL-TOPO-ENV-NOT-FOUND");
+    assert_eq!(
+        json["error"]["details"]["compile"]["input"],
+        file.to_string_lossy().to_string()
+    );
+    assert!(json["error"]["details"]["runtime"]["stderr"]
+        .as_str()
+        .unwrap()
+        .contains("SIGIL-TOPO-ENV-NOT-FOUND"));
+    assert_eq!(json["error"]["details"]["exception"]["name"], "Error");
+    assert!(
+        json["error"]["details"]["exception"]["generatedFrame"]["file"]
+            .as_str()
+            .unwrap()
+            .ends_with(".run.ts")
+    );
+    assert!(json["error"]["location"].is_null());
+    assert!(json["error"]["details"]["exception"]["sigilFrame"].is_null());
 }

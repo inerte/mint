@@ -77,6 +77,35 @@ Diagnostics are structured and machine-oriented:
 - `fixits`
 - `suggestions`
 
+## Run Failure Details
+
+When `sigil run` fails after compilation and runner launch, the failure envelope keeps the
+usual top-level diagnostic shape and may enrich `error.details` with:
+
+- `compile`
+  - `input`
+  - `output`
+  - `runnerFile`
+  - `spanMapFile`
+- `runtime`
+  - `engine`
+  - `exitCode`
+  - `durationMs`
+  - `stdout`
+  - `stderr`
+- `exception` for uncaught runtime exceptions
+  - `name`
+  - `message`
+  - `rawStack`
+  - optional `generatedFrame`
+  - optional `sigilFrame`
+
+`sigilFrame` is declaration-level in v1:
+
+- it identifies the owning top-level Sigil declaration using the generated `.span.json` sidecar
+- it may include a tiny declaration-header excerpt
+- it does not yet promise exact nested-expression blame inside the declaration body
+
 ## Current Notes
 
 The current implementation uses:
@@ -84,6 +113,7 @@ The current implementation uses:
 - `"sigilc ..."` strings in JSON `command` fields
 - successful `compile` output reports `.span.json` sidecars via `rootSpanMap` and per-module `spanMapFile`
 - successful `run --json` output reports the entry module `.span.json` sidecar via `data.compile.spanMapFile`
+- runtime `run` failures may include declaration-level `sigilFrame` and generated TypeScript `generatedFrame` context when an uncaught exception stack is available
 - `inspect types` is top-level declaration-focused in v1; it does not report nested expression types yet
 - `inspect validate` returns canonical printer output even when `validation.ok` is `false`, as long as lexing and parsing succeeded
 - a specialized `test` result shape with `location: {line,column}`

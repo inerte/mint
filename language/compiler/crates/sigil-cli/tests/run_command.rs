@@ -43,6 +43,15 @@ fn parse_replay_artifact(path: &Path) -> Value {
     serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
+fn replay_event<'a>(artifact: &'a Value, family: &str, operation: &str) -> &'a Value {
+    artifact["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|event| event["family"] == family && event["operation"] == operation)
+        .unwrap()
+}
+
 fn line_break_selector(file: &Path, line: usize) -> String {
     format!("{}:{}", file.to_string_lossy(), line)
 }
@@ -126,6 +135,31 @@ fn run_trace_requires_json() {
         .as_str()
         .unwrap()
         .contains("--json"));
+}
+
+#[test]
+fn run_trace_expr_requires_trace_and_json() {
+    let dir = temp_dir("trace-expr-requires-trace");
+    let file = write_program(&dir, "main.sigil", "λmain()=>Int=1\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--trace-expr")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+
+    let json = parse_json(output.stderr.trim_ascii());
+    assert_eq!(json["error"]["code"], "SIGIL-CLI-USAGE");
+    assert!(json["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("--trace-expr"));
 }
 
 #[test]
@@ -263,6 +297,10 @@ fn run_json_breakpoint_hits_include_live_let_locals() {
     let locals = json["data"]["breakpoints"]["hits"][0]["locals"]
         .as_array()
         .expect("locals array");
+    assert_eq!(
+        json["data"]["breakpoints"]["hits"][0]["spanKind"],
+        "expr_identifier"
+    );
     assert!(locals
         .iter()
         .any(|local| local["name"] == "x" && local["origin"] == "param"));
@@ -561,6 +599,22 @@ fn run_json_enriches_uncaught_runtime_exceptions() {
         "main"
     );
     assert_eq!(
+        json["error"]["details"]["exception"]["sigilExpression"]["file"],
+        file.to_string_lossy().to_string()
+    );
+    assert_ne!(
+        json["error"]["details"]["exception"]["sigilExpression"]["kind"],
+        "function_decl"
+    );
+    assert!(
+        json["error"]["details"]["exception"]["sigilExpression"]["location"]["start"]["column"]
+            .as_u64()
+            .unwrap()
+            > json["error"]["details"]["exception"]["sigilFrame"]["location"]["start"]["column"]
+                .as_u64()
+                .unwrap()
+    );
+    assert_eq!(
         json["error"]["details"]["exception"]["sigilFrame"]["kind"],
         "function_decl"
     );
@@ -580,6 +634,32 @@ fn run_json_enriches_uncaught_runtime_exceptions() {
             .unwrap()
             .contains("λmain()=>Unit=boom.explode()")
     );
+}
+
+#[test]
+fn run_json_trace_expr_success_includes_expression_events() {
+    let dir = temp_dir("json-trace-expr-success");
+    let file = write_program(&dir, "main.sigil", "λmain()=>Int=1+2\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--trace")
+        .arg("--trace-expr")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    let events = json["data"]["trace"]["events"]
+        .as_array()
+        .expect("trace events");
+    assert!(events.iter().any(|event| event["kind"] == "expr_enter"));
+    assert!(events.iter().any(|event| event["kind"] == "expr_return"));
 }
 
 #[test]
@@ -644,6 +724,14 @@ fn run_json_enriches_import_time_runtime_exceptions() {
         "bad"
     );
     assert_eq!(
+        json["error"]["details"]["exception"]["sigilExpression"]["file"],
+        file.to_string_lossy().to_string()
+    );
+    assert_ne!(
+        json["error"]["details"]["exception"]["sigilExpression"]["kind"],
+        "const_decl"
+    );
+    assert_eq!(
         json["error"]["details"]["exception"]["sigilFrame"]["kind"],
         "const_decl"
     );
@@ -653,6 +741,42 @@ fn run_json_enriches_import_time_runtime_exceptions() {
             .unwrap()
             .contains("c bad=(boom.explode():Int)")
     );
+}
+
+#[test]
+fn run_json_runtime_expression_includes_live_locals_when_breakpoints_are_enabled() {
+    let dir = temp_dir("json-expression-locals");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        "e boom:{explode:λ()=>Int}\n\nλhelper(x:Int)=>Int={\n  l y=(x+1:Int);\n  boom.explode()+y+y\n}\n\nλmain()=>Int=helper(1)\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--break-fn")
+        .arg("helper")
+        .arg("--break-mode")
+        .arg("collect")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    let locals = json["error"]["details"]["exception"]["sigilExpression"]["locals"]
+        .as_array()
+        .expect("expression locals");
+    assert!(locals
+        .iter()
+        .any(|local| local["name"] == "x" && local["origin"] == "param"));
+    assert!(locals
+        .iter()
+        .any(|local| local["name"] == "y" && local["origin"] == "let"));
 }
 
 #[test]
@@ -775,6 +899,7 @@ fn run_json_record_writes_replay_artifact_on_success() {
     assert!(artifact.exists());
 
     let artifact_json = parse_replay_artifact(&artifact);
+    assert_eq!(artifact_json["formatVersion"], 2);
     assert_eq!(artifact_json["kind"], "sigilRunReplay");
     assert_eq!(
         artifact_json["entry"]["sourceFile"],
@@ -794,6 +919,10 @@ fn run_json_record_writes_replay_artifact_on_success() {
             .unwrap()
             >= 2
     );
+    let event = artifact_json["events"].as_array().unwrap().first().unwrap();
+    assert!(event.get("request").is_some());
+    assert!(event.get("outcome").is_some());
+    assert!(event.get("payload").is_none());
 }
 
 #[test]
@@ -826,6 +955,7 @@ fn run_json_record_writes_partial_artifact_on_runtime_failure() {
     assert!(artifact.exists());
 
     let artifact_json = parse_replay_artifact(&artifact);
+    assert_eq!(artifact_json["formatVersion"], 2);
     assert_eq!(artifact_json["summary"]["failed"], true);
     assert_eq!(
         artifact_json["failure"]["code"],
@@ -1011,19 +1141,14 @@ fn run_json_replay_rejects_binding_mismatch_on_argv() {
 }
 
 #[test]
-fn run_json_replay_reports_divergence_for_unreplayed_fs_effects() {
-    let dir = temp_dir("replay-diverged");
-    let input_path = dir.join("input.txt");
-    fs::write(&input_path, "hello replay\n").unwrap();
+fn run_json_replay_reproduces_recorded_filesystem_effects_without_touching_disk() {
+    let dir = temp_dir("replay-fs-success");
     let file = write_program(
         &dir,
         "main.sigil",
-        &format!(
-            "λmain()=>!Fs String=§file.readText(\"{}\")\n",
-            input_path.to_string_lossy()
-        ),
+        "λboolText(value:Bool)=>String match value{\n  true=>\"t\"|\n  false=>\"f\"\n}\n\nλmain()=>!Fs String={\n  l root=(§file.makeTempDir(\"sigil-replay-fs-\"):String);\n  l file=(§path.join(root,\"sample.txt\"):String);\n  l _=(§file.writeText(\"hello\",file):Unit);\n  l _=(§file.appendText(\" world\",file):Unit);\n  l text=(§file.readText(file):String);\n  l entries=(§file.listDir(root):[String]);\n  l present=(§file.exists(file):Bool);\n  l _=(§file.remove(file):Unit);\n  l _=(§file.removeTree(root):Unit);\n  text++\"|\"++boolText(present)++\"|\"++§string.join(\",\",entries)\n}\n",
     );
-    let artifact = dir.join("diverged.replay.json");
+    let artifact = dir.join("success-fs.replay.json");
 
     let recorded = Command::new(sigil_bin())
         .current_dir(repo_root())
@@ -1036,6 +1161,85 @@ fn run_json_replay_reports_divergence_for_unreplayed_fs_effects() {
         .unwrap();
 
     assert!(recorded.status.success());
+    assert!(recorded.stderr.is_empty());
+    let recorded_json = parse_json(&recorded.stdout);
+    let artifact_json = parse_replay_artifact(&artifact);
+    assert_eq!(artifact_json["formatVersion"], 2);
+    let write_event = replay_event(&artifact_json, "file", "writeText");
+    assert_eq!(write_event["request"]["content"]["kind"], "textSummary");
+    assert_eq!(write_event["request"]["content"]["length"], 5);
+    assert!(write_event["request"]["content"]["sha256"].is_string());
+    assert!(write_event["request"]["content"].get("text").is_none());
+    let read_event = replay_event(&artifact_json, "file", "readText");
+    assert_eq!(read_event["outcome"]["kind"], "return");
+    assert_eq!(read_event["outcome"]["value"], "hello world");
+    let temp_dir_event = replay_event(&artifact_json, "file", "makeTempDir");
+    let recorded_root = PathBuf::from(temp_dir_event["outcome"]["value"].as_str().unwrap());
+    assert!(!recorded_root.exists());
+
+    let replayed = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--replay")
+        .arg(&artifact)
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(replayed.status.success());
+    assert!(replayed.stderr.is_empty());
+
+    let replayed_json = parse_json(&replayed.stdout);
+    assert_eq!(
+        replayed_json["data"]["runtime"]["stdout"],
+        recorded_json["data"]["runtime"]["stdout"]
+    );
+    assert_eq!(replayed_json["data"]["replay"]["mode"], "replay");
+    assert_eq!(replayed_json["data"]["replay"]["remainingEvents"], 0);
+    assert!(!recorded_root.exists());
+}
+
+#[test]
+fn run_json_replay_reproduces_recorded_filesystem_failure() {
+    let dir = temp_dir("replay-fs-failure");
+    let missing_path = dir.join("missing.txt");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        &format!(
+            "λmain()=>!Fs String=§file.readText(\"{}\")\n",
+            missing_path.to_string_lossy()
+        ),
+    );
+    let artifact = dir.join("failure-fs.replay.json");
+
+    let recorded = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--json")
+        .arg("--record")
+        .arg(&artifact)
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!recorded.status.success());
+    assert!(recorded.stderr.is_empty());
+    let recorded_json = parse_json(&recorded.stdout);
+    assert_eq!(
+        recorded_json["error"]["code"],
+        "SIGIL-RUNTIME-UNCAUGHT-EXCEPTION"
+    );
+
+    let artifact_json = parse_replay_artifact(&artifact);
+    let read_event = replay_event(&artifact_json, "file", "readText");
+    assert_eq!(read_event["outcome"]["kind"], "throw");
+    assert_eq!(read_event["outcome"]["error"]["code"], "ENOENT");
+    assert!(read_event["outcome"]["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("ENOENT"));
 
     let replayed = Command::new(sigil_bin())
         .current_dir(repo_root())
@@ -1050,8 +1254,20 @@ fn run_json_replay_reports_divergence_for_unreplayed_fs_effects() {
     assert!(!replayed.status.success());
     assert!(replayed.stderr.is_empty());
 
-    let json = parse_json(&replayed.stdout);
-    assert_eq!(json["error"]["code"], "SIGIL-RUNTIME-REPLAY-DIVERGED");
+    let replayed_json = parse_json(&replayed.stdout);
+    assert_eq!(
+        replayed_json["error"]["code"],
+        "SIGIL-RUNTIME-UNCAUGHT-EXCEPTION"
+    );
+    assert_eq!(
+        replayed_json["error"]["details"]["replay"]["mode"],
+        "replay"
+    );
+    assert!(replayed_json["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("ENOENT"));
+    assert!(replayed_json["error"]["details"]["exception"]["sigilExpression"].is_object());
 }
 
 #[test]

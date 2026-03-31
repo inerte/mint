@@ -41,6 +41,7 @@ function __sigil_world_clone(value) {
   }
   return JSON.parse(JSON.stringify(value));
 }
+const __sigil_replay_format_version = 2;
 const __sigil_replay_invalid_artifact_code = 'SIGIL-RUNTIME-REPLAY-INVALID-ARTIFACT';
 const __sigil_replay_diverged_code = 'SIGIL-RUNTIME-REPLAY-DIVERGED';
 function __sigil_replay_error(code, message) {
@@ -50,6 +51,41 @@ function __sigil_replay_error(code, message) {
 }
 function __sigil_replay_throw(code, message) {
   throw __sigil_replay_error(code, message);
+}
+function __sigil_replay_error_summary(error) {
+  const summary = {
+    name: error instanceof Error && error.name ? String(error.name) : 'Error',
+    message: error instanceof Error ? String(error.message ?? '') : String(error)
+  };
+  if (error && typeof error === 'object') {
+    if ('sigilCode' in error && error.sigilCode != null) {
+      summary.sigilCode = String(error.sigilCode);
+    }
+    if ('code' in error && error.code != null) {
+      summary.code = String(error.code);
+    }
+  }
+  return summary;
+}
+function __sigil_replay_error_from_summary(summary, family, operation) {
+  const message =
+    typeof summary?.message === 'string' && summary.message
+      ? String(summary.message)
+      : `missing replay error for ${String(family)}.${String(operation)}`;
+  const error = new Error(message);
+  error.name =
+    typeof summary?.name === 'string' && summary.name
+      ? String(summary.name)
+      : 'Error';
+  if (summary && typeof summary === 'object') {
+    if (summary.sigilCode != null) {
+      error.sigilCode = String(summary.sigilCode);
+    }
+    if (summary.code != null) {
+      error.code = String(summary.code);
+    }
+  }
+  return error;
 }
 function __sigil_replay_enabled() {
   return (
@@ -81,7 +117,7 @@ function __sigil_replay_state_init() {
       !artifact ||
       typeof artifact !== 'object' ||
       artifact.kind !== 'sigilRunReplay' ||
-      artifact.formatVersion !== 1 ||
+      artifact.formatVersion !== __sigil_replay_format_version ||
       !Array.isArray(artifact.events)
     ) {
       __sigil_replay_throw(__sigil_replay_invalid_artifact_code, 'invalid replay artifact');
@@ -114,7 +150,7 @@ function __sigil_replay_record_world(template) {
 function __sigil_replay_increment_count(state, family) {
   state.effectCounts[family] = Number(state.effectCounts[family] ?? 0) + 1;
 }
-function __sigil_replay_record_event(family, operation, payload) {
+function __sigil_replay_record_event(family, operation, request, outcome) {
   const state = __sigil_replay_state();
   if (!state || state.mode !== 'record') {
     return;
@@ -122,17 +158,30 @@ function __sigil_replay_record_event(family, operation, payload) {
   const event = {
     family: String(family),
     operation: String(operation),
-    payload: __sigil_world_clone(payload),
+    request: __sigil_world_clone(request ?? {}),
+    outcome: __sigil_world_clone(outcome ?? { kind: 'return', value: null }),
     seq: Number(state.nextSeq)
   };
   state.nextSeq += 1;
   state.events.push(event);
   __sigil_replay_increment_count(state, event.family);
 }
+function __sigil_replay_record_return(family, operation, request, value) {
+  __sigil_replay_record_event(family, operation, request, {
+    kind: 'return',
+    value
+  });
+}
+function __sigil_replay_record_throw(family, operation, request, error) {
+  __sigil_replay_record_event(family, operation, request, {
+    kind: 'throw',
+    error: __sigil_replay_error_summary(error)
+  });
+}
 function __sigil_replay_take_event(family, operation) {
   const state = __sigil_replay_state();
   if (!state || state.mode !== 'replay') {
-    return { active: false, payload: null };
+    return { active: false, event: null };
   }
   const event = state.events[state.nextIndex];
   if (!event) {
@@ -148,7 +197,20 @@ function __sigil_replay_take_event(family, operation) {
     );
   }
   state.nextIndex += 1;
-  return { active: true, payload: __sigil_world_clone(event.payload) };
+  return { active: true, event: __sigil_world_clone(event) };
+}
+function __sigil_replay_resolve_event_value(replay, family, operation, fallbackValue) {
+  if (!replay.active) {
+    return fallbackValue;
+  }
+  const outcome = replay.event?.outcome;
+  if (outcome?.kind === 'throw') {
+    throw __sigil_replay_error_from_summary(outcome.error, family, operation);
+  }
+  if (outcome && Object.prototype.hasOwnProperty.call(outcome, 'value')) {
+    return outcome.value;
+  }
+  return fallbackValue;
 }
 function __sigil_replay_next_handle_token() {
   const state = __sigil_replay_state();
@@ -219,7 +281,7 @@ function __sigil_replay_artifact() {
     return null;
   }
   return {
-    formatVersion: 1,
+    formatVersion: __sigil_replay_format_version,
     kind: 'sigilRunReplay',
     entry: __sigil_world_clone(config.entry ?? { sourceFile: '', argv: [] }),
     binding: __sigil_world_clone(config.binding ?? { algorithm: 'sha256', fingerprint: '', modules: [] }),
@@ -685,7 +747,11 @@ function __sigil_world_random_next_int(world) {
 function __sigil_world_random_int_between(left, right) {
   const replay = __sigil_replay_take_event('random', 'intBetween');
   if (replay.active) {
-    return Number(replay.payload?.result ?? 0);
+    return Number(
+      __sigil_replay_resolve_event_value(replay, 'random', 'intBetween', {
+        result: 0
+      })?.result ?? 0
+    );
   }
   const world = __sigil_current_world();
   const min = Math.min(Math.trunc(Number(left)), Math.trunc(Number(right)));
@@ -694,8 +760,9 @@ function __sigil_world_random_int_between(left, right) {
   const raw = __sigil_world_random_next_int(world);
   const offset = ((raw % width) + width) % width;
   const result = min + offset;
-  __sigil_replay_record_event('random', 'intBetween', {
+  __sigil_replay_record_return('random', 'intBetween', {
     args: [Math.trunc(Number(left)), Math.trunc(Number(right))],
+  }, {
     result
   });
   return result;
@@ -776,11 +843,38 @@ function __sigil_world_process_fixture_result(world, command) {
 function __sigil_world_timer_trace(world, ms) {
   world.traces.timer.sleeps.push(Number(ms));
 }
-async function __sigil_world_file_resolved_path(pathValue) {
-  const path = await import('node:path');
-  if (globalThis.__sigil_replay_config?.mode === 'replay') {
-    __sigil_replay_throw(__sigil_replay_diverged_code, 'filesystem effects are not replayable in v1');
+async function __sigil_world_file_text_summary(content) {
+  const { createHash } = await import('node:crypto');
+  const text = String(content ?? '');
+  return {
+    kind: 'textSummary',
+    length: text.length,
+    sha256: createHash('sha256').update(text, 'utf8').digest('hex')
+  };
+}
+function __sigil_world_file_attach_request(error, request) {
+  if (!error || typeof error !== 'object') {
+    return;
   }
+  try {
+    error.__sigilReplayRequest = __sigil_world_clone(request ?? {});
+  } catch (_) {
+    error.__sigilReplayRequest = request ?? {};
+  }
+}
+function __sigil_world_file_request_from_error(error) {
+  if (
+    error &&
+    typeof error === 'object' &&
+    error.__sigilReplayRequest &&
+    typeof error.__sigilReplayRequest === 'object'
+  ) {
+    return __sigil_world_clone(error.__sigilReplayRequest);
+  }
+  return {};
+}
+async function __sigil_world_file_resolved_path_live(pathValue) {
+  const path = await import('node:path');
   const world = __sigil_current_world();
   const raw = String(pathValue ?? '');
   if (world.fs.kind === 'deny') {
@@ -792,65 +886,176 @@ async function __sigil_world_file_resolved_path(pathValue) {
   const relative = raw.startsWith('/') ? raw.slice(1) : raw;
   return path.resolve(String(world.fs.root), relative);
 }
-async function __sigil_world_file_appendText(content, pathValue) {
-  const fs = await import('node:fs/promises');
-  await fs.appendFile(await __sigil_world_file_resolved_path(pathValue), String(content), 'utf8');
-  return null;
-}
-async function __sigil_world_file_exists(pathValue) {
-  const fs = await import('node:fs/promises');
-  try {
-    await fs.access(await __sigil_world_file_resolved_path(pathValue));
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-async function __sigil_world_file_listDir(pathValue) {
-  const fs = await import('node:fs/promises');
-  return await fs.readdir(await __sigil_world_file_resolved_path(pathValue));
-}
-async function __sigil_world_file_makeDir(pathValue) {
-  const fs = await import('node:fs/promises');
-  await fs.mkdir(await __sigil_world_file_resolved_path(pathValue), { recursive: false });
-  return null;
-}
-async function __sigil_world_file_makeDirs(pathValue) {
-  const fs = await import('node:fs/promises');
-  await fs.mkdir(await __sigil_world_file_resolved_path(pathValue), { recursive: true });
-  return null;
-}
-async function __sigil_world_file_makeTempDir(prefix) {
-  const fs = await import('node:fs/promises');
+async function __sigil_world_file_temp_base_dir() {
   const os = await import('node:os');
   const path = await import('node:path');
   const world = __sigil_current_world();
-  const base = world.fs.kind === 'sandbox'
-    ? path.resolve(String(world.fs.root))
-    : os.tmpdir();
-  if (world.fs.kind === 'sandbox') {
-    await fs.mkdir(base, { recursive: true });
+  if (world.fs.kind === 'deny') {
+    __sigil_world_error('Fs is denied by the current world');
   }
-  return await fs.mkdtemp(path.join(base, String(prefix)));
+  if (world.fs.kind === 'sandbox') {
+    return path.resolve(String(world.fs.root));
+  }
+  return os.tmpdir();
+}
+async function __sigil_world_file_request_path(pathValue, extras) {
+  const request = {
+    path: String(pathValue ?? ''),
+    ...(extras ?? {})
+  };
+  try {
+    request.resolvedPath = await __sigil_world_file_resolved_path_live(request.path);
+    return request;
+  } catch (error) {
+    __sigil_world_file_attach_request(error, request);
+    throw error;
+  }
+}
+async function __sigil_world_file_request_temp_dir(prefix) {
+  const request = {
+    prefix: String(prefix ?? '')
+  };
+  try {
+    request.baseDir = await __sigil_world_file_temp_base_dir();
+    return request;
+  } catch (error) {
+    __sigil_world_file_attach_request(error, request);
+    throw error;
+  }
+}
+async function __sigil_world_file_capture(operation, requestBuilder, thunk) {
+  const replay = __sigil_replay_take_event('file', operation);
+  if (replay.active) {
+    return __sigil_replay_resolve_event_value(replay, 'file', operation, null);
+  }
+  let request = null;
+  try {
+    request = await requestBuilder();
+    const value = await thunk(request);
+    __sigil_replay_record_return('file', operation, request ?? {}, value);
+    return value;
+  } catch (error) {
+    __sigil_replay_record_throw(
+      'file',
+      operation,
+      request ?? __sigil_world_file_request_from_error(error),
+      error
+    );
+    throw error;
+  }
+}
+async function __sigil_world_file_appendText(content, pathValue) {
+  const fs = await import('node:fs/promises');
+  return await __sigil_world_file_capture(
+    'appendText',
+    async () => __sigil_world_file_request_path(pathValue, {
+      content: await __sigil_world_file_text_summary(content)
+    }),
+    async (request) => {
+      await fs.appendFile(String(request.resolvedPath ?? ''), String(content), 'utf8');
+      return null;
+    }
+  );
+}
+async function __sigil_world_file_exists(pathValue) {
+  const fs = await import('node:fs/promises');
+  return await __sigil_world_file_capture('exists', () => __sigil_world_file_request_path(pathValue), async (request) => {
+    try {
+      await fs.access(String(request.resolvedPath ?? ''));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  });
+}
+async function __sigil_world_file_listDir(pathValue) {
+  const fs = await import('node:fs/promises');
+  return await __sigil_world_file_capture(
+    'listDir',
+    () => __sigil_world_file_request_path(pathValue),
+    async (request) => await fs.readdir(String(request.resolvedPath ?? ''))
+  );
+}
+async function __sigil_world_file_makeDir(pathValue) {
+  const fs = await import('node:fs/promises');
+  return await __sigil_world_file_capture(
+    'makeDir',
+    () => __sigil_world_file_request_path(pathValue),
+    async (request) => {
+      await fs.mkdir(String(request.resolvedPath ?? ''), { recursive: false });
+      return null;
+    }
+  );
+}
+async function __sigil_world_file_makeDirs(pathValue) {
+  const fs = await import('node:fs/promises');
+  return await __sigil_world_file_capture(
+    'makeDirs',
+    () => __sigil_world_file_request_path(pathValue),
+    async (request) => {
+      await fs.mkdir(String(request.resolvedPath ?? ''), { recursive: true });
+      return null;
+    }
+  );
+}
+async function __sigil_world_file_makeTempDir(prefix) {
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+  return await __sigil_world_file_capture(
+    'makeTempDir',
+    () => __sigil_world_file_request_temp_dir(prefix),
+    async (request) => {
+      const world = __sigil_current_world();
+      const base = String(request.baseDir ?? '');
+      if (world.fs.kind === 'sandbox') {
+        await fs.mkdir(base, { recursive: true });
+      }
+      return await fs.mkdtemp(path.join(base, String(request.prefix ?? '')));
+    }
+  );
 }
 async function __sigil_world_file_readText(pathValue) {
   const fs = await import('node:fs/promises');
-  return await fs.readFile(await __sigil_world_file_resolved_path(pathValue), 'utf8');
+  return await __sigil_world_file_capture(
+    'readText',
+    () => __sigil_world_file_request_path(pathValue),
+    async (request) => await fs.readFile(String(request.resolvedPath ?? ''), 'utf8')
+  );
 }
 async function __sigil_world_file_remove(pathValue) {
   const fs = await import('node:fs/promises');
-  await fs.unlink(await __sigil_world_file_resolved_path(pathValue));
-  return null;
+  return await __sigil_world_file_capture(
+    'remove',
+    () => __sigil_world_file_request_path(pathValue),
+    async (request) => {
+      await fs.unlink(String(request.resolvedPath ?? ''));
+      return null;
+    }
+  );
 }
 async function __sigil_world_file_removeTree(pathValue) {
   const fs = await import('node:fs/promises');
-  await fs.rm(await __sigil_world_file_resolved_path(pathValue), { force: true, recursive: true });
-  return null;
+  return await __sigil_world_file_capture(
+    'removeTree',
+    () => __sigil_world_file_request_path(pathValue),
+    async (request) => {
+      await fs.rm(String(request.resolvedPath ?? ''), { force: true, recursive: true });
+      return null;
+    }
+  );
 }
 async function __sigil_world_file_writeText(content, pathValue) {
   const fs = await import('node:fs/promises');
-  await fs.writeFile(await __sigil_world_file_resolved_path(pathValue), String(content), 'utf8');
-  return null;
+  return await __sigil_world_file_capture(
+    'writeText',
+    async () => __sigil_world_file_request_path(pathValue, {
+      content: await __sigil_world_file_text_summary(content)
+    }),
+    async (request) => {
+      await fs.writeFile(String(request.resolvedPath ?? ''), String(content), 'utf8');
+      return null;
+    }
+  );
 }
 function __sigil_world_log_debug(message) {
   const world = __sigil_current_world();
@@ -900,16 +1105,20 @@ function __sigil_world_log_warn(message) {
 function __sigil_world_time_now_instant() {
   const replay = __sigil_replay_take_event('timer', 'nowInstant');
   if (replay.active) {
-    return replay.payload?.result ?? { epochMillis: 0 };
+    return __sigil_replay_resolve_event_value(replay, 'timer', 'nowInstant', {
+      result: { epochMillis: 0 }
+    })?.result ?? { epochMillis: 0 };
   }
   const result = { epochMillis: __sigil_world_now_ms(__sigil_current_world()) };
-  __sigil_replay_record_event('timer', 'nowInstant', { result });
+  __sigil_replay_record_return('timer', 'nowInstant', {}, { result });
   return result;
 }
 async function __sigil_world_timer_sleep(ms) {
   const replay = __sigil_replay_take_event('timer', 'sleepMs');
   if (replay.active) {
-    return replay.payload?.result ?? null;
+    return __sigil_replay_resolve_event_value(replay, 'timer', 'sleepMs', {
+      result: null
+    })?.result ?? null;
   }
   const world = __sigil_current_world();
   const delay = Math.max(0, Number(ms));
@@ -919,11 +1128,11 @@ async function __sigil_world_timer_sleep(ms) {
     if (world.clock.kind === 'fixed') {
       world.clock.millis = world.timer.nowMs;
     }
-    __sigil_replay_record_event('timer', 'sleepMs', { delay, result: null });
+    __sigil_replay_record_return('timer', 'sleepMs', { delay }, { result: null });
     return null;
   }
   const result = await __sigil_sleep(delay);
-  __sigil_replay_record_event('timer', 'sleepMs', { delay, result });
+  __sigil_replay_record_return('timer', 'sleepMs', { delay }, { result });
   return result;
 }
 async function __sigil_world_process_argv() {
@@ -932,23 +1141,28 @@ async function __sigil_world_process_argv() {
 async function __sigil_world_process_exit(code) {
   const replay = __sigil_replay_take_event('process', 'exit');
   if (replay.active) {
-    if (replay.payload?.exited) {
-      process.exit(Number(replay.payload.code ?? code));
+    const payload = __sigil_replay_resolve_event_value(replay, 'process', 'exit', {
+      code: Number(code),
+      exited: false,
+      result: null
+    });
+    if (payload?.exited) {
+      process.exit(Number(payload.code ?? code));
     }
-    return replay.payload?.result ?? null;
+    return payload?.result ?? null;
   }
   const world = __sigil_current_world();
   if (world.process.kind === 'deny') {
     __sigil_world_process_trace(world, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
-    __sigil_replay_record_event('process', 'exit', { code: Number(code), exited: false, result: null });
+    __sigil_replay_record_return('process', 'exit', { code: Number(code) }, { code: Number(code), exited: false, result: null });
     return null;
   }
   if (world.process.kind === 'fixture') {
     __sigil_world_process_trace(world, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
-    __sigil_replay_record_event('process', 'exit', { code: Number(code), exited: false, result: null });
+    __sigil_replay_record_return('process', 'exit', { code: Number(code) }, { code: Number(code), exited: false, result: null });
     return null;
   }
-  __sigil_replay_record_event('process', 'exit', { code: Number(code), exited: true, result: null });
+  __sigil_replay_record_return('process', 'exit', { code: Number(code) }, { code: Number(code), exited: true, result: null });
   __sigil_replay_record_failure('SIGIL-RUNTIME-CHILD-EXIT', `process exited with code ${Number(code)}`, null);
   process.exit(Number(code));
   return null;
@@ -956,7 +1170,9 @@ async function __sigil_world_process_exit(code) {
 async function __sigil_world_process_spawn(command) {
   const replay = __sigil_replay_take_event('process', 'spawn');
   if (replay.active) {
-    return replay.payload?.handle ?? { pid: -1 };
+    return __sigil_replay_resolve_event_value(replay, 'process', 'spawn', {
+      handle: { pid: -1 }
+    })?.handle ?? { pid: -1 };
   }
   const world = __sigil_current_world();
   __sigil_world_process_trace(world, command);
@@ -964,14 +1180,14 @@ async function __sigil_world_process_spawn(command) {
     const handle = { pid: -1 };
     const token = __sigil_replay_next_handle_token();
     if (token) handle.__sigil_replay_token = token;
-    __sigil_replay_record_event('process', 'spawn', { command, handle, token });
+    __sigil_replay_record_return('process', 'spawn', { command }, { handle, token });
     return handle;
   }
   if (world.process.kind === 'fixture') {
     const handle = { pid: -1, __sigil_fixture_result: __sigil_world_process_fixture_result(world, command) };
     const token = __sigil_replay_next_handle_token();
     if (token) handle.__sigil_replay_token = token;
-    __sigil_replay_record_event('process', 'spawn', { command, handle, token });
+    __sigil_replay_record_return('process', 'spawn', { command }, { handle, token });
     return handle;
   }
   const handle = await __sigil_process_spawn(command);
@@ -979,18 +1195,22 @@ async function __sigil_world_process_spawn(command) {
   if (token && handle && typeof handle === 'object') {
     handle.__sigil_replay_token = token;
   }
-  __sigil_replay_record_event('process', 'spawn', { command, handle, token });
+  __sigil_replay_record_return('process', 'spawn', { command }, { handle, token });
   return handle;
 }
 async function __sigil_world_process_wait(processHandle) {
   const replay = __sigil_replay_take_event('process', 'wait');
   if (replay.active) {
+    const payload = __sigil_replay_resolve_event_value(replay, 'process', 'wait', {
+      token: null,
+      result: __sigil_process_result(-1, 'missing replay process result', '')
+    });
     __sigil_replay_require_handle_token(
-      replay.payload?.token ?? null,
+      payload?.token ?? null,
       processHandle?.__sigil_replay_token ?? null,
       'wait'
     );
-    return replay.payload?.result ?? __sigil_process_result(-1, 'missing replay process result', '');
+    return payload?.result ?? __sigil_process_result(-1, 'missing replay process result', '');
   }
   const world = __sigil_current_world();
   let result;
@@ -1007,7 +1227,9 @@ async function __sigil_world_process_wait(processHandle) {
   } else {
     result = await __sigil_process_wait(processHandle);
   }
-  __sigil_replay_record_event('process', 'wait', {
+  __sigil_replay_record_return('process', 'wait', {
+    token: processHandle?.__sigil_replay_token ?? null
+  }, {
     token: processHandle?.__sigil_replay_token ?? null,
     result
   });
@@ -1020,30 +1242,40 @@ async function __sigil_world_process_run(command) {
 async function __sigil_world_process_kill(processHandle) {
   const replay = __sigil_replay_take_event('process', 'kill');
   if (replay.active) {
+    const payload = __sigil_replay_resolve_event_value(replay, 'process', 'kill', {
+      token: null,
+      result: null
+    });
     __sigil_replay_require_handle_token(
-      replay.payload?.token ?? null,
+      payload?.token ?? null,
       processHandle?.__sigil_replay_token ?? null,
       'kill'
     );
-    return replay.payload?.result ?? null;
+    return payload?.result ?? null;
   }
   const world = __sigil_current_world();
   if (world.process.kind === 'deny') {
-    __sigil_replay_record_event('process', 'kill', {
+    __sigil_replay_record_return('process', 'kill', {
+      token: processHandle?.__sigil_replay_token ?? null
+    }, {
       token: processHandle?.__sigil_replay_token ?? null,
       result: null
     });
     return null;
   }
   if (world.process.kind === 'fixture') {
-    __sigil_replay_record_event('process', 'kill', {
+    __sigil_replay_record_return('process', 'kill', {
+      token: processHandle?.__sigil_replay_token ?? null
+    }, {
       token: processHandle?.__sigil_replay_token ?? null,
       result: null
     });
     return null;
   }
   const result = await __sigil_process_kill(processHandle);
-  __sigil_replay_record_event('process', 'kill', {
+  __sigil_replay_record_return('process', 'kill', {
+    token: processHandle?.__sigil_replay_token ?? null
+  }, {
     token: processHandle?.__sigil_replay_token ?? null,
     result
   });
@@ -1054,18 +1286,20 @@ async function __sigil_world_http_request(request) {
   const dependencyName = String(request?.dependency?.__fields?.[0] ?? '');
   const replay = __sigil_replay_take_event('http', 'request');
   if (replay.active) {
-    return replay.payload?.result ?? { __tag: 'Err', __fields: [__sigil_http_error('Network', 'missing replay HTTP result')] };
+    return __sigil_replay_resolve_event_value(replay, 'http', 'request', {
+      result: { __tag: 'Err', __fields: [__sigil_http_error('Network', 'missing replay HTTP result')] }
+    })?.result ?? { __tag: 'Err', __fields: [__sigil_http_error('Network', 'missing replay HTTP result')] };
   }
   const entry = world.http[dependencyName];
   if (!entry) {
     const result = { __tag: 'Err', __fields: [__sigil_http_error('Topology', `missing HTTP world entry for '${dependencyName}'`)] };
-    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    __sigil_replay_record_return('http', 'request', { dependencyName, request }, { result });
     return result;
   }
   __sigil_world_http_trace(world, dependencyName, request);
   if (entry.kind === 'deny') {
     const result = { __tag: 'Err', __fields: [__sigil_http_error('Topology', `HTTP dependency '${dependencyName}' is denied by the current world`)] };
-    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    __sigil_replay_record_return('http', 'request', { dependencyName, request }, { result });
     return result;
   }
   if (entry.kind === 'fixture') {
@@ -1079,12 +1313,12 @@ async function __sigil_world_http_request(request) {
     );
     if (!rule) {
       const result = { __tag: 'Err', __fields: [__sigil_http_error('Network', `no HTTP fixture matched ${method} ${path} for '${dependencyName}'`)] };
-      __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+      __sigil_replay_record_return('http', 'request', { dependencyName, request }, { result });
       return result;
     }
     if (rule.response.kind === 'timeout') {
       const result = { __tag: 'Err', __fields: [__sigil_http_error('Timeout', `HTTP fixture timed out for '${dependencyName}'`)] };
-      __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+      __sigil_replay_record_return('http', 'request', { dependencyName, request }, { result });
       return result;
     }
     const result = {
@@ -1096,7 +1330,7 @@ async function __sigil_world_http_request(request) {
         url: `fixture://${dependencyName}${path}`
       }]
     };
-    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    __sigil_replay_record_return('http', 'request', { dependencyName, request }, { result });
     return result;
   }
   try {
@@ -1108,12 +1342,12 @@ async function __sigil_world_http_request(request) {
     const response = await fetch(parsed, init);
     const body = await response.text();
     const result = { __tag: 'Ok', __fields: [{ body, headers: __sigil_http_headers_from_web(response.headers), status: response.status, url: response.url }] };
-    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    __sigil_replay_record_return('http', 'request', { dependencyName, request }, { result });
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const result = { __tag: 'Err', __fields: [__sigil_http_error(message.includes('Invalid URL') ? 'InvalidUrl' : 'Network', message)] };
-    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    __sigil_replay_record_return('http', 'request', { dependencyName, request }, { result });
     return result;
   }
 }
@@ -1122,18 +1356,20 @@ async function __sigil_world_tcp_request(request) {
   const dependencyName = String(request?.dependency?.__fields?.[0] ?? '');
   const replay = __sigil_replay_take_event('tcp', 'request');
   if (replay.active) {
-    return replay.payload?.result ?? { __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', 'missing replay TCP result')] };
+    return __sigil_replay_resolve_event_value(replay, 'tcp', 'request', {
+      result: { __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', 'missing replay TCP result')] }
+    })?.result ?? { __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', 'missing replay TCP result')] };
   }
   const entry = world.tcp[dependencyName];
   if (!entry) {
     const result = { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', `missing TCP world entry for '${dependencyName}'`)] };
-    __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+    __sigil_replay_record_return('tcp', 'request', { dependencyName, request }, { result });
     return result;
   }
   __sigil_world_tcp_trace(world, dependencyName, request?.message ?? '');
   if (entry.kind === 'deny') {
     const result = { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', `TCP dependency '${dependencyName}' is denied by the current world`)] };
-    __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+    __sigil_replay_record_return('tcp', 'request', { dependencyName, request }, { result });
     return result;
   }
   if (entry.kind === 'fixture') {
@@ -1141,16 +1377,16 @@ async function __sigil_world_tcp_request(request) {
     const rule = entry.rules.find((candidate) => candidate.request === message);
     if (!rule) {
       const result = { __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', `no TCP fixture matched '${message}' for '${dependencyName}'`)] };
-      __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+      __sigil_replay_record_return('tcp', 'request', { dependencyName, request }, { result });
       return result;
     }
     if (rule.response.kind === 'timeout') {
       const result = { __tag: 'Err', __fields: [__sigil_tcp_error('Timeout', `TCP fixture timed out for '${dependencyName}'`)] };
-      __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+      __sigil_replay_record_return('tcp', 'request', { dependencyName, request }, { result });
       return result;
     }
     const result = { __tag: 'Ok', __fields: [{ message: rule.response.body }] };
-    __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+    __sigil_replay_record_return('tcp', 'request', { dependencyName, request }, { result });
     return result;
   }
   const { Socket } = await import('node:net');
@@ -1162,7 +1398,7 @@ async function __sigil_world_tcp_request(request) {
       if (settled) return;
       settled = true;
       socket.destroy();
-      __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result: value });
+      __sigil_replay_record_return('tcp', 'request', { dependencyName, request }, { result: value });
       resolve(value);
     };
     socket.setEncoding('utf8');
@@ -1256,6 +1492,7 @@ pub struct CodegenOptions {
     pub output_file: Option<String>,
     pub trace: bool,
     pub breakpoints: bool,
+    pub expression_debug: bool,
 }
 
 impl Default for CodegenOptions {
@@ -1266,6 +1503,7 @@ impl Default for CodegenOptions {
             output_file: None,
             trace: false,
             breakpoints: false,
+            expression_debug: false,
         }
     }
 }
@@ -1288,11 +1526,12 @@ pub struct TypeScriptGenerator {
     test_meta_entries: Vec<String>,
     trace_enabled: bool,
     breakpoints_enabled: bool,
+    expression_debug_enabled: bool,
 }
 
 impl TypeScriptGenerator {
     pub fn new(options: CodegenOptions) -> Self {
-        let debug_enabled = options.trace || options.breakpoints;
+        let debug_enabled = options.trace || options.breakpoints || options.expression_debug;
         Self {
             current_trace_owner: None,
             indent: 0,
@@ -1305,6 +1544,7 @@ impl TypeScriptGenerator {
             test_meta_entries: Vec::new(),
             trace_enabled: debug_enabled,
             breakpoints_enabled: options.breakpoints,
+            expression_debug_enabled: options.expression_debug,
         }
     }
 
@@ -1495,6 +1735,12 @@ impl TypeScriptGenerator {
             .map(|span| span.span_id.as_str())
     }
 
+    fn span_kind_literal(&self, kind: DebugSpanKind) -> Result<String, CodegenError> {
+        serde_json::to_string(&kind).map_err(|error| {
+            CodegenError::General(format!("Failed to JSON-encode span kind: {error}"))
+        })
+    }
+
     fn trace_meta_literal(
         &self,
         span_id: Option<&str>,
@@ -1545,6 +1791,10 @@ impl TypeScriptGenerator {
             span_id,
             &[
                 ("functionName", self.json_string_literal(func_name)?),
+                (
+                    "spanKind",
+                    self.span_kind_literal(DebugSpanKind::FunctionDecl)?,
+                ),
                 (
                     "declarationKind",
                     self.json_string_literal("function_decl")?,
@@ -1602,32 +1852,33 @@ impl TypeScriptGenerator {
         Ok(traced)
     }
 
-    fn wrap_breakpoint_probe(
-        &self,
-        span_id: Option<&str>,
-        body_expr: &str,
-    ) -> Result<String, CodegenError> {
-        if !self.breakpoints_enabled {
-            return Ok(body_expr.to_string());
-        }
-        let Some(span_id) = span_id else {
-            return Ok(body_expr.to_string());
-        };
-        let meta = self.trace_meta_literal(Some(span_id), &[])?;
-        Ok(format!(
-            "__sigil_breakpoint_probe({}, () => {})",
-            meta, body_expr
-        ))
-    }
-
-    fn wrap_expression_breakpoint(
+    fn wrap_expression_debug(
         &self,
         expr: &TypedExpr,
         kind: DebugSpanKind,
         body_expr: String,
+        breakpoint_at_entry: bool,
     ) -> Result<String, CodegenError> {
-        let span_id = self.span_id_for_expr(kind, expr.location);
-        self.wrap_breakpoint_probe(span_id, &body_expr)
+        if !self.breakpoints_enabled && !self.expression_debug_enabled {
+            return Ok(body_expr);
+        }
+        let span_id = self.span_id_for_expr(kind.clone(), expr.location);
+        let Some(span_id) = span_id else {
+            return Ok(body_expr);
+        };
+        let meta = self.trace_meta_literal(
+            Some(span_id),
+            &[("spanKind", self.span_kind_literal(kind)?)],
+        )?;
+        let options = if breakpoint_at_entry {
+            "null".to_string()
+        } else {
+            "{ breakpointAtEntry: false }".to_string()
+        };
+        Ok(format!(
+            "__sigil_debug_wrap_expression({}, () => {}, {})",
+            meta, body_expr, options
+        ))
     }
 
     fn pattern_binding_names(&self, pattern: &Pattern) -> Vec<String> {
@@ -2345,11 +2596,17 @@ impl TypeScriptGenerator {
         if self.breakpoints_enabled {
             self.emit_breakpoint_helpers();
         }
+        if self.expression_debug_enabled || self.breakpoints_enabled {
+            self.emit_expression_helpers();
+        }
     }
 
     fn emit_trace_helpers(&mut self) {
         self.emit("function __sigil_trace_enabled() {");
         self.emit("  return !!globalThis.__sigil_trace_config?.enabled;");
+        self.emit("}");
+        self.emit("function __sigil_trace_expression_enabled() {");
+        self.emit("  return !!globalThis.__sigil_trace_config?.enabled && !!globalThis.__sigil_trace_config?.expressions;");
         self.emit("}");
         self.emit("function __sigil_trace_init_state() {");
         self.emit("  const maxEvents = Math.max(1, Number(globalThis.__sigil_trace_config?.maxEvents ?? 256));");
@@ -2382,6 +2639,17 @@ impl TypeScriptGenerator {
         self.emit("    return { kind: depth > 0 ? 'object' : 'record', size: keys.length, fields: keys.slice(0, 6) };");
         self.emit("  }");
         self.emit("  return { kind: valueType };");
+        self.emit("}");
+        self.emit("function __sigil_trace_error_summary(error) {");
+        self.emit(
+            "  const name = error instanceof Error && error.name ? String(error.name) : 'Error';",
+        );
+        self.emit("  const message = error instanceof Error ? String(error.message ?? '') : String(error);");
+        self.emit("  const summary = { kind: 'error', name, message };");
+        self.emit("  if (error && typeof error === 'object' && 'sigilCode' in error && error.sigilCode != null) {");
+        self.emit("    summary.sigilCode = String(error.sigilCode);");
+        self.emit("  }");
+        self.emit("  return summary;");
         self.emit("}");
         self.emit("function __sigil_trace_push(event) {");
         self.emit("  const state = __sigil_trace_state();");
@@ -2553,7 +2821,7 @@ impl TypeScriptGenerator {
         self.emit("  const selectors = __sigil_breakpoint_selectors(meta.spanId);");
         self.emit("  if (selectors.length === 0) return;");
         self.emit("  state.totalHits += 1;");
-        self.emit("  const hit = { matched: selectors, moduleId: String(meta.moduleId ?? ''), sourceFile: String(meta.sourceFile ?? ''), spanId: String(meta.spanId ?? ''), declarationKind: meta.declarationKind ?? null, declarationLabel: meta.declarationLabel ?? null, locals: __sigil_breakpoint_current_locals(state), stack: __sigil_breakpoint_stack_snapshot(state), recentTrace: __sigil_breakpoint_recent_trace() };");
+        self.emit("  const hit = { matched: selectors, moduleId: String(meta.moduleId ?? ''), sourceFile: String(meta.sourceFile ?? ''), spanId: String(meta.spanId ?? ''), spanKind: meta.spanKind ?? null, declarationKind: meta.declarationKind ?? null, declarationLabel: meta.declarationLabel ?? null, locals: __sigil_breakpoint_current_locals(state), stack: __sigil_breakpoint_stack_snapshot(state), recentTrace: __sigil_breakpoint_recent_trace() };");
         self.emit("  if (state.hits.length >= state.maxHits) {");
         self.emit("    state.hits.shift();");
         self.emit("    state.droppedHits += 1;");
@@ -2585,6 +2853,104 @@ impl TypeScriptGenerator {
         self.emit(
             "globalThis.__sigil_breakpoint_is_stop_signal = __sigil_breakpoint_is_stop_signal;",
         );
+    }
+
+    fn emit_expression_helpers(&mut self) {
+        self.emit("function __sigil_expression_init_state() {");
+        self.emit("  return { stack: [], failure: null };");
+        self.emit("}");
+        self.emit("function __sigil_expression_state() {");
+        self.emit("  if (!globalThis.__sigil_expression_current || typeof globalThis.__sigil_expression_current !== 'object') {");
+        self.emit("    globalThis.__sigil_expression_current = __sigil_expression_init_state();");
+        self.emit("  }");
+        self.emit("  return globalThis.__sigil_expression_current;");
+        self.emit("}");
+        self.emit("function __sigil_expression_should_ignore_error(error) {");
+        self.emit("  return typeof __sigil_breakpoint_is_stop_signal === 'function' ? !!__sigil_breakpoint_is_stop_signal(error) : false;");
+        self.emit("}");
+        self.emit("function __sigil_expression_locals_snapshot() {");
+        self.emit("  if (typeof __sigil_breakpoint_state !== 'function' || typeof __sigil_breakpoint_current_locals !== 'function') return [];");
+        self.emit("  try {");
+        self.emit("    const state = __sigil_breakpoint_state();");
+        self.emit("    return state ? __sigil_breakpoint_current_locals(state) : [];");
+        self.emit("  } catch (_expressionLocalsError) {");
+        self.emit("    return [];");
+        self.emit("  }");
+        self.emit("}");
+        self.emit("function __sigil_expression_stack_snapshot() {");
+        self.emit("  if (typeof __sigil_breakpoint_state !== 'function' || typeof __sigil_breakpoint_stack_snapshot !== 'function') return [];");
+        self.emit("  try {");
+        self.emit("    const state = __sigil_breakpoint_state();");
+        self.emit("    return state ? __sigil_breakpoint_stack_snapshot(state) : [];");
+        self.emit("  } catch (_expressionStackError) {");
+        self.emit("    return [];");
+        self.emit("  }");
+        self.emit("}");
+        self.emit("function __sigil_expression_snapshot_from_meta(meta, extras = {}) {");
+        self.emit("  const snapshot = { moduleId: String(meta.moduleId ?? ''), sourceFile: String(meta.sourceFile ?? ''), spanId: String(meta.spanId ?? ''), spanKind: meta.spanKind ?? null, declarationKind: meta.declarationKind ?? null, declarationLabel: meta.declarationLabel ?? null, locals: __sigil_expression_locals_snapshot(), stack: __sigil_expression_stack_snapshot() };");
+        self.emit("  if (extras && typeof extras === 'object') {");
+        self.emit("    if ('value' in extras) snapshot.value = extras.value;");
+        self.emit("    if ('error' in extras) snapshot.error = extras.error;");
+        self.emit("  }");
+        self.emit("  return snapshot;");
+        self.emit("}");
+        self.emit("function __sigil_expression_record_throw(meta, error, depth) {");
+        self.emit("  const state = __sigil_expression_state();");
+        self.emit("  const errorSummary = __sigil_trace_error_summary(error);");
+        self.emit("  if (__sigil_trace_expression_enabled()) {");
+        self.emit("    const traceState = __sigil_trace_state();");
+        self.emit("    __sigil_trace_push({ kind: 'expr_throw', depth: traceState ? traceState.depth : 0, ...meta, spanKind: String(meta.spanKind ?? ''), error: errorSummary });");
+        self.emit("  }");
+        self.emit("  if (!state.failure || Number(depth) >= Number(state.failure.depth ?? 0)) {");
+        self.emit("    state.failure = { depth: Number(depth), snapshot: __sigil_expression_snapshot_from_meta(meta, { error: errorSummary }) };");
+        self.emit("  }");
+        self.emit("}");
+        self.emit("function __sigil_expression_exception_payload() {");
+        self.emit("  const state = __sigil_expression_state();");
+        self.emit("  if (state.failure && state.failure.snapshot) return state.failure.snapshot;");
+        self.emit("  const current = state.stack[state.stack.length - 1];");
+        self.emit("  return current ? __sigil_expression_snapshot_from_meta(current) : null;");
+        self.emit("}");
+        self.emit("function __sigil_debug_wrap_expression(meta, thunk, options) {");
+        self.emit("  const state = __sigil_expression_state();");
+        self.emit("  const breakpointAtEntry = !options || options.breakpointAtEntry !== false;");
+        self.emit("  state.stack.push(meta);");
+        self.emit("  if (__sigil_trace_expression_enabled()) {");
+        self.emit("    const traceState = __sigil_trace_state();");
+        self.emit("    __sigil_trace_push({ kind: 'expr_enter', depth: traceState ? traceState.depth : 0, ...meta, spanKind: String(meta.spanKind ?? '') });");
+        self.emit("  }");
+        self.emit("  const fail = (error) => {");
+        self.emit("    const depth = state.stack.length;");
+        self.emit("    if (!__sigil_expression_should_ignore_error(error)) {");
+        self.emit("      __sigil_expression_record_throw(meta, error, depth);");
+        self.emit("    }");
+        self.emit("    if (state.stack.length > 0) state.stack.pop();");
+        self.emit("    throw error;");
+        self.emit("  };");
+        self.emit("  try {");
+        self.emit(
+            "    if (breakpointAtEntry && typeof __sigil_breakpoint_maybe_hit === 'function') {",
+        );
+        self.emit("      __sigil_breakpoint_maybe_hit(meta);");
+        self.emit("    }");
+        self.emit("    const result = thunk();");
+        self.emit("    const finish = (value) => {");
+        self.emit("      if (__sigil_trace_expression_enabled()) {");
+        self.emit("        const traceState = __sigil_trace_state();");
+        self.emit("        __sigil_trace_push({ kind: 'expr_return', depth: traceState ? traceState.depth : 0, ...meta, spanKind: String(meta.spanKind ?? ''), value: __sigil_trace_summary(value, 1) });");
+        self.emit("      }");
+        self.emit("      if (state.stack.length > 0) state.stack.pop();");
+        self.emit("      return value;");
+        self.emit("    };");
+        self.emit("    if (result && typeof result.then === 'function') {");
+        self.emit("      return result.then((value) => finish(value), (error) => fail(error));");
+        self.emit("    }");
+        self.emit("    return finish(result);");
+        self.emit("  } catch (error) {");
+        self.emit("    return fail(error);");
+        self.emit("  }");
+        self.emit("}");
+        self.emit("globalThis.__sigil_expression_exception_payload = __sigil_expression_exception_payload;");
     }
 
     fn generate_declaration(&mut self, decl: &TypedDeclaration) -> Result<(), CodegenError> {
@@ -3302,80 +3668,88 @@ impl TypeScriptGenerator {
             TypedExprKind::Pipeline(pipeline) => self.generate_pipeline(pipeline),
         }?;
 
-        if !self.breakpoints_enabled {
+        if !self.breakpoints_enabled && !self.expression_debug_enabled {
             return Ok(generated);
         }
 
         let wrapped = match &expr.kind {
             TypedExprKind::Literal(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprLiteral, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprLiteral, generated, true)
             }
             TypedExprKind::Identifier(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprIdentifier, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprIdentifier, generated, true)
             }
-            TypedExprKind::NamespaceMember { .. } => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprNamespaceMember, generated)
-            }
+            TypedExprKind::NamespaceMember { .. } => self.wrap_expression_debug(
+                expr,
+                DebugSpanKind::ExprNamespaceMember,
+                generated,
+                true,
+            ),
             TypedExprKind::Lambda(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprLambda, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprLambda, generated, true)
             }
             TypedExprKind::Call(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprCall, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprCall, generated, true)
             }
-            TypedExprKind::ConstructorCall(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprConstructorCall, generated)
-            }
+            TypedExprKind::ConstructorCall(_) => self.wrap_expression_debug(
+                expr,
+                DebugSpanKind::ExprConstructorCall,
+                generated,
+                true,
+            ),
             TypedExprKind::ExternCall(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprExternCall, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprExternCall, generated, true)
             }
             TypedExprKind::MethodCall(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprMethodCall, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprMethodCall, generated, true)
             }
             TypedExprKind::Binary(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprBinary, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprBinary, generated, true)
             }
             TypedExprKind::Unary(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprUnary, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprUnary, generated, true)
             }
             TypedExprKind::Match(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprMatch, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprMatch, generated, true)
             }
-            TypedExprKind::Let(_) => Ok(generated),
+            TypedExprKind::Let(_) => {
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprLet, generated, false)
+            }
             TypedExprKind::If(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprIf, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprIf, generated, true)
             }
             TypedExprKind::List(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprList, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprList, generated, true)
             }
             TypedExprKind::Tuple(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprTuple, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprTuple, generated, true)
             }
             TypedExprKind::Record(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprRecord, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprRecord, generated, true)
             }
             TypedExprKind::MapLiteral(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprMapLiteral, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprMapLiteral, generated, true)
             }
             TypedExprKind::FieldAccess(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprFieldAccess, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprFieldAccess, generated, true)
             }
             TypedExprKind::Index(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprIndex, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprIndex, generated, true)
             }
             TypedExprKind::Map(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprMap, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprMap, generated, true)
             }
             TypedExprKind::Filter(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprFilter, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprFilter, generated, true)
             }
             TypedExprKind::Fold(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprFold, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprFold, generated, true)
             }
             TypedExprKind::Concurrent(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprConcurrent, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprConcurrent, generated, true)
             }
             TypedExprKind::Pipeline(_) => {
-                self.wrap_expression_breakpoint(expr, DebugSpanKind::ExprPipeline, generated)
+                self.wrap_expression_debug(expr, DebugSpanKind::ExprPipeline, generated, true)
             }
         }?;
         Ok(wrapped)
@@ -5802,6 +6176,7 @@ mod tests {
             output_file: Some("/tmp/projects/algorithms/.local/tests/rot13Encoder.ts".to_string()),
             trace: false,
             breakpoints: false,
+            expression_debug: false,
         });
         gen.emit_module_import("src::rot13Encoder").unwrap();
         let result = gen.output.join("");
@@ -5819,6 +6194,7 @@ mod tests {
             ),
             trace: false,
             breakpoints: false,
+            expression_debug: false,
         });
         gen.emit_module_import("stdlib::numeric").unwrap();
         let result = gen.output.join("");
@@ -5914,6 +6290,7 @@ mod tests {
             output_file: Some("/tmp/projects/algorithms/.local/src/topologicalSort.ts".to_string()),
             trace: false,
             breakpoints: false,
+            expression_debug: false,
         });
         let result = gen.generate(&program).unwrap();
 
@@ -5932,6 +6309,7 @@ mod tests {
             output_file: Some("/tmp/tests/smoke.ts".to_string()),
             trace: false,
             breakpoints: false,
+            expression_debug: false,
         });
         let result = gen.generate(&program).unwrap();
 
@@ -5952,6 +6330,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             trace: false,
             breakpoints: false,
+            expression_debug: false,
         });
         gen.generate(&program).unwrap();
 
@@ -5981,6 +6360,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             trace: false,
             breakpoints: false,
+            expression_debug: false,
         });
         gen.generate(&program).unwrap();
 
@@ -6014,6 +6394,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             trace: true,
             breakpoints: false,
+            expression_debug: false,
         });
         let result = gen.generate(&program).unwrap();
 
@@ -6034,11 +6415,33 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             trace: true,
             breakpoints: false,
+            expression_debug: false,
         });
         let result = gen.generate(&program).unwrap();
 
         assert!(result.contains("__sigil_trace_wrap_effect("));
         assert!(result.contains("__sigil_call("));
+    }
+
+    #[test]
+    fn test_generate_expression_debug_wraps_nested_expressions() {
+        let source = "e boom:{explode:λ()=>Int}\nλmain()=>Int=1+boom.explode()";
+        let program = typed_program_for(source, "test.sigil");
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: Some("src::main".to_string()),
+            source_file: Some("test.sigil".to_string()),
+            output_file: Some("/tmp/test.js".to_string()),
+            trace: false,
+            breakpoints: false,
+            expression_debug: true,
+        });
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("function __sigil_debug_wrap_expression("));
+        assert!(result.contains("globalThis.__sigil_expression_exception_payload"));
+        assert!(result.contains("kind: 'expr_throw'"));
+        assert!(result.contains("spanKind: \"expr_binary\""));
     }
 
     #[test]
@@ -6052,6 +6455,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             trace: false,
             breakpoints: true,
+            expression_debug: false,
         });
         let result = gen.generate(&program).unwrap();
 
@@ -6074,12 +6478,13 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             trace: false,
             breakpoints: true,
+            expression_debug: false,
         });
         let result = gen.generate(&program).unwrap();
 
         assert!(result.contains("__sigil_breakpoint_push_scope([]);"));
         assert!(result.contains("__sigil_breakpoint_maybe_hit("));
-        assert!(result.contains("return await (async () => {"));
+        assert!(result.contains("__sigil_debug_wrap_expression("));
     }
 
     #[test]

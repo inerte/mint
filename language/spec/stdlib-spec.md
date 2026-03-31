@@ -429,6 +429,7 @@ UTF-8 filesystem helpers:
 - `listDir`
 - `makeDir`
 - `makeDirs`
+- `makeTempDir`
 - `readText`
 - `remove`
 - `removeTree`

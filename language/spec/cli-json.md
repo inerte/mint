@@ -18,6 +18,7 @@ Sigil CLI commands are machine-first. JSON is the default output mode for:
 - plain `sigil run <file>` emits structured JSON on failure
 - `sigil run --json <file>` emits the structured JSON envelope on both success and failure
 - `sigil run --json --trace <file>` adds a bounded inline execution trace to that envelope
+- `sigil run --json --trace --trace-expr <file>` adds expression enter/return/throw events to that trace
 - `sigil run --json --break-fn <name> <file>` adds machine-readable breakpoint snapshots
 - `sigil run --json --record <artifact> <file>` adds replay recording metadata and writes a replay artifact
 - `sigil run --json --replay <artifact> <file>` replays a prior artifact and reports replay consumption metadata
@@ -129,10 +130,12 @@ usual top-level diagnostic shape and may enrich `error.details` with:
   - `rawStack`
   - optional `generatedFrame`
   - optional `sigilFrame`
+  - optional `sigilExpression`
 
 ## Run Trace Details
 
 `sigil run --trace` currently requires `--json`.
+`sigil run --trace-expr` currently requires both `--trace` and `--json`.
 
 When enabled, `sigil run` includes a bounded rolling trace window:
 
@@ -152,6 +155,12 @@ Current trace event kinds:
 - `effect_call`
 - `effect_result`
 
+When `--trace-expr` is enabled, trace may also include:
+
+- `expr_enter`
+- `expr_return`
+- `expr_throw`
+
 Every trace event includes:
 
 - `seq`
@@ -164,17 +173,25 @@ Every trace event includes:
 Events may also include:
 
 - declaration context such as `declarationKind` / `declarationLabel`
+- `spanKind`
 - `functionName`
 - `args`
 - `result`
+- `value`
+- `error`
 - branch selection details such as `taken`, `armSpanId`, `armIndex`, `hasGuard`
 - effect details such as `effectFamily` and `operation`
 
-`sigilFrame` is declaration-level in v1:
+`sigilFrame` remains declaration-level context:
 
 - it identifies the owning top-level Sigil declaration using the generated `.span.json` sidecar
 - it may include a tiny declaration-header excerpt
-- it does not yet promise exact nested-expression blame inside the declaration body
+
+`sigilExpression` is the exact failing expression when runtime capture can resolve it:
+
+- it identifies the concrete expression span that threw or was active at failure time
+- it may include compact `value` or `error` summaries
+- it may include current-frame `locals` and stack summaries when that state is available
 
 ## Run Breakpoint Details
 
@@ -209,6 +226,7 @@ Each hit currently includes:
 - `moduleId`
 - `sourceFile`
 - `spanId`
+- `spanKind`
 - optional declaration context such as `declarationKind` / `declarationLabel`
 - resolved Sigil `location` when the span map can provide it
 - current-frame `locals`
@@ -245,13 +263,14 @@ The inline `replay` block in the `run` envelope is intentionally small:
 - `remainingEvents`
 - `partial`
 
-Current replay coverage in v1:
+Current replay coverage:
 
 - `random`
 - `timer` / `time.now`
 - `process`
 - `http`
 - `tcp`
+- `file`
 
 Replay artifacts are strict:
 

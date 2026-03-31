@@ -3670,7 +3670,7 @@ fn read_replay_artifact(path: &Path) -> Result<ReplayArtifact, CliError> {
             error
         ))
     })?;
-    if artifact.kind != "sigilRunReplay" || artifact.format_version != 1 {
+    if artifact.kind != "sigilRunReplay" || artifact.format_version != 2 {
         return Err(CliError::Runtime(format!(
             "{}: '{}' is not a supported Sigil replay artifact",
             codes::runtime::REPLAY_INVALID_ARTIFACT,

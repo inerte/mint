@@ -787,17 +787,20 @@
         "seq": { "type": "integer", "minimum": 1 },
         "kind": {
           "type": "string",
-          "enum": ["call", "return", "branch_if", "branch_match", "effect_call", "effect_result"]
+          "enum": ["call", "return", "branch_if", "branch_match", "effect_call", "effect_result", "expr_enter", "expr_return", "expr_throw"]
         },
         "depth": { "type": "integer", "minimum": 0 },
         "moduleId": { "type": "string" },
         "sourceFile": { "type": "string" },
         "spanId": { "type": "string" },
+        "spanKind": { "type": "string" },
         "declarationKind": { "type": "string" },
         "declarationLabel": { "type": "string" },
         "functionName": { "type": "string" },
         "args": { "type": "array", "items": { "$ref": "#/$defs/runTraceValueSummary" } },
         "result": { "$ref": "#/$defs/runTraceValueSummary" },
+        "value": { "$ref": "#/$defs/runTraceValueSummary" },
+        "error": { "$ref": "#/$defs/runTraceValueSummary" },
         "taken": { "type": "string" },
         "condition": { "$ref": "#/$defs/runTraceValueSummary" },
         "armSpanId": { "type": "string" },
@@ -881,6 +884,7 @@
         "moduleId": { "type": "string" },
         "sourceFile": { "type": "string" },
         "spanId": { "type": "string" },
+        "spanKind": { "type": ["string", "null"] },
         "declarationKind": { "type": ["string", "null"] },
         "declarationLabel": { "type": ["string", "null"] },
         "location": {
@@ -924,6 +928,23 @@
       },
       "additionalProperties": false
     },
+    "runSigilExpression": {
+      "type": "object",
+      "required": ["spanId", "kind", "file", "location", "locals", "stack"],
+      "properties": {
+        "spanId": { "type": "string" },
+        "kind": { "type": "string" },
+        "file": { "type": "string" },
+        "location": { "$ref": "#/$defs/sourceSpan" },
+        "declarationKind": { "type": ["string", "null"] },
+        "declarationLabel": { "type": ["string", "null"] },
+        "value": { "$ref": "#/$defs/runTraceValueSummary" },
+        "error": { "$ref": "#/$defs/runTraceValueSummary" },
+        "locals": { "type": "array", "items": { "$ref": "#/$defs/runBreakpointLocal" } },
+        "stack": { "type": "array", "items": { "$ref": "#/$defs/runBreakpointFrame" } }
+      },
+      "additionalProperties": false
+    },
     "runExceptionDetails": {
       "type": "object",
       "required": ["name", "message", "rawStack"],
@@ -932,7 +953,8 @@
         "message": { "type": "string" },
         "rawStack": { "type": "string" },
         "generatedFrame": { "$ref": "#/$defs/runGeneratedFrame" },
-        "sigilFrame": { "$ref": "#/$defs/runSigilFrame" }
+        "sigilFrame": { "$ref": "#/$defs/runSigilFrame" },
+        "sigilExpression": { "$ref": "#/$defs/runSigilExpression" }
       },
       "additionalProperties": false
     },

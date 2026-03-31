@@ -89,6 +89,10 @@ enum Command {
         #[arg(long)]
         trace: bool,
 
+        /// Include fine-grained expression enter/return/throw events in the trace (requires --trace and --json)
+        #[arg(long = "trace-expr")]
+        trace_expr: bool,
+
         /// Break when execution reaches a specific source line
         #[arg(long = "break", value_name = "FILE:LINE")]
         breakpoint: Vec<String>,
@@ -270,6 +274,7 @@ fn main() {
             file,
             json,
             trace,
+            trace_expr,
             breakpoint,
             break_fn,
             break_span,
@@ -283,6 +288,7 @@ fn main() {
             &file,
             json,
             trace,
+            trace_expr,
             &breakpoint,
             &break_fn,
             &break_span,

@@ -222,6 +222,131 @@ fn inspect_validate_directory_reports_per_file_status() {
 }
 
 #[test]
+fn inspect_codegen_returns_inline_ts_and_module_inventory_without_writing_files() {
+    let dir = temp_dir("codegen-single");
+    write_program(
+        &dir,
+        "sigil.json",
+        "{\"name\":\"inspect-codegen\",\"version\":\"0.1.0\"}\n",
+    );
+    write_program(&dir, "src/helper.lib.sigil", "λdouble(x:Int)=>Int=x*2\n");
+    let main = write_program(&dir, "src/main.sigil", "λmain()=>Int=•helper.double(21)\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("inspect")
+        .arg("codegen")
+        .arg(&main)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc inspect codegen");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["phase"], "codegen");
+    assert_eq!(json["data"]["moduleId"], "src::main");
+    assert_eq!(
+        json["data"]["sourceFile"],
+        main.to_string_lossy().to_string()
+    );
+    assert!(json["data"]["summary"]["modules"].as_u64().unwrap() >= 2);
+
+    let codegen = &json["data"]["codegen"];
+    let source = codegen["source"].as_str().unwrap();
+    assert!(source.contains("export function main"));
+    assert_eq!(
+        codegen["lineCount"].as_u64().unwrap() as usize,
+        source.lines().count()
+    );
+    assert_eq!(codegen["spanMapSummary"]["formatVersion"], 1);
+    assert!(codegen["spanMapSummary"]["spans"].as_u64().unwrap() >= 1);
+    assert!(
+        codegen["spanMapSummary"]["generatedRanges"]
+            .as_u64()
+            .unwrap()
+            >= 1
+    );
+    assert!(
+        codegen["spanMapSummary"]["topLevelAnchors"]
+            .as_u64()
+            .unwrap()
+            >= 1
+    );
+
+    let output_file = PathBuf::from(codegen["outputFile"].as_str().unwrap());
+    let span_map_file = PathBuf::from(codegen["spanMapFile"].as_str().unwrap());
+    assert!(!output_file.exists());
+    assert!(!span_map_file.exists());
+
+    let modules = json["data"]["modules"].as_array().unwrap();
+    assert!(modules.len() >= 2);
+    assert!(modules.iter().any(|entry| entry["moduleId"] == "src::main"
+        && entry["sourceFile"] == main.to_string_lossy().to_string()));
+    assert!(modules
+        .iter()
+        .any(|entry| entry["moduleId"] == "src::helper"));
+}
+
+#[test]
+fn inspect_codegen_directory_batches_requested_files_and_respects_ignore_rules() {
+    let dir = temp_dir("codegen-directory");
+    let alpha = write_program(&dir, "alpha.sigil", "λmain()=>Int=1\n");
+    let beta = write_program(&dir, "beta.sigil", "λmain()=>Int=2\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("inspect")
+        .arg("codegen")
+        .arg(&dir)
+        .arg("--ignore")
+        .arg(&beta)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc inspect codegen");
+    assert_eq!(json["data"]["summary"]["discovered"], 1);
+    assert_eq!(json["data"]["summary"]["inspected"], 1);
+    assert_eq!(json["data"]["summary"]["groups"], 1);
+
+    let files = json["data"]["files"].as_array().unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0]["input"], alpha.to_string_lossy().to_string());
+    assert!(files[0]["codegen"]["source"]
+        .as_str()
+        .unwrap()
+        .contains("export function main"));
+}
+
+#[test]
+fn inspect_codegen_emits_json_error_on_pipeline_failure() {
+    let dir = temp_dir("codegen-error");
+    let file = write_program(&dir, "broken.sigil", "λmain()=>Int=\"oops\"\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("inspect")
+        .arg("codegen")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc inspect codegen");
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["phase"], "typecheck");
+}
+
+#[test]
 fn inspect_world_reports_normalized_runtime_world_for_topology_project() {
     let dir = temp_dir("world-topology");
     write_program(
@@ -308,7 +433,10 @@ fn inspect_world_supports_config_only_projects_without_topology() {
     assert_eq!(json["ok"], true);
     assert!(json["data"].get("sources").is_none());
     assert_eq!(json["data"]["topology"]["present"], false);
-    assert_eq!(json["data"]["topology"]["declaredEnvs"], serde_json::json!([]));
+    assert_eq!(
+        json["data"]["topology"]["declaredEnvs"],
+        serde_json::json!([])
+    );
     assert_eq!(json["data"]["summary"]["httpBindings"], 0);
     assert_eq!(json["data"]["summary"]["tcpBindings"], 0);
     assert_eq!(json["data"]["normalizedWorld"]["random"]["kind"], "seeded");

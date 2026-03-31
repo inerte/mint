@@ -7,6 +7,7 @@ Sigil CLI commands are machine-first. JSON is the default output mode for:
 - `sigilc compile`
 - `sigilc inspect types`
 - `sigilc inspect validate`
+- `sigilc inspect codegen`
 - `sigilc inspect world`
 - `sigilc test`
 - `sigilc` usage/unknown-command failures
@@ -65,7 +66,7 @@ Failures emit:
 ```
 
 `sigilc test` keeps a specialized top-level `summary` / `results` envelope.
-`sigilc inspect types`, `sigilc inspect validate`, and `sigilc inspect world` use inspect-specific envelopes.
+`sigilc inspect types`, `sigilc inspect validate`, `sigilc inspect codegen`, and `sigilc inspect world` use inspect-specific envelopes.
 `sigilc run` uses the `runEnvelope` schema in `--json` mode and for failure payloads.
 
 ## Diagnostics
@@ -223,6 +224,51 @@ Successful output reports:
 `normalizedWorld` is the runtime-normalized template Sigil will use for that
 environment, not the raw exported Sigil `world` value.
 
+## Inspect Codegen Details
+
+`sigil inspect codegen <path>` mirrors the real compile pipeline but keeps the
+results in memory.
+
+Successful single-file output reports:
+
+- `input`
+- `moduleId`
+- `sourceFile`
+- `project`
+- `summary`
+  - `modules`
+  - `lineCount`
+  - `spans`
+  - `generatedRanges`
+  - `topLevelAnchors`
+- `codegen`
+  - `outputFile`
+  - `spanMapFile`
+  - `source`
+  - `lineCount`
+  - `spanMapSummary`
+- `modules`
+  - per-module inventory for the resolved compile graph
+
+Directory mode reports:
+
+- `input`
+- `summary`
+  - `discovered`
+  - `inspected`
+  - `groups`
+  - `modules`
+  - `durationMs`
+- `files`
+  - one single-file-style result per requested file
+
+Only the requested file gets inline generated TypeScript in v1. Imported modules
+appear in `modules` inventory only.
+
+`inspect codegen` does not write the derived `.ts` or `.span.json` files to
+disk. The reported `outputFile` and `spanMapFile` values are the same derived
+paths that `sigil compile` would use.
+
 ## Current Notes
 
 The current implementation uses:
@@ -237,6 +283,7 @@ The current implementation uses:
 - recorded or replayed `run` failures may include replay summary data via `error.details.replay`
 - `inspect types` is top-level declaration-focused in v1; it does not report nested expression types yet
 - `inspect validate` returns canonical printer output even when `validation.ok` is `false`, as long as lexing and parsing succeeded
+- `inspect codegen` returns generated TypeScript inline for the requested file and only inventories imported modules
 - `inspect world` is project-level in v1; it does not batch over directories or include test-local `world { ... }` overlays
 - a specialized `test` result shape with `location: {line,column}`
 

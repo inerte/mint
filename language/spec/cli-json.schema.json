@@ -10,6 +10,7 @@
     { "$ref": "#/$defs/compileEnvelope" },
     { "$ref": "#/$defs/inspectTypesEnvelope" },
     { "$ref": "#/$defs/inspectValidateEnvelope" },
+    { "$ref": "#/$defs/inspectCodegenEnvelope" },
     { "$ref": "#/$defs/inspectWorldEnvelope" },
     { "$ref": "#/$defs/runEnvelope" },
     { "$ref": "#/$defs/testEnvelope" }
@@ -491,6 +492,88 @@
         { "$ref": "#/$defs/inspectValidateDirectoryData" }
       ]
     },
+    "inspectCodegenSummary": {
+      "type": "object",
+      "required": ["modules", "lineCount", "spans", "generatedRanges", "topLevelAnchors"],
+      "properties": {
+        "modules": { "type": "integer", "minimum": 0 },
+        "lineCount": { "type": "integer", "minimum": 0 },
+        "spans": { "type": "integer", "minimum": 0 },
+        "generatedRanges": { "type": "integer", "minimum": 0 },
+        "topLevelAnchors": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "inspectCodegenSpanMapSummary": {
+      "type": "object",
+      "required": ["formatVersion", "spans", "generatedRanges", "topLevelAnchors"],
+      "properties": {
+        "formatVersion": { "type": "integer", "const": 1 },
+        "spans": { "type": "integer", "minimum": 0 },
+        "generatedRanges": { "type": "integer", "minimum": 0 },
+        "topLevelAnchors": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "inspectCodegenInfo": {
+      "type": "object",
+      "required": ["outputFile", "spanMapFile", "source", "lineCount", "spanMapSummary"],
+      "properties": {
+        "outputFile": { "type": "string" },
+        "spanMapFile": { "type": "string" },
+        "source": { "type": "string" },
+        "lineCount": { "type": "integer", "minimum": 0 },
+        "spanMapSummary": { "$ref": "#/$defs/inspectCodegenSpanMapSummary" }
+      },
+      "additionalProperties": false
+    },
+    "inspectCodegenFileData": {
+      "type": "object",
+      "required": ["input", "moduleId", "sourceFile", "project", "summary", "codegen", "modules"],
+      "properties": {
+        "input": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "sourceFile": { "type": "string" },
+        "project": { "$ref": "#/$defs/projectInfo" },
+        "summary": { "$ref": "#/$defs/inspectCodegenSummary" },
+        "codegen": { "$ref": "#/$defs/inspectCodegenInfo" },
+        "modules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/moduleCompileOutput" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspectCodegenDirectoryData": {
+      "type": "object",
+      "required": ["input", "summary", "files"],
+      "properties": {
+        "input": { "type": "string" },
+        "summary": {
+          "type": "object",
+          "required": ["discovered", "inspected", "groups", "modules", "durationMs"],
+          "properties": {
+            "discovered": { "type": "integer", "minimum": 0 },
+            "inspected": { "type": "integer", "minimum": 0 },
+            "groups": { "type": "integer", "minimum": 0 },
+            "modules": { "type": "integer", "minimum": 0 },
+            "durationMs": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inspectCodegenFileData" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspectCodegenData": {
+      "oneOf": [
+        { "$ref": "#/$defs/inspectCodegenFileData" },
+        { "$ref": "#/$defs/inspectCodegenDirectoryData" }
+      ]
+    },
     "inspectWorldKindedEntry": {
       "type": "object",
       "required": ["kind"],
@@ -600,6 +683,22 @@
           "properties": {
             "command": { "const": "sigilc inspect validate" },
             "data": { "$ref": "#/$defs/inspectValidateData" }
+          },
+          "allOf": [
+            { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },
+            { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"] } }
+          ]
+        }
+      ]
+    },
+    "inspectCodegenEnvelope": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEnvelope" },
+        {
+          "type": "object",
+          "properties": {
+            "command": { "const": "sigilc inspect codegen" },
+            "data": { "$ref": "#/$defs/inspectCodegenData" }
           },
           "allOf": [
             { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },

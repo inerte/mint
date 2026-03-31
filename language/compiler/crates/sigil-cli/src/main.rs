@@ -157,6 +157,20 @@ enum InspectCommand {
         ignore_from: Option<PathBuf>,
     },
 
+    /// Inspect generated TypeScript and derived codegen outputs
+    Codegen {
+        /// Input .sigil file or directory
+        path: PathBuf,
+
+        /// Ignore an additional path while inspecting a directory
+        #[arg(long)]
+        ignore: Vec<PathBuf>,
+
+        /// Load gitignore-style ignore rules from a file while inspecting a directory
+        #[arg(long = "ignore-from")]
+        ignore_from: Option<PathBuf>,
+    },
+
     /// Inspect the resolved runtime world for one environment
     World {
         /// Project path or file within the project (default: current directory)
@@ -211,13 +225,20 @@ fn main() {
                 &ignore,
                 ignore_from.as_deref(),
             ),
-            InspectCommand::World { path, env } => inspect_command(
-                commands::InspectMode::World,
+            InspectCommand::Codegen {
+                path,
+                ignore,
+                ignore_from,
+            } => inspect_command(
+                commands::InspectMode::Codegen,
                 &path,
-                Some(&env),
-                &[],
                 None,
+                &ignore,
+                ignore_from.as_deref(),
             ),
+            InspectCommand::World { path, env } => {
+                inspect_command(commands::InspectMode::World, &path, Some(&env), &[], None)
+            }
         },
         Command::Run {
             file,

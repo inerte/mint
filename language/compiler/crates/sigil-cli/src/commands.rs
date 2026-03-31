@@ -10,8 +10,8 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use sigil_ast::{Declaration, Program, SourceLocation, Type, TypeDef};
 use sigil_codegen::{
-    collect_module_span_map, CodegenOptions, DebugSpanKind, DebugSpanRecord, ModuleSpanMap,
-    TypeScriptGenerator, world_runtime_helpers_source,
+    collect_module_span_map, world_runtime_helpers_source, CodegenOptions, DebugSpanKind,
+    DebugSpanRecord, ModuleSpanMap, TypeScriptGenerator,
 };
 use sigil_diagnostics::codes;
 use sigil_lexer::Lexer;
@@ -462,6 +462,7 @@ struct CompileBatchOutputs {
 pub enum InspectMode {
     Types,
     Validate,
+    Codegen,
     World,
 }
 
@@ -470,6 +471,7 @@ impl InspectMode {
         match self {
             InspectMode::Types => "sigilc inspect types",
             InspectMode::Validate => "sigilc inspect validate",
+            InspectMode::Codegen => "sigilc inspect codegen",
             InspectMode::World => "sigilc inspect world",
         }
     }
@@ -478,6 +480,7 @@ impl InspectMode {
         match self {
             InspectMode::Types => "typecheck",
             InspectMode::Validate => "canonical",
+            InspectMode::Codegen => "codegen",
             InspectMode::World => "topology",
         }
     }
@@ -486,6 +489,7 @@ impl InspectMode {
         match self {
             InspectMode::Types => "inspect types",
             InspectMode::Validate => "inspect validate",
+            InspectMode::Codegen => "inspect codegen",
             InspectMode::World => "inspect world",
         }
     }
@@ -1016,6 +1020,110 @@ fn inspect_validate_file_result(file: &Path) -> Result<serde_json::Value, CliErr
     }))
 }
 
+fn inspect_codegen_module_inventory(
+    graph: &ModuleGraph,
+    generated: &GeneratedGraphOutputs,
+) -> Result<Vec<serde_json::Value>, CliError> {
+    graph
+        .topo_order
+        .iter()
+        .map(|module_id| {
+            let module = graph.modules.get(module_id).ok_or_else(|| {
+                CliError::Codegen(format!(
+                    "inspect codegen could not resolve module '{}'",
+                    module_id
+                ))
+            })?;
+            let output = generated.module_outputs.get(module_id).ok_or_else(|| {
+                CliError::Codegen(format!(
+                    "inspect codegen did not produce output for '{}'",
+                    module.file_path.display()
+                ))
+            })?;
+            Ok(serde_json::json!({
+                "moduleId": module_id,
+                "sourceFile": module.file_path.to_string_lossy(),
+                "outputFile": output.output_path.to_string_lossy(),
+                "spanMapFile": output.span_map_path.to_string_lossy()
+            }))
+        })
+        .collect()
+}
+
+fn span_map_generated_range_count(span_map: &ModuleSpanMap) -> usize {
+    span_map
+        .spans
+        .iter()
+        .filter(|span| span.generated_range.is_some())
+        .count()
+}
+
+fn span_map_top_level_anchor_count(span_map: &ModuleSpanMap) -> usize {
+    span_map
+        .spans
+        .iter()
+        .filter(|span| span.parent_span_id.is_none() && span.generated_range.is_some())
+        .count()
+}
+
+fn inspect_codegen_line_count(source: &str) -> usize {
+    if source.is_empty() {
+        0
+    } else {
+        source.lines().count()
+    }
+}
+
+fn inspect_codegen_file_result(
+    input: &Path,
+    graph: &ModuleGraph,
+    generated: &GeneratedGraphOutputs,
+    module_id: &str,
+) -> Result<serde_json::Value, CliError> {
+    let module = graph.modules.get(module_id).ok_or_else(|| {
+        CliError::Codegen(format!(
+            "inspect codegen could not resolve requested module '{}'",
+            input.display()
+        ))
+    })?;
+    let output = generated.module_outputs.get(module_id).ok_or_else(|| {
+        CliError::Codegen(format!(
+            "inspect codegen did not produce output for '{}'",
+            input.display()
+        ))
+    })?;
+    let line_count = inspect_codegen_line_count(&output.ts_code);
+    let span_map_summary = serde_json::json!({
+        "formatVersion": output.span_map.format_version,
+        "spans": output.span_map.spans.len(),
+        "generatedRanges": span_map_generated_range_count(&output.span_map),
+        "topLevelAnchors": span_map_top_level_anchor_count(&output.span_map)
+    });
+    let modules = inspect_codegen_module_inventory(graph, generated)?;
+
+    Ok(serde_json::json!({
+        "input": input.to_string_lossy(),
+        "moduleId": module_id,
+        "sourceFile": module.file_path.to_string_lossy(),
+        "project": project_json(module.project.as_ref()),
+        "summary": {
+            "modules": modules.len(),
+            "lineCount": line_count,
+            "spans": output.span_map.spans.len(),
+            "generatedRanges": span_map_generated_range_count(&output.span_map),
+            "topLevelAnchors": span_map_top_level_anchor_count(&output.span_map)
+        },
+        "codegen": {
+            "outputFile": output.output_path.to_string_lossy(),
+            "spanMapFile": output.span_map_path.to_string_lossy(),
+            "source": output.ts_code,
+            "lineCount": line_count,
+            "spanMapSummary": span_map_summary
+        },
+        "modules": modules
+    }))
+}
+
 pub fn inspect_command(
     mode: InspectMode,
     path: &Path,
@@ -1026,11 +1134,256 @@ pub fn inspect_command(
     match mode {
         InspectMode::Types => inspect_types_command(path, ignore_paths, ignore_from),
         InspectMode::Validate => inspect_validate_command(path, ignore_paths, ignore_from),
+        InspectMode::Codegen => inspect_codegen_command(path, ignore_paths, ignore_from),
         InspectMode::World => inspect_world_command(
             path,
             selected_env.expect("inspect world requires an environment"),
         ),
     }
+}
+
+fn inspect_codegen_command(
+    path: &Path,
+    ignore_paths: &[PathBuf],
+    ignore_from: Option<&Path>,
+) -> Result<(), CliError> {
+    if path.is_dir() {
+        inspect_codegen_directory_command(path, ignore_paths, ignore_from)
+    } else {
+        inspect_codegen_single_file_command(path)
+    }
+}
+
+fn inspect_codegen_single_file_command(file: &Path) -> Result<(), CliError> {
+    let graph = match ModuleGraph::build(file) {
+        Ok(graph) => graph,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Codegen.command_name(),
+                file,
+                &CliError::ModuleGraph(error),
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+    let module_id = match entry_module_key(file) {
+        Ok(module_id) => module_id,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Codegen.command_name(),
+                file,
+                &CliError::ModuleGraph(error),
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+    let generated = match generate_module_graph_outputs(&graph, None, false) {
+        Ok(generated) => generated,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Codegen.command_name(),
+                file,
+                &error,
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+    let data = match inspect_codegen_file_result(file, &graph, &generated, &module_id) {
+        Ok(data) => data,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Codegen.command_name(),
+                file,
+                &error,
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+
+    let output = serde_json::json!({
+        "formatVersion": 1,
+        "command": InspectMode::Codegen.command_name(),
+        "ok": true,
+        "phase": InspectMode::Codegen.phase(),
+        "data": data
+    });
+    println!("{}", serde_json::to_string(&output).unwrap());
+    Ok(())
+}
+
+fn inspect_codegen_directory_command(
+    path: &Path,
+    ignore_paths: &[PathBuf],
+    ignore_from: Option<&Path>,
+) -> Result<(), CliError> {
+    let start_time = Instant::now();
+    let files =
+        match collect_sigil_targets(InspectMode::Codegen.verb(), path, ignore_paths, ignore_from) {
+            Ok(files) => files,
+            Err(error) => {
+                output_inspect_error(
+                    InspectMode::Codegen.command_name(),
+                    path,
+                    &error,
+                    serde_json::Map::new(),
+                );
+                return Err(CliError::Reported(1));
+            }
+        };
+    let groups = match group_compile_targets(&files) {
+        Ok(groups) => groups,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Codegen.command_name(),
+                path,
+                &error,
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+    let group_count = groups.len();
+    let file_order = files
+        .iter()
+        .enumerate()
+        .map(|(index, file)| (file.clone(), index))
+        .collect::<HashMap<_, _>>();
+
+    let mut inspected_file_count = 0usize;
+    let mut compiled_module_count = 0usize;
+    let mut file_results = Vec::new();
+
+    for group in groups {
+        let first_file = group
+            .files
+            .first()
+            .cloned()
+            .unwrap_or_else(|| path.to_path_buf());
+        let graph = match ModuleGraph::build_many(&group.files) {
+            Ok(graph) => graph,
+            Err(error) => {
+                let mut extra = serde_json::Map::new();
+                extra.insert(
+                    "input".to_string(),
+                    json!(path.to_string_lossy().to_string()),
+                );
+                extra.insert("discovered".to_string(), json!(files.len()));
+                extra.insert("inspected".to_string(), json!(inspected_file_count));
+                extra.insert(
+                    "durationMs".to_string(),
+                    json!(start_time.elapsed().as_millis()),
+                );
+                output_inspect_error(
+                    InspectMode::Codegen.command_name(),
+                    &first_file,
+                    &CliError::ModuleGraph(error),
+                    extra,
+                );
+                return Err(CliError::Reported(1));
+            }
+        };
+        let generated = match generate_module_graph_outputs(&graph, None, false) {
+            Ok(generated) => generated,
+            Err(error) => {
+                let mut extra = serde_json::Map::new();
+                extra.insert(
+                    "input".to_string(),
+                    json!(path.to_string_lossy().to_string()),
+                );
+                extra.insert("discovered".to_string(), json!(files.len()));
+                extra.insert("inspected".to_string(), json!(inspected_file_count));
+                extra.insert(
+                    "durationMs".to_string(),
+                    json!(start_time.elapsed().as_millis()),
+                );
+                output_inspect_error(
+                    InspectMode::Codegen.command_name(),
+                    &first_file,
+                    &error,
+                    extra,
+                );
+                return Err(CliError::Reported(1));
+            }
+        };
+        compiled_module_count += generated.module_outputs.len();
+
+        for file in &group.files {
+            let module_id = match entry_module_key(file) {
+                Ok(module_id) => module_id,
+                Err(error) => {
+                    let mut extra = serde_json::Map::new();
+                    extra.insert(
+                        "input".to_string(),
+                        json!(path.to_string_lossy().to_string()),
+                    );
+                    extra.insert("discovered".to_string(), json!(files.len()));
+                    extra.insert("inspected".to_string(), json!(inspected_file_count));
+                    extra.insert(
+                        "durationMs".to_string(),
+                        json!(start_time.elapsed().as_millis()),
+                    );
+                    output_inspect_error(
+                        InspectMode::Codegen.command_name(),
+                        file,
+                        &CliError::ModuleGraph(error),
+                        extra,
+                    );
+                    return Err(CliError::Reported(1));
+                }
+            };
+            let result = match inspect_codegen_file_result(file, &graph, &generated, &module_id) {
+                Ok(result) => result,
+                Err(error) => {
+                    let mut extra = serde_json::Map::new();
+                    extra.insert(
+                        "input".to_string(),
+                        json!(path.to_string_lossy().to_string()),
+                    );
+                    extra.insert("discovered".to_string(), json!(files.len()));
+                    extra.insert("inspected".to_string(), json!(inspected_file_count));
+                    extra.insert(
+                        "durationMs".to_string(),
+                        json!(start_time.elapsed().as_millis()),
+                    );
+                    output_inspect_error(InspectMode::Codegen.command_name(), file, &error, extra);
+                    return Err(CliError::Reported(1));
+                }
+            };
+            file_results.push(result);
+            inspected_file_count += 1;
+        }
+    }
+
+    file_results.sort_by_key(|result| {
+        result["input"]
+            .as_str()
+            .and_then(|input| file_order.get(Path::new(input)).copied())
+            .unwrap_or(usize::MAX)
+    });
+
+    let output = serde_json::json!({
+        "formatVersion": 1,
+        "command": InspectMode::Codegen.command_name(),
+        "ok": true,
+        "phase": InspectMode::Codegen.phase(),
+        "data": {
+            "input": path.to_string_lossy(),
+            "summary": {
+                "discovered": files.len(),
+                "inspected": inspected_file_count,
+                "groups": group_count,
+                "modules": compiled_module_count,
+                "durationMs": start_time.elapsed().as_millis()
+            },
+            "files": file_results
+        }
+    });
+    println!("{}", serde_json::to_string(&output).unwrap());
+    Ok(())
 }
 
 fn inspect_types_command(
@@ -1471,12 +1824,13 @@ console.log(JSON.stringify({{
         }));
     }
 
-    let runner_json = serde_json::from_slice::<serde_json::Value>(&output.stdout).map_err(|error| {
-        CliError::Runtime(format!(
-            "inspect world runner emitted invalid JSON: {}",
-            error
-        ))
-    })?;
+    let runner_json =
+        serde_json::from_slice::<serde_json::Value>(&output.stdout).map_err(|error| {
+            CliError::Runtime(format!(
+                "inspect world runner emitted invalid JSON: {}",
+                error
+            ))
+        })?;
 
     Ok(serde_json::json!({
         "input": path.to_string_lossy(),
@@ -2074,7 +2428,10 @@ fn build_run_target(
 ) -> Result<RunTarget, CliError> {
     let graph = ModuleGraph::build(file)?;
     let replay_mode = prepare_replay_mode(file, &graph, record_path, replay_path, args)?;
-    let topology_prelude = if matches!(replay_mode.as_ref(), Some(PreparedReplayMode::Replay { .. })) {
+    let topology_prelude = if matches!(
+        replay_mode.as_ref(),
+        Some(PreparedReplayMode::Replay { .. })
+    ) {
         String::new()
     } else {
         runner_prelude(file, &graph, selected_env)?.unwrap_or_default()
@@ -2087,8 +2444,9 @@ fn build_run_target(
     let runner_path = entry_output_path.with_extension("run.ts");
     let runtime_error_path = unique_runtime_error_path(&entry_output_path);
     let runtime_trace_path = trace_enabled.then(|| unique_runtime_trace_path(&entry_output_path));
-    let runtime_replay_path =
-        replay_mode.as_ref().map(|_| unique_runtime_replay_path(&entry_output_path));
+    let runtime_replay_path = replay_mode
+        .as_ref()
+        .map(|_| unique_runtime_replay_path(&entry_output_path));
     let module_name = entry_output_path
         .file_stem()
         .unwrap()
@@ -2631,8 +2989,11 @@ fn build_replay_binding(
     args: &[String],
 ) -> Result<(ReplayArtifactEntry, ReplayArtifactBinding), CliError> {
     let source_file = canonicalize_existing_path(file);
-    let project_root = get_project_config(file)?
-        .map(|project| canonicalize_existing_path(&project.root).to_string_lossy().to_string());
+    let project_root = get_project_config(file)?.map(|project| {
+        canonicalize_existing_path(&project.root)
+            .to_string_lossy()
+            .to_string()
+    });
     let mut modules = graph
         .modules
         .values()
@@ -3682,6 +4043,21 @@ struct CompiledGraphOutputs {
     coverage_targets: Vec<CoverageTarget>,
 }
 
+#[derive(Debug, Clone)]
+struct GeneratedModuleOutput {
+    output_path: PathBuf,
+    span_map: ModuleSpanMap,
+    span_map_path: PathBuf,
+    ts_code: String,
+}
+
+struct GeneratedGraphOutputs {
+    coverage_targets: Vec<CoverageTarget>,
+    entry_output_path: PathBuf,
+    entry_span_map_path: PathBuf,
+    module_outputs: HashMap<String, GeneratedModuleOutput>,
+}
+
 fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphOutputs, CliError> {
     let mut compiled_modules = HashMap::new();
     let mut compiled_schemes = HashMap::new();
@@ -3778,16 +4154,19 @@ fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphOutputs, Cli
     })
 }
 
-fn compile_module_graph(
-    graph: ModuleGraph,
+fn generate_module_graph_outputs(
+    graph: &ModuleGraph,
     output_override: Option<&Path>,
     trace: bool,
-) -> Result<CompiledGraphOutputs, CliError> {
-    let analyzed = analyze_module_graph(&graph)?;
-    let mut module_outputs = HashMap::new();
-    let mut span_map_outputs = HashMap::new();
+) -> Result<GeneratedGraphOutputs, CliError> {
+    let analyzed = analyze_module_graph(graph)?;
+    let entry_module_id = graph
+        .topo_order
+        .last()
+        .ok_or_else(|| CliError::Codegen("codegen requires at least one module".to_string()))?;
     let mut entry_output_path = PathBuf::new();
     let mut entry_span_map_path = PathBuf::new();
+    let mut module_outputs = HashMap::new();
 
     for module_id in &graph.topo_order {
         let module = &graph.modules[module_id];
@@ -3797,14 +4176,11 @@ fn compile_module_graph(
                 module.file_path.display()
             ))
         })?;
-
-        let output_path =
-            if module_id == graph.topo_order.last().unwrap() && output_override.is_some() {
-                output_override.unwrap().to_path_buf()
-            } else {
-                get_module_output_path(module)
-            };
-
+        let output_path = if module_id == entry_module_id && output_override.is_some() {
+            output_override.unwrap().to_path_buf()
+        } else {
+            get_module_output_path(module)
+        };
         let codegen_options = CodegenOptions {
             module_id: Some(module_id.clone()),
             source_file: Some(module.file_path.to_string_lossy().to_string()),
@@ -3823,27 +4199,54 @@ fn compile_module_graph(
         })?;
         let span_map_path = span_map_output_path(&output_path);
 
-        if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
+        module_outputs.insert(
+            module_id.clone(),
+            GeneratedModuleOutput {
+                output_path: output_path.clone(),
+                span_map,
+                span_map_path: span_map_path.clone(),
+                ts_code,
+            },
+        );
 
-        fs::write(&output_path, ts_code)?;
-        write_span_map_file(&span_map_path, &span_map)?;
-        module_outputs.insert(module_id.clone(), output_path.clone());
-        span_map_outputs.insert(module_id.clone(), span_map_path.clone());
-
-        if module_id == graph.topo_order.last().unwrap() {
+        if module_id == entry_module_id {
             entry_output_path = output_path;
             entry_span_map_path = span_map_path;
         }
     }
 
-    Ok(CompiledGraphOutputs {
+    Ok(GeneratedGraphOutputs {
+        coverage_targets: analyzed.coverage_targets,
         entry_output_path,
         entry_span_map_path,
         module_outputs,
+    })
+}
+
+fn compile_module_graph(
+    graph: ModuleGraph,
+    output_override: Option<&Path>,
+    trace: bool,
+) -> Result<CompiledGraphOutputs, CliError> {
+    let generated = generate_module_graph_outputs(&graph, output_override, trace)?;
+    let mut module_outputs = HashMap::new();
+    let mut span_map_outputs = HashMap::new();
+    for (module_id, generated_output) in generated.module_outputs {
+        if let Some(parent) = generated_output.output_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&generated_output.output_path, generated_output.ts_code)?;
+        write_span_map_file(&generated_output.span_map_path, &generated_output.span_map)?;
+        module_outputs.insert(module_id.clone(), generated_output.output_path);
+        span_map_outputs.insert(module_id, generated_output.span_map_path);
+    }
+
+    Ok(CompiledGraphOutputs {
+        entry_output_path: generated.entry_output_path,
+        entry_span_map_path: generated.entry_span_map_path,
+        module_outputs,
         span_map_outputs,
-        coverage_targets: analyzed.coverage_targets,
+        coverage_targets: generated.coverage_targets,
     })
 }
 

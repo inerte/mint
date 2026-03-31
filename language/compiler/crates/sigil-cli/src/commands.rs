@@ -7,6 +7,7 @@ use crate::project::{get_project_config, ProjectConfig, ProjectConfigError};
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use rayon::{prelude::*, ThreadPoolBuilder};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use sigil_ast::{Declaration, Program, SourceLocation, Type, TypeDef};
 use sigil_codegen::{
     collect_module_span_map, CodegenOptions, DebugSpanKind, DebugSpanRecord, ModuleSpanMap,
@@ -1799,6 +1800,8 @@ pub fn run_command(
     file: &Path,
     json_output: bool,
     trace_output: bool,
+    record_path: Option<&Path>,
+    replay_path: Option<&Path>,
     selected_env: Option<&str>,
     args: &[String],
 ) -> Result<(), CliError> {
@@ -1818,7 +1821,30 @@ pub fn run_command(
         return Err(CliError::Reported(1));
     }
 
-    let run_target = match build_run_target(file, selected_env, trace_output) {
+    if replay_path.is_some() && selected_env.is_some() {
+        output_json_error_to(
+            "sigilc run",
+            "cli",
+            codes::cli::USAGE,
+            "`--replay` cannot be combined with `--env`",
+            json!({
+                "file": file.to_string_lossy(),
+                "option": "--replay",
+                "conflictsWith": "--env"
+            }),
+            !json_output,
+        );
+        return Err(CliError::Reported(1));
+    }
+
+    let run_target = match build_run_target(
+        file,
+        selected_env,
+        trace_output,
+        record_path,
+        replay_path,
+        args,
+    ) {
         Ok(run_target) => run_target,
         Err(error) => {
             output_run_error(file, &error, !json_output);
@@ -1830,6 +1856,7 @@ pub fn run_command(
         &run_target.runner_path,
         &run_target.runtime_error_path,
         run_target.runtime_trace_path.as_deref(),
+        run_target.runtime_replay_path.as_deref(),
         args,
         !json_output,
     ) {
@@ -1866,7 +1893,12 @@ pub fn run_command(
                     "stdout": runtime_output.stdout,
                     "stderr": runtime_output.stderr
                 },
-                "trace": runtime_trace_json(runtime_output.trace_capture.as_ref())
+                "trace": runtime_trace_json(runtime_output.trace_capture.as_ref()),
+                "replay": runtime_replay_json(
+                    run_target.replay_mode.as_deref(),
+                    run_target.replay_file.as_deref(),
+                    runtime_output.replay_capture.as_ref()
+                )
             }
         });
         if !trace_output {
@@ -1875,6 +1907,14 @@ pub fn run_command(
                 .and_then(|value| value.as_object_mut())
             {
                 data.remove("trace");
+            }
+        }
+        if run_target.replay_mode.is_none() {
+            if let Some(data) = output_json
+                .get_mut("data")
+                .and_then(|value| value.as_object_mut())
+            {
+                data.remove("replay");
             }
         }
         output_json_value(&output_json, false);
@@ -1889,7 +1929,10 @@ struct RunTarget {
     runner_path: PathBuf,
     runtime_error_path: PathBuf,
     runtime_trace_path: Option<PathBuf>,
+    runtime_replay_path: Option<PathBuf>,
     trace_enabled: bool,
+    replay_mode: Option<String>,
+    replay_file: Option<PathBuf>,
     module_debug_outputs: Vec<RuntimeModuleDebugOutput>,
 }
 
@@ -1916,6 +1959,7 @@ struct RuntimeOutput {
     stderr: String,
     exception_capture: Option<RuntimeExceptionCapture>,
     trace_capture: Option<RuntimeTraceCapture>,
+    replay_capture: Option<RuntimeReplayCapture>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -1930,13 +1974,111 @@ struct RuntimeTraceCapture {
     events: Vec<serde_json::Value>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeReplayCapture {
+    mode: String,
+    file: String,
+    recorded_events: usize,
+    consumed_events: usize,
+    remaining_events: usize,
+    partial: bool,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayArtifact {
+    format_version: u32,
+    kind: String,
+    entry: ReplayArtifactEntry,
+    binding: ReplayArtifactBinding,
+    world: ReplayArtifactWorld,
+    summary: ReplayArtifactSummary,
+    #[serde(default)]
+    events: Vec<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    failure: Option<ReplayArtifactFailure>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayArtifactEntry {
+    source_file: String,
+    #[serde(default)]
+    argv: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    project_root: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayArtifactBinding {
+    algorithm: String,
+    fingerprint: String,
+    modules: Vec<ReplayArtifactModule>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayArtifactModule {
+    module_id: String,
+    source_file: String,
+    source_hash: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayArtifactWorld {
+    normalized_world: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    started_at_epoch_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayArtifactSummary {
+    failed: bool,
+    recorded_events: usize,
+    #[serde(default)]
+    effect_counts: HashMap<String, usize>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplayArtifactFailure {
+    code: String,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stack: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+enum PreparedReplayMode {
+    Record {
+        artifact_file: PathBuf,
+        config: serde_json::Value,
+    },
+    Replay {
+        artifact_file: PathBuf,
+        config: serde_json::Value,
+    },
+}
+
 fn build_run_target(
     file: &Path,
     selected_env: Option<&str>,
     trace_enabled: bool,
+    record_path: Option<&Path>,
+    replay_path: Option<&Path>,
+    args: &[String],
 ) -> Result<RunTarget, CliError> {
     let graph = ModuleGraph::build(file)?;
-    let topology_prelude = runner_prelude(file, &graph, selected_env)?.unwrap_or_default();
+    let replay_mode = prepare_replay_mode(file, &graph, record_path, replay_path, args)?;
+    let topology_prelude = if matches!(replay_mode.as_ref(), Some(PreparedReplayMode::Replay { .. })) {
+        String::new()
+    } else {
+        runner_prelude(file, &graph, selected_env)?.unwrap_or_default()
+    };
     let compiled = compile_module_graph(graph, None, trace_enabled)?;
     let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
     let entry_output_path = compiled.entry_output_path;
@@ -1945,6 +2087,8 @@ fn build_run_target(
     let runner_path = entry_output_path.with_extension("run.ts");
     let runtime_error_path = unique_runtime_error_path(&entry_output_path);
     let runtime_trace_path = trace_enabled.then(|| unique_runtime_trace_path(&entry_output_path));
+    let runtime_replay_path =
+        replay_mode.as_ref().map(|_| unique_runtime_replay_path(&entry_output_path));
     let module_name = entry_output_path
         .file_stem()
         .unwrap()
@@ -1954,7 +2098,8 @@ fn build_run_target(
     let filename_json = serde_json::to_string(&file.to_string_lossy().to_string()).unwrap();
     let runtime_error_path_json =
         serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
-    let trace_import = if trace_enabled {
+    let replay_enabled = replay_mode.is_some();
+    let trace_import = if trace_enabled || replay_enabled {
         "import { writeFileSync } from 'node:fs';".to_string()
     } else {
         String::new()
@@ -1998,6 +2143,122 @@ process.on('exit', () => {{
     } else {
         String::new()
     };
+    let replay_config_json = replay_mode
+        .as_ref()
+        .map(|mode| match mode {
+            PreparedReplayMode::Record { config, .. } => serde_json::to_string(config).unwrap(),
+            PreparedReplayMode::Replay { config, .. } => serde_json::to_string(config).unwrap(),
+        })
+        .unwrap_or_else(|| "null".to_string());
+    let replay_capture = if let Some(runtime_replay_path) = &runtime_replay_path {
+        let runtime_replay_path_json =
+            serde_json::to_string(&runtime_replay_path.to_string_lossy().to_string()).unwrap();
+        format!(
+            r#"
+const __sigil_runtime_replay_file = {runtime_replay_path_json};
+globalThis.__sigil_replay_config = {replay_config_json};
+globalThis.__sigil_replay_current = undefined;
+
+function __sigil_runtime_replay_payload() {{
+  if (typeof globalThis.__sigil_replay_snapshot === 'function') {{
+    try {{
+      return globalThis.__sigil_replay_snapshot();
+    }} catch (_replayError) {{
+      return {{
+        mode: String(globalThis.__sigil_replay_config?.mode ?? ''),
+        file: String(globalThis.__sigil_replay_config?.file ?? ''),
+        recordedEvents: 0,
+        consumedEvents: 0,
+        remainingEvents: 0,
+        partial: false
+      }};
+    }}
+  }}
+  return {{
+    mode: String(globalThis.__sigil_replay_config?.mode ?? ''),
+    file: String(globalThis.__sigil_replay_config?.file ?? ''),
+    recordedEvents: 0,
+    consumedEvents: 0,
+    remainingEvents: 0,
+    partial: false
+  }};
+}}
+
+function __sigil_runtime_capture_replay_sync() {{
+  try {{
+    writeFileSync(__sigil_runtime_replay_file, JSON.stringify(__sigil_runtime_replay_payload()));
+  }} catch (_captureReplayError) {{
+    // Best-effort debug plumbing only.
+  }}
+  if (globalThis.__sigil_replay_config?.mode === 'record' && typeof globalThis.__sigil_replay_artifact === 'function') {{
+    try {{
+      writeFileSync(
+        String(globalThis.__sigil_replay_config.file),
+        JSON.stringify(globalThis.__sigil_replay_artifact())
+      );
+    }} catch (_captureReplayArtifactError) {{
+      // Best-effort debug plumbing only.
+    }}
+  }}
+}}
+
+process.on('exit', () => {{
+  __sigil_runtime_capture_replay_sync();
+}});
+"#
+        )
+    } else {
+        format!(
+            r#"
+globalThis.__sigil_replay_config = {replay_config_json};
+globalThis.__sigil_replay_current = undefined;
+"#
+        )
+    };
+    let replay_failure_code_json =
+        serde_json::to_string(codes::runtime::UNCAUGHT_EXCEPTION).unwrap();
+    let replay_child_exit_code_json = serde_json::to_string(codes::runtime::CHILD_EXIT).unwrap();
+    let replay_bootstrap_failure = if replay_enabled {
+        format!(
+            r#"
+function __sigil_runtime_mark_replay_failure(code, message, stack) {{
+  if (typeof globalThis.__sigil_replay_record_failure === 'function') {{
+    try {{
+      globalThis.__sigil_replay_record_failure(
+        String(code ?? {replay_failure_code_json}),
+        String(message ?? ''),
+        typeof stack === 'string' ? stack : null
+      );
+    }} catch (_markReplayFailureError) {{
+      // Best-effort debug plumbing only.
+    }}
+  }}
+}}
+"#
+        )
+    } else {
+        String::new()
+    };
+    let replay_bootstrap_import = if replay_enabled {
+        r#"
+if (
+  globalThis.__sigil_replay_config?.mode === 'replay' &&
+  globalThis.__sigil_replay_config?.artifact?.failure &&
+  globalThis.__sigil_replay_config?.artifact?.world?.normalizedWorld == null
+) {
+  const __sigil_recorded_failure = globalThis.__sigil_replay_config.artifact.failure;
+  const __sigil_error = new Error(String(__sigil_recorded_failure.message ?? 'replayed runtime failure'));
+  __sigil_error.sigilCode = String(__sigil_recorded_failure.code ?? 'SIGIL-RUNTIME-UNCAUGHT-EXCEPTION');
+  if (typeof __sigil_recorded_failure.stack === 'string' && __sigil_recorded_failure.stack) {
+    __sigil_error.stack = __sigil_recorded_failure.stack;
+  }
+  throw __sigil_error;
+}
+"#
+        .to_string()
+    } else {
+        String::new()
+    };
 
     let runner_code = format!(
         r#"import {{ writeFile }} from 'node:fs/promises';
@@ -2006,6 +2267,8 @@ process.on('exit', () => {{
 const __sigil_runtime_error_file = {runtime_error_path_json};
 {trace_capture}
 {trace_config}
+{replay_capture}
+{replay_bootstrap_failure}
 
 function __sigil_runtime_exception_name(error) {{
   if (error instanceof Error && error.name) {{
@@ -2052,9 +2315,11 @@ async function __sigil_runtime_capture_error(error) {{
 
 try {{
 {topology_prelude}
+{replay_bootstrap_import}
   const __sigil_module = await import({module_specifier_json});
   const main = __sigil_module.main;
   if (typeof main !== 'function') {{
+    {missing_main_replay}
     console.error('Error: No main() function found in ' + {filename_json});
     console.error('Add a main() function to make this program runnable.');
     process.exit(1);
@@ -2066,6 +2331,7 @@ try {{
   }}
 }} catch (error) {{
   const captured = await __sigil_runtime_capture_error(error);
+  {catch_replay_mark}
   const renderedStack = captured.stack;
   if (renderedStack) {{
     console.error(renderedStack);
@@ -2081,7 +2347,24 @@ try {{
         runtime_error_path_json = runtime_error_path_json,
         trace_capture = trace_capture,
         trace_config = trace_config,
-        trace_import = trace_import
+        trace_import = trace_import,
+        replay_capture = replay_capture,
+        replay_bootstrap_failure = replay_bootstrap_failure,
+        replay_bootstrap_import = replay_bootstrap_import,
+        missing_main_replay = if replay_enabled {
+            format!(
+                "__sigil_runtime_mark_replay_failure({replay_child_exit_code_json}, 'No main() function found in ' + {filename_json}, null);"
+            )
+        } else {
+            String::new()
+        },
+        catch_replay_mark = if replay_enabled {
+            format!(
+                "__sigil_runtime_mark_replay_failure(captured.sigilCode ?? {replay_failure_code_json}, captured.message, captured.stack);"
+            )
+        } else {
+            String::new()
+        }
     );
 
     fs::write(&runner_path, runner_code)?;
@@ -2091,7 +2374,16 @@ try {{
         runner_path,
         runtime_error_path,
         runtime_trace_path,
+        runtime_replay_path,
         trace_enabled,
+        replay_mode: replay_mode.as_ref().map(|mode| match mode {
+            PreparedReplayMode::Record { .. } => "record".to_string(),
+            PreparedReplayMode::Replay { .. } => "replay".to_string(),
+        }),
+        replay_file: replay_mode.map(|mode| match mode {
+            PreparedReplayMode::Record { artifact_file, .. } => artifact_file,
+            PreparedReplayMode::Replay { artifact_file, .. } => artifact_file,
+        }),
         module_debug_outputs,
     })
 }
@@ -2100,6 +2392,7 @@ fn execute_runner(
     runner_path: &Path,
     runtime_error_path: &Path,
     runtime_trace_path: Option<&Path>,
+    runtime_replay_path: Option<&Path>,
     args: &[String],
     stream_output: bool,
 ) -> Result<RuntimeOutput, CliError> {
@@ -2107,6 +2400,9 @@ fn execute_runner(
     let _ = fs::remove_file(runtime_error_path);
     if let Some(runtime_trace_path) = runtime_trace_path {
         let _ = fs::remove_file(runtime_trace_path);
+    }
+    if let Some(runtime_replay_path) = runtime_replay_path {
+        let _ = fs::remove_file(runtime_replay_path);
     }
     let start_time = Instant::now();
     if stream_output {
@@ -2127,6 +2423,7 @@ fn execute_runner(
                 stderr: String::new(),
                 exception_capture: read_runtime_exception_capture(runtime_error_path),
                 trace_capture: read_runtime_trace_capture(runtime_trace_path),
+                replay_capture: read_runtime_replay_capture(runtime_replay_path),
             });
         }
 
@@ -2166,6 +2463,7 @@ fn execute_runner(
             stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
             exception_capture: read_runtime_exception_capture(runtime_error_path),
             trace_capture: read_runtime_trace_capture(runtime_trace_path),
+            replay_capture: read_runtime_replay_capture(runtime_replay_path),
         });
     }
 
@@ -2185,6 +2483,7 @@ fn execute_runner(
         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
         exception_capture: read_runtime_exception_capture(runtime_error_path),
         trace_capture: read_runtime_trace_capture(runtime_trace_path),
+        replay_capture: read_runtime_replay_capture(runtime_replay_path),
     })
 }
 
@@ -2289,6 +2588,213 @@ fn unique_runtime_trace_path(entry_output_path: &Path) -> PathBuf {
         .join(format!("{stem}.{unique}.runtime-trace.json"))
 }
 
+fn unique_runtime_replay_path(entry_output_path: &Path) -> PathBuf {
+    let unique = format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let stem = entry_output_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
+    entry_output_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!("{stem}.{unique}.runtime-replay.json"))
+}
+
+fn resolve_run_artifact_path(path: &Path, ensure_parent: bool) -> Result<PathBuf, CliError> {
+    let resolved = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    if ensure_parent {
+        if let Some(parent) = resolved.parent() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    Ok(resolved)
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+fn build_replay_binding(
+    file: &Path,
+    graph: &ModuleGraph,
+    args: &[String],
+) -> Result<(ReplayArtifactEntry, ReplayArtifactBinding), CliError> {
+    let source_file = canonicalize_existing_path(file);
+    let project_root = get_project_config(file)?
+        .map(|project| canonicalize_existing_path(&project.root).to_string_lossy().to_string());
+    let mut modules = graph
+        .modules
+        .values()
+        .map(|module| ReplayArtifactModule {
+            module_id: module.id.clone(),
+            source_file: canonicalize_existing_path(&module.file_path)
+                .to_string_lossy()
+                .to_string(),
+            source_hash: sha256_hex(module.source.as_bytes()),
+        })
+        .collect::<Vec<_>>();
+    modules.sort_by(|left, right| left.module_id.cmp(&right.module_id));
+
+    let mut fingerprint_hasher = Sha256::new();
+    for module in &modules {
+        fingerprint_hasher.update(module.module_id.as_bytes());
+        fingerprint_hasher.update([0]);
+        fingerprint_hasher.update(module.source_file.as_bytes());
+        fingerprint_hasher.update([0]);
+        fingerprint_hasher.update(module.source_hash.as_bytes());
+        fingerprint_hasher.update([0]);
+    }
+
+    Ok((
+        ReplayArtifactEntry {
+            source_file: source_file.to_string_lossy().to_string(),
+            argv: args.to_vec(),
+            project_root,
+        },
+        ReplayArtifactBinding {
+            algorithm: "sha256".to_string(),
+            fingerprint: format!("{:x}", fingerprint_hasher.finalize()),
+            modules,
+        },
+    ))
+}
+
+fn read_replay_artifact(path: &Path) -> Result<ReplayArtifact, CliError> {
+    let contents = fs::read_to_string(path).map_err(|error| {
+        CliError::Runtime(format!(
+            "{}: failed to read replay artifact '{}': {}",
+            codes::runtime::REPLAY_INVALID_ARTIFACT,
+            path.display(),
+            error
+        ))
+    })?;
+    let artifact: ReplayArtifact = serde_json::from_str(&contents).map_err(|error| {
+        CliError::Runtime(format!(
+            "{}: failed to parse replay artifact '{}': {}",
+            codes::runtime::REPLAY_INVALID_ARTIFACT,
+            path.display(),
+            error
+        ))
+    })?;
+    if artifact.kind != "sigilRunReplay" || artifact.format_version != 1 {
+        return Err(CliError::Runtime(format!(
+            "{}: '{}' is not a supported Sigil replay artifact",
+            codes::runtime::REPLAY_INVALID_ARTIFACT,
+            path.display()
+        )));
+    }
+    if artifact.binding.algorithm != "sha256" {
+        return Err(CliError::Runtime(format!(
+            "{}: replay artifact '{}' uses unsupported fingerprint algorithm '{}'",
+            codes::runtime::REPLAY_INVALID_ARTIFACT,
+            path.display(),
+            artifact.binding.algorithm
+        )));
+    }
+    Ok(artifact)
+}
+
+fn validate_replay_binding(
+    file: &Path,
+    args: &[String],
+    expected_entry: &ReplayArtifactEntry,
+    expected_binding: &ReplayArtifactBinding,
+    artifact: &ReplayArtifact,
+    artifact_path: &Path,
+) -> Result<(), CliError> {
+    let requested_file = canonicalize_existing_path(file)
+        .to_string_lossy()
+        .to_string();
+    let artifact_file = canonicalize_existing_path(Path::new(&artifact.entry.source_file))
+        .to_string_lossy()
+        .to_string();
+    if artifact_file != requested_file {
+        return Err(CliError::Runtime(format!(
+            "{}: replay artifact '{}' targets '{}' instead of '{}'",
+            codes::runtime::REPLAY_BINDING_MISMATCH,
+            artifact_path.display(),
+            artifact.entry.source_file,
+            requested_file
+        )));
+    }
+    if artifact.entry.argv != args {
+        return Err(CliError::Runtime(format!(
+            "{}: replay artifact '{}' argv does not match this run",
+            codes::runtime::REPLAY_BINDING_MISMATCH,
+            artifact_path.display()
+        )));
+    }
+    if artifact.binding.fingerprint != expected_binding.fingerprint
+        || artifact.binding.modules != expected_binding.modules
+    {
+        return Err(CliError::Runtime(format!(
+            "{}: replay artifact '{}' does not match the current source graph",
+            codes::runtime::REPLAY_BINDING_MISMATCH,
+            artifact_path.display()
+        )));
+    }
+    if artifact.entry.source_file != expected_entry.source_file {
+        return Err(CliError::Runtime(format!(
+            "{}: replay artifact '{}' entry binding does not match the requested program",
+            codes::runtime::REPLAY_BINDING_MISMATCH,
+            artifact_path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn prepare_replay_mode(
+    file: &Path,
+    graph: &ModuleGraph,
+    record_path: Option<&Path>,
+    replay_path: Option<&Path>,
+    args: &[String],
+) -> Result<Option<PreparedReplayMode>, CliError> {
+    let (entry, binding) = build_replay_binding(file, graph, args)?;
+
+    if let Some(record_path) = record_path {
+        let artifact_file = resolve_run_artifact_path(record_path, true)?;
+        let config = json!({
+            "mode": "record",
+            "file": artifact_file.to_string_lossy(),
+            "entry": entry,
+            "binding": binding
+        });
+        return Ok(Some(PreparedReplayMode::Record {
+            artifact_file,
+            config,
+        }));
+    }
+
+    if let Some(replay_path) = replay_path {
+        let artifact_file = resolve_run_artifact_path(replay_path, false)?;
+        let artifact = read_replay_artifact(&artifact_file)?;
+        validate_replay_binding(file, args, &entry, &binding, &artifact, &artifact_file)?;
+        let config = json!({
+            "mode": "replay",
+            "file": artifact_file.to_string_lossy(),
+            "artifact": artifact
+        });
+        return Ok(Some(PreparedReplayMode::Replay {
+            artifact_file,
+            config,
+        }));
+    }
+
+    Ok(None)
+}
+
 fn read_runtime_exception_capture(path: &Path) -> Option<RuntimeExceptionCapture> {
     let contents = fs::read_to_string(path).ok();
     let _ = fs::remove_file(path);
@@ -2297,6 +2803,14 @@ fn read_runtime_exception_capture(path: &Path) -> Option<RuntimeExceptionCapture
 }
 
 fn read_runtime_trace_capture(path: Option<&Path>) -> Option<RuntimeTraceCapture> {
+    let path = path?;
+    let contents = fs::read_to_string(path).ok();
+    let _ = fs::remove_file(path);
+    let contents = contents?;
+    serde_json::from_str(&contents).ok()
+}
+
+fn read_runtime_replay_capture(path: Option<&Path>) -> Option<RuntimeReplayCapture> {
     let path = path?;
     let contents = fs::read_to_string(path).ok();
     let _ = fs::remove_file(path);
@@ -2327,6 +2841,32 @@ fn runtime_trace_json(trace_capture: Option<&RuntimeTraceCapture>) -> serde_json
     }
 }
 
+fn runtime_replay_json(
+    mode: Option<&str>,
+    artifact_file: Option<&Path>,
+    replay_capture: Option<&RuntimeReplayCapture>,
+) -> serde_json::Value {
+    match (mode, artifact_file, replay_capture) {
+        (Some(mode), Some(file), Some(capture)) => json!({
+            "mode": mode,
+            "file": file.to_string_lossy(),
+            "recordedEvents": capture.recorded_events,
+            "consumedEvents": capture.consumed_events,
+            "remainingEvents": capture.remaining_events,
+            "partial": capture.partial
+        }),
+        (Some(mode), Some(file), None) => json!({
+            "mode": mode,
+            "file": file.to_string_lossy(),
+            "recordedEvents": 0,
+            "consumedEvents": 0,
+            "remainingEvents": 0,
+            "partial": false
+        }),
+        _ => serde_json::Value::Null,
+    }
+}
+
 fn build_runtime_failure_output(
     file: &Path,
     run_target: &RunTarget,
@@ -2348,12 +2888,20 @@ fn build_runtime_failure_output(
     let trace = run_target
         .trace_enabled
         .then(|| runtime_trace_json(runtime_output.trace_capture.as_ref()));
+    let replay = run_target.replay_mode.as_ref().map(|mode| {
+        runtime_replay_json(
+            Some(mode.as_str()),
+            run_target.replay_file.as_deref(),
+            runtime_output.replay_capture.as_ref(),
+        )
+    });
 
     if let Some(capture) = &runtime_output.exception_capture {
         return build_runtime_exception_output(
             compile,
             runtime,
             trace,
+            replay,
             &run_target.module_debug_outputs,
             capture,
         );
@@ -2364,6 +2912,9 @@ fn build_runtime_failure_output(
     details.insert("runtime".to_string(), runtime);
     if let Some(trace) = trace {
         details.insert("trace".to_string(), trace);
+    }
+    if let Some(replay) = replay {
+        details.insert("replay".to_string(), replay);
     }
 
     json!({
@@ -2387,6 +2938,7 @@ fn build_runtime_exception_output(
     compile: serde_json::Value,
     runtime: serde_json::Value,
     trace: Option<serde_json::Value>,
+    replay: Option<serde_json::Value>,
     module_debug_outputs: &[RuntimeModuleDebugOutput],
     capture: &RuntimeExceptionCapture,
 ) -> serde_json::Value {
@@ -2404,6 +2956,9 @@ fn build_runtime_exception_output(
     details.insert("runtime".to_string(), runtime);
     if let Some(trace) = trace {
         details.insert("trace".to_string(), trace);
+    }
+    if let Some(replay) = replay {
+        details.insert("replay".to_string(), replay);
     }
     details.insert(
         "exception".to_string(),

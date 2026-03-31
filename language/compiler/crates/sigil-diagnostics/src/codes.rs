@@ -158,6 +158,9 @@ pub mod topology {
 /// Runtime error codes (SIGIL-RUNTIME-*, SIGIL-RUN-*)
 pub mod runtime {
     pub const CHILD_EXIT: &str = "SIGIL-RUNTIME-CHILD-EXIT";
+    pub const REPLAY_BINDING_MISMATCH: &str = "SIGIL-RUNTIME-REPLAY-BINDING-MISMATCH";
+    pub const REPLAY_DIVERGED: &str = "SIGIL-RUNTIME-REPLAY-DIVERGED";
+    pub const REPLAY_INVALID_ARTIFACT: &str = "SIGIL-RUNTIME-REPLAY-INVALID-ARTIFACT";
     pub const UNCAUGHT_EXCEPTION: &str = "SIGIL-RUNTIME-UNCAUGHT-EXCEPTION";
     pub const ENGINE_NOT_FOUND: &str = "SIGIL-RUN-ENGINE-NOT-FOUND";
 }
@@ -279,6 +282,9 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     topology::RAW_ENDPOINT_FORBIDDEN,
     // Runtime (3 codes)
     runtime::CHILD_EXIT,
+    runtime::REPLAY_BINDING_MISMATCH,
+    runtime::REPLAY_DIVERGED,
+    runtime::REPLAY_INVALID_ARTIFACT,
     runtime::UNCAUGHT_EXCEPTION,
     runtime::ENGINE_NOT_FOUND,
 ];
@@ -314,8 +320,8 @@ mod tests {
         // Keep this in sync when adding or removing diagnostic codes.
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            109,
-            "Expected 109 error codes, found {}",
+            112,
+            "Expected 112 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

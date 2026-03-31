@@ -17,6 +17,8 @@ Sigil CLI commands are machine-first. JSON is the default output mode for:
 - plain `sigil run <file>` emits structured JSON on failure
 - `sigil run --json <file>` emits the structured JSON envelope on both success and failure
 - `sigil run --json --trace <file>` adds a bounded inline execution trace to that envelope
+- `sigil run --json --record <artifact> <file>` adds replay recording metadata and writes a replay artifact
+- `sigil run --json --replay <artifact> <file>` replays a prior artifact and reports replay consumption metadata
 
 ## Canonical Schema
 
@@ -102,6 +104,13 @@ usual top-level diagnostic shape and may enrich `error.details` with:
   - `returnedEvents`
   - `droppedEvents`
   - `events`
+- optional `replay`
+  - `mode`
+  - `file`
+  - `recordedEvents`
+  - `consumedEvents`
+  - `remainingEvents`
+  - `partial`
 - `exception` for uncaught runtime exceptions
   - `name`
   - `message`
@@ -155,6 +164,43 @@ Events may also include:
 - it may include a tiny declaration-header excerpt
 - it does not yet promise exact nested-expression blame inside the declaration body
 
+## Run Replay Details
+
+`sigil run` now supports first-class record/replay:
+
+- `--record <artifact>` writes a standalone replay artifact file
+- `--replay <artifact>` reuses that artifact as the runtime world/effect source
+- `--record` and `--replay` are mutually exclusive
+- `--replay` cannot be combined with `--env`; the artifact owns replay-world resolution
+
+The inline `replay` block in the `run` envelope is intentionally small:
+
+- `mode`
+- `file`
+- `recordedEvents`
+- `consumedEvents`
+- `remainingEvents`
+- `partial`
+
+Current replay coverage in v1:
+
+- `random`
+- `timer` / `time.now`
+- `process`
+- `http`
+- `tcp`
+
+Replay artifacts are strict:
+
+- bound to the original entry file
+- bound to the original argv
+- bound to a source-graph fingerprint
+- consumed in exact recorded sequence
+
+Standalone replay artifact schema:
+
+- `language/spec/run-replay.schema.json`
+
 ## Inspect World Details
 
 `sigil inspect world <path> --env <name>` is project-env scoped.
@@ -185,8 +231,10 @@ The current implementation uses:
 - successful `compile` output reports `.span.json` sidecars via `rootSpanMap` and per-module `spanMapFile`
 - successful `run --json` output reports the entry module `.span.json` sidecar via `data.compile.spanMapFile`
 - successful `run --json --trace` output reports inline bounded trace events via `data.trace`
+- successful `run --json --record` and `run --json --replay` output may report inline replay summary data via `data.replay`
 - runtime `run` failures may include declaration-level `sigilFrame` and generated TypeScript `generatedFrame` context when an uncaught exception stack is available
 - traced `run` failures may include bounded inline trace events via `error.details.trace`
+- recorded or replayed `run` failures may include replay summary data via `error.details.replay`
 - `inspect types` is top-level declaration-focused in v1; it does not report nested expression types yet
 - `inspect validate` returns canonical printer output even when `validation.ok` is `false`, as long as lexing and parsing succeeded
 - `inspect world` is project-level in v1; it does not batch over directories or include test-local `world { ... }` overlays

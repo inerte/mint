@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sigil-lang.org/spec/run-replay.schema.json",
+  "title": "Sigil Run Replay Artifact",
+  "type": "object",
+  "required": ["formatVersion", "kind", "entry", "binding", "world", "summary", "events"],
+  "properties": {
+    "formatVersion": { "type": "integer", "const": 1 },
+    "kind": { "const": "sigilRunReplay" },
+    "entry": {
+      "type": "object",
+      "required": ["sourceFile", "argv"],
+      "properties": {
+        "sourceFile": { "type": "string" },
+        "argv": { "type": "array", "items": { "type": "string" } },
+        "projectRoot": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "binding": {
+      "type": "object",
+      "required": ["algorithm", "fingerprint", "modules"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "fingerprint": { "type": "string" },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["moduleId", "sourceFile", "sourceHash"],
+            "properties": {
+              "moduleId": { "type": "string" },
+              "sourceFile": { "type": "string" },
+              "sourceHash": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "world": {
+      "type": "object",
+      "required": ["normalizedWorld"],
+      "properties": {
+        "normalizedWorld": true,
+        "startedAtEpochMs": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 0 }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": ["failed", "recordedEvents", "effectCounts"],
+      "properties": {
+        "failed": { "type": "boolean" },
+        "recordedEvents": { "type": "integer", "minimum": 0 },
+        "effectCounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "family", "operation", "payload"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "family": { "type": "string" },
+          "operation": { "type": "string" },
+          "payload": true
+        },
+        "additionalProperties": false
+      }
+    },
+    "failure": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^SIGIL-[A-Z0-9-]+$" },
+        "message": { "type": "string" },
+        "stack": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

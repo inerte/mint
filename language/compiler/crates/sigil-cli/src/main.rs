@@ -83,6 +83,14 @@ enum Command {
         #[arg(long)]
         trace: bool,
 
+        /// Record replayable external effect activity to a file
+        #[arg(long, conflicts_with = "replay")]
+        record: Option<PathBuf>,
+
+        /// Replay a prior recorded run from a file
+        #[arg(long, conflicts_with = "record")]
+        replay: Option<PathBuf>,
+
         /// Runtime topology environment name (required for topology-aware projects)
         #[arg(long)]
         env: Option<String>,
@@ -215,9 +223,19 @@ fn main() {
             file,
             json,
             trace,
+            record,
+            replay,
             env,
             args,
-        } => run_command(&file, json, trace, env.as_deref(), &args),
+        } => run_command(
+            &file,
+            json,
+            trace,
+            record.as_deref(),
+            replay.as_deref(),
+            env.as_deref(),
+            &args,
+        ),
         Command::Test { path, env, r#match } => {
             test_command(&path, env.as_deref(), r#match.as_deref())
         }

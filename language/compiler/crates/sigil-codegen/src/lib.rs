@@ -41,6 +41,204 @@ function __sigil_world_clone(value) {
   }
   return JSON.parse(JSON.stringify(value));
 }
+const __sigil_replay_invalid_artifact_code = 'SIGIL-RUNTIME-REPLAY-INVALID-ARTIFACT';
+const __sigil_replay_diverged_code = 'SIGIL-RUNTIME-REPLAY-DIVERGED';
+function __sigil_replay_error(code, message) {
+  const error = new Error(`${String(code)}: ${String(message)}`);
+  error.sigilCode = String(code);
+  return error;
+}
+function __sigil_replay_throw(code, message) {
+  throw __sigil_replay_error(code, message);
+}
+function __sigil_replay_enabled() {
+  return (
+    !!globalThis.__sigil_replay_config &&
+    (globalThis.__sigil_replay_config.mode === 'record' ||
+      globalThis.__sigil_replay_config.mode === 'replay')
+  );
+}
+function __sigil_replay_state_init() {
+  const config = globalThis.__sigil_replay_config;
+  if (!config || typeof config !== 'object' || !config.mode) {
+    return null;
+  }
+  if (config.mode === 'record') {
+    return {
+      mode: 'record',
+      effectCounts: Object.create(null),
+      events: [],
+      failure: null,
+      nextHandleToken: 1,
+      nextSeq: 1,
+      startedAtEpochMs: Date.now(),
+      world: null
+    };
+  }
+  if (config.mode === 'replay') {
+    const artifact = config.artifact;
+    if (
+      !artifact ||
+      typeof artifact !== 'object' ||
+      artifact.kind !== 'sigilRunReplay' ||
+      artifact.formatVersion !== 1 ||
+      !Array.isArray(artifact.events)
+    ) {
+      __sigil_replay_throw(__sigil_replay_invalid_artifact_code, 'invalid replay artifact');
+    }
+    return {
+      mode: 'replay',
+      events: artifact.events,
+      nextIndex: 0,
+      totalEvents: artifact.events.length
+    };
+  }
+  return null;
+}
+function __sigil_replay_state() {
+  if (!__sigil_replay_enabled()) {
+    return null;
+  }
+  if (!globalThis.__sigil_replay_current || typeof globalThis.__sigil_replay_current !== 'object') {
+    globalThis.__sigil_replay_current = __sigil_replay_state_init();
+  }
+  return globalThis.__sigil_replay_current;
+}
+function __sigil_replay_record_world(template) {
+  const state = __sigil_replay_state();
+  if (!state || state.mode !== 'record' || state.world !== null) {
+    return;
+  }
+  state.world = __sigil_world_clone(template);
+}
+function __sigil_replay_increment_count(state, family) {
+  state.effectCounts[family] = Number(state.effectCounts[family] ?? 0) + 1;
+}
+function __sigil_replay_record_event(family, operation, payload) {
+  const state = __sigil_replay_state();
+  if (!state || state.mode !== 'record') {
+    return;
+  }
+  const event = {
+    family: String(family),
+    operation: String(operation),
+    payload: __sigil_world_clone(payload),
+    seq: Number(state.nextSeq)
+  };
+  state.nextSeq += 1;
+  state.events.push(event);
+  __sigil_replay_increment_count(state, event.family);
+}
+function __sigil_replay_take_event(family, operation) {
+  const state = __sigil_replay_state();
+  if (!state || state.mode !== 'replay') {
+    return { active: false, payload: null };
+  }
+  const event = state.events[state.nextIndex];
+  if (!event) {
+    __sigil_replay_throw(
+      __sigil_replay_diverged_code,
+      `replay exhausted before ${String(family)}.${String(operation)}`
+    );
+  }
+  if (event.family !== family || event.operation !== operation) {
+    __sigil_replay_throw(
+      __sigil_replay_diverged_code,
+      `replay diverged at ${String(family)}.${String(operation)}`
+    );
+  }
+  state.nextIndex += 1;
+  return { active: true, payload: __sigil_world_clone(event.payload) };
+}
+function __sigil_replay_next_handle_token() {
+  const state = __sigil_replay_state();
+  if (!state || state.mode !== 'record') {
+    return null;
+  }
+  const token = `h${state.nextHandleToken}`;
+  state.nextHandleToken += 1;
+  return token;
+}
+function __sigil_replay_require_handle_token(expectedToken, actualToken, operation) {
+  const expected = expectedToken == null ? null : String(expectedToken);
+  const actual = actualToken == null ? null : String(actualToken);
+  if (expected !== actual) {
+    __sigil_replay_throw(
+      __sigil_replay_diverged_code,
+      `replay handle mismatch during process.${String(operation)}`
+    );
+  }
+}
+function __sigil_replay_record_failure(code, message, stack) {
+  const state = __sigil_replay_state();
+  if (!state || state.mode !== 'record') {
+    return;
+  }
+  state.failure = {
+    code: String(code ?? 'SIGIL-RUNTIME-UNCAUGHT-EXCEPTION'),
+    message: String(message ?? ''),
+    stack: typeof stack === 'string' && stack ? stack : null
+  };
+}
+function __sigil_replay_snapshot() {
+  const config = globalThis.__sigil_replay_config ?? {};
+  const state = __sigil_replay_state();
+  if (!state) {
+    return {
+      mode: String(config.mode ?? ''),
+      file: String(config.file ?? ''),
+      recordedEvents: 0,
+      consumedEvents: 0,
+      remainingEvents: 0,
+      partial: false
+    };
+  }
+  if (state.mode === 'record') {
+    return {
+      mode: 'record',
+      file: String(config.file ?? ''),
+      recordedEvents: state.events.length,
+      consumedEvents: 0,
+      remainingEvents: 0,
+      partial: !!state.failure
+    };
+  }
+  return {
+    mode: 'replay',
+    file: String(config.file ?? ''),
+    recordedEvents: Number(state.totalEvents ?? 0),
+    consumedEvents: Number(state.nextIndex ?? 0),
+    remainingEvents: Math.max(0, Number(state.totalEvents ?? 0) - Number(state.nextIndex ?? 0)),
+    partial: false
+  };
+}
+function __sigil_replay_artifact() {
+  const config = globalThis.__sigil_replay_config ?? {};
+  const state = __sigil_replay_state();
+  if (!state || state.mode !== 'record') {
+    return null;
+  }
+  return {
+    formatVersion: 1,
+    kind: 'sigilRunReplay',
+    entry: __sigil_world_clone(config.entry ?? { sourceFile: '', argv: [] }),
+    binding: __sigil_world_clone(config.binding ?? { algorithm: 'sha256', fingerprint: '', modules: [] }),
+    world: {
+      normalizedWorld: state.world === null ? null : __sigil_world_clone(state.world),
+      startedAtEpochMs: Number.isFinite(state.startedAtEpochMs) ? Number(state.startedAtEpochMs) : null
+    },
+    summary: {
+      failed: !!state.failure,
+      recordedEvents: state.events.length,
+      effectCounts: __sigil_world_clone(state.effectCounts)
+    },
+    events: __sigil_world_clone(state.events),
+    failure: state.failure ? __sigil_world_clone(state.failure) : undefined
+  };
+}
+globalThis.__sigil_replay_snapshot = __sigil_replay_snapshot;
+globalThis.__sigil_replay_artifact = __sigil_replay_artifact;
+globalThis.__sigil_replay_record_failure = __sigil_replay_record_failure;
 function __sigil_world_host_template() {
   return {
     clock: { kind: 'system' },
@@ -319,13 +517,23 @@ function __sigil_world_base_template() {
   if (globalThis.__sigil_world_template_cache) {
     return globalThis.__sigil_world_template_cache;
   }
-  const template = globalThis.__sigil_world_value
-    ? __sigil_world_prepare_template(
-        globalThis.__sigil_world_value,
-        globalThis.__sigil_topology_exports ?? null,
-        globalThis.__sigil_world_env_name ?? null
-      )
-    : __sigil_world_host_template();
+  let template;
+  if (globalThis.__sigil_replay_config?.mode === 'replay') {
+    const replayWorld = globalThis.__sigil_replay_config?.artifact?.world?.normalizedWorld;
+    if (replayWorld == null) {
+      __sigil_replay_throw(__sigil_replay_invalid_artifact_code, 'replay artifact is missing normalizedWorld');
+    }
+    template = __sigil_world_clone(replayWorld);
+  } else {
+    template = globalThis.__sigil_world_value
+      ? __sigil_world_prepare_template(
+          globalThis.__sigil_world_value,
+          globalThis.__sigil_topology_exports ?? null,
+          globalThis.__sigil_world_env_name ?? null
+        )
+      : __sigil_world_host_template();
+  }
+  __sigil_replay_record_world(template);
   globalThis.__sigil_world_template_cache = template;
   return template;
 }
@@ -475,13 +683,22 @@ function __sigil_world_random_next_int(world) {
   return Math.floor(Math.random() * 2147483646) + 1;
 }
 function __sigil_world_random_int_between(left, right) {
+  const replay = __sigil_replay_take_event('random', 'intBetween');
+  if (replay.active) {
+    return Number(replay.payload?.result ?? 0);
+  }
   const world = __sigil_current_world();
   const min = Math.min(Math.trunc(Number(left)), Math.trunc(Number(right)));
   const max = Math.max(Math.trunc(Number(left)), Math.trunc(Number(right)));
   const width = max - min + 1;
   const raw = __sigil_world_random_next_int(world);
   const offset = ((raw % width) + width) % width;
-  return min + offset;
+  const result = min + offset;
+  __sigil_replay_record_event('random', 'intBetween', {
+    args: [Math.trunc(Number(left)), Math.trunc(Number(right))],
+    result
+  });
+  return result;
 }
 function __sigil_world_random_pick(items) {
   if (!Array.isArray(items) || items.length === 0) {
@@ -561,6 +778,9 @@ function __sigil_world_timer_trace(world, ms) {
 }
 async function __sigil_world_file_resolved_path(pathValue) {
   const path = await import('node:path');
+  if (globalThis.__sigil_replay_config?.mode === 'replay') {
+    __sigil_replay_throw(__sigil_replay_diverged_code, 'filesystem effects are not replayable in v1');
+  }
   const world = __sigil_current_world();
   const raw = String(pathValue ?? '');
   if (world.fs.kind === 'deny') {
@@ -678,9 +898,19 @@ function __sigil_world_log_warn(message) {
   return null;
 }
 function __sigil_world_time_now_instant() {
-  return { epochMillis: __sigil_world_now_ms(__sigil_current_world()) };
+  const replay = __sigil_replay_take_event('timer', 'nowInstant');
+  if (replay.active) {
+    return replay.payload?.result ?? { epochMillis: 0 };
+  }
+  const result = { epochMillis: __sigil_world_now_ms(__sigil_current_world()) };
+  __sigil_replay_record_event('timer', 'nowInstant', { result });
+  return result;
 }
 async function __sigil_world_timer_sleep(ms) {
+  const replay = __sigil_replay_take_event('timer', 'sleepMs');
+  if (replay.active) {
+    return replay.payload?.result ?? null;
+  }
   const world = __sigil_current_world();
   const delay = Math.max(0, Number(ms));
   __sigil_world_timer_trace(world, delay);
@@ -689,77 +919,154 @@ async function __sigil_world_timer_sleep(ms) {
     if (world.clock.kind === 'fixed') {
       world.clock.millis = world.timer.nowMs;
     }
+    __sigil_replay_record_event('timer', 'sleepMs', { delay, result: null });
     return null;
   }
-  return await __sigil_sleep(delay);
+  const result = await __sigil_sleep(delay);
+  __sigil_replay_record_event('timer', 'sleepMs', { delay, result });
+  return result;
 }
 async function __sigil_world_process_argv() {
   return process.argv.slice(2);
 }
 async function __sigil_world_process_exit(code) {
+  const replay = __sigil_replay_take_event('process', 'exit');
+  if (replay.active) {
+    if (replay.payload?.exited) {
+      process.exit(Number(replay.payload.code ?? code));
+    }
+    return replay.payload?.result ?? null;
+  }
   const world = __sigil_current_world();
   if (world.process.kind === 'deny') {
     __sigil_world_process_trace(world, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
+    __sigil_replay_record_event('process', 'exit', { code: Number(code), exited: false, result: null });
     return null;
   }
   if (world.process.kind === 'fixture') {
     __sigil_world_process_trace(world, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
+    __sigil_replay_record_event('process', 'exit', { code: Number(code), exited: false, result: null });
     return null;
   }
+  __sigil_replay_record_event('process', 'exit', { code: Number(code), exited: true, result: null });
+  __sigil_replay_record_failure('SIGIL-RUNTIME-CHILD-EXIT', `process exited with code ${Number(code)}`, null);
   process.exit(Number(code));
   return null;
 }
 async function __sigil_world_process_spawn(command) {
+  const replay = __sigil_replay_take_event('process', 'spawn');
+  if (replay.active) {
+    return replay.payload?.handle ?? { pid: -1 };
+  }
   const world = __sigil_current_world();
   __sigil_world_process_trace(world, command);
   if (world.process.kind === 'deny') {
-    return { pid: -1 };
+    const handle = { pid: -1 };
+    const token = __sigil_replay_next_handle_token();
+    if (token) handle.__sigil_replay_token = token;
+    __sigil_replay_record_event('process', 'spawn', { command, handle, token });
+    return handle;
   }
   if (world.process.kind === 'fixture') {
-    return { pid: -1, __sigil_fixture_result: __sigil_world_process_fixture_result(world, command) };
+    const handle = { pid: -1, __sigil_fixture_result: __sigil_world_process_fixture_result(world, command) };
+    const token = __sigil_replay_next_handle_token();
+    if (token) handle.__sigil_replay_token = token;
+    __sigil_replay_record_event('process', 'spawn', { command, handle, token });
+    return handle;
   }
-  return await __sigil_process_spawn(command);
+  const handle = await __sigil_process_spawn(command);
+  const token = __sigil_replay_next_handle_token();
+  if (token && handle && typeof handle === 'object') {
+    handle.__sigil_replay_token = token;
+  }
+  __sigil_replay_record_event('process', 'spawn', { command, handle, token });
+  return handle;
 }
 async function __sigil_world_process_wait(processHandle) {
-  const world = __sigil_current_world();
-  if (world.process.kind === 'deny') {
-    return __sigil_process_result(-1, 'process denied by current world', '');
+  const replay = __sigil_replay_take_event('process', 'wait');
+  if (replay.active) {
+    __sigil_replay_require_handle_token(
+      replay.payload?.token ?? null,
+      processHandle?.__sigil_replay_token ?? null,
+      'wait'
+    );
+    return replay.payload?.result ?? __sigil_process_result(-1, 'missing replay process result', '');
   }
-  if (world.process.kind === 'fixture') {
-    return __sigil_world_clone(
+  const world = __sigil_current_world();
+  let result;
+  if (world.process.kind === 'deny') {
+    result = __sigil_process_result(-1, 'process denied by current world', '');
+  } else if (world.process.kind === 'fixture') {
+    result = __sigil_world_clone(
       processHandle?.__sigil_fixture_result ?? {
         code: -1,
         stderr: 'missing process fixture result',
         stdout: ''
       }
     );
+  } else {
+    result = await __sigil_process_wait(processHandle);
   }
-  return await __sigil_process_wait(processHandle);
+  __sigil_replay_record_event('process', 'wait', {
+    token: processHandle?.__sigil_replay_token ?? null,
+    result
+  });
+  return result;
 }
 async function __sigil_world_process_run(command) {
   const handle = await __sigil_world_process_spawn(command);
   return await __sigil_world_process_wait(handle);
 }
 async function __sigil_world_process_kill(processHandle) {
+  const replay = __sigil_replay_take_event('process', 'kill');
+  if (replay.active) {
+    __sigil_replay_require_handle_token(
+      replay.payload?.token ?? null,
+      processHandle?.__sigil_replay_token ?? null,
+      'kill'
+    );
+    return replay.payload?.result ?? null;
+  }
   const world = __sigil_current_world();
   if (world.process.kind === 'deny') {
+    __sigil_replay_record_event('process', 'kill', {
+      token: processHandle?.__sigil_replay_token ?? null,
+      result: null
+    });
     return null;
   }
   if (world.process.kind === 'fixture') {
+    __sigil_replay_record_event('process', 'kill', {
+      token: processHandle?.__sigil_replay_token ?? null,
+      result: null
+    });
     return null;
   }
-  return await __sigil_process_kill(processHandle);
+  const result = await __sigil_process_kill(processHandle);
+  __sigil_replay_record_event('process', 'kill', {
+    token: processHandle?.__sigil_replay_token ?? null,
+    result
+  });
+  return result;
 }
 async function __sigil_world_http_request(request) {
   const world = __sigil_current_world();
   const dependencyName = String(request?.dependency?.__fields?.[0] ?? '');
+  const replay = __sigil_replay_take_event('http', 'request');
+  if (replay.active) {
+    return replay.payload?.result ?? { __tag: 'Err', __fields: [__sigil_http_error('Network', 'missing replay HTTP result')] };
+  }
   const entry = world.http[dependencyName];
   if (!entry) {
-    return { __tag: 'Err', __fields: [__sigil_http_error('Topology', `missing HTTP world entry for '${dependencyName}'`)] };
+    const result = { __tag: 'Err', __fields: [__sigil_http_error('Topology', `missing HTTP world entry for '${dependencyName}'`)] };
+    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    return result;
   }
   __sigil_world_http_trace(world, dependencyName, request);
   if (entry.kind === 'deny') {
-    return { __tag: 'Err', __fields: [__sigil_http_error('Topology', `HTTP dependency '${dependencyName}' is denied by the current world`)] };
+    const result = { __tag: 'Err', __fields: [__sigil_http_error('Topology', `HTTP dependency '${dependencyName}' is denied by the current world`)] };
+    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    return result;
   }
   if (entry.kind === 'fixture') {
     const method = __sigil_http_method_to_string(request?.method);
@@ -771,12 +1078,16 @@ async function __sigil_world_http_request(request) {
       (candidate.bodyMatch.kind === 'any' || body.includes(candidate.bodyMatch.fragment))
     );
     if (!rule) {
-      return { __tag: 'Err', __fields: [__sigil_http_error('Network', `no HTTP fixture matched ${method} ${path} for '${dependencyName}'`)] };
+      const result = { __tag: 'Err', __fields: [__sigil_http_error('Network', `no HTTP fixture matched ${method} ${path} for '${dependencyName}'`)] };
+      __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+      return result;
     }
     if (rule.response.kind === 'timeout') {
-      return { __tag: 'Err', __fields: [__sigil_http_error('Timeout', `HTTP fixture timed out for '${dependencyName}'`)] };
+      const result = { __tag: 'Err', __fields: [__sigil_http_error('Timeout', `HTTP fixture timed out for '${dependencyName}'`)] };
+      __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+      return result;
     }
-    return {
+    const result = {
       __tag: 'Ok',
       __fields: [{
         body: rule.response.body,
@@ -785,6 +1096,8 @@ async function __sigil_world_http_request(request) {
         url: `fixture://${dependencyName}${path}`
       }]
     };
+    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    return result;
   }
   try {
     const parsed = new URL(String(request?.path ?? '/'), entry.baseUrl);
@@ -794,33 +1107,51 @@ async function __sigil_world_http_request(request) {
     }
     const response = await fetch(parsed, init);
     const body = await response.text();
-    return { __tag: 'Ok', __fields: [{ body, headers: __sigil_http_headers_from_web(response.headers), status: response.status, url: response.url }] };
+    const result = { __tag: 'Ok', __fields: [{ body, headers: __sigil_http_headers_from_web(response.headers), status: response.status, url: response.url }] };
+    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { __tag: 'Err', __fields: [__sigil_http_error(message.includes('Invalid URL') ? 'InvalidUrl' : 'Network', message)] };
+    const result = { __tag: 'Err', __fields: [__sigil_http_error(message.includes('Invalid URL') ? 'InvalidUrl' : 'Network', message)] };
+    __sigil_replay_record_event('http', 'request', { dependencyName, request, result });
+    return result;
   }
 }
 async function __sigil_world_tcp_request(request) {
   const world = __sigil_current_world();
   const dependencyName = String(request?.dependency?.__fields?.[0] ?? '');
+  const replay = __sigil_replay_take_event('tcp', 'request');
+  if (replay.active) {
+    return replay.payload?.result ?? { __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', 'missing replay TCP result')] };
+  }
   const entry = world.tcp[dependencyName];
   if (!entry) {
-    return { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', `missing TCP world entry for '${dependencyName}'`)] };
+    const result = { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', `missing TCP world entry for '${dependencyName}'`)] };
+    __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+    return result;
   }
   __sigil_world_tcp_trace(world, dependencyName, request?.message ?? '');
   if (entry.kind === 'deny') {
-    return { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', `TCP dependency '${dependencyName}' is denied by the current world`)] };
+    const result = { __tag: 'Err', __fields: [__sigil_tcp_error('Topology', `TCP dependency '${dependencyName}' is denied by the current world`)] };
+    __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+    return result;
   }
   if (entry.kind === 'fixture') {
     const message = String(request?.message ?? '');
     const rule = entry.rules.find((candidate) => candidate.request === message);
     if (!rule) {
-      return { __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', `no TCP fixture matched '${message}' for '${dependencyName}'`)] };
+      const result = { __tag: 'Err', __fields: [__sigil_tcp_error('Protocol', `no TCP fixture matched '${message}' for '${dependencyName}'`)] };
+      __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+      return result;
     }
     if (rule.response.kind === 'timeout') {
-      return { __tag: 'Err', __fields: [__sigil_tcp_error('Timeout', `TCP fixture timed out for '${dependencyName}'`)] };
+      const result = { __tag: 'Err', __fields: [__sigil_tcp_error('Timeout', `TCP fixture timed out for '${dependencyName}'`)] };
+      __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+      return result;
     }
-    return { __tag: 'Ok', __fields: [{ message: rule.response.body }] };
+    const result = { __tag: 'Ok', __fields: [{ message: rule.response.body }] };
+    __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result });
+    return result;
   }
   const { Socket } = await import('node:net');
   return await new Promise((resolve) => {
@@ -831,6 +1162,7 @@ async function __sigil_world_tcp_request(request) {
       if (settled) return;
       settled = true;
       socket.destroy();
+      __sigil_replay_record_event('tcp', 'request', { dependencyName, request, result: value });
       resolve(value);
     };
     socket.setEncoding('utf8');

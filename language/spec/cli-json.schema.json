@@ -10,6 +10,7 @@
     { "$ref": "#/$defs/compileEnvelope" },
     { "$ref": "#/$defs/inspectTypesEnvelope" },
     { "$ref": "#/$defs/inspectValidateEnvelope" },
+    { "$ref": "#/$defs/inspectWorldEnvelope" },
     { "$ref": "#/$defs/runEnvelope" },
     { "$ref": "#/$defs/testEnvelope" }
   ],
@@ -722,6 +723,19 @@
       },
       "additionalProperties": false
     },
+    "runReplay": {
+      "type": "object",
+      "required": ["mode", "file", "recordedEvents", "consumedEvents", "remainingEvents", "partial"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["record", "replay"] },
+        "file": { "type": "string" },
+        "recordedEvents": { "type": "integer", "minimum": 0 },
+        "consumedEvents": { "type": "integer", "minimum": 0 },
+        "remainingEvents": { "type": "integer", "minimum": 0 },
+        "partial": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
     "runSigilFrame": {
       "type": "object",
       "required": ["spanId", "kind", "file", "location"],
@@ -754,6 +768,7 @@
         "compile": { "$ref": "#/$defs/runCompileInfo" },
         "runtime": { "$ref": "#/$defs/runRuntimeInfo" },
         "trace": { "$ref": "#/$defs/runTrace" },
+        "replay": { "$ref": "#/$defs/runReplay" },
         "exception": { "$ref": "#/$defs/runExceptionDetails" }
       },
       "additionalProperties": false
@@ -764,7 +779,8 @@
       "properties": {
         "compile": { "$ref": "#/$defs/runCompileInfo" },
         "runtime": { "$ref": "#/$defs/runRuntimeInfo" },
-        "trace": { "$ref": "#/$defs/runTrace" }
+        "trace": { "$ref": "#/$defs/runTrace" },
+        "replay": { "$ref": "#/$defs/runReplay" }
       },
       "additionalProperties": false
     },

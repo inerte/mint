@@ -1197,7 +1197,7 @@ fn inspect_codegen_single_file_command(file: &Path) -> Result<(), CliError> {
             return Err(CliError::Reported(1));
         }
     };
-    let generated = match generate_module_graph_outputs(&graph, None, false, false) {
+    let generated = match generate_module_graph_outputs(&graph, None, false, false, false) {
         Ok(generated) => generated,
         Err(error) => {
             output_inspect_error(
@@ -1304,7 +1304,7 @@ fn inspect_codegen_directory_command(
                 return Err(CliError::Reported(1));
             }
         };
-        let generated = match generate_module_graph_outputs(&graph, None, false, false) {
+        let generated = match generate_module_graph_outputs(&graph, None, false, false, false) {
             Ok(generated) => generated,
             Err(error) => {
                 let mut extra = serde_json::Map::new();
@@ -1883,7 +1883,7 @@ fn compile_group(group: &CompileBatchGroup) -> Result<CompileBatchOutputs, CliEr
         })
         .collect::<Result<Vec<_>, CliError>>()?;
 
-    let compiled = compile_module_graph(graph, None, false, false)?;
+    let compiled = compile_module_graph(graph, None, false, false, false)?;
     let entries = entry_modules
         .into_iter()
         .map(|(input, module_id, project_root)| {
@@ -1967,7 +1967,7 @@ fn compile_single_file_command(
         .collect::<Vec<_>>();
     let project_json = project_json(entry_module.project.as_ref());
 
-    let compiled = match compile_module_graph(graph, output, false, false) {
+    let compiled = match compile_module_graph(graph, output, false, false, false) {
         Ok(compiled) => compiled,
         Err(CliError::Type(type_error)) => {
             output_json_error(
@@ -2172,6 +2172,7 @@ pub fn run_command(
     file: &Path,
     json_output: bool,
     trace_output: bool,
+    trace_expr_output: bool,
     breakpoint_lines: &[String],
     breakpoint_functions: &[String],
     breakpoint_spans: &[String],
@@ -2196,6 +2197,22 @@ pub fn run_command(
                 "file": file.to_string_lossy(),
                 "option": "--trace",
                 "requires": "--json"
+            }),
+            true,
+        );
+        return Err(CliError::Reported(1));
+    }
+
+    if trace_expr_output && (!trace_output || !json_output) {
+        output_json_error_to(
+            "sigilc run",
+            "cli",
+            codes::cli::USAGE,
+            "`--trace-expr` requires `--trace` and `--json`",
+            json!({
+                "file": file.to_string_lossy(),
+                "option": "--trace-expr",
+                "requires": ["--trace", "--json"]
             }),
             true,
         );
@@ -2254,6 +2271,7 @@ pub fn run_command(
         file,
         selected_env,
         trace_output,
+        trace_expr_output,
         breakpoints_requested,
         breakpoint_lines,
         breakpoint_functions,
@@ -2427,6 +2445,8 @@ struct RuntimeExceptionCapture {
     stack: String,
     #[serde(default)]
     sigil_code: Option<String>,
+    #[serde(default)]
+    expression: Option<RuntimeExpressionCapture>,
 }
 
 struct RuntimeOutput {
@@ -2487,6 +2507,8 @@ struct RuntimeBreakpointHitCapture {
     source_file: String,
     span_id: String,
     #[serde(default)]
+    span_kind: Option<String>,
+    #[serde(default)]
     declaration_kind: Option<String>,
     #[serde(default)]
     declaration_label: Option<String>,
@@ -2496,6 +2518,28 @@ struct RuntimeBreakpointHitCapture {
     stack: Vec<RuntimeBreakpointFrameCapture>,
     #[serde(default)]
     recent_trace: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeExpressionCapture {
+    module_id: String,
+    source_file: String,
+    span_id: String,
+    #[serde(default)]
+    span_kind: Option<String>,
+    #[serde(default)]
+    declaration_kind: Option<String>,
+    #[serde(default)]
+    declaration_label: Option<String>,
+    #[serde(default)]
+    value: Option<serde_json::Value>,
+    #[serde(default)]
+    error: Option<serde_json::Value>,
+    #[serde(default)]
+    locals: Vec<RuntimeBreakpointLocalCapture>,
+    #[serde(default)]
+    stack: Vec<RuntimeBreakpointFrameCapture>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -2836,6 +2880,7 @@ fn build_run_target(
     file: &Path,
     selected_env: Option<&str>,
     trace_enabled: bool,
+    trace_expr_enabled: bool,
     breakpoints_requested: bool,
     breakpoint_lines: &[String],
     breakpoint_functions: &[String],
@@ -2856,8 +2901,8 @@ fn build_run_target(
     } else {
         runner_prelude(file, &graph, selected_env)?.unwrap_or_default()
     };
-    let debug_enabled = trace_enabled || breakpoints_requested;
-    let compiled = compile_module_graph(graph, None, trace_enabled, breakpoints_requested)?;
+    let trace_runtime_enabled = trace_enabled || breakpoints_requested;
+    let compiled = compile_module_graph(graph, None, trace_enabled, breakpoints_requested, true)?;
     let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
     let breakpoint_config = resolve_breakpoint_config(
         file,
@@ -2897,8 +2942,11 @@ fn build_run_target(
     } else {
         String::new()
     };
-    let trace_config = if debug_enabled {
-        "globalThis.__sigil_trace_config = { enabled: true, maxEvents: 256 };\nglobalThis.__sigil_trace_current = undefined;".to_string()
+    let trace_config = if trace_runtime_enabled {
+        format!(
+            "globalThis.__sigil_trace_config = {{ enabled: true, maxEvents: 256, expressions: {} }};\nglobalThis.__sigil_trace_current = undefined;",
+            if trace_expr_enabled { "true" } else { "false" }
+        )
     } else {
         String::new()
     };
@@ -3151,6 +3199,17 @@ function __sigil_runtime_exception_stack(error) {{
   return '';
 }}
 
+function __sigil_runtime_expression_payload() {{
+  if (typeof globalThis.__sigil_expression_exception_payload === 'function') {{
+    try {{
+      return globalThis.__sigil_expression_exception_payload();
+    }} catch (_captureExpressionError) {{
+      return null;
+    }}
+  }}
+  return null;
+}}
+
 async function __sigil_runtime_capture_error(error) {{
   const sigilCode =
     error && typeof error === 'object' && 'sigilCode' in error && error.sigilCode != null
@@ -3160,6 +3219,7 @@ async function __sigil_runtime_capture_error(error) {{
     message: __sigil_runtime_exception_message(error),
     name: __sigil_runtime_exception_name(error),
     sigilCode,
+    expression: __sigil_runtime_expression_payload(),
     stack: __sigil_runtime_exception_stack(error)
   }};
   try {{
@@ -3386,9 +3446,16 @@ struct MappedSigilFrame {
 }
 
 #[derive(Debug, Clone)]
+struct MappedSigilExpression {
+    span: DebugSpanRecord,
+    capture: RuntimeExpressionCapture,
+}
+
+#[derive(Debug, Clone)]
 struct RuntimeExceptionAnalysis {
     generated_frame: Option<ParsedGeneratedFrame>,
     sigil_frame: Option<MappedSigilFrame>,
+    sigil_expression: Option<MappedSigilExpression>,
 }
 
 fn build_runtime_module_debug_outputs(
@@ -3839,6 +3906,7 @@ fn runtime_breakpoint_hit_json(
         "moduleId": hit.module_id,
         "sourceFile": hit.source_file,
         "spanId": hit.span_id,
+        "spanKind": hit.span_kind,
         "declarationKind": hit.declaration_kind,
         "declarationLabel": hit.declaration_label,
         "location": location,
@@ -4003,7 +4071,12 @@ fn build_runtime_exception_output(
     }
     details.insert(
         "exception".to_string(),
-        runtime_exception_json(capture, &normalized_message, &analysis),
+        runtime_exception_json(
+            capture,
+            &normalized_message,
+            &analysis,
+            module_debug_outputs,
+        ),
     );
 
     let mut error = serde_json::Map::new();
@@ -4011,7 +4084,12 @@ fn build_runtime_exception_output(
     error.insert("phase".to_string(), json!(phase));
     error.insert("message".to_string(), json!(normalized_message));
     error.insert("details".to_string(), serde_json::Value::Object(details));
-    if let Some(sigil_frame) = &analysis.sigil_frame {
+    if let Some(sigil_expression) = &analysis.sigil_expression {
+        error.insert(
+            "location".to_string(),
+            serde_json::to_value(&sigil_expression.span.location).unwrap(),
+        );
+    } else if let Some(sigil_frame) = &analysis.sigil_frame {
         error.insert(
             "location".to_string(),
             serde_json::to_value(&sigil_frame.span.location).unwrap(),
@@ -4050,6 +4128,7 @@ fn runtime_exception_capture_from_stderr(stderr: &str) -> Option<RuntimeExceptio
         message,
         stack: stack.to_string(),
         sigil_code,
+        expression: None,
     })
 }
 
@@ -4078,6 +4157,7 @@ fn runtime_exception_json(
     capture: &RuntimeExceptionCapture,
     normalized_message: &str,
     analysis: &RuntimeExceptionAnalysis,
+    module_debug_outputs: &[RuntimeModuleDebugOutput],
 ) -> serde_json::Value {
     let mut exception = serde_json::Map::new();
     exception.insert("name".to_string(), json!(capture.name));
@@ -4123,6 +4203,53 @@ fn runtime_exception_json(
         exception.insert("sigilFrame".to_string(), serde_json::Value::Object(frame));
     }
 
+    if let Some(sigil_expression) = &analysis.sigil_expression {
+        let mut expression = serde_json::Map::new();
+        expression.insert("spanId".to_string(), json!(sigil_expression.span.span_id));
+        expression.insert(
+            "kind".to_string(),
+            serde_json::to_value(&sigil_expression.span.kind).unwrap(),
+        );
+        expression.insert("file".to_string(), json!(sigil_expression.span.source_file));
+        expression.insert(
+            "location".to_string(),
+            serde_json::to_value(&sigil_expression.span.location).unwrap(),
+        );
+        expression.insert(
+            "declarationKind".to_string(),
+            json!(sigil_expression.capture.declaration_kind),
+        );
+        expression.insert(
+            "declarationLabel".to_string(),
+            json!(sigil_expression.capture.declaration_label),
+        );
+        if let Some(value) = &sigil_expression.capture.value {
+            expression.insert("value".to_string(), value.clone());
+        }
+        if let Some(error) = &sigil_expression.capture.error {
+            expression.insert("error".to_string(), error.clone());
+        }
+        expression.insert(
+            "locals".to_string(),
+            serde_json::to_value(&sigil_expression.capture.locals).unwrap(),
+        );
+        expression.insert(
+            "stack".to_string(),
+            serde_json::Value::Array(
+                sigil_expression
+                    .capture
+                    .stack
+                    .iter()
+                    .map(|frame| runtime_breakpoint_frame_json(frame, module_debug_outputs))
+                    .collect(),
+            ),
+        );
+        exception.insert(
+            "sigilExpression".to_string(),
+            serde_json::Value::Object(expression),
+        );
+    }
+
     serde_json::Value::Object(exception)
 }
 
@@ -4130,18 +4257,24 @@ fn analyze_runtime_exception(
     capture: &RuntimeExceptionCapture,
     module_debug_outputs: &[RuntimeModuleDebugOutput],
 ) -> RuntimeExceptionAnalysis {
+    let sigil_expression = capture
+        .expression
+        .as_ref()
+        .and_then(|expression| map_runtime_expression_to_sigil(expression, module_debug_outputs));
     let frames = parse_generated_stack_frames(&capture.stack);
     for frame in &frames {
         if let Some(sigil_frame) = map_generated_frame_to_sigil(frame, module_debug_outputs) {
             return RuntimeExceptionAnalysis {
                 generated_frame: Some(frame.clone()),
                 sigil_frame: Some(sigil_frame),
+                sigil_expression,
             };
         }
     }
 
     RuntimeExceptionAnalysis {
         generated_frame: frames.into_iter().next(),
+        sigil_expression,
         sigil_frame: None,
     }
 }
@@ -4220,6 +4353,17 @@ fn map_generated_frame_to_sigil(
     Some(MappedSigilFrame {
         excerpt: declaration_excerpt(&span),
         span,
+    })
+}
+
+fn map_runtime_expression_to_sigil(
+    capture: &RuntimeExpressionCapture,
+    module_debug_outputs: &[RuntimeModuleDebugOutput],
+) -> Option<MappedSigilExpression> {
+    let span = find_debug_span(module_debug_outputs, &capture.module_id, &capture.span_id)?.clone();
+    Some(MappedSigilExpression {
+        span,
+        capture: capture.clone(),
     })
 }
 
@@ -4895,6 +5039,7 @@ fn generate_module_graph_outputs(
     output_override: Option<&Path>,
     trace: bool,
     breakpoints: bool,
+    expression_debug: bool,
 ) -> Result<GeneratedGraphOutputs, CliError> {
     let analyzed = analyze_module_graph(graph)?;
     let entry_module_id = graph
@@ -4924,6 +5069,7 @@ fn generate_module_graph_outputs(
             output_file: Some(output_path.to_string_lossy().to_string()),
             trace,
             breakpoints,
+            expression_debug,
         };
         let mut codegen = TypeScriptGenerator::new(codegen_options);
         let ts_code = codegen
@@ -4966,8 +5112,15 @@ fn compile_module_graph(
     output_override: Option<&Path>,
     trace: bool,
     breakpoints: bool,
+    expression_debug: bool,
 ) -> Result<CompiledGraphOutputs, CliError> {
-    let generated = generate_module_graph_outputs(&graph, output_override, trace, breakpoints)?;
+    let generated = generate_module_graph_outputs(
+        &graph,
+        output_override,
+        trace,
+        breakpoints,
+        expression_debug,
+    )?;
     let mut module_outputs = HashMap::new();
     let mut span_map_outputs = HashMap::new();
     for (module_id, generated_output) in generated.module_outputs {
@@ -5020,7 +5173,7 @@ fn compile_topology_module(project_root: &Path) -> Result<CompiledGraphOutputs, 
     }
 
     let graph = ModuleGraph::build(&topology_source)?;
-    compile_module_graph(graph, None, false, false)
+    compile_module_graph(graph, None, false, false, false)
 }
 
 fn compile_config_module(
@@ -5038,7 +5191,7 @@ fn compile_config_module(
     }
 
     let graph = ModuleGraph::build(&config_source)?;
-    compile_module_graph(graph, None, false, false)
+    compile_module_graph(graph, None, false, false, false)
 }
 
 fn build_world_runtime_prelude(
@@ -5255,7 +5408,7 @@ fn compile_and_run_tests(
 ) -> Result<TestRunResult, CliError> {
     let graph = ModuleGraph::build(file)?;
     let topology_prelude = runner_prelude(file, &graph, selected_env)?;
-    let compiled = compile_module_graph(graph, None, false, false)?;
+    let compiled = compile_module_graph(graph, None, false, false, false)?;
     run_test_module(
         &compiled.entry_output_path,
         &compiled.coverage_targets,

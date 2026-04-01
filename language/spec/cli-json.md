@@ -32,6 +32,8 @@ The normative machine contract is:
 - `language/spec/cli-json.schema.json`
 
 Consumers should validate against that schema, not this Markdown file.
+For the user-facing debugging workflow, examples, and command selection guide,
+see `language/docs/DEBUGGING.md`.
 
 ## Versioning
 
@@ -74,6 +76,21 @@ Failures emit:
 `sigilc run` uses the `runEnvelope` schema in `--json` mode and for failure payloads.
 `sigilc debug run` and `sigilc debug test` use replay-backed debug envelopes with
 `data.session` and `data.snapshot`.
+
+## Debug Surface Index
+
+Use the current surfaces like this:
+
+- `sigil inspect validate`: canonical source and validation result
+- `sigil inspect types`: solved top-level declaration types
+- `sigil inspect world`: normalized runtime world for one project env
+- `sigil inspect codegen`: generated TypeScript plus span-map summary
+- `sigil run --json`: one structured run success/failure envelope
+- `sigil run --json --trace [--trace-expr]`: bounded runtime trace
+- `sigil run --json --break...`: inline breakpoint snapshots
+- `sigil run --json --record|--replay`: record/replay summary plus standalone replay artifacts
+- `sigil test`: suite-level JSON results with optional per-test debug blocks
+- `sigil debug run` and `sigil debug test`: replay-backed stepping sessions with snapshots and watches
 
 ## Diagnostics
 

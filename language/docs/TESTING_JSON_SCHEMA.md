@@ -7,6 +7,8 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test
 ```
 
 JSON is the default output mode for Sigil tests.
+For the higher-level debugging workflow and command selection guide, see
+`language/docs/DEBUGGING.md`.
 
 The normative shared schema lives at:
 
@@ -190,6 +192,7 @@ Current output does not include:
 
 ## Related Docs
 
+- `language/docs/DEBUGGING.md`
 - `language/docs/TESTING.md`
 - `language/spec/cli-json.md`
 - `language/spec/cli-json.schema.json`

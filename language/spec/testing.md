@@ -6,6 +6,8 @@ Last Updated: 2026-03-24
 ## Overview
 
 Sigil tests are first-class declarations in the language.
+For the user-facing debugging workflow across `inspect`, `run`, `test`, replay,
+and stepping, see `language/docs/DEBUGGING.md`.
 
 Current implemented testing surface includes:
 
@@ -142,6 +144,9 @@ For runtime-world projects:
 - focused single-file runs (`sigil test path/to/tests/file.sigil`) skip the project-wide coverage gate
 
 ## JSON Output
+
+The machine contract is shared with `language/spec/cli-json.md`. This section
+keeps the testing-specific semantics and result model.
 
 Default test output is JSON.
 

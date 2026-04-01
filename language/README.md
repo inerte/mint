@@ -369,9 +369,11 @@ GitHub Releases are the canonical installation path.
 
 ## Documentation
 
+- [Debugging](docs/DEBUGGING.md) - Workflow, flags, replay, stepping, and watches
 - [Philosophy](docs/philosophy.md) - Why machine-first?
 - [Syntax Reference](docs/syntax-reference.md) - Canonical syntax reference
 - [Type System](docs/type-system.md) - Types and inference
+- [Testing](docs/TESTING.md) - First-class tests, worlds, and test debugging
 - [Specification](spec/) - Formal language specification
 
 ## Contributing

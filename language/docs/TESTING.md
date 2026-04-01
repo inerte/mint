@@ -3,6 +3,8 @@
 <h2 id="first-class-tests">First-Class Tests</h2>
 
 Sigil tests are first-class language declarations, not a separate test framework.
+For the shared debugging workflow across `inspect`, `run`, `test`, replay, and
+stepping, see [DEBUGGING.md](./DEBUGGING.md).
 
 Repo-level integration tests are ordinary Sigil test files under
 `language/integrationTests/tests/`. They run through the same `sigil test`
@@ -143,6 +145,9 @@ program behavior through `main`.
 ## CLI
 
 Default output mode is JSON.
+This section keeps the test-specific surface. For the broader debugging
+workflow and when to choose `inspect`, `run`, `test`, or `debug`, use
+[DEBUGGING.md](./DEBUGGING.md).
 
 Examples:
 
@@ -231,6 +236,7 @@ Current aggregated test output does not include:
 
 Formal references:
 
+- `language/docs/DEBUGGING.md`
 - `language/docs/TESTING_JSON_SCHEMA.md`
 - `language/spec/cli-json.md`
 - `language/spec/cli-json.schema.json`

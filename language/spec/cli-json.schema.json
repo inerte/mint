@@ -13,6 +13,7 @@
     { "$ref": "#/$defs/inspectCodegenEnvelope" },
     { "$ref": "#/$defs/inspectWorldEnvelope" },
     { "$ref": "#/$defs/runEnvelope" },
+    { "$ref": "#/$defs/debugEnvelope" },
     { "$ref": "#/$defs/testEnvelope" }
   ],
   "$defs": {
@@ -991,6 +992,103 @@
           "properties": {
             "command": { "const": "sigilc run" },
             "data": { "$ref": "#/$defs/runData" }
+          },
+          "allOf": [
+            { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },
+            { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"] } }
+          ]
+        }
+      ]
+    },
+    "debugSessionInfo": {
+      "type": "object",
+      "required": ["id", "file", "targetKind", "state", "replayFile"],
+      "properties": {
+        "id": { "type": "string" },
+        "file": { "type": "string" },
+        "targetKind": { "type": "string", "enum": ["run", "test"] },
+        "state": { "type": "string", "enum": ["paused", "completed", "failed", "closed"] },
+        "replayFile": { "type": "string" },
+        "programPath": { "type": "string" },
+        "testPath": { "type": "string" },
+        "testId": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "debugLastCompleted": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string" },
+        "spanId": { "type": ["string", "null"] },
+        "functionName": { "type": ["string", "null"] },
+        "testId": { "type": ["string", "null"] },
+        "testStatus": { "type": ["string", "null"] },
+        "value": { "$ref": "#/$defs/runTraceValueSummary" },
+        "error": { "$ref": "#/$defs/runTraceValueSummary" }
+      },
+      "additionalProperties": false
+    },
+    "debugSnapshot": {
+      "type": "object",
+      "required": ["state", "pauseReason", "eventKind", "seq", "matched", "locals", "stack", "recentTrace", "frameDepth", "expressionDepth", "stdoutSoFar", "stderrSoFar", "replay"],
+      "properties": {
+        "state": { "type": "string", "enum": ["paused", "completed", "failed", "closed"] },
+        "pauseReason": { "type": "string", "enum": ["start", "step", "breakpoint", "exception", "exit"] },
+        "eventKind": { "type": "string" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "moduleId": { "type": ["string", "null"] },
+        "sourceFile": { "type": ["string", "null"] },
+        "spanId": { "type": ["string", "null"] },
+        "spanKind": { "type": ["string", "null"] },
+        "declarationKind": { "type": ["string", "null"] },
+        "declarationLabel": { "type": ["string", "null"] },
+        "functionName": { "type": ["string", "null"] },
+        "testId": { "type": ["string", "null"] },
+        "testName": { "type": ["string", "null"] },
+        "testStatus": { "type": ["string", "null"] },
+        "matched": { "type": "array", "items": { "$ref": "#/$defs/runBreakpointSelector" } },
+        "location": {
+          "oneOf": [
+            { "$ref": "#/$defs/sourceSpan" },
+            { "type": "null" }
+          ]
+        },
+        "locals": { "type": "array", "items": { "$ref": "#/$defs/runBreakpointLocal" } },
+        "stack": { "type": "array", "items": { "$ref": "#/$defs/runBreakpointFrame" } },
+        "recentTrace": { "type": "array", "items": { "$ref": "#/$defs/runTraceEvent" } },
+        "frameDepth": { "type": "integer", "minimum": 0 },
+        "expressionDepth": { "type": "integer", "minimum": 0 },
+        "lastCompleted": {
+          "oneOf": [
+            { "$ref": "#/$defs/debugLastCompleted" },
+            { "type": "null" }
+          ]
+        },
+        "exception": { "$ref": "#/$defs/runExceptionDetails" },
+        "stdoutSoFar": { "type": "string" },
+        "stderrSoFar": { "type": "string" },
+        "replay": { "$ref": "#/$defs/runReplay" }
+      },
+      "additionalProperties": false
+    },
+    "debugData": {
+      "type": "object",
+      "required": ["session", "snapshot"],
+      "properties": {
+        "session": { "$ref": "#/$defs/debugSessionInfo" },
+        "snapshot": { "$ref": "#/$defs/debugSnapshot" }
+      },
+      "additionalProperties": false
+    },
+    "debugEnvelope": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEnvelope" },
+        {
+          "type": "object",
+          "properties": {
+            "command": { "enum": ["sigilc debug run", "sigilc debug test"] },
+            "data": { "$ref": "#/$defs/debugData" }
           },
           "allOf": [
             { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },

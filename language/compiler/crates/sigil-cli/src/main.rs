@@ -12,8 +12,9 @@ mod module_graph;
 mod project;
 
 use commands::{
-    compile_command, inspect_command, lex_command, parse_command, run_command, test_command,
-    validate_command,
+    compile_command, debug_run_session_command, debug_run_start_command,
+    debug_test_session_command, debug_test_start_command, inspect_command, lex_command,
+    parse_command, run_command, test_command, validate_command, DebugControlAction,
 };
 
 const SIGIL_VERSION: &str = match option_env!("SIGIL_VERSION") {
@@ -191,6 +192,12 @@ enum Command {
         #[arg(long)]
         env: String,
     },
+
+    /// Replay-backed machine-first debugging
+    Debug {
+        #[command(subcommand)]
+        command: DebugCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -246,6 +253,147 @@ enum InspectCommand {
         /// Runtime topology environment name
         #[arg(long)]
         env: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum DebugCommand {
+    /// Debug a replayed program run
+    Run {
+        #[command(subcommand)]
+        command: DebugRunCommand,
+    },
+
+    /// Debug one replayed test by exact id
+    Test {
+        #[command(subcommand)]
+        command: DebugTestCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum DebugRunCommand {
+    /// Start a replay-backed debug session for one program
+    Start {
+        /// Replay artifact recorded from `sigil run --record`
+        #[arg(long)]
+        replay: PathBuf,
+
+        /// Input .sigil file
+        file: PathBuf,
+
+        /// Stop when execution reaches a specific source line
+        #[arg(long = "break", value_name = "FILE:LINE")]
+        breakpoint: Vec<String>,
+
+        /// Stop when a specific top-level function is entered
+        #[arg(long = "break-fn", value_name = "NAME")]
+        break_fn: Vec<String>,
+
+        /// Stop when a specific span id is reached
+        #[arg(long = "break-span", value_name = "SPAN")]
+        break_span: Vec<String>,
+    },
+
+    /// Read the latest stored snapshot for a debug session
+    Snapshot {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Step into the next source-level event
+    StepInto {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Step over the current entered expression or frame
+    StepOver {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Step out of the current frame
+    StepOut {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Continue until the next breakpoint, uncaught exception, or exit
+    Continue {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Close a debug session and remove its session file
+    Close {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
+enum DebugTestCommand {
+    /// Start a replay-backed debug session for one exact test id
+    Start {
+        /// Replay artifact recorded from `sigil test --record`
+        #[arg(long)]
+        replay: PathBuf,
+
+        /// Exact `results[].id` from the recorded test run
+        #[arg(long = "test")]
+        test_id: String,
+
+        /// Test file or directory
+        path: PathBuf,
+
+        /// Stop when execution reaches a specific source line
+        #[arg(long = "break", value_name = "FILE:LINE")]
+        breakpoint: Vec<String>,
+
+        /// Stop when a specific top-level function is entered
+        #[arg(long = "break-fn", value_name = "NAME")]
+        break_fn: Vec<String>,
+
+        /// Stop when a specific span id is reached
+        #[arg(long = "break-span", value_name = "SPAN")]
+        break_span: Vec<String>,
+    },
+
+    /// Read the latest stored snapshot for a debug session
+    Snapshot {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Step into the next source-level event
+    StepInto {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Step over the current entered expression or frame
+    StepOver {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Step out of the current frame
+    StepOut {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Continue until the next breakpoint, uncaught exception, or test exit
+    Continue {
+        /// Debug session file returned by `start`
+        session: PathBuf,
+    },
+
+    /// Close a debug session and remove its session file
+    Close {
+        /// Debug session file returned by `start`
+        session: PathBuf,
     },
 }
 
@@ -363,6 +511,76 @@ fn main() {
             replay.as_deref(),
         ),
         Command::Validate { path, env } => validate_command(&path, &env),
+        Command::Debug { command } => match command {
+            DebugCommand::Run { command } => match command {
+                DebugRunCommand::Start {
+                    replay,
+                    file,
+                    breakpoint,
+                    break_fn,
+                    break_span,
+                } => debug_run_start_command(
+                    &file,
+                    &replay,
+                    &breakpoint,
+                    &break_fn,
+                    &break_span,
+                ),
+                DebugRunCommand::Snapshot { session } => {
+                    debug_run_session_command(DebugControlAction::Snapshot, &session)
+                }
+                DebugRunCommand::StepInto { session } => {
+                    debug_run_session_command(DebugControlAction::StepInto, &session)
+                }
+                DebugRunCommand::StepOver { session } => {
+                    debug_run_session_command(DebugControlAction::StepOver, &session)
+                }
+                DebugRunCommand::StepOut { session } => {
+                    debug_run_session_command(DebugControlAction::StepOut, &session)
+                }
+                DebugRunCommand::Continue { session } => {
+                    debug_run_session_command(DebugControlAction::Continue, &session)
+                }
+                DebugRunCommand::Close { session } => {
+                    debug_run_session_command(DebugControlAction::Close, &session)
+                }
+            },
+            DebugCommand::Test { command } => match command {
+                DebugTestCommand::Start {
+                    replay,
+                    test_id,
+                    path,
+                    breakpoint,
+                    break_fn,
+                    break_span,
+                } => debug_test_start_command(
+                    &path,
+                    &replay,
+                    Some(&test_id),
+                    &breakpoint,
+                    &break_fn,
+                    &break_span,
+                ),
+                DebugTestCommand::Snapshot { session } => {
+                    debug_test_session_command(DebugControlAction::Snapshot, &session)
+                }
+                DebugTestCommand::StepInto { session } => {
+                    debug_test_session_command(DebugControlAction::StepInto, &session)
+                }
+                DebugTestCommand::StepOver { session } => {
+                    debug_test_session_command(DebugControlAction::StepOver, &session)
+                }
+                DebugTestCommand::StepOut { session } => {
+                    debug_test_session_command(DebugControlAction::StepOut, &session)
+                }
+                DebugTestCommand::Continue { session } => {
+                    debug_test_session_command(DebugControlAction::Continue, &session)
+                }
+                DebugTestCommand::Close { session } => {
+                    debug_test_session_command(DebugControlAction::Close, &session)
+                }
+            },
+        },
     };
 
     if let Err(e) = result {

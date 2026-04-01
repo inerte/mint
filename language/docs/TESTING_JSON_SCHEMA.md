@@ -194,3 +194,18 @@ Current output does not include:
 - `language/spec/cli-json.md`
 - `language/spec/cli-json.schema.json`
 - `language/spec/test-replay.schema.json`
+- `language/spec/debug-session.schema.json`
+
+## Replay-Backed Stepping
+
+`sigil test` replay artifacts can now drive `sigil debug test` sessions:
+
+- `sigil debug test start --replay <artifact> --test <results[].id> <path>`
+- `sigil debug test snapshot <session>`
+- `sigil debug test step-into <session>`
+- `sigil debug test step-over <session>`
+- `sigil debug test step-out <session>`
+- `sigil debug test continue <session>`
+- `sigil debug test close <session>`
+
+Those commands use the shared debug envelope documented in `cli-json.md`.

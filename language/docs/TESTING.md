@@ -166,6 +166,10 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test -
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test --record .local/tests.replay.json projects/algorithms/tests/basicTesting.sigil
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test --replay .local/tests.replay.json projects/algorithms/tests/basicTesting.sigil
 
+# Start a replay-backed stepping session for one exact test id
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- debug test start --replay .local/tests.replay.json --test "projects/algorithms/tests/basicTesting.sigil::cache hit returns cached value" projects/algorithms/tests/basicTesting.sigil
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- debug test step-into .local/debug/<session>.json
+
 ```
 
 For runtime-world projects, `--env <name>` is required.

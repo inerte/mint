@@ -181,6 +181,8 @@ Debugger notes:
 - `sigil test` supports `--trace`, `--trace-expr`, breakpoints, `--record`, and `--replay`
 - stop-mode breakpoints stop only the current test and report `status: "stopped"`
 - `sigil test --replay` is artifact-owned and cannot be combined with `--env`
+- `sigil debug test` replays one exact `results[].id` through a file-backed stepping session
+- debug sessions are JSON-only and currently support `snapshot`, `step-into`, `step-over`, `step-out`, `continue`, and `close`
 
 Current output does not include:
 

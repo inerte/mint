@@ -9,6 +9,8 @@ Sigil CLI commands are machine-first. JSON is the default output mode for:
 - `sigilc inspect validate`
 - `sigilc inspect codegen`
 - `sigilc inspect world`
+- `sigilc debug run`
+- `sigilc debug test`
 - `sigilc test`
 - `sigilc` usage/unknown-command failures
 
@@ -70,6 +72,8 @@ Failures emit:
 `sigilc test` keeps a specialized top-level `summary` / `results` envelope.
 `sigilc inspect types`, `sigilc inspect validate`, `sigilc inspect codegen`, and `sigilc inspect world` use inspect-specific envelopes.
 `sigilc run` uses the `runEnvelope` schema in `--json` mode and for failure payloads.
+`sigilc debug run` and `sigilc debug test` use replay-backed debug envelopes with
+`data.session` and `data.snapshot`.
 
 ## Diagnostics
 
@@ -325,6 +329,63 @@ Stop-mode breakpoints are test-scoped:
 Standalone test replay artifact schema:
 
 - `language/spec/test-replay.schema.json`
+
+## Debug Session Details
+
+`sigil debug` is JSON-only in v1 and replay-backed:
+
+- `sigil debug run start --replay <artifact> <file>`
+- `sigil debug run snapshot <session>`
+- `sigil debug run step-into <session>`
+- `sigil debug run step-over <session>`
+- `sigil debug run step-out <session>`
+- `sigil debug run continue <session>`
+- `sigil debug run close <session>`
+- `sigil debug test start --replay <artifact> --test <id> <path>`
+- `sigil debug test ... <session>` for the same control verbs
+
+Successful debug commands return:
+
+- `data.session`
+  - `id`
+  - `file`
+  - `targetKind`
+  - `state`
+  - `replayFile`
+  - `programPath` or `testPath`
+  - optional `testId`
+- `data.snapshot`
+  - `state`
+  - `pauseReason`
+  - `eventKind`
+  - `seq`
+  - current source/span/declaration context when available
+  - current-frame `locals`
+  - stack summaries
+  - bounded `recentTrace`
+  - `stdoutSoFar`
+  - `stderrSoFar`
+  - replay progress
+  - optional `lastCompleted`
+  - optional `exception`
+
+Current step events are source-shaped:
+
+- `function_enter`
+- `function_return`
+- `test_enter`
+- `test_return`
+- `expr_enter`
+- `expr_return`
+- `expr_throw`
+- `breakpoint`
+- `program_exit`
+- `test_exit`
+- `uncaught_exception`
+
+Standalone debug-session schema:
+
+- `language/spec/debug-session.schema.json`
 
 ## Inspect World Details
 

@@ -2307,6 +2307,7 @@ pub fn run_command(
         run_target.runtime_trace_path.as_deref(),
         run_target.runtime_breakpoint_path.as_deref(),
         run_target.runtime_replay_path.as_deref(),
+        None,
         args,
         !json_output,
     ) {
@@ -2458,6 +2459,7 @@ struct RuntimeOutput {
     trace_capture: Option<RuntimeTraceCapture>,
     breakpoint_capture: Option<RuntimeBreakpointCapture>,
     replay_capture: Option<RuntimeReplayCapture>,
+    step_capture: Option<RuntimeStepCapture>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -2481,6 +2483,49 @@ struct RuntimeReplayCapture {
     consumed_events: usize,
     remaining_events: usize,
     partial: bool,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeStepCapture {
+    state: String,
+    pause_reason: String,
+    event_kind: String,
+    seq: usize,
+    #[serde(default)]
+    module_id: Option<String>,
+    #[serde(default)]
+    source_file: Option<String>,
+    #[serde(default)]
+    span_id: Option<String>,
+    #[serde(default)]
+    span_kind: Option<String>,
+    #[serde(default)]
+    declaration_kind: Option<String>,
+    #[serde(default)]
+    declaration_label: Option<String>,
+    #[serde(default)]
+    function_name: Option<String>,
+    #[serde(default)]
+    test_id: Option<String>,
+    #[serde(default)]
+    test_name: Option<String>,
+    #[serde(default)]
+    test_status: Option<String>,
+    #[serde(default)]
+    matched: Vec<ResolvedBreakpointSelector>,
+    #[serde(default)]
+    locals: Vec<RuntimeBreakpointLocalCapture>,
+    #[serde(default)]
+    stack: Vec<RuntimeBreakpointFrameCapture>,
+    #[serde(default)]
+    recent_trace: Vec<serde_json::Value>,
+    #[serde(default)]
+    frame_depth: usize,
+    #[serde(default)]
+    expression_depth: usize,
+    #[serde(default)]
+    last_completed: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -3325,6 +3370,7 @@ fn execute_runner(
     runtime_trace_path: Option<&Path>,
     runtime_breakpoint_path: Option<&Path>,
     runtime_replay_path: Option<&Path>,
+    runtime_step_path: Option<&Path>,
     args: &[String],
     stream_output: bool,
 ) -> Result<RuntimeOutput, CliError> {
@@ -3338,6 +3384,9 @@ fn execute_runner(
     }
     if let Some(runtime_replay_path) = runtime_replay_path {
         let _ = fs::remove_file(runtime_replay_path);
+    }
+    if let Some(runtime_step_path) = runtime_step_path {
+        let _ = fs::remove_file(runtime_step_path);
     }
     let start_time = Instant::now();
     if stream_output {
@@ -3360,6 +3409,7 @@ fn execute_runner(
                 trace_capture: read_runtime_trace_capture(runtime_trace_path),
                 breakpoint_capture: read_runtime_breakpoint_capture(runtime_breakpoint_path),
                 replay_capture: read_runtime_replay_capture(runtime_replay_path),
+                step_capture: read_runtime_step_capture(runtime_step_path),
             });
         }
 
@@ -3401,6 +3451,7 @@ fn execute_runner(
             trace_capture: read_runtime_trace_capture(runtime_trace_path),
             breakpoint_capture: read_runtime_breakpoint_capture(runtime_breakpoint_path),
             replay_capture: read_runtime_replay_capture(runtime_replay_path),
+            step_capture: read_runtime_step_capture(runtime_step_path),
         });
     }
 
@@ -3422,6 +3473,7 @@ fn execute_runner(
         trace_capture: read_runtime_trace_capture(runtime_trace_path),
         breakpoint_capture: read_runtime_breakpoint_capture(runtime_breakpoint_path),
         replay_capture: read_runtime_replay_capture(runtime_replay_path),
+        step_capture: read_runtime_step_capture(runtime_step_path),
     })
 }
 
@@ -3585,6 +3637,25 @@ fn unique_runtime_replay_path(entry_output_path: &Path) -> PathBuf {
         .parent()
         .unwrap_or_else(|| Path::new("."))
         .join(format!("{stem}.{unique}.runtime-replay.json"))
+}
+
+fn unique_runtime_step_path(entry_output_path: &Path) -> PathBuf {
+    let unique = format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let stem = entry_output_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
+    entry_output_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!("{stem}.{unique}.runtime-step.json"))
 }
 
 fn resolve_run_artifact_path(path: &Path, ensure_parent: bool) -> Result<PathBuf, CliError> {
@@ -3982,6 +4053,14 @@ fn read_runtime_breakpoint_capture(path: Option<&Path>) -> Option<RuntimeBreakpo
 }
 
 fn read_runtime_replay_capture(path: Option<&Path>) -> Option<RuntimeReplayCapture> {
+    let path = path?;
+    let contents = fs::read_to_string(path).ok();
+    let _ = fs::remove_file(path);
+    let contents = contents?;
+    serde_json::from_str(&contents).ok()
+}
+
+fn read_runtime_step_capture(path: Option<&Path>) -> Option<RuntimeStepCapture> {
     let path = path?;
     let contents = fs::read_to_string(path).ok();
     let _ = fs::remove_file(path);
@@ -4519,6 +4598,766 @@ fn normalize_generated_frame_path(raw: &str) -> PathBuf {
     let trimmed = raw.trim();
     let without_file_scheme = trimmed.strip_prefix("file://").unwrap_or(trimmed);
     canonicalize_existing_path(Path::new(without_file_scheme))
+}
+
+fn debug_snapshot_json(
+    step_capture: Option<&RuntimeStepCapture>,
+    runtime_output: &RuntimeOutput,
+    module_debug_outputs: &[RuntimeModuleDebugOutput],
+    replay_file: &Path,
+) -> serde_json::Value {
+    let mut snapshot = match step_capture {
+        Some(capture) => {
+            let location = capture
+                .module_id
+                .as_deref()
+                .zip(capture.span_id.as_deref())
+                .and_then(|(module_id, span_id)| find_debug_span(module_debug_outputs, module_id, span_id))
+                .map(|span| serde_json::to_value(&span.location).unwrap());
+            json!({
+                "state": capture.state,
+                "pauseReason": capture.pause_reason,
+                "eventKind": capture.event_kind,
+                "seq": capture.seq,
+                "moduleId": capture.module_id,
+                "sourceFile": capture.source_file,
+                "spanId": capture.span_id,
+                "spanKind": capture.span_kind,
+                "declarationKind": capture.declaration_kind,
+                "declarationLabel": capture.declaration_label,
+                "functionName": capture.function_name,
+                "testId": capture.test_id,
+                "testName": capture.test_name,
+                "testStatus": capture.test_status,
+                "matched": capture.matched,
+                "location": location,
+                "locals": capture.locals,
+                "stack": capture
+                    .stack
+                    .iter()
+                    .map(|frame| runtime_breakpoint_frame_json(frame, module_debug_outputs))
+                    .collect::<Vec<_>>(),
+                "recentTrace": capture.recent_trace,
+                "frameDepth": capture.frame_depth,
+                "expressionDepth": capture.expression_depth,
+                "lastCompleted": capture.last_completed
+            })
+        }
+        None => json!({
+            "state": "failed",
+            "pauseReason": "exception",
+            "eventKind": "uncaught_exception",
+            "seq": 0,
+            "moduleId": null,
+            "sourceFile": null,
+            "spanId": null,
+            "spanKind": null,
+            "declarationKind": null,
+            "declarationLabel": null,
+            "functionName": null,
+            "testId": null,
+            "testName": null,
+            "testStatus": null,
+            "matched": [],
+            "location": null,
+            "locals": [],
+            "stack": [],
+            "recentTrace": [],
+            "frameDepth": 0,
+            "expressionDepth": 0,
+            "lastCompleted": null
+        }),
+    };
+
+    let stderr_capture = runtime_exception_capture_from_stderr(&runtime_output.stderr);
+    if let Some(exception_capture) = runtime_output
+        .exception_capture
+        .as_ref()
+        .or(stderr_capture.as_ref())
+    {
+        let recovered_code =
+            recover_runtime_exception_code(&exception_capture.message, &exception_capture.stack);
+        let code = exception_capture
+            .sigil_code
+            .as_deref()
+            .filter(|code| !code.is_empty())
+            .or(recovered_code.as_deref())
+            .unwrap_or(codes::runtime::UNCAUGHT_EXCEPTION);
+        let normalized_message = normalize_runtime_exception_message(exception_capture, code);
+        let analysis = analyze_runtime_exception(exception_capture, module_debug_outputs);
+        let exception_json = runtime_exception_json(
+            exception_capture,
+            &normalized_message,
+            &analysis,
+            module_debug_outputs,
+        );
+        if let Some(snapshot_object) = snapshot.as_object_mut() {
+            snapshot_object.insert("exception".to_string(), exception_json);
+            if snapshot_object
+                .get("location")
+                .is_none_or(|location| location.is_null())
+            {
+                if let Some(sigil_expression) = &analysis.sigil_expression {
+                    snapshot_object.insert(
+                        "location".to_string(),
+                        serde_json::to_value(&sigil_expression.span.location).unwrap(),
+                    );
+                } else if let Some(sigil_frame) = &analysis.sigil_frame {
+                    snapshot_object.insert(
+                        "location".to_string(),
+                        serde_json::to_value(&sigil_frame.span.location).unwrap(),
+                    );
+                }
+            }
+        }
+    }
+
+    if let Some(snapshot_object) = snapshot.as_object_mut() {
+        snapshot_object.insert("stdoutSoFar".to_string(), json!(runtime_output.stdout));
+        snapshot_object.insert("stderrSoFar".to_string(), json!(runtime_output.stderr));
+        snapshot_object.insert(
+            "replay".to_string(),
+            runtime_replay_json(Some("replay"), Some(replay_file), runtime_output.replay_capture.as_ref()),
+        );
+    }
+
+    snapshot
+}
+
+fn debug_session_state_error(
+    target_kind: DebugSessionTargetKind,
+    session_path: &Path,
+    session: &DebugSessionFile,
+) -> Result<(), CliError> {
+    output_json_error_to(
+        target_kind.command_name(),
+        "cli",
+        codes::cli::UNEXPECTED,
+        "debug session cannot be advanced from its current state",
+        json!({
+            "session": session_path.to_string_lossy(),
+            "state": session.state
+        }),
+        false,
+    );
+    Err(CliError::Reported(1))
+}
+
+struct DebugExecution {
+    runner_path: PathBuf,
+    runtime_error_path: PathBuf,
+    runtime_replay_path: PathBuf,
+    runtime_step_path: PathBuf,
+    replay_file: PathBuf,
+    args: Vec<String>,
+    module_debug_outputs: Vec<RuntimeModuleDebugOutput>,
+}
+
+fn prepare_debug_run_execution(
+    file: &Path,
+    replay_path: &Path,
+    breakpoints: &DebugBreakpointSelectors,
+    action: &str,
+    cursor: Option<&DebugStepCursor>,
+) -> Result<DebugExecution, CliError> {
+    let artifact_file = resolve_run_artifact_path(replay_path, false)?;
+    let artifact = read_replay_artifact(&artifact_file)?;
+    let args = artifact.entry.argv.clone();
+    let graph = ModuleGraph::build(file)?;
+    let (entry, binding) = build_replay_binding(file, &graph, &args)?;
+    validate_replay_binding(file, &args, &entry, &binding, &artifact, &artifact_file)?;
+
+    let compiled = compile_module_graph(graph, None, true, true, true)?;
+    let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
+    let breakpoint_config = resolve_breakpoint_config(
+        file,
+        &module_debug_outputs,
+        &breakpoints.breakpoint_lines,
+        &breakpoints.breakpoint_functions,
+        &breakpoints.breakpoint_spans,
+        BreakpointMode::Stop,
+        32,
+    )?;
+    let trace_config_json = serde_json::to_string(&json!({
+        "enabled": true,
+        "maxEvents": 256,
+        "expressions": true
+    }))
+    .map_err(|error| CliError::Codegen(format!("failed to encode debug trace config: {error}")))?;
+    let breakpoint_config_json = debug_runtime_breakpoint_config_json(breakpoint_config.as_ref())?;
+    let replay_config_json = serde_json::to_string(&json!({
+        "mode": "replay",
+        "file": artifact_file.to_string_lossy(),
+        "artifact": artifact
+    }))
+    .map_err(|error| CliError::Codegen(format!("failed to encode debug replay config: {error}")))?;
+    let step_config_json = debug_step_config_json(DebugSessionTargetKind::Run, action, cursor)?;
+
+    let entry_output_path = compiled.entry_output_path;
+    let runner_path = entry_output_path.with_extension("debug.run.ts");
+    let runtime_error_path = unique_runtime_error_path(&entry_output_path);
+    let runtime_replay_path = unique_runtime_replay_path(&entry_output_path);
+    let runtime_step_path = unique_runtime_step_path(&entry_output_path);
+    let module_name = entry_output_path
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    let module_specifier_json = serde_json::to_string(&format!("./{}", module_name)).unwrap();
+    let runtime_error_path_json =
+        serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
+    let runtime_replay_path_json =
+        serde_json::to_string(&runtime_replay_path.to_string_lossy().to_string()).unwrap();
+    let runtime_step_path_json =
+        serde_json::to_string(&runtime_step_path.to_string_lossy().to_string()).unwrap();
+    let filename_json = serde_json::to_string(&file.to_string_lossy().to_string()).unwrap();
+
+    let runner_code = format!(
+        r#"import {{ writeFile }} from 'node:fs/promises';
+import {{ writeFileSync }} from 'node:fs';
+
+{step_runtime}
+globalThis.__sigil_trace_config = {trace_config_json};
+globalThis.__sigil_trace_current = undefined;
+globalThis.__sigil_breakpoint_config = {breakpoint_config_json};
+globalThis.__sigil_breakpoint_current = undefined;
+{replay_capture}
+{error_capture}
+
+if (
+  globalThis.__sigil_replay_config?.mode === 'replay' &&
+  globalThis.__sigil_replay_config?.artifact?.failure &&
+  globalThis.__sigil_replay_config?.artifact?.world?.normalizedWorld == null
+) {{
+  const __sigil_recorded_failure = globalThis.__sigil_replay_config.artifact.failure;
+  const __sigil_error = new Error(String(__sigil_recorded_failure.message ?? 'replayed runtime failure'));
+  __sigil_error.sigilCode = String(__sigil_recorded_failure.code ?? 'SIGIL-RUNTIME-UNCAUGHT-EXCEPTION');
+  if (typeof __sigil_recorded_failure.stack === 'string' && __sigil_recorded_failure.stack) {{
+    __sigil_error.stack = __sigil_recorded_failure.stack;
+  }}
+  throw __sigil_error;
+}}
+
+try {{
+  const __sigil_module = await import({module_specifier_json});
+  const main = __sigil_module.main;
+  if (typeof main !== 'function') {{
+    throw new Error('No main() function found in ' + {filename_json});
+  }}
+  const result = await main();
+  if (result !== undefined) {{
+    console.log(result);
+  }}
+  if (typeof globalThis.__sigil_debug_mark_completed === 'function') {{
+    globalThis.__sigil_debug_mark_completed('program_exit', {{}});
+  }}
+}} catch (error) {{
+  if (__sigil_runtime_is_intentional_debug_stop(error)) {{
+    // Intentional debug pause.
+  }} else {{
+    const captured = await __sigil_runtime_capture_error(error);
+    if (typeof globalThis.__sigil_debug_mark_failed === 'function') {{
+      globalThis.__sigil_debug_mark_failed(captured);
+    }}
+    if (captured.stack) {{
+      console.error(captured.stack);
+    }} else {{
+      console.error(`${{captured.name}}: ${{captured.message}}`);
+    }}
+    process.exit(1);
+  }}
+}}
+"#,
+        step_runtime = debug_step_runtime_source(&runtime_step_path_json, &step_config_json),
+        trace_config_json = trace_config_json,
+        breakpoint_config_json = breakpoint_config_json,
+        replay_capture =
+            debug_runtime_replay_capture_source(&runtime_replay_path_json, &replay_config_json),
+        error_capture = debug_runtime_error_capture_source(&runtime_error_path_json),
+        module_specifier_json = module_specifier_json,
+        filename_json = filename_json,
+    );
+
+    fs::write(&runner_path, runner_code)?;
+
+    Ok(DebugExecution {
+        runner_path,
+        runtime_error_path,
+        runtime_replay_path,
+        runtime_step_path,
+        replay_file: artifact_file,
+        args,
+        module_debug_outputs,
+    })
+}
+
+fn prepare_debug_test_execution(
+    path: &Path,
+    replay_path: &Path,
+    test_id: &str,
+    breakpoints: &DebugBreakpointSelectors,
+    action: &str,
+    cursor: Option<&DebugStepCursor>,
+) -> Result<DebugExecution, CliError> {
+    let artifact_file = resolve_run_artifact_path(replay_path, false)?;
+    let artifact = read_test_replay_artifact(&artifact_file)?;
+    let test_files = collect_sigil_files(path)?;
+    let (request, binding) =
+        build_test_replay_binding(path, &test_files, artifact.request.match_filter.as_deref())?;
+    validate_test_replay_binding(path, &request, &binding, &artifact, &artifact_file)?;
+    if !artifact.selected_test_ids.iter().any(|id| id == test_id) {
+        return Err(CliError::Breakpoint {
+            code: codes::runtime::REPLAY_BINDING_MISMATCH.to_string(),
+            message: format!("test replay artifact does not contain '{}'", test_id),
+            details: json!({
+                "path": path.to_string_lossy(),
+                "testId": test_id
+            }),
+        });
+    }
+    let recorded_test = artifact
+        .tests
+        .iter()
+        .find(|test| test.id == test_id)
+        .ok_or_else(|| CliError::Breakpoint {
+            code: codes::runtime::REPLAY_BINDING_MISMATCH.to_string(),
+            message: format!("test replay artifact does not contain '{}'", test_id),
+            details: json!({
+                "path": path.to_string_lossy(),
+                "testId": test_id
+            }),
+        })?;
+    let replay_artifact = recorded_test
+        .replay_artifact
+        .clone()
+        .ok_or_else(|| CliError::Breakpoint {
+            code: codes::runtime::REPLAY_BINDING_MISMATCH.to_string(),
+            message: format!("test replay artifact '{}' is missing replay data", test_id),
+            details: json!({
+                "path": path.to_string_lossy(),
+                "testId": test_id
+            }),
+        })?;
+    let test_file = canonicalize_existing_path(Path::new(&recorded_test.file));
+    let graph = ModuleGraph::build(&test_file)?;
+    let compiled = compile_module_graph(graph, None, true, true, true)?;
+    let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
+    let breakpoint_config = resolve_breakpoint_config(
+        &test_file,
+        &module_debug_outputs,
+        &breakpoints.breakpoint_lines,
+        &breakpoints.breakpoint_functions,
+        &breakpoints.breakpoint_spans,
+        BreakpointMode::Stop,
+        32,
+    )?;
+    let trace_config_json = serde_json::to_string(&json!({
+        "enabled": true,
+        "maxEvents": 256,
+        "expressions": true
+    }))
+    .map_err(|error| CliError::Codegen(format!("failed to encode debug trace config: {error}")))?;
+    let breakpoint_config_json = debug_runtime_breakpoint_config_json(breakpoint_config.as_ref())?;
+    let replay_config_json = serde_json::to_string(&json!({
+        "mode": "replay",
+        "file": artifact_file.to_string_lossy(),
+        "artifact": replay_artifact
+    }))
+    .map_err(|error| CliError::Codegen(format!("failed to encode debug replay config: {error}")))?;
+    let step_config_json = debug_step_config_json(DebugSessionTargetKind::Test, action, cursor)?;
+
+    let entry_output_path = compiled.entry_output_path;
+    let test_dir = entry_output_path.parent().unwrap().join("__sigil_test");
+    fs::create_dir_all(&test_dir)?;
+    let unique = format!(
+        "{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let runner_path = test_dir.join(format!(
+        "{}.{}.debug.runner.ts",
+        entry_output_path.file_stem().unwrap().to_string_lossy(),
+        unique
+    ));
+    let runtime_error_path = unique_runtime_error_path(&entry_output_path);
+    let runtime_replay_path = unique_runtime_replay_path(&entry_output_path);
+    let runtime_step_path = unique_runtime_step_path(&entry_output_path);
+    let runtime_error_path_json =
+        serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
+    let runtime_replay_path_json =
+        serde_json::to_string(&runtime_replay_path.to_string_lossy().to_string()).unwrap();
+    let runtime_step_path_json =
+        serde_json::to_string(&runtime_step_path.to_string_lossy().to_string()).unwrap();
+    let abs_ts_file = fs::canonicalize(&entry_output_path)?;
+    let module_url = format!("file://{}", abs_ts_file.display());
+    let module_url_json = serde_json::to_string(&module_url).unwrap();
+    let test_id_json = serde_json::to_string(test_id).unwrap();
+
+    let runner_code = format!(
+        r#"import {{ writeFile }} from 'node:fs/promises';
+import {{ writeFileSync }} from 'node:fs';
+
+{step_runtime}
+globalThis.__sigil_trace_config = {trace_config_json};
+globalThis.__sigil_trace_current = undefined;
+globalThis.__sigil_breakpoint_config = {breakpoint_config_json};
+globalThis.__sigil_breakpoint_current = undefined;
+{replay_capture}
+{error_capture}
+
+const moduleUrl = {module_url_json};
+const selectedTestId = {test_id_json};
+
+function __sigil_debug_summary(value) {{
+  return typeof globalThis.__sigil_trace_summary === 'function'
+    ? globalThis.__sigil_trace_summary(value, 1)
+    : {{ kind: typeof value }};
+}}
+
+try {{
+  const discoverMod = await import(moduleUrl);
+  const tests = Array.isArray(discoverMod.__sigil_tests) ? discoverMod.__sigil_tests : [];
+  const selected = tests.find((candidate) => String(candidate.id) === selectedTestId);
+  if (!selected) {{
+    const error = new Error(`debug test '${{selectedTestId}}' not found in compiled module`);
+    error.sigilCode = 'SIGIL-RUNTIME-REPLAY-BINDING-MISMATCH';
+    throw error;
+  }}
+  globalThis.__sigil_replay_config = {replay_config_json};
+  const freshMod = await import(moduleUrl + '?sigil_debug=' + encodeURIComponent(String(selected.id)) + '&ts=' + Date.now() + '_' + Math.random());
+  const freshTests = Array.isArray(freshMod.__sigil_tests) ? freshMod.__sigil_tests : [];
+  const freshTest = freshTests.find((candidate) => String(candidate.id) === selectedTestId);
+  if (!freshTest) {{
+    const error = new Error(`debug test '${{selectedTestId}}' not found in isolated module reload`);
+    error.sigilCode = 'SIGIL-RUNTIME-REPLAY-BINDING-MISMATCH';
+    throw error;
+  }}
+  globalThis.__sigil_debug_step_event({{
+    kind: 'test_enter',
+    moduleId: selected.moduleId ?? null,
+    sourceFile: selected.sourceFile ?? String(selected.id).split('::')[0],
+    spanId: selected.spanId ?? null,
+    spanKind: selected.spanKind ?? 'test_decl',
+    declarationKind: 'test_decl',
+    declarationLabel: String(selected.name ?? selected.description ?? ''),
+    testId: String(selected.id),
+    testName: String(selected.name ?? selected.description ?? ''),
+    matched: [],
+    locals: [],
+    stack: [],
+    recentTrace: [],
+    frameDepth: 0,
+    expressionDepth: 0
+  }});
+  const value = await freshTest.fn();
+  const ok = value === true || (value && typeof value === 'object' && 'ok' in value && value.ok === true);
+  const testStatus = ok ? 'pass' : 'fail';
+  globalThis.__sigil_debug_step_event({{
+    kind: 'test_return',
+    moduleId: selected.moduleId ?? null,
+    sourceFile: selected.sourceFile ?? String(selected.id).split('::')[0],
+    spanId: selected.spanId ?? null,
+    spanKind: selected.spanKind ?? 'test_decl',
+    declarationKind: 'test_decl',
+    declarationLabel: String(selected.name ?? selected.description ?? ''),
+    testId: String(selected.id),
+    testName: String(selected.name ?? selected.description ?? ''),
+    testStatus,
+    matched: [],
+    locals: [],
+    stack: [],
+    recentTrace: typeof globalThis.__sigil_breakpoint_recent_trace === 'function' ? globalThis.__sigil_breakpoint_recent_trace() : [],
+    frameDepth: 0,
+    expressionDepth: 0,
+    lastCompleted: {{ kind: 'test_return', testId: String(selected.id), testStatus, value: __sigil_debug_summary(value) }}
+  }});
+  if (typeof globalThis.__sigil_debug_mark_completed === 'function') {{
+    globalThis.__sigil_debug_mark_completed('test_exit', {{
+      moduleId: selected.moduleId ?? null,
+      sourceFile: selected.sourceFile ?? String(selected.id).split('::')[0],
+      spanId: selected.spanId ?? null,
+      spanKind: selected.spanKind ?? 'test_decl',
+      declarationKind: 'test_decl',
+      declarationLabel: String(selected.name ?? selected.description ?? ''),
+      testId: String(selected.id),
+      testName: String(selected.name ?? selected.description ?? ''),
+      testStatus
+    }});
+  }}
+}} catch (error) {{
+  if (__sigil_runtime_is_intentional_debug_stop(error)) {{
+    // Intentional debug pause.
+  }} else {{
+    const captured = await __sigil_runtime_capture_error(error);
+    if (typeof globalThis.__sigil_debug_mark_failed === 'function') {{
+      globalThis.__sigil_debug_mark_failed(captured);
+    }}
+    if (captured.stack) {{
+      console.error(captured.stack);
+    }} else {{
+      console.error(`${{captured.name}}: ${{captured.message}}`);
+    }}
+    process.exit(1);
+  }}
+}}
+"#,
+        step_runtime = debug_step_runtime_source(&runtime_step_path_json, &step_config_json),
+        trace_config_json = trace_config_json,
+        breakpoint_config_json = breakpoint_config_json,
+        replay_capture =
+            debug_runtime_replay_capture_source(&runtime_replay_path_json, &replay_config_json),
+        error_capture = debug_runtime_error_capture_source(&runtime_error_path_json),
+        module_url_json = module_url_json,
+        test_id_json = test_id_json,
+        replay_config_json = replay_config_json,
+    );
+
+    fs::write(&runner_path, runner_code)?;
+
+    Ok(DebugExecution {
+        runner_path,
+        runtime_error_path,
+        runtime_replay_path,
+        runtime_step_path,
+        replay_file: artifact_file,
+        args: Vec::new(),
+        module_debug_outputs,
+    })
+}
+
+fn execute_debug_execution(execution: &DebugExecution) -> Result<serde_json::Value, CliError> {
+    let runtime_output = execute_runner(
+        &execution.runner_path,
+        &execution.runtime_error_path,
+        None,
+        None,
+        Some(&execution.runtime_replay_path),
+        Some(&execution.runtime_step_path),
+        &execution.args,
+        false,
+    )?;
+    Ok(debug_snapshot_json(
+        runtime_output.step_capture.as_ref(),
+        &runtime_output,
+        &execution.module_debug_outputs,
+        &execution.replay_file,
+    ))
+}
+
+pub fn debug_run_start_command(
+    file: &Path,
+    replay_path: &Path,
+    breakpoint_lines: &[String],
+    breakpoint_functions: &[String],
+    breakpoint_spans: &[String],
+) -> Result<(), CliError> {
+    let breakpoints = DebugBreakpointSelectors {
+        breakpoint_lines: breakpoint_lines.to_vec(),
+        breakpoint_functions: breakpoint_functions.to_vec(),
+        breakpoint_spans: breakpoint_spans.to_vec(),
+    };
+    let snapshot = execute_debug_execution(&prepare_debug_run_execution(
+        file,
+        replay_path,
+        &breakpoints,
+        "start",
+        None,
+    )?)?;
+    let session_path = unique_debug_session_path(DebugSessionTargetKind::Run)?;
+    let session = DebugSessionFile {
+        format_version: 1,
+        kind: "sigilDebugSession".to_string(),
+        target_kind: DebugSessionTargetKind::Run,
+        session_id: session_path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
+        replay_file: resolve_run_artifact_path(replay_path, false)?
+            .to_string_lossy()
+            .to_string(),
+        path: canonicalize_existing_path(file).to_string_lossy().to_string(),
+        test_id: None,
+        breakpoints,
+        state: debug_session_state_from_snapshot(&snapshot),
+        snapshot,
+    };
+    write_debug_session(&session_path, &session)?;
+    output_debug_success(&session_path, &session);
+    Ok(())
+}
+
+pub fn debug_run_session_command(
+    action: DebugControlAction,
+    session_path: &Path,
+) -> Result<(), CliError> {
+    let resolved_session = resolve_debug_session_path(session_path)?;
+    let mut session = read_debug_session(&resolved_session)?;
+    if session.target_kind != DebugSessionTargetKind::Run {
+        output_json_error_to(
+            "sigilc debug run",
+            "cli",
+            codes::cli::UNEXPECTED,
+            "debug session target does not match `sigil debug run`",
+            json!({
+                "session": resolved_session.to_string_lossy(),
+                "targetKind": session.target_kind.as_str()
+            }),
+            false,
+        );
+        return Err(CliError::Reported(1));
+    }
+    match action {
+        DebugControlAction::Snapshot => {
+            output_debug_success(&resolved_session, &session);
+            Ok(())
+        }
+        DebugControlAction::Close => {
+            session.state = DebugSessionState::Closed;
+            if let Some(snapshot) = session.snapshot.as_object_mut() {
+                snapshot.insert("state".to_string(), json!("closed"));
+            }
+            let _ = fs::remove_file(&resolved_session);
+            output_debug_success(&resolved_session, &session);
+            Ok(())
+        }
+        _ => {
+            if session.state != DebugSessionState::Paused {
+                return debug_session_state_error(DebugSessionTargetKind::Run, &resolved_session, &session);
+            }
+            let cursor = debug_snapshot_cursor(&session.snapshot);
+            let snapshot = execute_debug_execution(&prepare_debug_run_execution(
+                Path::new(&session.path),
+                Path::new(&session.replay_file),
+                &session.breakpoints,
+                action.as_step_action().unwrap(),
+                Some(&cursor),
+            )?)?;
+            session.state = debug_session_state_from_snapshot(&snapshot);
+            session.snapshot = snapshot;
+            write_debug_session(&resolved_session, &session)?;
+            output_debug_success(&resolved_session, &session);
+            Ok(())
+        }
+    }
+}
+
+pub fn debug_test_start_command(
+    path: &Path,
+    replay_path: &Path,
+    test_id: Option<&str>,
+    breakpoint_lines: &[String],
+    breakpoint_functions: &[String],
+    breakpoint_spans: &[String],
+) -> Result<(), CliError> {
+    let Some(test_id) = test_id else {
+        output_json_error_to(
+            "sigilc debug test",
+            "cli",
+            codes::cli::USAGE,
+            "`sigil debug test start` requires `--test <id>`",
+            json!({
+                "path": path.to_string_lossy(),
+                "option": "--test"
+            }),
+            false,
+        );
+        return Err(CliError::Reported(1));
+    };
+    let breakpoints = DebugBreakpointSelectors {
+        breakpoint_lines: breakpoint_lines.to_vec(),
+        breakpoint_functions: breakpoint_functions.to_vec(),
+        breakpoint_spans: breakpoint_spans.to_vec(),
+    };
+    let snapshot = execute_debug_execution(&prepare_debug_test_execution(
+        path,
+        replay_path,
+        test_id,
+        &breakpoints,
+        "start",
+        None,
+    )?)?;
+    let session_path = unique_debug_session_path(DebugSessionTargetKind::Test)?;
+    let session = DebugSessionFile {
+        format_version: 1,
+        kind: "sigilDebugSession".to_string(),
+        target_kind: DebugSessionTargetKind::Test,
+        session_id: session_path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
+        replay_file: resolve_run_artifact_path(replay_path, false)?
+            .to_string_lossy()
+            .to_string(),
+        path: resolve_debug_session_path(path)?.to_string_lossy().to_string(),
+        test_id: Some(test_id.to_string()),
+        breakpoints,
+        state: debug_session_state_from_snapshot(&snapshot),
+        snapshot,
+    };
+    write_debug_session(&session_path, &session)?;
+    output_debug_success(&session_path, &session);
+    Ok(())
+}
+
+pub fn debug_test_session_command(
+    action: DebugControlAction,
+    session_path: &Path,
+) -> Result<(), CliError> {
+    let resolved_session = resolve_debug_session_path(session_path)?;
+    let mut session = read_debug_session(&resolved_session)?;
+    if session.target_kind != DebugSessionTargetKind::Test {
+        output_json_error_to(
+            "sigilc debug test",
+            "cli",
+            codes::cli::UNEXPECTED,
+            "debug session target does not match `sigil debug test`",
+            json!({
+                "session": resolved_session.to_string_lossy(),
+                "targetKind": session.target_kind.as_str()
+            }),
+            false,
+        );
+        return Err(CliError::Reported(1));
+    }
+    match action {
+        DebugControlAction::Snapshot => {
+            output_debug_success(&resolved_session, &session);
+            Ok(())
+        }
+        DebugControlAction::Close => {
+            session.state = DebugSessionState::Closed;
+            if let Some(snapshot) = session.snapshot.as_object_mut() {
+                snapshot.insert("state".to_string(), json!("closed"));
+            }
+            let _ = fs::remove_file(&resolved_session);
+            output_debug_success(&resolved_session, &session);
+            Ok(())
+        }
+        _ => {
+            if session.state != DebugSessionState::Paused {
+                return debug_session_state_error(DebugSessionTargetKind::Test, &resolved_session, &session);
+            }
+            let cursor = debug_snapshot_cursor(&session.snapshot);
+            let snapshot = execute_debug_execution(&prepare_debug_test_execution(
+                Path::new(&session.path),
+                Path::new(&session.replay_file),
+                session.test_id.as_deref().unwrap_or_default(),
+                &session.breakpoints,
+                action.as_step_action().unwrap(),
+                Some(&cursor),
+            )?)?;
+            session.state = debug_session_state_from_snapshot(&snapshot);
+            session.snapshot = snapshot;
+            write_debug_session(&resolved_session, &session)?;
+            output_debug_success(&resolved_session, &session);
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -5595,6 +6434,617 @@ enum PreparedTestReplayMode {
         artifact_file: PathBuf,
         artifact: TestReplayArtifact,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DebugControlAction {
+    Snapshot,
+    StepInto,
+    StepOver,
+    StepOut,
+    Continue,
+    Close,
+}
+
+impl DebugControlAction {
+    fn as_step_action(self) -> Option<&'static str> {
+        match self {
+            DebugControlAction::Snapshot | DebugControlAction::Close => None,
+            DebugControlAction::StepInto => Some("stepInto"),
+            DebugControlAction::StepOver => Some("stepOver"),
+            DebugControlAction::StepOut => Some("stepOut"),
+            DebugControlAction::Continue => Some("continue"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum DebugSessionTargetKind {
+    Run,
+    Test,
+}
+
+impl DebugSessionTargetKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            DebugSessionTargetKind::Run => "run",
+            DebugSessionTargetKind::Test => "test",
+        }
+    }
+
+    fn command_name(self) -> &'static str {
+        match self {
+            DebugSessionTargetKind::Run => "sigilc debug run",
+            DebugSessionTargetKind::Test => "sigilc debug test",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum DebugSessionState {
+    Paused,
+    Completed,
+    Failed,
+    Closed,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DebugBreakpointSelectors {
+    breakpoint_lines: Vec<String>,
+    breakpoint_functions: Vec<String>,
+    breakpoint_spans: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DebugSessionFile {
+    format_version: u32,
+    kind: String,
+    target_kind: DebugSessionTargetKind,
+    session_id: String,
+    replay_file: String,
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    test_id: Option<String>,
+    breakpoints: DebugBreakpointSelectors,
+    state: DebugSessionState,
+    snapshot: serde_json::Value,
+}
+
+#[derive(Debug, Clone)]
+struct DebugStepCursor {
+    seq: usize,
+    event_kind: Option<String>,
+    span_id: Option<String>,
+    frame_depth: usize,
+    expression_depth: usize,
+    test_id: Option<String>,
+}
+
+fn debug_snapshot_cursor(snapshot: &serde_json::Value) -> DebugStepCursor {
+    DebugStepCursor {
+        seq: snapshot["seq"].as_u64().unwrap_or(0) as usize,
+        event_kind: snapshot["eventKind"].as_str().map(str::to_string),
+        span_id: snapshot["spanId"].as_str().map(str::to_string),
+        frame_depth: snapshot["frameDepth"].as_u64().unwrap_or(0) as usize,
+        expression_depth: snapshot["expressionDepth"].as_u64().unwrap_or(0) as usize,
+        test_id: snapshot["testId"].as_str().map(str::to_string),
+    }
+}
+
+fn unique_debug_session_path(target_kind: DebugSessionTargetKind) -> Result<PathBuf, CliError> {
+    let cwd = std::env::current_dir()?;
+    let debug_dir = cwd.join(".local").join("debug");
+    fs::create_dir_all(&debug_dir)?;
+    let unique = format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    Ok(debug_dir.join(format!(
+        "sigil-debug-{}.{}.session.json",
+        target_kind.as_str(),
+        unique
+    )))
+}
+
+fn resolve_debug_session_path(path: &Path) -> Result<PathBuf, CliError> {
+    let resolved = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    Ok(resolved)
+}
+
+fn read_debug_session(path: &Path) -> Result<DebugSessionFile, CliError> {
+    let resolved = resolve_debug_session_path(path)?;
+    let contents = fs::read_to_string(&resolved).map_err(|error| {
+        CliError::Breakpoint {
+            code: codes::cli::UNEXPECTED.to_string(),
+            message: format!("debug session '{}' could not be read", resolved.display()),
+            details: json!({
+                "session": resolved.to_string_lossy(),
+                "error": error.to_string()
+            }),
+        }
+    })?;
+    let session: DebugSessionFile = serde_json::from_str(&contents).map_err(|error| {
+        CliError::Breakpoint {
+            code: codes::cli::UNEXPECTED.to_string(),
+            message: format!("debug session '{}' is invalid", resolved.display()),
+            details: json!({
+                "session": resolved.to_string_lossy(),
+                "error": error.to_string()
+            }),
+        }
+    })?;
+    if session.kind != "sigilDebugSession" || session.format_version != 1 {
+        return Err(CliError::Breakpoint {
+            code: codes::cli::UNEXPECTED.to_string(),
+            message: format!("'{}' is not a supported Sigil debug session", resolved.display()),
+            details: json!({
+                "session": resolved.to_string_lossy()
+            }),
+        });
+    }
+    Ok(session)
+}
+
+fn write_debug_session(path: &Path, session: &DebugSessionFile) -> Result<(), CliError> {
+    let serialized = serde_json::to_string(session).map_err(|error| {
+        CliError::Runtime(format!(
+            "{}: failed to serialize debug session '{}': {}",
+            codes::cli::UNEXPECTED,
+            path.display(),
+            error
+        ))
+    })?;
+    fs::write(path, serialized)?;
+    Ok(())
+}
+
+fn debug_session_json(path: &Path, session: &DebugSessionFile) -> serde_json::Value {
+    let mut session_json = serde_json::Map::new();
+    session_json.insert("id".to_string(), json!(session.session_id));
+    session_json.insert(
+        "file".to_string(),
+        json!(canonicalize_existing_path(path).to_string_lossy()),
+    );
+    session_json.insert("targetKind".to_string(), json!(session.target_kind.as_str()));
+    session_json.insert("state".to_string(), json!(session.state));
+    session_json.insert("replayFile".to_string(), json!(session.replay_file));
+    match session.target_kind {
+        DebugSessionTargetKind::Run => {
+            session_json.insert("programPath".to_string(), json!(session.path));
+        }
+        DebugSessionTargetKind::Test => {
+            session_json.insert("testPath".to_string(), json!(session.path));
+        }
+    }
+    if let Some(test_id) = &session.test_id {
+        session_json.insert("testId".to_string(), json!(test_id));
+    }
+    serde_json::Value::Object(session_json)
+}
+
+fn output_debug_success(path: &Path, session: &DebugSessionFile) {
+    let output = json!({
+        "formatVersion": 1,
+        "command": session.target_kind.command_name(),
+        "ok": true,
+        "phase": "runtime",
+        "data": {
+            "session": debug_session_json(path, session),
+            "snapshot": session.snapshot
+        }
+    });
+    output_json_value(&output, false);
+}
+
+fn debug_session_state_from_snapshot(snapshot: &serde_json::Value) -> DebugSessionState {
+    match snapshot["state"].as_str() {
+        Some("completed") => DebugSessionState::Completed,
+        Some("failed") => DebugSessionState::Failed,
+        Some("closed") => DebugSessionState::Closed,
+        _ => DebugSessionState::Paused,
+    }
+}
+
+fn debug_runtime_breakpoint_config_json(
+    config: Option<&ResolvedBreakpointConfig>,
+) -> Result<String, CliError> {
+    let spans = config
+        .map(|config| {
+            config
+                .spans
+                .iter()
+                .map(|(span_id, selectors)| {
+                    (
+                        span_id.clone(),
+                        serde_json::to_value(selectors).unwrap_or_else(|_| json!([])),
+                    )
+                })
+                .collect::<serde_json::Map<_, _>>()
+        })
+        .unwrap_or_default();
+    serde_json::to_string(&json!({
+        "enabled": true,
+        "mode": "stop",
+        "maxHits": 32,
+        "recentTraceLimit": 32,
+        "spans": spans
+    }))
+    .map_err(|error| CliError::Codegen(format!("failed to encode debug breakpoint config: {error}")))
+}
+
+fn debug_step_config_json(
+    target_kind: DebugSessionTargetKind,
+    action: &str,
+    cursor: Option<&DebugStepCursor>,
+) -> Result<String, CliError> {
+    serde_json::to_string(&json!({
+        "targetKind": target_kind.as_str(),
+        "action": action,
+        "startEventKind": if target_kind == DebugSessionTargetKind::Run { "function_enter" } else { "test_enter" },
+        "current": cursor.map(|cursor| json!({
+            "seq": cursor.seq,
+            "eventKind": cursor.event_kind,
+            "spanId": cursor.span_id,
+            "frameDepth": cursor.frame_depth,
+            "expressionDepth": cursor.expression_depth,
+            "testId": cursor.test_id
+        }))
+    }))
+    .map_err(|error| CliError::Codegen(format!("failed to encode debug step config: {error}")))
+}
+
+fn debug_step_runtime_source(step_file_json: &str, step_config_json: &str) -> String {
+    format!(
+        r#"
+const __sigil_debug_step_file = {step_file_json};
+globalThis.__sigil_debug_step_config = {step_config_json};
+globalThis.__sigil_debug_step_current = undefined;
+
+function __sigil_debug_pause_signal() {{
+  return {{ __sigilDebugPause: true }};
+}}
+
+function __sigil_debug_is_pause_signal(error) {{
+  return !!(error && typeof error === 'object' && error.__sigilDebugPause === true);
+}}
+
+function __sigil_debug_state() {{
+  if (!globalThis.__sigil_debug_step_current || typeof globalThis.__sigil_debug_step_current !== 'object') {{
+    globalThis.__sigil_debug_step_current = {{
+      nextSeq: 1,
+      snapshot: null,
+      config: globalThis.__sigil_debug_step_config ?? {{}}
+    }};
+  }}
+  return globalThis.__sigil_debug_step_current;
+}}
+
+function __sigil_debug_last_completed_from_event(event) {{
+  if (!event || typeof event !== 'object') return null;
+  if (event.kind === 'expr_return') {{
+    return {{ kind: 'expr_return', spanId: event.spanId ?? null, value: event.value ?? null }};
+  }}
+  if (event.kind === 'expr_throw') {{
+    return {{ kind: 'expr_throw', spanId: event.spanId ?? null, error: event.error ?? null }};
+  }}
+  if (event.kind === 'function_return') {{
+    return {{ kind: 'function_return', functionName: event.functionName ?? null, value: event.value ?? null }};
+  }}
+  if (event.kind === 'test_return') {{
+    return {{ kind: 'test_return', testId: event.testId ?? null, testStatus: event.testStatus ?? null, value: event.value ?? null }};
+  }}
+  return null;
+}}
+
+function __sigil_debug_snapshot_from_event(stateValue, reason, event, extras = {{}}) {{
+  return {{
+    state: stateValue,
+    pauseReason: reason,
+    eventKind: String(event?.kind ?? ''),
+    seq: Number(event?.seq ?? 0),
+    moduleId: event?.moduleId ?? null,
+    sourceFile: event?.sourceFile ?? null,
+    spanId: event?.spanId ?? null,
+    spanKind: event?.spanKind ?? null,
+    declarationKind: event?.declarationKind ?? null,
+    declarationLabel: event?.declarationLabel ?? null,
+    functionName: event?.functionName ?? null,
+    testId: event?.testId ?? null,
+    testName: event?.testName ?? null,
+    testStatus: extras.testStatus ?? event?.testStatus ?? null,
+    matched: Array.isArray(event?.matched) ? event.matched : [],
+    locals: Array.isArray(event?.locals) ? event.locals : [],
+    stack: Array.isArray(event?.stack) ? event.stack : [],
+    recentTrace: Array.isArray(event?.recentTrace) ? event.recentTrace : [],
+    frameDepth: Number(event?.frameDepth ?? 0),
+    expressionDepth: Number(event?.expressionDepth ?? 0),
+    lastCompleted: extras.lastCompleted ?? event?.lastCompleted ?? __sigil_debug_last_completed_from_event(event),
+    exception: extras.exception ?? null
+  }};
+}}
+
+function __sigil_debug_pause_reason(event, config) {{
+  const current = config?.current ?? null;
+  const currentSeq = Number(current?.seq ?? 0);
+  if (Number(event?.seq ?? 0) <= currentSeq) {{
+    return null;
+  }}
+  if (event?.kind === 'breakpoint') {{
+    return 'breakpoint';
+  }}
+  const action = String(config?.action ?? 'continue');
+  if (action === 'start') {{
+    return String(event?.kind ?? '') === String(config?.startEventKind ?? '') ? 'start' : null;
+  }}
+  if (action === 'continue') {{
+    return null;
+  }}
+  if (action === 'stepInto') {{
+    return 'step';
+  }}
+  if (action === 'stepOver') {{
+    if (current?.eventKind === 'expr_enter') {{
+      return (event?.kind === 'expr_return' || event?.kind === 'expr_throw') &&
+        Number(event?.expressionDepth ?? 0) === Number(current?.expressionDepth ?? 0)
+        ? 'step'
+        : null;
+    }}
+    if (current?.eventKind === 'function_enter') {{
+      return event?.kind === 'function_return' &&
+        Number(event?.frameDepth ?? 0) === Number(current?.frameDepth ?? 0)
+        ? 'step'
+        : null;
+    }}
+    if (current?.eventKind === 'test_enter') {{
+      return event?.kind === 'test_return' &&
+        String(event?.testId ?? '') === String(current?.testId ?? '')
+        ? 'step'
+        : null;
+    }}
+    return 'step';
+  }}
+  if (action === 'stepOut') {{
+    const targetKind = String(config?.targetKind ?? '');
+    if (Number(current?.frameDepth ?? 0) > 0) {{
+      return event?.kind === 'function_return' &&
+        Number(event?.frameDepth ?? 0) === Number(current?.frameDepth ?? 0)
+        ? 'step'
+        : null;
+    }}
+    if (targetKind === 'test') {{
+      return event?.kind === 'test_return' &&
+        (current?.testId == null || String(event?.testId ?? '') === String(current?.testId ?? ''))
+        ? 'step'
+        : null;
+    }}
+    return null;
+  }}
+  return null;
+}}
+
+function __sigil_debug_step_event(rawEvent) {{
+  if (!rawEvent || typeof rawEvent !== 'object') return;
+  const state = __sigil_debug_state();
+  const event = {{ seq: state.nextSeq, ...rawEvent }};
+  state.nextSeq += 1;
+  state.lastEvent = event;
+  const reason = __sigil_debug_pause_reason(event, state.config);
+  if (reason) {{
+    state.snapshot = __sigil_debug_snapshot_from_event('paused', reason, event);
+    throw __sigil_debug_pause_signal();
+  }}
+}}
+
+function __sigil_debug_mark_completed(kind, extras = {{}}) {{
+  const state = __sigil_debug_state();
+  const event = {{ kind, seq: state.nextSeq, ...extras }};
+  state.nextSeq += 1;
+  state.snapshot = __sigil_debug_snapshot_from_event('completed', 'exit', event, extras);
+  return state.snapshot;
+}}
+
+function __sigil_debug_mark_failed(exceptionPayload) {{
+  const state = __sigil_debug_state();
+  const expression = exceptionPayload?.expression ?? null;
+  const event = expression
+    ? {{
+        kind: 'uncaught_exception',
+        seq: state.nextSeq,
+        moduleId: expression.moduleId ?? null,
+        sourceFile: expression.sourceFile ?? null,
+        spanId: expression.spanId ?? null,
+        spanKind: expression.spanKind ?? null,
+        declarationKind: expression.declarationKind ?? null,
+        declarationLabel: expression.declarationLabel ?? null,
+        locals: Array.isArray(expression.locals) ? expression.locals : [],
+        stack: Array.isArray(expression.stack) ? expression.stack : [],
+        recentTrace:
+          typeof globalThis.__sigil_breakpoint_recent_trace === 'function'
+            ? globalThis.__sigil_breakpoint_recent_trace()
+            : [],
+        frameDepth: Array.isArray(expression.stack) ? expression.stack.length : 0,
+        expressionDepth: 0
+      }}
+    : {{ kind: 'uncaught_exception', seq: state.nextSeq }};
+  state.nextSeq += 1;
+  state.snapshot = __sigil_debug_snapshot_from_event('failed', 'exception', event, {{
+    exception: exceptionPayload ?? null
+  }});
+  return state.snapshot;
+}}
+
+function __sigil_debug_snapshot() {{
+  const state = __sigil_debug_state();
+  return state.snapshot ?? {{
+    state: 'paused',
+    pauseReason: 'start',
+    eventKind: '',
+    seq: 0,
+    moduleId: null,
+    sourceFile: null,
+    spanId: null,
+    spanKind: null,
+    declarationKind: null,
+    declarationLabel: null,
+    functionName: null,
+    testId: null,
+    testName: null,
+    testStatus: null,
+    matched: [],
+    locals: [],
+    stack: [],
+    recentTrace: [],
+    frameDepth: 0,
+    expressionDepth: 0,
+    lastCompleted: null,
+    exception: null
+  }};
+}}
+
+function __sigil_debug_capture_step_sync() {{
+  try {{
+    writeFileSync(__sigil_debug_step_file, JSON.stringify(__sigil_debug_snapshot()));
+  }} catch (_captureStepError) {{
+    // Best-effort debug plumbing only.
+  }}
+}}
+
+process.on('exit', () => {{
+  __sigil_debug_capture_step_sync();
+}});
+
+globalThis.__sigil_debug_step_event = __sigil_debug_step_event;
+globalThis.__sigil_debug_mark_completed = __sigil_debug_mark_completed;
+globalThis.__sigil_debug_mark_failed = __sigil_debug_mark_failed;
+globalThis.__sigil_debug_is_pause_signal = __sigil_debug_is_pause_signal;
+globalThis.__sigil_debug_snapshot = __sigil_debug_snapshot;
+"#
+    )
+}
+
+fn debug_runtime_replay_capture_source(
+    runtime_replay_path_json: &str,
+    replay_config_json: &str,
+) -> String {
+    format!(
+        r#"
+const __sigil_runtime_replay_file = {runtime_replay_path_json};
+globalThis.__sigil_replay_config = {replay_config_json};
+globalThis.__sigil_replay_current = undefined;
+
+function __sigil_runtime_replay_payload() {{
+  if (typeof globalThis.__sigil_replay_snapshot === 'function') {{
+    try {{
+      return globalThis.__sigil_replay_snapshot();
+    }} catch (_replayError) {{}}
+  }}
+  return {{
+    mode: String(globalThis.__sigil_replay_config?.mode ?? ''),
+    file: String(globalThis.__sigil_replay_config?.file ?? ''),
+    recordedEvents: 0,
+    consumedEvents: 0,
+    remainingEvents: 0,
+    partial: false
+  }};
+}}
+
+function __sigil_runtime_capture_replay_sync() {{
+  try {{
+    writeFileSync(__sigil_runtime_replay_file, JSON.stringify(__sigil_runtime_replay_payload()));
+  }} catch (_captureReplayError) {{
+    // Best-effort debug plumbing only.
+  }}
+}}
+
+process.on('exit', () => {{
+  __sigil_runtime_capture_replay_sync();
+}});
+"#
+    )
+}
+
+fn debug_runtime_error_capture_source(runtime_error_path_json: &str) -> String {
+    format!(
+        r#"
+const __sigil_runtime_error_file = {runtime_error_path_json};
+
+function __sigil_runtime_exception_name(error) {{
+  if (error instanceof Error && error.name) {{
+    return String(error.name);
+  }}
+  if (error && typeof error === 'object' && 'name' in error && error.name != null) {{
+    return String(error.name);
+  }}
+  return 'Error';
+}}
+
+function __sigil_runtime_exception_message(error) {{
+  if (error instanceof Error) {{
+    return String(error.message ?? '');
+  }}
+  return String(error);
+}}
+
+function __sigil_runtime_exception_stack(error) {{
+  if (error instanceof Error && typeof error.stack === 'string') {{
+    return error.stack;
+  }}
+  return '';
+}}
+
+function __sigil_runtime_expression_payload() {{
+  if (typeof globalThis.__sigil_expression_exception_payload === 'function') {{
+    try {{
+      return globalThis.__sigil_expression_exception_payload();
+    }} catch (_captureExpressionError) {{
+      return null;
+    }}
+  }}
+  return null;
+}}
+
+async function __sigil_runtime_capture_error(error) {{
+  const sigilCode =
+    error && typeof error === 'object' && 'sigilCode' in error && error.sigilCode != null
+      ? String(error.sigilCode)
+      : null;
+  const payload = {{
+    message: __sigil_runtime_exception_message(error),
+    name: __sigil_runtime_exception_name(error),
+    sigilCode,
+    expression: __sigil_runtime_expression_payload(),
+    stack: __sigil_runtime_exception_stack(error)
+  }};
+  try {{
+    await writeFile(__sigil_runtime_error_file, JSON.stringify(payload));
+  }} catch (_captureError) {{
+    // Best-effort debug plumbing only.
+  }}
+  return payload;
+}}
+
+function __sigil_runtime_is_intentional_debug_stop(error) {{
+  return (
+    (typeof globalThis.__sigil_breakpoint_is_stop_signal === 'function' &&
+      !!globalThis.__sigil_breakpoint_is_stop_signal(error)) ||
+    (typeof globalThis.__sigil_debug_is_pause_signal === 'function' &&
+      !!globalThis.__sigil_debug_is_pause_signal(error))
+  );
+}}
+"#
+    )
 }
 
 #[derive(Debug, Clone)]

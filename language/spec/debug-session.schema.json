@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sigil-lang.org/spec/debug-session.schema.json",
+  "title": "Sigil Debug Session (formatVersion=1)",
+  "type": "object",
+  "required": [
+    "formatVersion",
+    "kind",
+    "targetKind",
+    "sessionId",
+    "replayFile",
+    "path",
+    "breakpoints",
+    "state",
+    "snapshot"
+  ],
+  "properties": {
+    "formatVersion": { "type": "integer", "const": 1 },
+    "kind": { "const": "sigilDebugSession" },
+    "targetKind": { "type": "string", "enum": ["run", "test"] },
+    "sessionId": { "type": "string" },
+    "replayFile": { "type": "string" },
+    "path": { "type": "string" },
+    "testId": { "type": "string" },
+    "breakpoints": {
+      "type": "object",
+      "required": ["breakpointLines", "breakpointFunctions", "breakpointSpans"],
+      "properties": {
+        "breakpointLines": { "type": "array", "items": { "type": "string" } },
+        "breakpointFunctions": { "type": "array", "items": { "type": "string" } },
+        "breakpointSpans": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "state": { "type": "string", "enum": ["paused", "completed", "failed", "closed"] },
+    "snapshot": { "type": "object" }
+  },
+  "additionalProperties": false
+}

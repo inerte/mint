@@ -2672,6 +2672,8 @@ impl TypeScriptGenerator {
         self.emit("  }");
         self.emit("  return { enabled: true, truncated: !!state.truncated, totalEvents: state.totalEvents, returnedEvents: state.events.length, droppedEvents: state.droppedEvents, events: state.events.slice() };");
         self.emit("}");
+        self.emit("globalThis.__sigil_trace_summary = __sigil_trace_summary;");
+        self.emit("globalThis.__sigil_trace_error_summary = __sigil_trace_error_summary;");
         self.emit("function __sigil_debug_wrap_call(meta, paramNames, args, thunk) {");
         self.emit("  const traceEnabled = __sigil_trace_enabled();");
         self.emit("  const breakpointEnabled = typeof __sigil_breakpoint_enabled === 'function' && __sigil_breakpoint_enabled();");
@@ -2686,10 +2688,16 @@ impl TypeScriptGenerator {
         self.emit("    __sigil_breakpoint_push_frame(meta, functionName, paramNames, args);");
         self.emit("  }");
         self.emit("  if (state) state.depth = depth + 1;");
+        self.emit("  if (typeof __sigil_debug_step_emit === 'function') {");
+        self.emit("    __sigil_debug_step_emit({ kind: 'function_enter', depth, ...meta, functionName });");
+        self.emit("  }");
         self.emit("  if (breakpointEnabled) {");
         self.emit("    __sigil_breakpoint_maybe_hit(meta);");
         self.emit("  }");
         self.emit("  const finish = (value) => {");
+        self.emit("    if (typeof __sigil_debug_step_emit === 'function') {");
+        self.emit("      __sigil_debug_step_emit({ kind: 'function_return', depth, ...meta, functionName, value: __sigil_trace_summary(value, 1) });");
+        self.emit("    }");
         self.emit("    if (state) state.depth = depth;");
         self.emit("    if (breakpointEnabled) {");
         self.emit("      __sigil_breakpoint_pop_frame();");
@@ -2816,6 +2824,19 @@ impl TypeScriptGenerator {
         self.emit("    return [];");
         self.emit("  }");
         self.emit("}");
+        self.emit("function __sigil_debug_step_emit(event) {");
+        self.emit("  if (typeof globalThis.__sigil_debug_step_event !== 'function') return;");
+        self.emit("  const state = typeof __sigil_breakpoint_state === 'function' ? __sigil_breakpoint_state() : null;");
+        self.emit("  const expressionDepth = typeof __sigil_expression_state === 'function' ? (Array.isArray(__sigil_expression_state()?.stack) ? __sigil_expression_state().stack.length : 0) : 0;");
+        self.emit("  globalThis.__sigil_debug_step_event({");
+        self.emit("    ...event,");
+        self.emit("    locals: 'locals' in event ? event.locals : (state ? __sigil_breakpoint_current_locals(state) : []),");
+        self.emit("    stack: 'stack' in event ? event.stack : (state ? __sigil_breakpoint_stack_snapshot(state) : []),");
+        self.emit("    recentTrace: 'recentTrace' in event ? event.recentTrace : __sigil_breakpoint_recent_trace(),");
+        self.emit("    frameDepth: 'frameDepth' in event ? Number(event.frameDepth ?? 0) : (state?.stack?.length ?? 0),");
+        self.emit("    expressionDepth: 'expressionDepth' in event ? Number(event.expressionDepth ?? 0) : expressionDepth");
+        self.emit("  });");
+        self.emit("}");
         self.emit("function __sigil_breakpoint_record_hit(meta) {");
         self.emit("  const state = __sigil_breakpoint_state();");
         self.emit("  if (!state) return;");
@@ -2823,6 +2844,9 @@ impl TypeScriptGenerator {
         self.emit("  if (selectors.length === 0) return;");
         self.emit("  state.totalHits += 1;");
         self.emit("  const hit = { matched: selectors, moduleId: String(meta.moduleId ?? ''), sourceFile: String(meta.sourceFile ?? ''), spanId: String(meta.spanId ?? ''), spanKind: meta.spanKind ?? null, declarationKind: meta.declarationKind ?? null, declarationLabel: meta.declarationLabel ?? null, locals: __sigil_breakpoint_current_locals(state), stack: __sigil_breakpoint_stack_snapshot(state), recentTrace: __sigil_breakpoint_recent_trace() };");
+        self.emit("  if (typeof __sigil_debug_step_emit === 'function') {");
+        self.emit("    __sigil_debug_step_emit({ kind: 'breakpoint', ...hit, frameDepth: state.stack.length });");
+        self.emit("  }");
         self.emit("  if (state.hits.length >= state.maxHits) {");
         self.emit("    state.hits.shift();");
         self.emit("    state.droppedHits += 1;");
@@ -2851,6 +2875,7 @@ impl TypeScriptGenerator {
         self.emit("  return { enabled: true, mode: String(state.mode), stopped: !!state.stopped, truncated: !!state.truncated, totalHits: Number(state.totalHits), returnedHits: state.hits.length, droppedHits: Number(state.droppedHits), maxHits: Number(state.maxHits), hits: state.hits.slice() };");
         self.emit("}");
         self.emit("globalThis.__sigil_breakpoint_snapshot = __sigil_breakpoint_snapshot;");
+        self.emit("globalThis.__sigil_breakpoint_recent_trace = __sigil_breakpoint_recent_trace;");
         self.emit(
             "globalThis.__sigil_breakpoint_is_stop_signal = __sigil_breakpoint_is_stop_signal;",
         );
@@ -2902,6 +2927,9 @@ impl TypeScriptGenerator {
         self.emit("    const traceState = __sigil_trace_state();");
         self.emit("    __sigil_trace_push({ kind: 'expr_throw', depth: traceState ? traceState.depth : 0, ...meta, spanKind: String(meta.spanKind ?? ''), error: errorSummary });");
         self.emit("  }");
+        self.emit("  if (typeof __sigil_debug_step_emit === 'function') {");
+        self.emit("    __sigil_debug_step_emit({ kind: 'expr_throw', ...meta, spanKind: String(meta.spanKind ?? ''), error: errorSummary, expressionDepth: depth });");
+        self.emit("  }");
         self.emit("  if (!state.failure || Number(depth) >= Number(state.failure.depth ?? 0)) {");
         self.emit("    state.failure = { depth: Number(depth), snapshot: __sigil_expression_snapshot_from_meta(meta, { error: errorSummary }) };");
         self.emit("  }");
@@ -2919,6 +2947,9 @@ impl TypeScriptGenerator {
         self.emit("  if (__sigil_trace_expression_enabled()) {");
         self.emit("    const traceState = __sigil_trace_state();");
         self.emit("    __sigil_trace_push({ kind: 'expr_enter', depth: traceState ? traceState.depth : 0, ...meta, spanKind: String(meta.spanKind ?? '') });");
+        self.emit("  }");
+        self.emit("  if (typeof __sigil_debug_step_emit === 'function') {");
+        self.emit("    __sigil_debug_step_emit({ kind: 'expr_enter', ...meta, spanKind: String(meta.spanKind ?? ''), expressionDepth: state.stack.length });");
         self.emit("  }");
         self.emit("  const fail = (error) => {");
         self.emit("    const depth = state.stack.length;");
@@ -2939,6 +2970,9 @@ impl TypeScriptGenerator {
         self.emit("      if (__sigil_trace_expression_enabled()) {");
         self.emit("        const traceState = __sigil_trace_state();");
         self.emit("        __sigil_trace_push({ kind: 'expr_return', depth: traceState ? traceState.depth : 0, ...meta, spanKind: String(meta.spanKind ?? ''), value: __sigil_trace_summary(value, 1) });");
+        self.emit("      }");
+        self.emit("      if (typeof __sigil_debug_step_emit === 'function') {");
+        self.emit("        __sigil_debug_step_emit({ kind: 'expr_return', ...meta, spanKind: String(meta.spanKind ?? ''), value: __sigil_trace_summary(value, 1), expressionDepth: state.stack.length });");
         self.emit("      }");
         self.emit("      if (state.stack.length > 0) state.stack.pop();");
         self.emit("      return value;");
@@ -3618,6 +3652,20 @@ impl TypeScriptGenerator {
 
         // Add to test metadata
         let source_file = self.source_file.as_deref().unwrap_or("<unknown>");
+        let module_id = self.module_id.as_deref().unwrap_or("<unknown>");
+        let test_span_id = self
+            .span_id_for_expr(DebugSpanKind::TestDecl, test.location)
+            .unwrap_or("");
+        let source_file_json = serde_json::to_string(source_file).map_err(|e| {
+            CodegenError::General(format!("Failed to JSON-encode source file: {}", e))
+        })?;
+        let module_id_json = serde_json::to_string(module_id).map_err(|e| {
+            CodegenError::General(format!("Failed to JSON-encode module id: {}", e))
+        })?;
+        let span_id_json = serde_json::to_string(test_span_id).map_err(|e| {
+            CodegenError::General(format!("Failed to JSON-encode test span id: {}", e))
+        })?;
+        let span_kind_json = self.span_kind_literal(DebugSpanKind::TestDecl)?;
         let test_id = format!("{}::{}", source_file, test.description);
         let test_id_json = serde_json::to_string(&test_id)
             .map_err(|e| CodegenError::General(format!("Failed to JSON-encode test id: {}", e)))?;
@@ -3625,10 +3673,14 @@ impl TypeScriptGenerator {
             CodegenError::General(format!("Failed to JSON-encode test description: {}", e))
         })?;
         self.test_meta_entries.push(format!(
-            "{{ id: {}, name: {}, description: {}, location: {{ start: {{ line: {}, column: {} }} }}, fn: __test_{} }}",
+            "{{ id: {}, name: {}, description: {}, moduleId: {}, sourceFile: {}, spanId: {}, spanKind: {}, location: {{ start: {{ line: {}, column: {} }} }}, fn: __test_{} }}",
             &test_id_json,
             &description_json,
             &description_json,
+            &module_id_json,
+            &source_file_json,
+            &span_id_json,
+            &span_kind_json,
             test.location.start.line,
             test.location.start.column,
             test_name

@@ -1,17 +1,16 @@
 # Developer-Experience Benchmarks
 
-This benchmark family measures whether Sigil tooling changes actually improve a
-coding agent's maintenance loop.
+This benchmark family measures whether Sigil gets better for coding agents at
+real work: writing, editing, and fixing Sigil programs.
 
-V1 is **Codex-first** and compares a `base` ref against a `candidate` ref on a
-deterministic task corpus. The harness is designed to say **insufficient
-coverage** when a feature does not have the right task support yet, instead of
-forcing a winner.
+V1 is **Codex-first** and compares a clean baseline against a candidate on a
+deterministic task corpus. By default, `compare` uses a clean `HEAD` baseline
+and the **current working tree snapshot** as the candidate, and it runs the
+entire task corpus unless you explicitly narrow it with `--tasks`.
 
 ## Layout
 
 - `tasks/` — benchmark task manifests
-- `features/` — feature manifests used for coverage gating
 - `fixtures/` — deterministic starting projects copied into temporary workspaces
 - `tools/` — TypeScript/Node runner and tests
 - `results/` — tracked published summaries and aggregate history
@@ -25,21 +24,6 @@ Validate manifests:
 pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts validate
 ```
 
-Check whether the current task set covers a proposed feature:
-
-```bash
-pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts coverage \
-  --feature agent-edit-loop-smoke.json
-```
-
-Propose new tasks for an under-covered feature:
-
-```bash
-pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts propose-tasks \
-  --feature inspect-types-typeids.json \
-  --write
-```
-
 Run a single ref against the selected task set:
 
 ```bash
@@ -48,13 +32,26 @@ pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts 
   --tasks syntax-compile-fix,multimodule-report
 ```
 
-Compare a feature across `base` and `candidate` refs:
+Run the current working tree against the selected task set:
+
+```bash
+pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts run \
+  --tasks syntax-compile-fix,multimodule-report
+```
+
+Compare clean `HEAD` against the current working tree across the full corpus:
+
+```bash
+pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts compare
+```
+
+Compare across explicit refs when needed:
 
 ```bash
 pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts compare \
-  --feature agent-edit-loop-smoke.json \
   --base main \
-  --candidate HEAD
+  --candidate feature-branch \
+  --tasks syntax-compile-fix,test-repair
 ```
 
 Publish a selected compare run into tracked summaries:
@@ -62,7 +59,7 @@ Publish a selected compare run into tracked summaries:
 ```bash
 pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts publish \
   --run <run-id> \
-  --label 2026-04-01-agent-edit-loop
+  --label 2026-04-01-devex-sample
 ```
 
 Run the harness tests:
@@ -82,7 +79,6 @@ language/benchmarks/developer-experience/.local/runs/<timestamp>-<id>/
 Those local bundles keep:
 
 - `meta.json`
-- `coverage.json`
 - `run.json` or `compare.json`
 - per-task result JSON
 - transcripts
@@ -98,10 +94,11 @@ The initial deterministic task corpus includes:
 
 - `syntax-compile-fix`
 - `multimodule-report`
+- `repair-ingest-received-timestamp`
+- `repair-feed-published-timestamp`
 - `test-repair`
 - `topology-world-fix`
 
-These are enough to exercise the harness end to end, but they are not intended
-to cover every future feature. New feature work should add or curate tasks
-before relying on benchmark comparisons.
-
+These are enough to exercise the harness end to end, but the corpus should grow
+only when a common Sigil workflow is missing. Tasks should stay problem-oriented
+and outcome-based rather than being tied to a specific feature under development.

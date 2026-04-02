@@ -13,10 +13,11 @@ export async function publishCompareRun(resultsDir: string, runDir: string, labe
   const summary: PublishedSummary = {
     runId: path.basename(runDir),
     label,
-    featureId: compare.featureId,
     status: compare.status,
     generatedAt: compare.generatedAt,
+    baseRequestedRef: compare.base.requestedRef,
     baseRef: compare.base.resolvedRef,
+    candidateRequestedRef: compare.candidate.requestedRef,
     candidateRef: compare.candidate.resolvedRef,
     passed: {
       base: compare.base.passed,
@@ -37,15 +38,13 @@ export async function publishCompareRun(resultsDir: string, runDir: string, labe
     '# Latest Developer-Experience Benchmark',
     '',
     `- Label: \`${label}\``,
-    `- Feature: \`${compare.featureId}\``,
     `- Status: \`${compare.status}\``,
     `- Base passed: \`${compare.base.passed}/${compare.base.taskResults.length}\``,
     `- Candidate passed: \`${compare.candidate.passed}/${compare.candidate.taskResults.length}\``,
-    `- Base ref: \`${compare.base.resolvedRef}\``,
-    `- Candidate ref: \`${compare.candidate.resolvedRef}\``
+    `- Base ref: \`${compare.base.requestedRef}\` -> \`${compare.base.resolvedRef}\``,
+    `- Candidate ref: \`${compare.candidate.requestedRef}\` -> \`${compare.candidate.resolvedRef}\``
   ].join('\n');
 
   await writeTextFile(path.join(resultsDir, 'LATEST.md'), `${latestMarkdown}\n`);
   return summary;
 }
-

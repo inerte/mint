@@ -14,8 +14,6 @@ export type TaskManifest = {
   goal: string;
   initialPrompt: string;
   fixture: string;
-  capabilityTags: string[];
-  surfaceTags: string[];
   setupCommands: BenchmarkCommand[];
   oracleCommands: BenchmarkCommand[];
   successCriteria: string[];
@@ -23,34 +21,6 @@ export type TaskManifest = {
   forbiddenEditPaths: string[];
   budgets: TaskBudgets;
   rootCauseTags: string[];
-};
-
-export type FeatureManifest = {
-  featureId: string;
-  title: string;
-  summary: string;
-  primaryCapabilityTags: string[];
-  secondaryCapabilityTags: string[];
-  expectedSurfaceTags: string[];
-  claims: string[];
-};
-
-export type CoverageTagReport = {
-  tag: string;
-  matchedTaskIds: string[];
-  requiredCount: number;
-  covered: boolean;
-};
-
-export type CoverageReport = {
-  featureId: string;
-  taskIds: string[];
-  sufficient: boolean;
-  primaryCapabilities: CoverageTagReport[];
-  expectedSurfaces: CoverageTagReport[];
-  missingPrimaryCapabilities: string[];
-  missingExpectedSurfaces: string[];
-  summary: string;
 };
 
 export type AgentFinalResponse = {
@@ -120,7 +90,7 @@ export type TaskRunResult = {
   taskId: string;
   refLabel: string;
   ref: string;
-  status: 'passed' | 'failed' | 'error' | 'insufficient_coverage';
+  status: 'passed' | 'failed' | 'error';
   elapsedMs: number;
   oracleResults: ShellCommandResult[];
   setupResults: ShellCommandResult[];
@@ -137,16 +107,20 @@ export type TaskRunResult = {
   errorMessage?: string;
 };
 
+export type ReferenceSourceKind = 'ref' | 'worktree' | 'binary';
+
 export type RefPreparation = {
   refLabel: string;
+  sourceKind: ReferenceSourceKind;
   requestedRef: string;
   resolvedRef: string;
-  worktreePath: string | null;
+  preparationPath: string | null;
   sigilBin: string;
 };
 
 export type RefRunSummary = {
   refLabel: string;
+  sourceKind: ReferenceSourceKind;
   requestedRef: string;
   resolvedRef: string;
   taskResults: TaskRunResult[];
@@ -164,27 +138,25 @@ export type TaskComparison = {
 };
 
 export type CompareSummary = {
-  status: 'improved' | 'neutral' | 'regressed' | 'mixed' | 'insufficient_coverage';
-  featureId: string;
+  status: 'improved' | 'neutral' | 'regressed' | 'mixed';
   taskIds: string[];
   base: RefRunSummary;
   candidate: RefRunSummary;
   taskComparisons: TaskComparison[];
-  coverage: CoverageReport;
   generatedAt: string;
 };
 
 export type PublishedSummary = {
   runId: string;
   label: string;
-  featureId?: string;
-  status: CompareSummary['status'] | RefRunSummary['refLabel'];
+  status: CompareSummary['status'];
   generatedAt: string;
+  baseRequestedRef?: string;
   baseRef?: string;
+  candidateRequestedRef?: string;
   candidateRef?: string;
   passed?: {
     base: number;
     candidate: number;
   };
 };
-

@@ -23,13 +23,11 @@ function finalResponseSchema(): Record<string, unknown> {
       diagnosis: { type: 'string' },
       diagnosisTags: {
         type: 'array',
-        items: { type: 'string' },
-        uniqueItems: true
+        items: { type: 'string' }
       },
       filesChanged: {
         type: 'array',
-        items: { type: 'string' },
-        uniqueItems: true
+        items: { type: 'string' }
       }
     }
   };
@@ -48,8 +46,6 @@ function buildPrompt(context: ExecutorRunContext): string {
     '',
     `Allowed edit paths: ${context.task.allowedEditPaths.join(', ') || '(none)'}`,
     `Forbidden edit paths: ${context.task.forbiddenEditPaths.join(', ') || '(none)'}`,
-    `Capability tags: ${context.task.capabilityTags.join(', ')}`,
-    `Surface tags: ${context.task.surfaceTags.join(', ')}`,
     `Root-cause tags to consider: ${context.task.rootCauseTags.join(', ')}`,
     '',
     `Workspace notes:`,

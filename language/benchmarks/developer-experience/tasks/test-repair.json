@@ -4,16 +4,6 @@
   "goal": "Restore the implementation so the Sigil tests pass again.",
   "initialPrompt": "A small Sigil project has a failing test suite. Fix the implementation so the tests pass again. The tests are part of the oracle and should not be edited. Replay-backed debugging is available if you want it.",
   "fixture": "test-repair",
-  "capabilityTags": [
-    "basic_repair",
-    "test_repair",
-    "debug_replay"
-  ],
-  "surfaceTags": [
-    "test",
-    "replay",
-    "debug_test"
-  ],
   "setupCommands": [],
   "oracleCommands": [
     {
@@ -41,4 +31,3 @@
     "test_failure"
   ]
 }
-

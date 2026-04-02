@@ -4,13 +4,6 @@
   "goal": "Restore the fixture to a compilable state with the smallest coherent source edit.",
   "initialPrompt": "The benchmark fixture no longer compiles. Fix the broken source so the file compiles again. Keep the patch focused and do not edit files outside the allowed path.",
   "fixture": "syntax-compile-fix",
-  "capabilityTags": [
-    "basic_repair",
-    "compile_repair"
-  ],
-  "surfaceTags": [
-    "compile"
-  ],
   "setupCommands": [],
   "oracleCommands": [
     {
@@ -36,4 +29,3 @@
     "missing_delimiter"
   ]
 }
-

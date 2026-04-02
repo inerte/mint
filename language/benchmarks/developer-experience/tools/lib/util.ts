@@ -93,6 +93,22 @@ export async function execShellCommand(
   const startedAt = Date.now();
 
   return new Promise((resolve) => {
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const finish = (exitCode: number) => {
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        command,
+        cwd,
+        stdout,
+        stderr,
+        exitCode,
+        durationMs: Date.now() - startedAt
+      });
+    };
+
     const child = spawn('/bin/zsh', ['-lc', command], {
       cwd,
       env: {
@@ -100,10 +116,6 @@ export async function execShellCommand(
         ...env
       }
     });
-
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
 
     const timer = setTimeout(() => {
       if (!settled) {
@@ -119,17 +131,17 @@ export async function execShellCommand(
       stderr += chunk.toString();
     });
 
+    child.on('error', (error) => {
+      if (!settled) {
+        stderr += `${String(error.message)}\n`;
+        finish(1);
+      }
+    });
+
     child.on('close', (code) => {
-      settled = true;
-      clearTimeout(timer);
-      resolve({
-        command,
-        cwd,
-        stdout,
-        stderr,
-        exitCode: code ?? 1,
-        durationMs: Date.now() - startedAt
-      });
+      if (!settled) {
+        finish(code ?? 1);
+      }
     });
   });
 }
@@ -137,4 +149,3 @@ export async function execShellCommand(
 export function humanJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
-

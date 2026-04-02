@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { readJsonFile } from './util.js';
-import type { FeatureManifest, TaskManifest } from './types.js';
+import type { TaskManifest } from './types.js';
 
 type ValidationIssue = {
   message: string;
@@ -52,7 +52,7 @@ function validateTaskManifestShape(value: unknown): ValidationIssue[] {
     }
   }
 
-  for (const key of ['capabilityTags', 'surfaceTags', 'successCriteria', 'allowedEditPaths', 'forbiddenEditPaths', 'rootCauseTags']) {
+  for (const key of ['successCriteria', 'allowedEditPaths', 'forbiddenEditPaths', 'rootCauseTags']) {
     if (!isStringArray(record[key])) {
       issues.push({ path: key, message: 'must be a non-empty string array' });
     }
@@ -70,30 +70,6 @@ function validateTaskManifestShape(value: unknown): ValidationIssue[] {
     }
     if (!Number.isInteger(budgets.maxWallClockMs) || Number(budgets.maxWallClockMs) <= 0) {
       issues.push({ path: 'budgets.maxWallClockMs', message: 'must be a positive integer' });
-    }
-  }
-
-  return issues;
-}
-
-function validateFeatureManifestShape(value: unknown): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-
-  if (typeof value !== 'object' || value === null) {
-    return [{ path: '', message: 'feature manifest must be an object' }];
-  }
-
-  const record = value as Record<string, unknown>;
-
-  for (const key of ['featureId', 'title', 'summary']) {
-    if (typeof record[key] !== 'string' || String(record[key]).trim().length === 0) {
-      issues.push({ path: key, message: 'must be a non-empty string' });
-    }
-  }
-
-  for (const key of ['primaryCapabilityTags', 'secondaryCapabilityTags', 'expectedSurfaceTags', 'claims']) {
-    if (!isStringArray(record[key])) {
-      issues.push({ path: key, message: 'must be a non-empty string array' });
     }
   }
 
@@ -136,15 +112,3 @@ export async function loadTaskManifests(tasksDir: string): Promise<TaskManifest[
 
   return manifests;
 }
-
-export async function loadFeatureManifest(filePath: string): Promise<FeatureManifest> {
-  const value = await readJsonFile<unknown>(filePath);
-  const issues = validateFeatureManifestShape(value);
-
-  if (issues.length > 0) {
-    throw issuesToError('feature', filePath, issues);
-  }
-
-  return value as FeatureManifest;
-}
-

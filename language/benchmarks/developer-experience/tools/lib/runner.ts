@@ -1,13 +1,21 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { buildCoverageReport } from './coverage.js';
-import { createWorktree, removeWorktree, collectModifiedPaths, collectPatch, evaluatePathPolicy, prepareTaskWorkspace, cleanupWorkspace } from './workspace.js';
+import {
+  createWorkingTreeSnapshot,
+  createWorktree,
+  removeWorktree,
+  collectModifiedPaths,
+  collectPatch,
+  evaluatePathPolicy,
+  prepareTaskWorkspace,
+  cleanupWorkspace
+} from './workspace.js';
 import { ensureDir, execShellCommand, median, writeJsonFile, writeTextFile } from './util.js';
 import type {
   CompareSummary,
   Executor,
-  FeatureManifest,
+  ReferenceSourceKind,
   RefPreparation,
   RefRunSummary,
   ShellCommandResult,
@@ -20,42 +28,74 @@ type PrepareRefOptions = {
   repoRoot: string;
   runsLocalDir: string;
   refLabel: string;
-  ref: string;
+  ref?: string;
+  sourceKind?: Extract<ReferenceSourceKind, 'ref' | 'worktree'>;
   sigilBinOverride?: string;
 };
 
 async function prepareReference(options: PrepareRefOptions): Promise<RefPreparation> {
+  const sourceKind = options.sourceKind ?? 'ref';
+
   if (options.sigilBinOverride) {
     return {
       refLabel: options.refLabel,
-      requestedRef: options.ref,
-      resolvedRef: options.ref,
-      worktreePath: null,
+      sourceKind: 'binary',
+      requestedRef: options.ref ?? 'SIGIL_BIN',
+      resolvedRef: options.ref ?? 'SIGIL_BIN',
+      preparationPath: null,
       sigilBin: options.sigilBinOverride
     };
   }
 
+  if (sourceKind === 'worktree') {
+    const snapshotRoot = path.join(options.runsLocalDir, 'snapshots');
+    const { snapshotPath, resolvedRef } = await createWorkingTreeSnapshot(options.repoRoot, snapshotRoot, options.refLabel);
+    const build = await execShellCommand('cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli', snapshotPath, {}, 1_800_000);
+
+    if (build.exitCode !== 0) {
+      await fs.rm(snapshotPath, { recursive: true, force: true });
+      throw new Error(`failed to build current working tree: ${build.stderr || build.stdout}`);
+    }
+
+    return {
+      refLabel: options.refLabel,
+      sourceKind,
+      requestedRef: 'WORKTREE',
+      resolvedRef,
+      preparationPath: snapshotPath,
+      sigilBin: path.join(snapshotPath, 'language/compiler/target/debug/sigil')
+    };
+  }
+
+  const requestedRef = options.ref ?? 'HEAD';
   const worktreeRoot = path.join(options.runsLocalDir, 'worktrees');
-  const { worktreePath, resolvedRef } = await createWorktree(options.repoRoot, worktreeRoot, options.refLabel, options.ref);
+  const { worktreePath, resolvedRef } = await createWorktree(options.repoRoot, worktreeRoot, options.refLabel, requestedRef);
   const build = await execShellCommand('cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli', worktreePath, {}, 1_800_000);
 
   if (build.exitCode !== 0) {
     await removeWorktree(options.repoRoot, worktreePath);
-    throw new Error(`failed to build ref '${options.ref}': ${build.stderr || build.stdout}`);
+    throw new Error(`failed to build ref '${requestedRef}': ${build.stderr || build.stdout}`);
   }
 
   return {
     refLabel: options.refLabel,
-    requestedRef: options.ref,
+    sourceKind,
+    requestedRef,
     resolvedRef,
-    worktreePath,
+    preparationPath: worktreePath,
     sigilBin: path.join(worktreePath, 'language/compiler/target/debug/sigil')
   };
 }
 
 async function cleanupReference(repoRoot: string, preparation: RefPreparation): Promise<void> {
-  if (preparation.worktreePath) {
-    await removeWorktree(repoRoot, preparation.worktreePath);
+  if (!preparation.preparationPath) {
+    return;
+  }
+
+  if (preparation.sourceKind === 'ref') {
+    await removeWorktree(repoRoot, preparation.preparationPath);
+  } else {
+    await fs.rm(preparation.preparationPath, { recursive: true, force: true });
   }
 }
 
@@ -87,7 +127,10 @@ export async function runTask(
   runDir: string
 ): Promise<TaskRunResult> {
   const startedAt = Date.now();
-  const workspacePath = await prepareTaskWorkspace(task, fixturesDir);
+  const languageRootPath = reference.preparationPath
+    ? path.join(reference.preparationPath, 'language')
+    : path.join(process.cwd(), 'language');
+  const workspacePath = await prepareTaskWorkspace(task, fixturesDir, languageRootPath);
   const taskDir = path.join(runDir, 'tasks', task.id);
   const artifactDir = path.join(taskDir, reference.refLabel);
   const transcriptPath = path.join(artifactDir, 'transcript.jsonl');
@@ -232,6 +275,7 @@ export async function runTasksForReference(
 
     return {
       refLabel: reference.refLabel,
+      sourceKind: reference.sourceKind,
       requestedRef: reference.requestedRef,
       resolvedRef: reference.resolvedRef,
       taskResults,
@@ -242,6 +286,58 @@ export async function runTasksForReference(
     };
   } finally {
     await cleanupReference(repoRoot, reference);
+  }
+}
+
+function summarizeReference(reference: RefPreparation, taskResults: TaskRunResult[]): RefRunSummary {
+  return {
+    refLabel: reference.refLabel,
+    sourceKind: reference.sourceKind,
+    requestedRef: reference.requestedRef,
+    resolvedRef: reference.resolvedRef,
+    taskResults,
+    passed: taskResults.filter((result) => result.status === 'passed').length,
+    failed: taskResults.filter((result) => result.status === 'failed').length,
+    errors: taskResults.filter((result) => result.status === 'error').length,
+    medianElapsedMs: median(taskResults.map((result) => result.elapsedMs))
+  };
+}
+
+export async function compareReferences(
+  repoRoot: string,
+  fixturesDir: string,
+  executor: Executor,
+  tasks: TaskManifest[],
+  runDir: string,
+  baseReferenceOptions: PrepareRefOptions,
+  candidateReferenceOptions: PrepareRefOptions
+): Promise<CompareSummary> {
+  const baseReference = await prepareReference(baseReferenceOptions);
+  const candidateReference = await prepareReference(candidateReferenceOptions);
+
+  try {
+    const baseTaskResults: TaskRunResult[] = [];
+    const candidateTaskResults: TaskRunResult[] = [];
+
+    for (const task of tasks) {
+      const [baseResult, candidateResult] = await Promise.all([
+        runTask(task, fixturesDir, executor, baseReference, runDir),
+        runTask(task, fixturesDir, executor, candidateReference, runDir)
+      ]);
+
+      baseTaskResults.push(baseResult);
+      candidateTaskResults.push(candidateResult);
+    }
+
+    return compareRefRuns(
+      summarizeReference(baseReference, baseTaskResults),
+      summarizeReference(candidateReference, candidateTaskResults)
+    );
+  } finally {
+    await Promise.all([
+      cleanupReference(repoRoot, baseReference),
+      cleanupReference(repoRoot, candidateReference)
+    ]);
   }
 }
 
@@ -270,7 +366,7 @@ function compareTask(baseResult: TaskRunResult, candidateResult: TaskRunResult):
   return { taskId: baseResult.taskId, baseStatus: baseResult.status, candidateStatus: candidateResult.status, direction: 'neutral' };
 }
 
-export function compareRefRuns(feature: FeatureManifest, coverage = buildCoverageReport(feature, []), base: RefRunSummary, candidate: RefRunSummary): CompareSummary {
+export function compareRefRuns(base: RefRunSummary, candidate: RefRunSummary): CompareSummary {
   const taskComparisons = base.taskResults.map((baseResult) => {
     const candidateResult = candidate.taskResults.find((result) => result.taskId === baseResult.taskId);
     if (!candidateResult) {
@@ -282,9 +378,7 @@ export function compareRefRuns(feature: FeatureManifest, coverage = buildCoverag
   const directions = new Set(taskComparisons.map((comparison) => comparison.direction));
   let status: CompareSummary['status'] = 'neutral';
 
-  if (!coverage.sufficient) {
-    status = 'insufficient_coverage';
-  } else if (directions.has('mixed') || (directions.has('improved') && directions.has('regressed'))) {
+  if (directions.has('mixed') || (directions.has('improved') && directions.has('regressed'))) {
     status = 'mixed';
   } else if (candidate.passed > base.passed || directions.has('improved')) {
     status = 'improved';
@@ -294,12 +388,10 @@ export function compareRefRuns(feature: FeatureManifest, coverage = buildCoverag
 
   return {
     status,
-    featureId: feature.featureId,
     taskIds: base.taskResults.map((result) => result.taskId),
     base,
     candidate,
     taskComparisons,
-    coverage,
     generatedAt: new Date().toISOString()
   };
 }

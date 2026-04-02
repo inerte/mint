@@ -1,0 +1,5 @@
+t ApprovedAt=§time.Instant
+
+t PublishedAt=§time.Instant
+
+t RetiredAt=§time.Instant

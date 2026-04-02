@@ -4,14 +4,6 @@
   "goal": "Repair the project so the main program prints the correct total again.",
   "initialPrompt": "This project now prints the wrong result. Find the smallest coherent fix so running the program prints 12 again. The project is intentionally multi-file; use the available Sigil tooling as needed, but keep edits inside the allowed source path.",
   "fixture": "multimodule-report",
-  "capabilityTags": [
-    "basic_repair",
-    "repo_navigation",
-    "multifile_edit"
-  ],
-  "surfaceTags": [
-    "run"
-  ],
   "setupCommands": [],
   "oracleCommands": [
     {
@@ -38,4 +30,3 @@
     "logic_bug"
   ]
 }
-

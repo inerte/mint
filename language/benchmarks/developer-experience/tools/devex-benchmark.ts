@@ -1,37 +1,31 @@
 #!/usr/bin/env node
 
-import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { buildCoverageReport, proposeTasks } from './lib/coverage.js';
 import { CodexExecutor } from './lib/executor.js';
-import { loadFeatureManifest, loadTaskManifest, loadTaskManifests } from './lib/manifests.js';
+import { loadTaskManifests } from './lib/manifests.js';
 import { publishCompareRun } from './lib/publish.js';
-import { compareRefRuns, runTasksForReference } from './lib/runner.js';
+import { compareReferences, runTasksForReference } from './lib/runner.js';
 import { ensureDir, humanJson, runId, writeJsonFile } from './lib/util.js';
-import type { FeatureManifest, TaskManifest } from './lib/types.js';
+import type { TaskManifest } from './lib/types.js';
 
 type ParsedOptions = {
   baseRef?: string;
   candidateRef?: string;
   executor?: string;
-  featurePath?: string;
   label?: string;
   model?: string;
   ref?: string;
   runPath?: string;
   sigilBin?: string;
   tasks?: string[];
-  write?: boolean;
 };
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', '..');
 const benchmarkRoot = path.join(repoRoot, 'language/benchmarks/developer-experience');
 const tasksDir = path.join(benchmarkRoot, 'tasks');
 const fixturesDir = path.join(benchmarkRoot, 'fixtures');
-const featuresDir = path.join(benchmarkRoot, 'features');
 const localRunsDir = path.join(benchmarkRoot, '.local', 'runs');
-const proposalsDir = path.join(benchmarkRoot, '.local', 'proposals');
 const resultsDir = path.join(benchmarkRoot, 'results');
 
 function parseArgs(args: string[]): { command: string; options: ParsedOptions } {
@@ -45,11 +39,6 @@ function parseArgs(args: string[]): { command: string; options: ParsedOptions } 
     }
 
     const key = current.slice(2);
-    if (key === 'write') {
-      options.write = true;
-      continue;
-    }
-
     const next = rest[index + 1];
     index += 1;
 
@@ -62,9 +51,6 @@ function parseArgs(args: string[]): { command: string; options: ParsedOptions } 
         break;
       case 'executor':
         options.executor = next;
-        break;
-      case 'feature':
-        options.featurePath = next;
         break;
       case 'label':
         options.label = next;
@@ -102,75 +88,27 @@ async function selectTasks(selectedIds?: string[]): Promise<TaskManifest[]> {
   }
 
   const byId = new Map(tasks.map((task) => [task.id, task]));
-  const selected = selectedIds.map((id) => {
+  return selectedIds.map((id) => {
     const manifest = byId.get(id);
     if (!manifest) {
       throw new Error(`unknown task id '${id}'`);
     }
     return manifest;
   });
-
-  return selected;
-}
-
-async function resolveFeature(featurePath?: string): Promise<FeatureManifest> {
-  if (!featurePath) {
-    throw new Error('--feature is required');
-  }
-
-  const fullPath = path.isAbsolute(featurePath)
-    ? featurePath
-    : path.join(featuresDir, featurePath);
-
-  return loadFeatureManifest(fullPath);
 }
 
 async function cmdValidate(): Promise<void> {
   const tasks = await loadTaskManifests(tasksDir);
-  const features = (await fs.readdir(featuresDir))
-    .filter((entry) => entry.endsWith('.json'))
-    .sort();
-  for (const entry of features) {
-    await loadFeatureManifest(path.join(featuresDir, entry));
-  }
 
   console.log(humanJson({
     ok: true,
-    taskCount: tasks.length,
-    featureCount: features.length
-  }));
-}
-
-async function cmdCoverage(options: ParsedOptions): Promise<void> {
-  const feature = await resolveFeature(options.featurePath);
-  const tasks = await selectTasks(options.tasks);
-  const coverage = buildCoverageReport(feature, tasks);
-  console.log(humanJson(coverage));
-}
-
-async function cmdProposeTasks(options: ParsedOptions): Promise<void> {
-  const feature = await resolveFeature(options.featurePath);
-  const tasks = await selectTasks(options.tasks);
-  const coverage = buildCoverageReport(feature, tasks);
-  const proposals = proposeTasks(feature, coverage);
-
-  if (options.write) {
-    const targetDir = path.join(proposalsDir, feature.featureId);
-    await ensureDir(targetDir);
-    await writeJsonFile(path.join(targetDir, 'coverage.json'), coverage);
-    for (const proposal of proposals) {
-      await writeJsonFile(path.join(targetDir, `${String(proposal.id)}.json`), proposal);
-    }
-  }
-
-  console.log(humanJson({
-    coverage,
-    proposals
+    taskCount: tasks.length
   }));
 }
 
 async function cmdRun(options: ParsedOptions): Promise<void> {
-  const ref = options.ref ?? 'HEAD';
+  const ref = options.ref;
+  const sourceKind = ref ? 'ref' : 'worktree';
   const tasks = await selectTasks(options.tasks);
   const executor = new CodexExecutor({
     model: options.model
@@ -180,7 +118,8 @@ async function cmdRun(options: ParsedOptions): Promise<void> {
   await writeJsonFile(path.join(runDirectory, 'meta.json'), {
     mode: 'run',
     createdAt: new Date().toISOString(),
-    ref,
+    ref: ref ?? 'WORKTREE',
+    sourceKind,
     taskIds: tasks.map((task) => task.id),
     executor: executor.kind
   });
@@ -190,6 +129,7 @@ async function cmdRun(options: ParsedOptions): Promise<void> {
     runsLocalDir: localRunsDir,
     refLabel: 'subject',
     ref,
+    sourceKind,
     sigilBinOverride: options.sigilBin
   });
 
@@ -201,50 +141,40 @@ async function cmdRun(options: ParsedOptions): Promise<void> {
 }
 
 async function cmdCompare(options: ParsedOptions): Promise<void> {
-  const feature = await resolveFeature(options.featurePath);
   const tasks = await selectTasks(options.tasks);
-  const coverage = buildCoverageReport(feature, tasks);
+  const baseRef = options.baseRef ?? 'HEAD';
+  const candidateRef = options.candidateRef;
+  const candidateSourceKind = candidateRef ? 'ref' : 'worktree';
   const runDirectory = path.join(localRunsDir, runId());
   await ensureDir(runDirectory);
   await writeJsonFile(path.join(runDirectory, 'meta.json'), {
     mode: 'compare',
     createdAt: new Date().toISOString(),
-    featureId: feature.featureId,
     taskIds: tasks.map((task) => task.id),
-    baseRef: options.baseRef ?? 'main',
-    candidateRef: options.candidateRef ?? 'HEAD',
+    baseRef,
+    candidateRef: candidateRef ?? 'WORKTREE',
+    baseSourceKind: 'ref',
+    candidateSourceKind,
     executor: options.executor ?? 'codex'
   });
-  await writeJsonFile(path.join(runDirectory, 'coverage.json'), coverage);
-
-  if (!coverage.sufficient) {
-    console.log(humanJson({
-      runDir: runDirectory,
-      coverage,
-      status: 'insufficient_coverage'
-    }));
-    return;
-  }
 
   const executor = new CodexExecutor({
     model: options.model
   });
 
-  const base = await runTasksForReference(repoRoot, fixturesDir, executor, tasks, runDirectory, {
+  const compare = await compareReferences(repoRoot, fixturesDir, executor, tasks, runDirectory, {
     repoRoot,
     runsLocalDir: localRunsDir,
     refLabel: 'base',
-    ref: options.baseRef ?? 'main'
-  });
-
-  const candidate = await runTasksForReference(repoRoot, fixturesDir, executor, tasks, runDirectory, {
+    ref: baseRef,
+    sourceKind: 'ref'
+  }, {
     repoRoot,
     runsLocalDir: localRunsDir,
     refLabel: 'candidate',
-    ref: options.candidateRef ?? 'HEAD'
+    ref: candidateRef,
+    sourceKind: candidateSourceKind
   });
-
-  const compare = compareRefRuns(feature, coverage, base, candidate);
   await writeJsonFile(path.join(runDirectory, 'compare.json'), compare);
   console.log(humanJson({
     runDir: runDirectory,
@@ -269,11 +199,10 @@ async function cmdPublish(options: ParsedOptions): Promise<void> {
 function printHelp(): void {
   console.log(`Usage:
   pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts validate
-  pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts coverage --feature <file>
-  pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts compare --feature <file> [--base main] [--candidate HEAD]
-  pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts run --ref <ref>
+  pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts compare [--base <ref>] [--candidate <ref>] [--tasks <id,id>]
+  pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts run [--ref <ref>] [--tasks <id,id>]
   pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts publish --run <run-dir> [--label name]
-  pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts propose-tasks --feature <file> [--write]`);
+  `);
 }
 
 async function main(): Promise<void> {
@@ -283,17 +212,11 @@ async function main(): Promise<void> {
     case 'validate':
       await cmdValidate();
       break;
-    case 'coverage':
-      await cmdCoverage(options);
-      break;
     case 'compare':
       await cmdCompare(options);
       break;
     case 'publish':
       await cmdPublish(options);
-      break;
-    case 'propose-tasks':
-      await cmdProposeTasks(options);
       break;
     case 'run':
       await cmdRun(options);

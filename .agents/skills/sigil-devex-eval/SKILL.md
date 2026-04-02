@@ -1,17 +1,25 @@
+---
+name: sigil-devex-eval
+description: Benchmark real Sigil write, edit, and repair outcomes with the developer-experience harness. Use when Codex should compare clean HEAD against the current working tree across the benchmark task suite and report which Sigil tasks got better, worse, or stayed flat.
+---
+
 # Sigil Devex Eval
 
-Use this skill when you want Codex to run the Sigil developer-experience
-benchmark harness for a proposed tooling change.
+Run the Sigil developer-experience benchmark harness against the current work in
+progress or against explicit refs when the user asks.
 
-## Goal
+## Default flow
 
-Run the correct benchmark flow for a feature change:
+1. Validate the harness.
+2. Run `compare` across the benchmark task suite.
+3. Summarize per-task outcomes first, then the overall comparison.
+4. Narrow to `--tasks` or explicit refs only when the user asks for a focused run.
 
-1. validate the harness
-2. check coverage for the proposed feature
-3. if coverage is sufficient, run `compare`
-4. if coverage is insufficient, run `propose-tasks --write`
-5. summarize the result without forcing a winner when the task set is weak
+Default comparison mode:
+
+- base: clean `HEAD`
+- candidate: current working tree snapshot
+- tasks: all task manifests
 
 ## Commands
 
@@ -21,44 +29,33 @@ Validate:
 pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts validate
 ```
 
-Coverage:
+Compare current work in progress across all tasks:
 
 ```bash
-pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts coverage --feature <feature.json>
+pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts compare
 ```
 
-Compare:
+Focus on selected tasks only:
 
 ```bash
-pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts compare --feature <feature.json> --base <base-ref> --candidate <candidate-ref>
+pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts compare --tasks <task-id,task-id>
 ```
 
-Task proposals:
+Explicit ref compare:
 
 ```bash
-pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts propose-tasks --feature <feature.json> --write
+pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts compare --base <base-ref> --candidate <candidate-ref>
 ```
 
-Publish a selected compare run:
+Publish a selected run:
 
 ```bash
 pnpm exec tsx language/benchmarks/developer-experience/tools/devex-benchmark.ts publish --run <run-id> --label <label>
 ```
 
-## Workflow
-
-1. Pick the feature manifest that best matches the change.
-2. Run `coverage` before `compare`.
-3. If coverage is insufficient, stop and report that result plainly.
-4. Only run `compare` when the current task set actually exercises the feature.
-5. Keep the benchmark conclusion grounded in:
-   - pass/fail deltas
-   - elapsed time
-   - patch scope
-   - diagnosis tag matches
-
 ## Notes
 
-- Raw benchmark runs live under `language/benchmarks/developer-experience/.local/runs/`.
-- Tracked summaries live under `language/benchmarks/developer-experience/results/`.
-- Do not claim that a feature regressed or improved when the harness reports `insufficient_coverage`.
+- Read raw run bundles from `language/benchmarks/developer-experience/.local/runs/`.
+- Read tracked summaries from `language/benchmarks/developer-experience/results/`.
+- Treat the suite as outcome-first: the benchmark measures whether Codex gets
+  better at real Sigil work, not whether a specific internal feature is used.

@@ -87,9 +87,10 @@ function makeSimpleTask(overrides: Partial<TaskManifest> = {}): TaskManifest {
 test('current task manifests validate', async () => {
   const tasks = await loadTaskManifests(tasksDir);
 
-  assert.equal(tasks.length, 12);
+  assert.equal(tasks.length, 13);
   assert.ok(tasks.some((task) => task.id === 'canonical-record-order-repair'));
   assert.ok(tasks.some((task) => task.id === 'canonical-stdlib-helper-repair'));
+  assert.ok(tasks.some((task) => task.id === 'event-import-pipeline-repair'));
   assert.ok(tasks.some((task) => task.id === 'homebrew-formula-test-repair'));
   assert.ok(tasks.some((task) => task.id === 'repair-ingest-received-timestamp'));
   assert.ok(tasks.some((task) => task.id === 'repair-feed-published-timestamp'));

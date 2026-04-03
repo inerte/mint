@@ -1,0 +1,11 @@
+t ImportedArticle={headline:String,publishedAt:PublishedAt}
+
+t PublishedAt=§time.Instant
+
+t RetiredArticle={headline:String,retiredAt:RetiredAt}
+
+t RetiredAt=§time.Instant
+
+t ReviewedArticle={headline:String,reviewedAt:ReviewedAt}
+
+t ReviewedAt=§time.Instant

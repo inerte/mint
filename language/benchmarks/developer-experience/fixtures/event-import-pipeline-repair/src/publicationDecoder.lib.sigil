@@ -1,0 +1,7 @@
+λarticle(value:§json.JsonValue)=>Result[µImportedArticle,§decode.DecodeError] match §decode.field(§decode.string,"headline")(value){
+  Ok(headline)=>match §decode.field(•timeDecoder.instant,"publishedOn")(value){
+    Ok(publishedAt)=>Ok({headline:headline,publishedAt:publishedAt})|
+    Err(error)=>Err(error)
+  }|
+  Err(error)=>Err(error)
+}

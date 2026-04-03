@@ -156,6 +156,7 @@ The initial deterministic task corpus includes:
 
 - `canonical-record-order-repair`
 - `canonical-stdlib-helper-repair`
+- `event-import-pipeline-repair`
 - `homebrew-formula-test-repair`
 - `syntax-compile-fix`
 - `multimodule-report`

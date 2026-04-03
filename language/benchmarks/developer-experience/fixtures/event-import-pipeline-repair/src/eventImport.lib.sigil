@@ -1,0 +1,14 @@
+λimportPublishedHeadline(input:String)=>Result[String,§decode.DecodeError] match §decode.parse(•publicationDecoder.article,input){
+  Ok(article)=>Ok(article.headline++"@"++(§time.formatIso(article.publishedAt):String))|
+  Err(error)=>Err(error)
+}
+
+λimportRetiredHeadline(input:String)=>Result[String,§decode.DecodeError] match §decode.parse(•retirementDecoder.article,input){
+  Ok(article)=>Ok(article.headline++"@"++(§time.formatIso(article.retiredAt):String))|
+  Err(error)=>Err(error)
+}
+
+λimportReviewedHeadline(input:String)=>Result[String,§decode.DecodeError] match §decode.parse(•reviewDecoder.article,input){
+  Ok(article)=>Ok(article.headline++"@"++(§time.formatIso(article.reviewedAt):String))|
+  Err(error)=>Err(error)
+}

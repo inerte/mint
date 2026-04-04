@@ -198,6 +198,8 @@ Semantics:
 λtake(n:Int,s:String)=>String
 λtoLower(s:String)=>String
 λtoUpper(s:String)=>String
+λtrimEndChars(chars:String,s:String)=>String
+λtrimStartChars(chars:String,s:String)=>String
 λtrim(s:String)=>String
 λunlines(lines:[String])=>String
 ```

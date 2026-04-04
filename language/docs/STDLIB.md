@@ -851,6 +851,36 @@ Remove leading and trailing whitespace.
 
 **Codegen:** `s.trim()`
 
+### trimStartChars
+
+Remove any leading characters that appear in `chars`.
+
+```sigil decl §string
+λtrimStartChars(chars:String,s:String)=>String
+```
+
+**Examples:**
+```sigil program
+λmain()=>Bool=§string.trimStartChars("/", "///docs")="docs" and §string.trimStartChars("/.","../docs")="docs"
+```
+
+**Codegen:** edge trim using the characters listed in `chars`
+
+### trimEndChars
+
+Remove any trailing characters that appear in `chars`.
+
+```sigil decl §string
+λtrimEndChars(chars:String,s:String)=>String
+```
+
+**Examples:**
+```sigil program
+λmain()=>Bool=§string.trimEndChars("/", "https://sigil.dev///")="https://sigil.dev" and §string.trimEndChars("/.","docs/...")="docs"
+```
+
+**Codegen:** edge trim using the characters listed in `chars`
+
 ### indexOf
 
 Find index of first occurrence (returns -1 if not found).

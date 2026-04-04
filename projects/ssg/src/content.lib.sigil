@@ -24,14 +24,14 @@
   }:[µAliasRoute]);
   addKnownAliases(page,match route{
     "/"=>withSourceDir|
-    _=>withSourceDir⧺[{alias:trimTrailingSlash(route),route:route}]
+    _=>withSourceDir⧺[{alias:§string.trimEndChars("/",route),route:route}]
   })
 }
 
 λbasePathPrefix(basePath:String,route:String)=>String match basePath{
   "/"=>route|
   ""=>route|
-  _=>trimTrailingSlash(basePath)++route
+  _=>§string.trimEndChars("/",basePath)++route
 }
 
 λblankPage(markdown:String,meta:µPageMeta,outputDir:String,section:µSection,sourcePath:String)=>µSitePage={bodyHtml:"",bodyMarkdown:markdown,meta:meta,outputDir:outputDir,section:section,sourcePath:sourcePath}
@@ -236,9 +236,4 @@
     []=>[]|
     [page,.rest]=>[page]⧺takeFirst(count-1,rest)
   }
-}
-
-λtrimTrailingSlash(path:String)=>String match #path>1 and §string.endsWith(path,"/"){
-  true=>trimTrailingSlash(§string.substring(#path-1,path,0))|
-  false=>path
 }

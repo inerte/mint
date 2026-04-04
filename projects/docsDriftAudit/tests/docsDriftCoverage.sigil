@@ -12,10 +12,10 @@
 λsnippet(content:String,filePath:String,info:µFenceInfo,line:Int)=>µSnippet={content:content,filePath:filePath,info:info,line:line}
 
 test "coverage helpers parse refs exports and identifiers" {
-  l parseJson=("{\"type\":\"FunctionDecl\",\"name\":\"trim\",\"type\":\"FunctionDecl\",\"name\":\"split\"}":String);
+  l parseJson=("{\"type\":\"FunctionDecl\",\"name\":\"trim\",\"type\":\"FunctionDecl\",\"name\":\"split\",\"type\":\"FunctionDecl\",\"name\":\"trimEndChars\",\"type\":\"FunctionDecl\",\"name\":\"trimStartChars\"}":String);
   match §regex.compile("","\"type\":\"FunctionDecl\"|\"name\":\"[A-Za-z_][A-Za-z0-9_]*\""){
     Ok(tokenPattern)=>match §regex.compile("","§[A-Za-z0-9]+\\.[a-z][A-Za-z0-9]*"){
-      Ok(refPattern)=>allOk([•coverage.collectQualifiedRefsLine(refPattern,[],"§list.sum(xs) and §list.sum(ys)")=["§list.sum"],•coverage.collectQualifiedRefsLines(["§string.trim(s)"],refPattern,[])=["§string.trim"],•coverage.documentedRefsForSnippetLines(["λtrim(s:String)=>String","c ignored=1"],"§string",[])=["§string.trim"],•coverage.collectStdlibExports("language/stdlib/string.lib.sigil",parseJson)=["§string.trim","§string.split"],•coverage.functionNamesFromParseJson(parseJson)=["trim","split"],•coverage.functionNamesFromTokens(false,[],tokenPattern,parseJson)=["trim","split"],•coverage.dropUntilBoundary("","trim):String")="trim",match •coverage.extractFunctionName("λtrim(s:String)=>String"){
+      Ok(refPattern)=>allOk([•coverage.collectQualifiedRefsLine(refPattern,[],"§list.sum(xs) and §list.sum(ys)")=["§list.sum"],•coverage.collectQualifiedRefsLines(["§string.trim(s)"],refPattern,[])=["§string.trim"],•coverage.documentedRefsForSnippetLines(["λtrim(s:String)=>String","c ignored=1"],"§string",[])=["§string.trim"],•coverage.collectStdlibExports("language/stdlib/string.lib.sigil",parseJson)=["§string.trim","§string.split","§string.trimEndChars","§string.trimStartChars"],•coverage.functionNamesFromParseJson(parseJson)=["trim","split","trimEndChars","trimStartChars"],•coverage.functionNamesFromTokens(false,[],tokenPattern,parseJson)=["trim","split","trimEndChars","trimStartChars"],•coverage.dropUntilBoundary("","trim):String")="trim",match •coverage.extractFunctionName("λtrim(s:String)=>String"){
         Some(name)=>name="trim"|
         None()=>false
       },match •coverage.extractFunctionName("c sample=1"){
@@ -23,7 +23,7 @@ test "coverage helpers parse refs exports and identifiers" {
         None()=>true
       },•coverage.extractFunctionNameInner("","split(text:String)=>[String]")="split",•coverage.insertUnique("beta",["alpha"])=["alpha","beta"],•coverage.isIdentifierChar("Z"),¬•coverage.isIdentifierChar("-"),•coverage.mergeUnique(["alpha"],["beta","alpha"])=["alpha","beta"],•coverage.moduleNameFromStdlibFile("language/stdlib/string.lib.sigil")="string",•coverage.modulePathFromStdlibFile("language/stdlib/string.lib.sigil")="§string",•coverage.qualifyExports(["trim"],"§string")=["§string.trim"],•coverage.tokenName("\"name\":\"trim\"")="trim",•docsDrift.collectQualifiedRefs("§list.sum(xs)
 §list.sum(ys)
-")=["§list.sum"],•docsDrift.collectStdlibExports("language/stdlib/string.lib.sigil",parseJson)=["§string.trim","§string.split"],•docsDrift.documentedRefsForSnippet("§string","λtrim(s:String)=>String
+")=["§list.sum"],•docsDrift.collectStdlibExports("language/stdlib/string.lib.sigil",parseJson)=["§string.trim","§string.split","§string.trimEndChars","§string.trimStartChars"],•docsDrift.documentedRefsForSnippet("§string","λtrim(s:String)=>String
 c ignored=1")=["§string.trim"]])|
       Err(_)=>false
     }|

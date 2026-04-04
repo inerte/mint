@@ -38,5 +38,9 @@
 
 λtrim(s:String)=>String=""
 
+λtrimEndChars(chars:String,s:String)=>String=""
+
+λtrimStartChars(chars:String,s:String)=>String=""
+
 λunlines(lines:[String])=>String=join("
 ",lines)

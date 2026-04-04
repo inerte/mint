@@ -3403,6 +3403,12 @@ impl TypeScriptGenerator {
             )),
             ("toLower", [s]) => Some(format!("{}.then((__value) => __value.toLowerCase())", self.js_ready(s))),
             ("toUpper", [s]) => Some(format!("{}.then((__value) => __value.toUpperCase())", self.js_ready(s))),
+            ("trimEndChars", [chars, s]) => Some(
+                self.generate_string_trim_chars_js(&self.js_ready(chars), &self.js_ready(s), false),
+            ),
+            ("trimStartChars", [chars, s]) => Some(
+                self.generate_string_trim_chars_js(&self.js_ready(chars), &self.js_ready(s), true),
+            ),
             ("trim", [s]) => Some(format!("{}.then((__value) => __value.trim())", self.js_ready(s))),
             _ => None,
         };
@@ -3467,6 +3473,37 @@ impl TypeScriptGenerator {
         self.indent -= 1;
         self.emit("}");
         Ok(true)
+    }
+
+    fn generate_string_trim_chars_js(
+        &self,
+        chars_expr: &str,
+        string_expr: &str,
+        trim_start: bool,
+    ) -> String {
+        let loop_body = if trim_start {
+            "while (__start < __end && __chars.includes(__string.charAt(__start))) {
+        __start += 1;
+      }"
+        } else {
+            "while (__end > __start && __chars.includes(__string.charAt(__end - 1))) {
+        __end -= 1;
+      }"
+        };
+
+        format!(
+            "{}.then(([__chars, __string]) => {{
+      if (__chars.length === 0 || __string.length === 0) {{
+        return __sigil_ready(__string);
+      }}
+      let __start = 0;
+      let __end = __string.length;
+      {}
+      return __sigil_ready(__string.substring(__start, __end));
+    }})",
+            self.js_all(&[chars_expr.to_string(), string_expr.to_string()]),
+            loop_body
+        )
     }
 
     fn generate_stdlib_http_client_function(
@@ -4226,6 +4263,12 @@ impl TypeScriptGenerator {
             "toLower" if generated_args.len() == 1 => {
                 Ok(Some(format!("{}.then((__value) => __value.toLowerCase())", generated_args[0])))
             }
+            "trimStartChars" if generated_args.len() == 2 => Ok(Some(
+                self.generate_string_trim_chars_js(&generated_args[0], &generated_args[1], true),
+            )),
+            "trimEndChars" if generated_args.len() == 2 => Ok(Some(
+                self.generate_string_trim_chars_js(&generated_args[0], &generated_args[1], false),
+            )),
             "trim" if generated_args.len() == 1 => {
                 Ok(Some(format!("{}.then((__value) => __value.trim())", generated_args[0])))
             }

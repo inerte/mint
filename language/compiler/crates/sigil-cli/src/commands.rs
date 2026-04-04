@@ -9403,6 +9403,9 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
 
     // Calculate relative path from repo root to source file
     let rel_source = abs_source.strip_prefix(&repo_root).unwrap_or(&abs_source);
+    let rel_source = rel_source
+        .strip_prefix(".local")
+        .unwrap_or(rel_source);
 
     // Build output path: <repo_root>/.local/<rel_path>.ts
     let mut output = repo_root.join(".local");

@@ -6061,15 +6061,16 @@ fn is_reserved_js_identifier(name: &str) -> bool {
 
 fn find_output_root(output_path: &Path) -> Option<PathBuf> {
     let mut root = PathBuf::new();
+    let mut last_local_root = None;
 
     for component in output_path.components() {
         root.push(component.as_os_str());
         if matches!(component, Component::Normal(name) if name == ".local") {
-            return Some(root);
+            last_local_root = Some(root.clone());
         }
     }
 
-    None
+    last_local_root
 }
 
 fn relative_import_path(from_dir: &Path, target_file: &Path) -> String {
@@ -6391,6 +6392,26 @@ mod tests {
         let result = gen.output.join("");
 
         assert!(result.contains("import * as stdlib_numeric from '../stdlib/numeric.js';"));
+    }
+
+    #[test]
+    fn test_generate_import_prefers_deepest_local_root() {
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: None,
+            source_file: Some(
+                "/repo/.local/temp-project/src/topology.lib.sigil".to_string(),
+            ),
+            output_file: Some(
+                "/repo/.local/temp-project/.local/src/topology.ts".to_string(),
+            ),
+            trace: false,
+            breakpoints: false,
+            expression_debug: false,
+        });
+        gen.emit_module_import("stdlib::topology").unwrap();
+        let result = gen.output.join("");
+
+        assert!(result.contains("import * as stdlib_topology from '../stdlib/topology.js';"));
     }
 
     #[test]

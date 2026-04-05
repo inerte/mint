@@ -77,6 +77,25 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Select compatible macOS toolchain
+        if: matrix.platform == 'darwin-arm64'
+        shell: bash
+        run: |
+          echo "DEVELOPER_DIR=/Applications/Xcode_16.2.app/Contents/Developer" >> "$GITHUB_ENV"
+
+      - name: Pin macOS deployment target
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=14.5" >> "$GITHUB_ENV"
+
+      - name: Show macOS compiler
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          /usr/bin/xcodebuild -version
+          /usr/bin/clang++ --version | head -n 1
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}

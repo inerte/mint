@@ -177,7 +177,8 @@ Typed FFI relies on the same canonical structural equality rule used throughout 
 checker: unconstrained aliases and unconstrained named product types normalize before
 compatibility checks. That means `MkdirOptions` and `{recursive:Bool}` are treated as the
 same explicit type meaning when validating the `mkdir` call. Constrained user-defined
-types remain distinct. This is canonical semantic comparison, not type inference.
+types use refinement checking over their underlying type instead of plain structural
+equality. This is canonical semantic comparison, not type inference.
 
 In project code, named user-defined types live in `src/types.lib.sigil` and are
 referenced elsewhere through `µ...`. The local same-file `t MkdirOptions=...`

@@ -77,7 +77,7 @@ Current important examples:
 
 - named local bindings used zero times are rejected
 - pure single-use local bindings must be inlined
-- obvious literal contradictions against constrained types are rejected
+- unprovable promotions into constrained types are rejected
 
 Executable note:
 

@@ -55,7 +55,7 @@ If a change affects language design (syntax, canonical forms, stdlib surface, co
 
 When working on Sigil type compatibility:
 - unconstrained aliases and unconstrained named product types are structural everywhere in the checker
-- constrained aliases and constrained named product types remain nominal
+- constrained aliases and constrained named product types use refinement checking over their underlying type
 - compare structural types by their normalized canonical forms, not raw unresolved names
 - sum types remain nominal unless the language design is explicitly changed
 

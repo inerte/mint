@@ -414,7 +414,7 @@
             { "$ref": "#/$defs/inspectSemanticNode" }
           ]
         },
-        "equalityMode": { "type": "string", "enum": ["structural", "nominal"] },
+        "equalityMode": { "type": "string", "enum": ["structural", "refinement", "nominal"] },
         "spanId": { "type": "string" },
         "location": { "$ref": "#/$defs/sourceSpan" }
       },

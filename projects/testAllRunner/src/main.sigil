@@ -28,6 +28,10 @@
   }
 }
 
+λflashcardsSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","projects/flashcards/tests"],root),label:"flashcards suite"}
+
+λgame2048Suite(root:String)=>µParallelSuite={command:sigilCommand(["test","projects/game-2048/tests"],root),label:"2048 suite"}
+
 λhomebrewCommand(root:String)=>§process.Command=§process.withCwd(§process.command(["bash","tools/checkHomebrewFormula.sh"]),root)
 
 λhttpTestCommand(root:String)=>§process.Command=sigilCommand(["test","language/integrationTests/tests/httpClientServer.sigil"],root)
@@ -39,9 +43,13 @@
   Err(message)=>finish(Err(message))
 }
 
+λminesweepSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","projects/minesweep/tests"],root),label:"minesweep suite"}
+
 λmultimoduleSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","language/integrationTests/tests/multimodule.sigil"],root),label:"multimodule integration"}
 
-λparallelSuites(root:String)=>[µParallelSuite]=[algorithmsSuite(root),canonicalIntegrationSuite(root),languageSuite(root),multimoduleSuite(root),roguelikeSuite(root),ssgSuite(root),stdlibSuite(root),todoSuite(root)]
+λparallelSuites(root:String)=>[µParallelSuite]=[algorithmsSuite(root),canonicalIntegrationSuite(root),flashcardsSuite(root),game2048Suite(root),languageSuite(root),minesweepSuite(root),multimoduleSuite(root),roguelikeSuite(root),ssgSuite(root),stdlibSuite(root),todoSuite(root)]
+
+λpnpmCommand(args:[String],root:String)=>§process.Command=§process.withCwd(§process.command(["pnpm"]⧺args),root)
 
 λprintBatchResults(results:[µSuiteResult])=>!CliIo Unit match results{
   []=>()|
@@ -144,7 +152,7 @@
 
 λstdlibSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","language/stdlib-tests/tests"],root),label:"stdlib suite"}
 
-λsteps(root:String)=>[µStep]=[µSerial({commands:[cargo(["test","--manifest-path","language/compiler/Cargo.toml"],root)],label:"compiler tests"}),µSerial({commands:[sigilCommandIn(["test","tests"],canonicalStdlibRoot(root),root),sigilCommandIn(["run","src/main.sigil"],canonicalStdlibRoot(root),root)],label:"canonical stdlib audit"}),µSerial({commands:[sigilCommandIn(["test","tests"],docsDriftRoot(root),root),sigilCommandIn(["run","src/main.sigil"],docsDriftRoot(root),root)],label:"docs drift audit"}),µParallel(parallelSuites(root)),µSerial({commands:[homebrewCommand(root)],label:"homebrew packaging"}),µSerial({commands:[httpTestCommand(root)],label:"http integration"}),µSerial({commands:[tcpTestCommand(root)],label:"tcp integration"})]
+λsteps(root:String)=>[µStep]=[µSerial({commands:[cargo(["test","--manifest-path","language/compiler/Cargo.toml"],root)],label:"compiler tests"}),µSerial({commands:[sigilCommandIn(["test","tests"],canonicalStdlibRoot(root),root),sigilCommandIn(["run","src/main.sigil"],canonicalStdlibRoot(root),root)],label:"canonical stdlib audit"}),µSerial({commands:[sigilCommandIn(["test","tests"],docsDriftRoot(root),root),sigilCommandIn(["run","src/main.sigil"],docsDriftRoot(root),root)],label:"docs drift audit"}),µParallel(parallelSuites(root)),µSerial({commands:[pnpmCommand(["sigil:build:website"],root)],label:"website build"}),µSerial({commands:[homebrewCommand(root)],label:"homebrew packaging"}),µSerial({commands:[httpTestCommand(root)],label:"http integration"}),µSerial({commands:[tcpTestCommand(root)],label:"tcp integration"})]
 
 λsuiteFailure(results:[µSuiteResult])=>Option[String] match results{
   []=>None()|

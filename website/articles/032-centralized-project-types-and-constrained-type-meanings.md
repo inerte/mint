@@ -72,7 +72,7 @@ t DateRange={end:Int,start:Int} where value.end≥value.start
 ```
 
 The point is not to turn every type declaration into a runtime admission gate.
-The point is to let types carry more semantic meaning directly in the source.
+The point is to let types carry checked semantic meaning directly in the source.
 
 That means:
 
@@ -80,17 +80,19 @@ That means:
 - `DateRange` says more than a record with two integers
 - fewer invariants need to be repeated in comments
 
-Current Sigil keeps this intentionally modest:
+Current Sigil gives this a precise compile-time role:
 
 - `where` is pure and world-independent
 - only `value` is in scope
 - the compiler typechecks the constraint expression
-- the checker rejects obvious literal contradictions
-- there is no generated runtime validation and no solver-backed refinement
-  system in this rollout
+- constrained aliases and constrained named product types act as refinements over their underlying type
+- values flow into the constrained type only when the compiler can prove the predicate
+- constrained values widen back to the underlying type automatically
+- the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
+- there is no generated runtime validation
 
-So this feature is about **stronger type meaning**, not about silently inserting
-runtime checks.
+So this feature is about **stronger type meaning with compile-time proof**,
+not about silently inserting runtime checks.
 
 ## Type Equality
 
@@ -99,10 +101,11 @@ This also clarifies the structural-equality story.
 Sigil still normalizes unconstrained aliases and unconstrained named product
 types structurally. That part has not changed.
 
-What changed is that constrained aliases and constrained
-project-defined named products now stay distinct instead of normalizing all the
-way down to their underlying shape. If a type carries extra semantic meaning,
-the checker should not erase that distinction.
+What changed is that constrained aliases and constrained project-defined named
+products no longer participate in plain structural equality. They use
+refinement checks over their underlying type. If a type carries an extra
+predicate, the checker should preserve that fact instead of erasing it during
+compatibility checks.
 
 ## Why This Matters
 
@@ -119,7 +122,8 @@ LLMs get a clearer, compiler-enforced project shape:
 - `µ...` for project-defined types
 
 And the type declarations themselves can now carry some of the meaning that
-would otherwise drift into comments.
+would otherwise drift into comments, while the compiler enforces that meaning
+at the places where values are introduced.
 
 That is the real goal of this change: not to make Sigil more ceremonial, but to
 move more domain intent into checked, canonical source.

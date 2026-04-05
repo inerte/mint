@@ -235,7 +235,10 @@ Constraint rules:
 - only `value` is in scope
 - the expression must typecheck to `Bool`
 - constraints are pure and world-independent
-- current Sigil uses constraints to carry more type meaning and reject obvious literal contradictions
+- constrained aliases and constrained named product types act as compile-time refinements over their underlying type
+- values flow into a constrained type only when the checker can prove the predicate in Sigil's canonical refinement fragment
+- constrained values widen to their underlying type automatically
+- the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
 - constraints do not imply automatic runtime validation
 
 ## Constants

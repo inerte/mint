@@ -131,6 +131,12 @@ Each `types[]` entry includes:
 `definitionAst` and `constraintAst` are normalized semantic nodes with a required
 `kind` field and command-specific properties.
 
+`equalityMode` is one of:
+
+- `structural` for unconstrained aliases and named product types
+- `refinement` for constrained aliases and named product types
+- `nominal` for sums
+
 Focused debug value payloads may also include `typeId` when the value has a
 statically known named Sigil type. In v1 this is surfaced on breakpoint locals,
 watch results, and expression value/error payloads rather than every generic

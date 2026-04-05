@@ -36,7 +36,7 @@ When in doubt: prefer fewer surface forms and better diagnostics.
 
 For type-system changes, preserve this semantic invariant:
 - unconstrained aliases and unconstrained named product types compare by normalized canonical form everywhere equality is checked
-- constrained aliases and constrained named product types remain nominal unless the design explicitly changes
+- constrained aliases and constrained named product types use refinement checking over their underlying type instead of raw structural equality
 - do not introduce checker-path-specific structural equality behavior
 - sum types remain nominal unless the design explicitly changes
 
@@ -148,7 +148,7 @@ Current constructor and list invariants:
   - if a field may be absent, keep the record exact and use `Option[T]` for that field
   - project-defined named types in projects live in `src/types.lib.sigil` and are referenced elsewhere as `µTypeName`
   - `src/types.lib.sigil` is types-only and may reference only `§...` and `¶...` inside type definitions and constraints
-  - `where` on a type declaration adds semantic meaning to the type; it is pure, world-independent, and does not imply runtime validation
+  - `where` on a type declaration defines a pure, world-independent refinement over an alias or named product type; compile-time promotion into that type requires proof in Sigil's canonical refinement fragment, and it does not imply runtime validation
   - prefer early boundary conversion with `§decode` instead of carrying raw `JsonValue` deep into business logic
   - when a validated boundary value should remain distinct from a raw primitive, prefer a named wrapper type like `Email` or `UserId`
   - topology-aware projects must declare external HTTP/TCP dependencies and environment names in `src/topology.lib.sigil`

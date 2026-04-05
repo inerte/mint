@@ -136,7 +136,7 @@ fn inspect_types_reports_named_type_inventory_and_constraints() {
     assert_eq!(birth_year["typeId"], format!("{module_id}.BirthYear"));
     assert_eq!(birth_year["kind"], "alias");
     assert_eq!(birth_year["constrained"], true);
-    assert_eq!(birth_year["equalityMode"], "nominal");
+    assert_eq!(birth_year["equalityMode"], "refinement");
     assert_eq!(birth_year["definitionSource"], "Int");
     assert_eq!(birth_year["constraintSource"], "value>1800 and value<10000");
     assert_eq!(birth_year["constraintAst"]["kind"], "binary");
@@ -155,7 +155,7 @@ fn inspect_types_reports_named_type_inventory_and_constraints() {
         .unwrap();
     assert_eq!(date_range["kind"], "product");
     assert_eq!(date_range["constrained"], true);
-    assert_eq!(date_range["equalityMode"], "nominal");
+    assert_eq!(date_range["equalityMode"], "refinement");
     assert_eq!(date_range["constraintAst"]["kind"], "binary");
     assert_eq!(date_range["constraintAst"]["operator"], "≥");
 

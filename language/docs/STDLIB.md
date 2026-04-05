@@ -890,7 +890,7 @@ Remove any leading characters that appear in `chars`.
 
 **Examples:**
 ```sigil program
-λmain()=>Bool=§string.trimStartChars("/", "///docs")="docs" and §string.trimStartChars("/.","../docs")="docs"
+λmain()=>Bool=§string.trimStartChars("/","///docs")="docs" and §string.trimStartChars("/.","../docs")="docs"
 ```
 
 **Codegen:** edge trim using the characters listed in `chars`
@@ -905,7 +905,7 @@ Remove any trailing characters that appear in `chars`.
 
 **Examples:**
 ```sigil program
-λmain()=>Bool=§string.trimEndChars("/", "https://sigil.dev///")="https://sigil.dev" and §string.trimEndChars("/.","docs/...")="docs"
+λmain()=>Bool=§string.trimEndChars("/","https://sigil.dev///")="https://sigil.dev" and §string.trimEndChars("/.","docs/...")="docs"
 ```
 
 **Codegen:** edge trim using the characters listed in `chars`

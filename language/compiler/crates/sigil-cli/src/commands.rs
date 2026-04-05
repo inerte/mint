@@ -795,7 +795,7 @@ fn inspect_type_equality_mode(definition: &TypeDef, constrained: bool) -> &'stat
         TypeDef::Sum(_) => "nominal",
         TypeDef::Alias(_) | TypeDef::Product(_) => {
             if constrained {
-                "nominal"
+                "refinement"
             } else {
                 "structural"
             }

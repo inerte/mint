@@ -145,8 +145,11 @@ Constraint rules:
 - only `value` is in scope
 - the constraint must typecheck to `Bool`
 - constraints are pure and world-independent
-- v1 uses constraints as richer type meaning, not automatic runtime validation
-- the checker currently rejects only obvious literal contradictions
+- constrained aliases and constrained named product types act as compile-time refinements over their underlying type
+- values flow into a constrained type only when the checker can prove the predicate in Sigil's canonical refinement fragment
+- constrained values widen to their underlying type automatically
+- the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
+- constraints do not imply automatic runtime validation
 
 ## Structural Equality
 
@@ -157,7 +160,7 @@ That means:
 
 - unconstrained aliases compare structurally
 - unconstrained named product types compare structurally after normalization
-- constrained aliases and named product types remain distinct
+- constrained aliases and named product types use refinement checking over their underlying type instead of plain structural equality
 - sum types remain nominal
 
 This is a checker invariant, not inference.

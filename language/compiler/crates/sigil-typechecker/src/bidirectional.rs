@@ -31,7 +31,7 @@ use sigil_ast::{
     Program, Type, TypeDecl, TypeDef, UnaryOperator,
 };
 use sigil_diagnostics::codes;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 type TypeParamEnv = HashMap<String, InferenceType>;
 
@@ -263,21 +263,15 @@ pub fn type_check(
                     &env, func_decl,
                 )?));
             } else if let Declaration::Const(const_decl) = decl {
-                // Type check constant value
-                let value_type = synthesize(&env, &const_decl.value)?;
                 if let Some(ref annotation) = const_decl.type_annotation {
                     let expected_type =
                         ast_type_to_inference_type_resolved(&env, None, annotation)?;
-                    let (normalized_value, normalized_expected) =
-                        canonical_pair(&env, &value_type, &expected_type);
-                    if !types_equal(&normalized_value, &normalized_expected) {
-                        return Err(TypeError::mismatch(
-                            format!("Constant '{}' type mismatch", const_decl.name),
-                            Some(const_decl.location),
-                            normalized_expected,
-                            normalized_value,
-                        ));
-                    }
+                    check(&env, &const_decl.value, &expected_type).map_err(|error| {
+                        TypeError::new(
+                            format!("Constant '{}' type mismatch: {}", const_decl.name, error.message),
+                            error.location.or(Some(const_decl.location)),
+                        )
+                    })?;
                 }
                 typed_declarations.push(TypedDeclaration::Const(build_typed_const_decl(
                     &env, const_decl,
@@ -307,7 +301,7 @@ pub fn type_check(
             },
         })
     })()
-    .map_err(|error| error.with_source_file_if_missing(source_file))
+    .map_err(|error: TypeError| error.with_source_file_if_missing(source_file))
 }
 
 /// Canonicalize two types before any structural equality-sensitive comparison.
@@ -663,6 +657,8 @@ fn validate_type_constraints(env: &TypeEnvironment, program: &Program) -> Result
             continue;
         };
 
+        validate_refinement_constraint_shape(env, type_decl)?;
+
         let value_type = constraint_value_type_for_decl(env, type_decl)?;
         let mut bindings = HashMap::new();
         bindings.insert("value".to_string(), value_type);
@@ -835,6 +831,43 @@ fn underlying_type_for_constrained_info(
     }
 }
 
+#[derive(Debug, Clone)]
+struct ResolvedConstrainedType {
+    name: String,
+    constraint: Expr,
+    underlying_type: InferenceType,
+}
+
+fn resolve_constrained_type(
+    env: &TypeEnvironment,
+    typ: &InferenceType,
+) -> Result<Option<ResolvedConstrainedType>, TypeError> {
+    let Some((type_name, type_info, type_args)) = lookup_constrained_type_info(env, typ) else {
+        return Ok(None);
+    };
+
+    let Some(underlying_type) =
+        underlying_type_for_constrained_info(env, &type_info, &type_name, &type_args)?
+    else {
+        return Err(TypeError::new(
+            format!(
+                "Constrained type '{}' must be an alias or product type",
+                type_name
+            ),
+            None,
+        ));
+    };
+
+    Ok(type_info
+        .constraint
+        .clone()
+        .map(|constraint| ResolvedConstrainedType {
+            name: type_name,
+            constraint,
+            underlying_type,
+        }))
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum StaticValue {
     Int(i64),
@@ -909,13 +942,6 @@ fn static_value_from_expr(expr: &Expr) -> Option<StaticValue> {
             },
         },
         Expr::TypeAscription(type_asc) => static_value_from_expr(&type_asc.expr),
-        _ => None,
-    }
-}
-
-fn static_bool_from_constraint(expr: &Expr, value: &StaticValue) -> Option<bool> {
-    match eval_static_expr(expr, value, &HashMap::new())? {
-        StaticValue::Bool(result) => Some(result),
         _ => None,
     }
 }
@@ -1082,6 +1108,1030 @@ fn static_ordering_bool(
         _ => return None,
     };
     Some(StaticValue::Bool(predicate(left, right)))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct SymbolPath(Vec<String>);
+
+impl SymbolPath {
+    fn root(name: &str) -> Self {
+        Self(vec![name.to_string()])
+    }
+
+    fn child(&self, field: &str) -> Self {
+        let mut parts = self.0.clone();
+        parts.push(field.to_string());
+        Self(parts)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct LinearForm {
+    terms: BTreeMap<SymbolPath, i64>,
+}
+
+impl LinearForm {
+    fn zero() -> Self {
+        Self {
+            terms: BTreeMap::new(),
+        }
+    }
+
+    fn from_path(path: SymbolPath) -> Self {
+        let mut terms = BTreeMap::new();
+        terms.insert(path, 1);
+        Self { terms }
+    }
+
+    fn add_scaled(&mut self, other: &Self, scale: i64) {
+        for (path, coeff) in &other.terms {
+            let next = self.terms.get(path).copied().unwrap_or(0) + (*coeff * scale);
+            if next == 0 {
+                self.terms.remove(path);
+            } else {
+                self.terms.insert(path.clone(), next);
+            }
+        }
+    }
+
+    fn single_term(&self) -> Option<(&SymbolPath, i64)> {
+        if self.terms.len() == 1 {
+            self.terms.iter().next().map(|(path, coeff)| (path, *coeff))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LinearExpr {
+    form: LinearForm,
+    constant: i64,
+}
+
+impl LinearExpr {
+    fn int(value: i64) -> Self {
+        Self {
+            form: LinearForm::zero(),
+            constant: value,
+        }
+    }
+
+    fn from_path(path: SymbolPath) -> Self {
+        Self {
+            form: LinearForm::from_path(path),
+            constant: 0,
+        }
+    }
+
+    fn add(&self, other: &Self) -> Self {
+        let mut form = self.form.clone();
+        form.add_scaled(&other.form, 1);
+        Self {
+            form,
+            constant: self.constant + other.constant,
+        }
+    }
+
+    fn subtract(&self, other: &Self) -> Self {
+        let mut form = self.form.clone();
+        form.add_scaled(&other.form, -1);
+        Self {
+            form,
+            constant: self.constant - other.constant,
+        }
+    }
+
+    fn negate(&self) -> Self {
+        let mut form = LinearForm::zero();
+        form.add_scaled(&self.form, -1);
+        Self {
+            form,
+            constant: -self.constant,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ComparisonOp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Atom {
+    IntCmp {
+        form: LinearForm,
+        op: ComparisonOp,
+        rhs: i64,
+    },
+    BoolEq {
+        path: SymbolPath,
+        value: bool,
+    },
+}
+
+impl Atom {
+    fn negate(&self) -> Self {
+        match self {
+            Self::IntCmp { form, op, rhs } => Self::IntCmp {
+                form: form.clone(),
+                op: match op {
+                    ComparisonOp::Eq => ComparisonOp::Ne,
+                    ComparisonOp::Ne => ComparisonOp::Eq,
+                    ComparisonOp::Lt => ComparisonOp::Ge,
+                    ComparisonOp::Le => ComparisonOp::Gt,
+                    ComparisonOp::Gt => ComparisonOp::Le,
+                    ComparisonOp::Ge => ComparisonOp::Lt,
+                },
+                rhs: *rhs,
+            },
+            Self::BoolEq { path, value } => Self::BoolEq {
+                path: path.clone(),
+                value: !value,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Formula {
+    True,
+    False,
+    Atom(Atom),
+    And(Vec<Formula>),
+    Or(Vec<Formula>),
+    Not(Box<Formula>),
+}
+
+fn formula_and(parts: Vec<Formula>) -> Formula {
+    let mut flattened = Vec::new();
+    for part in parts {
+        match part {
+            Formula::True => {}
+            Formula::False => return Formula::False,
+            Formula::And(items) => flattened.extend(items),
+            other => flattened.push(other),
+        }
+    }
+
+    match flattened.len() {
+        0 => Formula::True,
+        1 => flattened.into_iter().next().unwrap(),
+        _ => Formula::And(flattened),
+    }
+}
+
+fn formula_or(parts: Vec<Formula>) -> Formula {
+    let mut flattened = Vec::new();
+    for part in parts {
+        match part {
+            Formula::False => {}
+            Formula::True => return Formula::True,
+            Formula::Or(items) => flattened.extend(items),
+            other => flattened.push(other),
+        }
+    }
+
+    match flattened.len() {
+        0 => Formula::False,
+        1 => flattened.into_iter().next().unwrap(),
+        _ => Formula::Or(flattened),
+    }
+}
+
+#[derive(Debug, Clone)]
+enum SymbolicValue {
+    Int(LinearExpr),
+    Bool(Formula),
+    Record(SymbolicRecord),
+}
+
+#[derive(Debug, Clone)]
+enum SymbolicRecord {
+    Literal(BTreeMap<String, Expr>),
+    Path {
+        base: SymbolPath,
+        fields: HashMap<String, InferenceType>,
+    },
+}
+
+#[derive(Default)]
+struct AssumptionCollector {
+    assumptions: Vec<Formula>,
+    seen_bindings: HashSet<String>,
+}
+
+fn refinement_type_support_error(name: &str, reason: &str) -> TypeError {
+    TypeError::new(
+        format!(
+            "Type constraint for '{}' uses unsupported refinement syntax: {}. Supported refinement constraints use Bool/Int literals, value, field access, +, -, comparisons, and/or/not.",
+            name, reason
+        ),
+        None,
+    )
+}
+
+fn symbolic_value_for_type_path(
+    env: &TypeEnvironment,
+    typ: &InferenceType,
+    path: &SymbolPath,
+) -> Result<SymbolicValue, String> {
+    if let Some(constrained) = resolve_constrained_type(env, typ).map_err(|err| err.message)? {
+        return symbolic_value_for_type_path(env, &constrained.underlying_type, path);
+    }
+
+    match env.normalize_type(typ) {
+        InferenceType::Primitive(TPrimitive {
+            name: PrimitiveName::Int,
+        }) => Ok(SymbolicValue::Int(LinearExpr::from_path(path.clone()))),
+        InferenceType::Primitive(TPrimitive {
+            name: PrimitiveName::Bool,
+        }) => Ok(SymbolicValue::Bool(Formula::Atom(Atom::BoolEq {
+            path: path.clone(),
+            value: true,
+        }))),
+        InferenceType::Record(record) => Ok(SymbolicValue::Record(SymbolicRecord::Path {
+            base: path.clone(),
+            fields: record.fields,
+        })),
+        other => Err(format!(
+            "values of type {} are not part of Sigil's canonical refinement proof fragment",
+            format_type(&other)
+        )),
+    }
+}
+
+fn collect_identifier_assumption(
+    env: &TypeEnvironment,
+    name: &str,
+    collector: &mut AssumptionCollector,
+) -> Result<(), String> {
+    if !collector.seen_bindings.insert(name.to_string()) {
+        return Ok(());
+    }
+
+    let Some(binding_type) = env.lookup(name) else {
+        return Ok(());
+    };
+
+    let Some(constrained) = resolve_constrained_type(env, &binding_type).map_err(|err| err.message)?
+    else {
+        return Ok(());
+    };
+
+    let placeholder =
+        symbolic_value_for_type_path(env, &constrained.underlying_type, &SymbolPath::root(name))?;
+    let assumption = symbolic_formula_from_expr(
+        env,
+        &constrained.constraint,
+        Some(&placeholder),
+        &mut AssumptionCollector::default(),
+    )?;
+    collector.assumptions.push(assumption);
+    Ok(())
+}
+
+fn symbolic_value_from_expr(
+    env: &TypeEnvironment,
+    expr: &Expr,
+    value_binding: Option<&SymbolicValue>,
+    collector: &mut AssumptionCollector,
+) -> Result<SymbolicValue, String> {
+    match expr {
+        Expr::Literal(literal) => match literal.value {
+            LiteralValue::Int(value) => Ok(SymbolicValue::Int(LinearExpr::int(value))),
+            LiteralValue::Bool(value) => Ok(SymbolicValue::Bool(if value {
+                Formula::True
+            } else {
+                Formula::False
+            })),
+            _ => Err("only Int and Bool literals participate in refinement proofs".to_string()),
+        },
+        Expr::Identifier(identifier) => {
+            if identifier.name == "value" {
+                if let Some(value_binding) = value_binding {
+                    return Ok(value_binding.clone());
+                }
+            }
+
+            collect_identifier_assumption(env, &identifier.name, collector)?;
+            let Some(binding_type) = env.lookup(&identifier.name) else {
+                return Err(format!(
+                    "unknown identifier '{}' in refinement proof",
+                    identifier.name
+                ));
+            };
+            symbolic_value_for_type_path(env, &binding_type, &SymbolPath::root(&identifier.name))
+        }
+        Expr::Unary(unary) => {
+            let operand = symbolic_value_from_expr(env, &unary.operand, value_binding, collector)?;
+            match (unary.operator, operand) {
+                (UnaryOperator::Negate, SymbolicValue::Int(value)) => {
+                    Ok(SymbolicValue::Int(value.negate()))
+                }
+                (UnaryOperator::Not, SymbolicValue::Bool(formula)) => {
+                    Ok(SymbolicValue::Bool(Formula::Not(Box::new(formula))))
+                }
+                _ => Err("unsupported unary operator in refinement proof".to_string()),
+            }
+        }
+        Expr::Binary(binary) => {
+            let left = symbolic_value_from_expr(env, &binary.left, value_binding, collector)?;
+            let right = symbolic_value_from_expr(env, &binary.right, value_binding, collector)?;
+            symbolic_value_from_binary(binary.operator, left, right)
+        }
+        Expr::Record(record) => Ok(SymbolicValue::Record(SymbolicRecord::Literal(
+            record
+                .fields
+                .iter()
+                .map(|field| (field.name.clone(), field.value.clone()))
+                .collect(),
+        ))),
+        Expr::FieldAccess(field_access) => match symbolic_value_from_expr(
+            env,
+            &field_access.object,
+            value_binding,
+            collector,
+        )? {
+            SymbolicValue::Record(SymbolicRecord::Literal(fields)) => {
+                let Some(field_expr) = fields.get(&field_access.field) else {
+                    return Err(format!(
+                        "record literal is missing field '{}' in refinement proof",
+                        field_access.field
+                    ));
+                };
+                symbolic_value_from_expr(env, field_expr, value_binding, collector)
+            }
+            SymbolicValue::Record(SymbolicRecord::Path { base, fields }) => {
+                let Some(field_type) = fields.get(&field_access.field) else {
+                    return Err(format!(
+                        "record type is missing field '{}' in refinement proof",
+                        field_access.field
+                    ));
+                };
+                symbolic_value_for_type_path(env, field_type, &base.child(&field_access.field))
+            }
+            _ => Err("field access in refinement proofs requires an exact record".to_string()),
+        },
+        Expr::TypeAscription(type_asc) => {
+            symbolic_value_from_expr(env, &type_asc.expr, value_binding, collector)
+        }
+        _ => Err("unsupported expression shape in refinement proof".to_string()),
+    }
+}
+
+fn symbolic_formula_from_expr(
+    env: &TypeEnvironment,
+    expr: &Expr,
+    value_binding: Option<&SymbolicValue>,
+    collector: &mut AssumptionCollector,
+) -> Result<Formula, String> {
+    match symbolic_value_from_expr(env, expr, value_binding, collector)? {
+        SymbolicValue::Bool(formula) => Ok(formula),
+        _ => Err("refinement expressions must evaluate to Bool".to_string()),
+    }
+}
+
+fn symbolic_value_from_binary(
+    operator: BinaryOperator,
+    left: SymbolicValue,
+    right: SymbolicValue,
+) -> Result<SymbolicValue, String> {
+    match operator {
+        BinaryOperator::Add => match (left, right) {
+            (SymbolicValue::Int(left), SymbolicValue::Int(right)) => {
+                Ok(SymbolicValue::Int(left.add(&right)))
+            }
+            _ => Err("addition in refinement proofs requires Int operands".to_string()),
+        },
+        BinaryOperator::Subtract => match (left, right) {
+            (SymbolicValue::Int(left), SymbolicValue::Int(right)) => {
+                Ok(SymbolicValue::Int(left.subtract(&right)))
+            }
+            _ => Err("subtraction in refinement proofs requires Int operands".to_string()),
+        },
+        BinaryOperator::Equal => symbolic_equality_formula(left, right, true),
+        BinaryOperator::NotEqual => symbolic_equality_formula(left, right, false),
+        BinaryOperator::Less => symbolic_int_comparison(left, right, ComparisonOp::Lt),
+        BinaryOperator::LessEq => symbolic_int_comparison(left, right, ComparisonOp::Le),
+        BinaryOperator::Greater => symbolic_int_comparison(left, right, ComparisonOp::Gt),
+        BinaryOperator::GreaterEq => symbolic_int_comparison(left, right, ComparisonOp::Ge),
+        BinaryOperator::And => match (left, right) {
+            (SymbolicValue::Bool(left), SymbolicValue::Bool(right)) => {
+                Ok(SymbolicValue::Bool(formula_and(vec![left, right])))
+            }
+            _ => Err("and in refinement proofs requires Bool operands".to_string()),
+        },
+        BinaryOperator::Or => match (left, right) {
+            (SymbolicValue::Bool(left), SymbolicValue::Bool(right)) => {
+                Ok(SymbolicValue::Bool(formula_or(vec![left, right])))
+            }
+            _ => Err("or in refinement proofs requires Bool operands".to_string()),
+        },
+        _ => Err("unsupported binary operator in refinement proof".to_string()),
+    }
+}
+
+fn symbolic_equality_formula(
+    left: SymbolicValue,
+    right: SymbolicValue,
+    equals: bool,
+) -> Result<SymbolicValue, String> {
+    match (left, right) {
+        (SymbolicValue::Int(left), SymbolicValue::Int(right)) => {
+            let diff = left.subtract(&right);
+            Ok(SymbolicValue::Bool(Formula::Atom(Atom::IntCmp {
+                form: diff.form,
+                op: if equals {
+                    ComparisonOp::Eq
+                } else {
+                    ComparisonOp::Ne
+                },
+                rhs: -diff.constant,
+            })))
+        }
+        (SymbolicValue::Bool(left), SymbolicValue::Bool(right)) => {
+            let formula = if equals {
+                formula_or(vec![
+                    formula_and(vec![left.clone(), right.clone()]),
+                    formula_and(vec![
+                        Formula::Not(Box::new(left)),
+                        Formula::Not(Box::new(right)),
+                    ]),
+                ])
+            } else {
+                formula_or(vec![
+                    formula_and(vec![left.clone(), Formula::Not(Box::new(right.clone()))]),
+                    formula_and(vec![Formula::Not(Box::new(left)), right]),
+                ])
+            };
+            Ok(SymbolicValue::Bool(formula))
+        }
+        _ => Err("equality in refinement proofs requires matching Int or Bool operands".to_string()),
+    }
+}
+
+fn symbolic_int_comparison(
+    left: SymbolicValue,
+    right: SymbolicValue,
+    op: ComparisonOp,
+) -> Result<SymbolicValue, String> {
+    let (SymbolicValue::Int(left), SymbolicValue::Int(right)) = (left, right) else {
+        return Err("refinement comparisons require Int operands".to_string());
+    };
+    let diff = left.subtract(&right);
+    Ok(SymbolicValue::Bool(Formula::Atom(Atom::IntCmp {
+        form: diff.form,
+        op,
+        rhs: -diff.constant,
+    })))
+}
+
+fn validate_refinement_constraint_shape(
+    env: &TypeEnvironment,
+    type_decl: &TypeDecl,
+) -> Result<(), TypeError> {
+    let Some(constraint) = &type_decl.constraint else {
+        return Ok(());
+    };
+
+    if matches!(type_decl.definition, TypeDef::Sum(_)) {
+        return Err(TypeError::new(
+            format!(
+                "Type constraint for '{}' is only supported on alias and product types",
+                type_decl.name
+            ),
+            Some(type_decl.location),
+        ));
+    }
+
+    let value_type = constraint_value_type_for_decl(env, type_decl)?;
+    let placeholder = symbolic_value_for_type_path(env, &value_type, &SymbolPath::root("value"))
+        .map_err(|reason| {
+            let mut error = refinement_type_support_error(&type_decl.name, &reason);
+            error.location = Some(expr_location(constraint));
+            error
+        })?;
+    symbolic_formula_from_expr(
+        env,
+        constraint,
+        Some(&placeholder),
+        &mut AssumptionCollector::default(),
+    )
+    .map_err(|reason| {
+        let mut error = refinement_type_support_error(&type_decl.name, &reason);
+        error.location = Some(expr_location(constraint));
+        error
+    })?;
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, Default)]
+struct Bounds {
+    lower: Option<i64>,
+    upper: Option<i64>,
+    excluded: BTreeSet<i64>,
+}
+
+impl Bounds {
+    fn include_lower(&mut self, value: i64) {
+        self.lower = Some(self.lower.map_or(value, |current| current.max(value)));
+    }
+
+    fn include_upper(&mut self, value: i64) {
+        self.upper = Some(self.upper.map_or(value, |current| current.min(value)));
+    }
+
+    fn set_exact(&mut self, value: i64) {
+        self.lower = Some(value);
+        self.upper = Some(value);
+    }
+
+    fn contradictory(&self) -> bool {
+        match (self.lower, self.upper) {
+            (Some(lower), Some(upper)) if lower > upper => true,
+            (Some(lower), Some(upper)) if lower == upper => self.excluded.contains(&lower),
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct ProofBranch {
+    bool_values: HashMap<SymbolPath, bool>,
+    form_bounds: BTreeMap<LinearForm, Bounds>,
+    variable_bounds: HashMap<SymbolPath, Bounds>,
+    satisfiable: bool,
+}
+
+impl ProofBranch {
+    fn from_atoms(atoms: &[Atom]) -> Self {
+        let mut branch = Self {
+            satisfiable: true,
+            ..Self::default()
+        };
+
+        for atom in atoms {
+            branch.add_atom(atom);
+            if !branch.satisfiable {
+                break;
+            }
+        }
+
+        branch
+    }
+
+    fn add_atom(&mut self, atom: &Atom) {
+        if !self.satisfiable {
+            return;
+        }
+
+        match atom {
+            Atom::BoolEq { path, value } => {
+                if let Some(current) = self.bool_values.get(path) {
+                    if current != value {
+                        self.satisfiable = false;
+                        return;
+                    }
+                }
+                self.bool_values.insert(path.clone(), *value);
+            }
+            Atom::IntCmp { form, op, rhs } => {
+                let entry = self.form_bounds.entry(form.clone()).or_default();
+                match op {
+                    ComparisonOp::Eq => entry.set_exact(*rhs),
+                    ComparisonOp::Ne => {
+                        entry.excluded.insert(*rhs);
+                    }
+                    ComparisonOp::Lt => entry.include_upper(rhs.saturating_sub(1)),
+                    ComparisonOp::Le => entry.include_upper(*rhs),
+                    ComparisonOp::Gt => entry.include_lower(rhs.saturating_add(1)),
+                    ComparisonOp::Ge => entry.include_lower(*rhs),
+                }
+
+                if entry.contradictory() {
+                    self.satisfiable = false;
+                    return;
+                }
+
+                self.derive_variable_bounds(form, op, *rhs);
+            }
+        }
+    }
+
+    fn derive_variable_bounds(&mut self, form: &LinearForm, op: &ComparisonOp, rhs: i64) {
+        let Some((path, coeff)) = form.single_term() else {
+            return;
+        };
+
+        let entry = self.variable_bounds.entry(path.clone()).or_default();
+        match (coeff, *op) {
+            (0, _) => {}
+            (_, ComparisonOp::Eq) => {
+                if let Some(value) = solve_exact_single_var(coeff, rhs) {
+                    entry.set_exact(value);
+                }
+            }
+            (_, ComparisonOp::Ne) => {
+                if let Some(value) = solve_exact_single_var(coeff, rhs) {
+                    entry.excluded.insert(value);
+                }
+            }
+            _ => {
+                if let Some((lower, upper)) = solve_single_var_interval(coeff, *op, rhs) {
+                    if let Some(lower) = lower {
+                        entry.include_lower(lower);
+                    }
+                    if let Some(upper) = upper {
+                        entry.include_upper(upper);
+                    }
+                }
+            }
+        }
+
+        if entry.contradictory() {
+            self.satisfiable = false;
+        }
+    }
+}
+
+fn solve_exact_single_var(coeff: i64, rhs: i64) -> Option<i64> {
+    if coeff == 0 || rhs % coeff != 0 {
+        return None;
+    }
+    Some(rhs / coeff)
+}
+
+fn solve_single_var_interval(
+    coeff: i64,
+    op: ComparisonOp,
+    rhs: i64,
+) -> Option<(Option<i64>, Option<i64>)> {
+    if coeff == 0 {
+        return None;
+    }
+
+    let (normalized_op, normalized_rhs) = if coeff > 0 {
+        (op, rhs)
+    } else {
+        (
+            match op {
+                ComparisonOp::Lt => ComparisonOp::Gt,
+                ComparisonOp::Le => ComparisonOp::Ge,
+                ComparisonOp::Gt => ComparisonOp::Lt,
+                ComparisonOp::Ge => ComparisonOp::Le,
+                other => other,
+            },
+            -rhs,
+        )
+    };
+    let divisor = coeff.abs();
+
+    let interval = match normalized_op {
+        ComparisonOp::Lt => (None, Some(div_floor(normalized_rhs - 1, divisor))),
+        ComparisonOp::Le => (None, Some(div_floor(normalized_rhs, divisor))),
+        ComparisonOp::Gt => (Some(div_ceil(normalized_rhs + 1, divisor)), None),
+        ComparisonOp::Ge => (Some(div_ceil(normalized_rhs, divisor)), None),
+        ComparisonOp::Eq | ComparisonOp::Ne => return None,
+    };
+
+    Some(interval)
+}
+
+fn div_floor(numerator: i64, denominator: i64) -> i64 {
+    let quotient = numerator / denominator;
+    let remainder = numerator % denominator;
+    if remainder != 0 && ((remainder > 0) != (denominator > 0)) {
+        quotient - 1
+    } else {
+        quotient
+    }
+}
+
+fn div_ceil(numerator: i64, denominator: i64) -> i64 {
+    let quotient = numerator / denominator;
+    let remainder = numerator % denominator;
+    if remainder != 0 && ((remainder > 0) == (denominator > 0)) {
+        quotient + 1
+    } else {
+        quotient
+    }
+}
+
+fn formula_to_nnf(formula: &Formula, negated: bool) -> Formula {
+    match formula {
+        Formula::True => {
+            if negated {
+                Formula::False
+            } else {
+                Formula::True
+            }
+        }
+        Formula::False => {
+            if negated {
+                Formula::True
+            } else {
+                Formula::False
+            }
+        }
+        Formula::Atom(atom) => {
+            if negated {
+                Formula::Atom(atom.negate())
+            } else {
+                Formula::Atom(atom.clone())
+            }
+        }
+        Formula::And(parts) => {
+            if negated {
+                formula_or(parts.iter().map(|part| formula_to_nnf(part, true)).collect())
+            } else {
+                formula_and(parts.iter().map(|part| formula_to_nnf(part, false)).collect())
+            }
+        }
+        Formula::Or(parts) => {
+            if negated {
+                formula_and(parts.iter().map(|part| formula_to_nnf(part, true)).collect())
+            } else {
+                formula_or(parts.iter().map(|part| formula_to_nnf(part, false)).collect())
+            }
+        }
+        Formula::Not(inner) => formula_to_nnf(inner, !negated),
+    }
+}
+
+fn formula_to_dnf(formula: &Formula) -> Vec<Vec<Atom>> {
+    match formula {
+        Formula::True => vec![Vec::new()],
+        Formula::False => Vec::new(),
+        Formula::Atom(atom) => vec![vec![atom.clone()]],
+        Formula::And(parts) => {
+            let mut result = vec![Vec::new()];
+            for part in parts {
+                let next = formula_to_dnf(part);
+                if next.is_empty() {
+                    return Vec::new();
+                }
+                let mut combined = Vec::new();
+                for existing in &result {
+                    for branch in &next {
+                        let mut merged = existing.clone();
+                        merged.extend(branch.clone());
+                        combined.push(merged);
+                    }
+                }
+                result = combined;
+            }
+            result
+        }
+        Formula::Or(parts) => parts.iter().flat_map(formula_to_dnf).collect(),
+        Formula::Not(_) => formula_to_dnf(&formula_to_nnf(formula, false)),
+    }
+}
+
+fn eval_form_bounds(form: &LinearForm, branch: &ProofBranch) -> (Option<i64>, Option<i64>) {
+    let mut lower = Some(0_i128);
+    let mut upper = Some(0_i128);
+
+    for (path, coeff) in &form.terms {
+        let bounds = branch.variable_bounds.get(path);
+        let next_lower = if *coeff >= 0 {
+            bounds.and_then(|item| item.lower).map(i128::from)
+        } else {
+            bounds.and_then(|item| item.upper).map(i128::from)
+        };
+        let next_upper = if *coeff >= 0 {
+            bounds.and_then(|item| item.upper).map(i128::from)
+        } else {
+            bounds.and_then(|item| item.lower).map(i128::from)
+        };
+
+        lower = match (lower, next_lower) {
+            (Some(current), Some(value)) => Some(current + i128::from(*coeff) * value),
+            _ => None,
+        };
+        upper = match (upper, next_upper) {
+            (Some(current), Some(value)) => Some(current + i128::from(*coeff) * value),
+            _ => None,
+        };
+    }
+
+    (
+        lower.and_then(|value| i64::try_from(value).ok()),
+        upper.and_then(|value| i64::try_from(value).ok()),
+    )
+}
+
+fn bounds_imply(bounds: &Bounds, op: ComparisonOp, rhs: i64) -> bool {
+    match op {
+        ComparisonOp::Eq => bounds.lower == Some(rhs) && bounds.upper == Some(rhs),
+        ComparisonOp::Ne => {
+            bounds.excluded.contains(&rhs)
+                || bounds.lower.map_or(false, |lower| lower > rhs)
+                || bounds.upper.map_or(false, |upper| upper < rhs)
+        }
+        ComparisonOp::Lt => bounds.upper.map_or(false, |upper| upper < rhs),
+        ComparisonOp::Le => bounds.upper.map_or(false, |upper| upper <= rhs),
+        ComparisonOp::Gt => bounds.lower.map_or(false, |lower| lower > rhs),
+        ComparisonOp::Ge => bounds.lower.map_or(false, |lower| lower >= rhs),
+    }
+}
+
+fn interval_implies(lower: Option<i64>, upper: Option<i64>, op: ComparisonOp, rhs: i64) -> bool {
+    match op {
+        ComparisonOp::Eq => lower == Some(rhs) && upper == Some(rhs),
+        ComparisonOp::Ne => {
+            lower.map_or(false, |value| value > rhs) || upper.map_or(false, |value| value < rhs)
+        }
+        ComparisonOp::Lt => upper.map_or(false, |value| value < rhs),
+        ComparisonOp::Le => upper.map_or(false, |value| value <= rhs),
+        ComparisonOp::Gt => lower.map_or(false, |value| value > rhs),
+        ComparisonOp::Ge => lower.map_or(false, |value| value >= rhs),
+    }
+}
+
+fn branch_implies_atom(branch: &ProofBranch, atom: &Atom) -> bool {
+    match atom {
+        Atom::BoolEq { path, value } => branch.bool_values.get(path).copied() == Some(*value),
+        Atom::IntCmp { form, op, rhs } => {
+            if let Some(bounds) = branch.form_bounds.get(form) {
+                if bounds_imply(bounds, *op, *rhs) {
+                    return true;
+                }
+            }
+
+            let (lower, upper) = eval_form_bounds(form, branch);
+            interval_implies(lower, upper, *op, *rhs)
+        }
+    }
+}
+
+fn branch_implies_formula(branch: &ProofBranch, formula: &Formula) -> bool {
+    match formula_to_nnf(formula, false) {
+        Formula::True => true,
+        Formula::False => !branch.satisfiable,
+        Formula::Atom(atom) => branch_implies_atom(branch, &atom),
+        Formula::And(parts) => parts.iter().all(|part| branch_implies_formula(branch, part)),
+        Formula::Or(parts) => parts.iter().any(|part| branch_implies_formula(branch, part)),
+        Formula::Not(_) => unreachable!("formula_to_nnf eliminates not"),
+    }
+}
+
+fn prove_formula(assumptions: &[Formula], goal: &Formula) -> bool {
+    let assumption_formula = formula_and(assumptions.to_vec());
+    let branches = formula_to_dnf(&formula_to_nnf(&assumption_formula, false));
+    if branches.is_empty() {
+        return true;
+    }
+
+    branches.into_iter().all(|atoms| {
+        let branch = ProofBranch::from_atoms(&atoms);
+        !branch.satisfiable || branch_implies_formula(&branch, goal)
+    })
+}
+
+fn prove_expr_satisfies_constraint(
+    env: &TypeEnvironment,
+    expr: &Expr,
+    constraint: &Expr,
+    extra_assumptions: &[Formula],
+) -> Result<bool, String> {
+    match expr {
+        Expr::If(if_expr) => {
+            let mut condition_collector = AssumptionCollector::default();
+            let condition_formula = symbolic_formula_from_expr(
+                env,
+                &if_expr.condition,
+                None,
+                &mut condition_collector,
+            )?;
+            let mut then_assumptions = extra_assumptions.to_vec();
+            then_assumptions.extend(condition_collector.assumptions.clone());
+            then_assumptions.push(condition_formula.clone());
+            let then_ok = prove_expr_satisfies_constraint(
+                env,
+                &if_expr.then_branch,
+                constraint,
+                &then_assumptions,
+            )?;
+
+            let else_ok = if let Some(else_branch) = &if_expr.else_branch {
+                let mut else_assumptions = extra_assumptions.to_vec();
+                else_assumptions.extend(condition_collector.assumptions);
+                else_assumptions.push(Formula::Not(Box::new(condition_formula)));
+                prove_expr_satisfies_constraint(env, else_branch, constraint, &else_assumptions)?
+            } else {
+                false
+            };
+
+            Ok(then_ok && else_ok)
+        }
+        Expr::TypeAscription(type_asc) => {
+            prove_expr_satisfies_constraint(env, &type_asc.expr, constraint, extra_assumptions)
+        }
+        _ => {
+            let mut collector = AssumptionCollector::default();
+            let actual = symbolic_value_from_expr(env, expr, None, &mut collector)?;
+            let goal =
+                symbolic_formula_from_expr(env, constraint, Some(&actual), &mut collector)?;
+            let mut assumptions = extra_assumptions.to_vec();
+            assumptions.extend(collector.assumptions);
+            Ok(prove_formula(&assumptions, &goal))
+        }
+    }
+}
+
+fn type_flows_without_new_proof(
+    env: &TypeEnvironment,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+) -> Result<bool, TypeError> {
+    if matches_expected_type(env, actual_type, expected_type) {
+        return Ok(true);
+    }
+
+    let Some(constrained) = resolve_constrained_type(env, actual_type)? else {
+        return Ok(false);
+    };
+
+    type_flows_without_new_proof(env, &constrained.underlying_type, expected_type)
+}
+
+fn try_refinement_compatibility(
+    env: &TypeEnvironment,
+    expr: &Expr,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+    location: sigil_lexer::SourceLocation,
+) -> Result<bool, TypeError> {
+    if let Some(expected_refinement) = resolve_constrained_type(env, expected_type)? {
+        check(env, expr, &expected_refinement.underlying_type)?;
+        let proof_result =
+            prove_expr_satisfies_constraint(env, expr, &expected_refinement.constraint, &[])
+                .map_err(|reason| {
+                    TypeError::new(
+                        format!(
+                            "Constraint for '{}' could not be proven here: {}",
+                            expected_refinement.name,
+                            reason,
+                        ),
+                        Some(location),
+                    )
+                })?;
+
+        if proof_result {
+            return Ok(true);
+        }
+
+        return Err(TypeError::new(
+            format!(
+                "Constraint for '{}' could not be proven here",
+                expected_refinement.name
+            ),
+            Some(location),
+        ));
+    }
+
+    if let Some(actual_refinement) = resolve_constrained_type(env, actual_type)? {
+        if type_flows_without_new_proof(env, &actual_refinement.underlying_type, expected_type)? {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+fn ensure_expr_matches_expected(
+    env: &TypeEnvironment,
+    expr: &Expr,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+    location: sigil_lexer::SourceLocation,
+) -> Result<(), TypeError> {
+    if matches_expected_type(env, actual_type, expected_type) {
+        return Ok(());
+    }
+
+    if try_refinement_compatibility(env, expr, actual_type, expected_type, location)? {
+        return Ok(());
+    }
+
+    let (normalized_actual, normalized_expected) = canonical_pair(env, actual_type, expected_type);
+    Err(TypeError::mismatch(
+        format!(
+            "Type mismatch: expected {}, got {}",
+            format_type(&normalized_expected),
+            format_type(&normalized_actual)
+        ),
+        Some(location),
+        normalized_expected,
+        normalized_actual,
+    ))
 }
 
 fn validate_declaration_surface_types(decl: &Declaration) -> Result<(), TypeError> {
@@ -1479,6 +2529,12 @@ fn bool_type() -> InferenceType {
 fn int_type() -> InferenceType {
     InferenceType::Primitive(TPrimitive {
         name: PrimitiveName::Int,
+    })
+}
+
+fn unit_type() -> InferenceType {
+    InferenceType::Primitive(TPrimitive {
+        name: PrimitiveName::Unit,
     })
 }
 
@@ -2541,19 +3597,32 @@ fn synthesize_application(
             let mut subst = HashMap::new();
             for (arg, param_type) in app.args.iter().zip(&tfunc.params) {
                 let arg_type = synthesize(env, arg)?;
-                let (normalized_arg, normalized_param) = canonical_pair(env, &arg_type, param_type);
-                let next_subst = unify(&normalized_arg, &normalized_param).map_err(|message| {
-                    TypeError::new(
-                        format!(
-                            "Function argument type mismatch: expected {}, got {} ({})",
-                            format_type(&normalized_param),
-                            format_type(&normalized_arg),
-                            message
-                        ),
-                        Some(app.location),
-                    )
-                })?;
-                subst.extend(next_subst);
+                let expected_param = apply_subst(&subst, param_type);
+                let (normalized_arg, normalized_param) =
+                    canonical_pair(env, &arg_type, &expected_param);
+                if let Ok(next_subst) = unify(&normalized_arg, &normalized_param) {
+                    subst.extend(next_subst);
+                    continue;
+                }
+
+                if try_refinement_compatibility(
+                    env,
+                    arg,
+                    &arg_type,
+                    &expected_param,
+                    app.location,
+                )? {
+                    continue;
+                }
+
+                return Err(TypeError::new(
+                    format!(
+                        "Function argument type mismatch: expected {}, got {}",
+                        format_type(&normalized_param),
+                        format_type(&normalized_arg)
+                    ),
+                    Some(app.location),
+                ));
             }
 
             Ok(apply_subst(&subst, &tfunc.return_type))
@@ -5993,55 +7062,8 @@ fn synthesize_type_ascription(
     env: &TypeEnvironment,
     type_asc: &sigil_ast::TypeAscriptionExpr,
 ) -> Result<InferenceType, TypeError> {
-    // Convert ascribed type from AST to inference type
     let ascribed_type = ast_type_to_inference_type_resolved(env, None, &type_asc.ascribed_type)?;
-
-    if let Some((type_name, type_info, type_args)) =
-        lookup_constrained_type_info(env, &ascribed_type)
-    {
-        let actual_type = synthesize(env, &type_asc.expr)?;
-
-        if !matches_expected_type(env, &actual_type, &ascribed_type) {
-            let underlying_type =
-                underlying_type_for_constrained_info(env, &type_info, &type_name, &type_args)?
-                    .unwrap_or_else(|| ascribed_type.clone());
-
-            if !matches_expected_type(env, &actual_type, &underlying_type) {
-                let (normalized_actual, normalized_expected) =
-                    canonical_pair(env, &actual_type, &underlying_type);
-                return Err(TypeError::mismatch(
-                    format!(
-                        "Type mismatch: expected {}, got {}",
-                        format_type(&normalized_expected),
-                        format_type(&normalized_actual)
-                    ),
-                    Some(type_asc.location),
-                    normalized_expected,
-                    normalized_actual,
-                ));
-            }
-        }
-
-        if let (Some(constraint), Some(value)) = (
-            type_info.constraint.as_ref(),
-            static_value_from_expr(&type_asc.expr),
-        ) {
-            if let Some(false) = static_bool_from_constraint(constraint, &value) {
-                return Err(TypeError::new(
-                    format!(
-                        "Obvious constrained-type contradiction: this value does not satisfy the constraint for '{}'",
-                        type_name
-                    ),
-                    Some(type_asc.location),
-                ));
-            }
-        }
-    } else {
-        // Check that the expression matches the ascribed type
-        check(env, &type_asc.expr, &ascribed_type)?;
-    }
-
-    // Return the ascribed type
+    check(env, &type_asc.expr, &ascribed_type)?;
     Ok(ascribed_type)
 }
 
@@ -6061,57 +7083,61 @@ fn check(
         return Ok(());
     }
 
-    if let Expr::MapLiteral(map_expr) = expr {
-        if map_expr.entries.is_empty() {
-            return match expected_type {
-                InferenceType::Map(_) => Ok(()),
-                _ => Err(TypeError::new(
-                    format!(
-                        "Empty map literal requires a map type context, got {}",
-                        format_type(expected_type)
-                    ),
-                    None,
-                )),
-            };
-        }
-    }
-
     if let Expr::Application(app) = expr {
         return check_application(env, app, expected_type);
     }
 
-    // For most expressions: synthesize then verify equality
+    if let Expr::If(if_expr) = expr {
+        return check_if(env, if_expr, expected_type);
+    }
+
+    if let Expr::Let(let_expr) = expr {
+        return check_let(env, let_expr, expected_type);
+    }
+
+    if let Expr::Match(match_expr) = expr {
+        return check_match(env, match_expr, expected_type);
+    }
+
+    let normalized_expected = env.normalize_type(expected_type);
+    match (expr, &normalized_expected) {
+        (Expr::List(list_expr), InferenceType::List(list_type)) => {
+            return check_list(env, list_expr, &list_type.element_type);
+        }
+        (Expr::Tuple(tuple_expr), InferenceType::Tuple(tuple_type)) => {
+            return check_tuple(env, tuple_expr, &tuple_type.types);
+        }
+        (Expr::Record(record_expr), InferenceType::Record(record_type)) => {
+            return check_record(env, record_expr, &record_type.fields);
+        }
+        (Expr::MapLiteral(map_expr), InferenceType::Map(map_type)) => {
+            return check_map_literal(
+                env,
+                map_expr,
+                &map_type.key_type,
+                &map_type.value_type,
+                expected_type,
+            );
+        }
+        (Expr::MapLiteral(map_expr), _) if map_expr.entries.is_empty() => {
+            return Err(TypeError::new(
+                format!(
+                    "Empty map literal requires a map type context, got {}",
+                    format_type(expected_type)
+                ),
+                None,
+            ));
+        }
+        _ => {}
+    }
+
     let actual_type = synthesize(env, expr)?;
 
-    // Special case: 'any' type matches anything (FFI trust mode)
     if matches!(actual_type, InferenceType::Any) {
         return Ok(());
     }
 
-    // Normalize structural named types before equality checks.
-    let (normalized_actual, normalized_expected) = canonical_pair(env, &actual_type, expected_type);
-
-    if !types_equal(&normalized_actual, &normalized_expected) {
-        if let Ok(subst) = unify(&normalized_actual, &normalized_expected) {
-            let unified_actual = apply_subst(&subst, &normalized_actual);
-            let unified_expected = apply_subst(&subst, &normalized_expected);
-            if types_equal(&unified_actual, &unified_expected) {
-                return Ok(());
-            }
-        }
-        return Err(TypeError::mismatch(
-            format!(
-                "Type mismatch: expected {}, got {}",
-                format_type(&normalized_expected),
-                format_type(&normalized_actual)
-            ),
-            None, // TODO: extract location from expression variant
-            normalized_expected,
-            normalized_actual,
-        ));
-    }
-
-    Ok(())
+    ensure_expr_matches_expected(env, expr, &actual_type, expected_type, expr_location(expr))
 }
 
 fn check_application(
@@ -6149,35 +7175,208 @@ fn check_application(
         let arg_type = synthesize(env, arg)?;
         let expected_param = apply_subst(&subst, param_type);
         let (normalized_arg, normalized_param) = canonical_pair(env, &arg_type, &expected_param);
-        let next_subst = unify(&normalized_arg, &normalized_param).map_err(|message| {
-            TypeError::new(
-                format!(
-                    "Function argument type mismatch: expected {}, got {} ({})",
-                    format_type(&normalized_param),
-                    format_type(&normalized_arg),
-                    message
-                ),
-                Some(app.location),
-            )
-        })?;
-        subst.extend(next_subst);
+        if let Ok(next_subst) = unify(&normalized_arg, &normalized_param) {
+            subst.extend(next_subst);
+            continue;
+        }
+
+        if try_refinement_compatibility(env, arg, &arg_type, &expected_param, app.location)? {
+            continue;
+        }
+
+        return Err(TypeError::new(
+            format!(
+                "Function argument type mismatch: expected {}, got {}",
+                format_type(&normalized_param),
+                format_type(&normalized_arg)
+            ),
+            Some(app.location),
+        ));
     }
 
     let actual_return = apply_subst(&subst, &tfunc.return_type);
-    let (normalized_actual, normalized_expected) =
-        canonical_pair(env, &actual_return, expected_type);
-    let next_subst = unify(&normalized_actual, &normalized_expected).map_err(|message| {
-        TypeError::new(
+    ensure_expr_matches_expected(
+        env,
+        &Expr::Application(Box::new(app.clone())),
+        &actual_return,
+        expected_type,
+        app.location,
+    )
+}
+
+fn check_if(
+    env: &TypeEnvironment,
+    if_expr: &sigil_ast::IfExpr,
+    expected_type: &InferenceType,
+) -> Result<(), TypeError> {
+    check(env, &if_expr.condition, &bool_type())?;
+
+    if if_expr.else_branch.is_none() {
+        check(env, &if_expr.then_branch, &unit_type())?;
+        if !type_flows_without_new_proof(env, &unit_type(), expected_type)? {
+            let (normalized_actual, normalized_expected) =
+                canonical_pair(env, &unit_type(), expected_type);
+            return Err(TypeError::mismatch(
+                format!(
+                    "Type mismatch: expected {}, got {}",
+                    format_type(&normalized_expected),
+                    format_type(&normalized_actual)
+                ),
+                Some(if_expr.location),
+                normalized_expected,
+                normalized_actual,
+            ));
+        }
+        return Ok(());
+    }
+
+    check(env, &if_expr.then_branch, expected_type)?;
+    check(env, if_expr.else_branch.as_ref().unwrap(), expected_type)
+}
+
+fn check_let(
+    env: &TypeEnvironment,
+    let_expr: &sigil_ast::LetExpr,
+    expected_type: &InferenceType,
+) -> Result<(), TypeError> {
+    use sigil_ast::Pattern;
+
+    let value_type = synthesize(env, &let_expr.value)?;
+    let mut bindings = HashMap::new();
+    match &let_expr.pattern {
+        Pattern::Identifier(id_pattern) => {
+            bindings.insert(id_pattern.name.clone(), value_type);
+        }
+        Pattern::Wildcard(_) => {}
+        _ => {
+            return Err(TypeError::new(
+                "Let expression pattern matching not yet fully implemented".to_string(),
+                Some(let_expr.location),
+            ));
+        }
+    }
+
+    let body_env = env.extend(Some(bindings));
+    check(&body_env, &let_expr.body, expected_type)
+}
+
+fn check_match(
+    env: &TypeEnvironment,
+    match_expr: &sigil_ast::MatchExpr,
+    expected_type: &InferenceType,
+) -> Result<(), TypeError> {
+    let scrutinee_type = synthesize(env, &match_expr.scrutinee)?;
+
+    if match_expr.arms.is_empty() {
+        return Err(TypeError::new(
+            "Match expression must have at least one arm".to_string(),
+            Some(match_expr.location),
+        ));
+    }
+
+    for arm in &match_expr.arms {
+        let mut bindings = HashMap::new();
+        check_pattern(env, &arm.pattern, &scrutinee_type, &mut bindings)?;
+        let arm_env = env.extend(Some(bindings));
+
+        if let Some(guard) = &arm.guard {
+            check(&arm_env, guard, &bool_type())?;
+        }
+
+        check(&arm_env, &arm.body, expected_type)?;
+    }
+
+    analyze_match_coverage(env, &scrutinee_type, match_expr)
+}
+
+fn check_list(
+    env: &TypeEnvironment,
+    list_expr: &sigil_ast::ListExpr,
+    expected_element_type: &InferenceType,
+) -> Result<(), TypeError> {
+    for element in &list_expr.elements {
+        check(env, element, expected_element_type)?;
+    }
+    Ok(())
+}
+
+fn check_tuple(
+    env: &TypeEnvironment,
+    tuple_expr: &sigil_ast::TupleExpr,
+    expected_types: &[InferenceType],
+) -> Result<(), TypeError> {
+    if tuple_expr.elements.len() != expected_types.len() {
+        return Err(TypeError::new(
             format!(
-                "Type mismatch: expected {}, got {} ({})",
-                format_type(&normalized_expected),
-                format_type(&normalized_actual),
-                message
+                "Tuple has {} elements, expected {}",
+                tuple_expr.elements.len(),
+                expected_types.len()
             ),
-            Some(app.location),
-        )
-    })?;
-    subst.extend(next_subst);
+            Some(tuple_expr.location),
+        ));
+    }
+
+    for (element, expected_type) in tuple_expr.elements.iter().zip(expected_types) {
+        check(env, element, expected_type)?;
+    }
+
+    Ok(())
+}
+
+fn check_record(
+    env: &TypeEnvironment,
+    record_expr: &sigil_ast::RecordExpr,
+    expected_fields: &HashMap<String, InferenceType>,
+) -> Result<(), TypeError> {
+    if record_expr.fields.len() != expected_fields.len() {
+        return Err(TypeError::new(
+            format!(
+                "Record has {} fields, expected {}",
+                record_expr.fields.len(),
+                expected_fields.len()
+            ),
+            Some(record_expr.location),
+        ));
+    }
+
+    for field in &record_expr.fields {
+        let Some(expected_type) = expected_fields.get(&field.name) else {
+            return Err(TypeError::new(
+                format!("Unexpected record field '{}'", field.name),
+                Some(field.location),
+            ));
+        };
+        check(env, &field.value, expected_type)?;
+    }
+
+    Ok(())
+}
+
+fn check_map_literal(
+    env: &TypeEnvironment,
+    map_expr: &sigil_ast::MapLiteralExpr,
+    expected_key_type: &InferenceType,
+    expected_value_type: &InferenceType,
+    expected_type: &InferenceType,
+) -> Result<(), TypeError> {
+    if map_expr.entries.is_empty() {
+        return match expected_type {
+            InferenceType::Map(_) => Ok(()),
+            _ => Err(TypeError::new(
+                format!(
+                    "Empty map literal requires a map type context, got {}",
+                    format_type(expected_type)
+                ),
+                None,
+            )),
+        };
+    }
+
+    for entry in &map_expr.entries {
+        check(env, &entry.key, expected_key_type)?;
+        check(env, &entry.value, expected_value_type)?;
+    }
+
     Ok(())
 }
 
@@ -6737,9 +7936,9 @@ mod tests {
     }
 
     #[test]
-    fn test_constrained_alias_ascription_typechecks_for_obvious_valid_literal() {
+    fn test_constrained_alias_direct_literal_promotion_typechecks() {
         let source =
-            "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=(1988:BirthYear)";
+            "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=1988";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "src/types.lib.sigil").unwrap();
 
@@ -6748,9 +7947,9 @@ mod tests {
     }
 
     #[test]
-    fn test_constrained_alias_rejects_obvious_literal_contradiction() {
+    fn test_constrained_alias_rejects_unprovable_literal_contradiction() {
         let source =
-            "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=(1700:BirthYear)";
+            "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=1700";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "src/types.lib.sigil").unwrap();
 
@@ -6759,18 +7958,93 @@ mod tests {
         assert!(result
             .unwrap_err()
             .message
-            .contains("Obvious constrained-type contradiction"));
+            .contains("Constraint for 'BirthYear' could not be proven here"));
     }
 
     #[test]
-    fn test_constrained_alias_is_nominal_for_function_arguments() {
+    fn test_constrained_alias_promotes_for_function_arguments() {
         let source =
             "t BirthYear=Int where value>1800 and value<10000\nλkeep(year:BirthYear)=>BirthYear=year\nλmain()=>BirthYear=keep(1988)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "src/types.lib.sigil").unwrap();
 
         let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_alias_widens_to_underlying_primitive() {
+        let source =
+            "t BirthYear=Int where value>1800 and value<10000\nλasInt(year:BirthYear)=>Int=year\nλmain()=>Int=asInt(1988)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_alias_proves_simple_arithmetic_from_parameter_constraint() {
+        let source = "t Positive=Int where value>0\nλincrement(value:Positive)=>Positive=value+1";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_product_direct_record_promotion_typechecks() {
+        let source =
+            "t DateRange={end:Int,start:Int} where value.end≥value.start\nλmain()=>DateRange={end:2,start:1}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_product_rejects_unprovable_record_literal() {
+        let source =
+            "t DateRange={end:Int,start:Int} where value.end≥value.start\nλmain()=>DateRange={end:1,start:2}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
         assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("Constraint for 'DateRange' could not be proven here"));
+    }
+
+    #[test]
+    fn test_constrained_type_rejects_unsupported_refinement_syntax() {
+        let source = "t NonEmpty=String where #value>0\nλmain()=>Unit=()";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("unsupported refinement syntax"));
+    }
+
+    #[test]
+    fn test_constrained_sum_type_is_rejected() {
+        let source = "t Bad=Some(Int)|None() where true\nλmain()=>Unit=()";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("only supported on alias and product types"));
     }
 
     #[test]

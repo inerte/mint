@@ -7,10 +7,11 @@ slug: 001-canonical-length-operator
 
 # Why Sigil Uses the `#` Length Operator
 
-One of Sigil's early syntax decisions was how to express length for strings and
-lists. Many languages expose several competing forms: a built-in function, a
-property, or type-specific helpers. That flexibility is familiar, but it also
-creates representational noise. Sigil is trying to remove that kind of choice.
+One of Sigil's early syntax decisions was how to express length for strings,
+lists, and maps. Many languages expose several competing forms: a built-in
+function, a property, or type-specific helpers. That flexibility is familiar,
+but it also creates representational noise. Sigil is trying to remove that kind
+of choice.
 
 ## The Problem
 
@@ -44,8 +45,8 @@ Sigil uses a dedicated prefix operator:
 The choice is intentionally narrow. There is no alternate `len(...)` spelling,
 no `.length` property, and no type-specific helper namespace for this concept.
 
-That gives Sigil one canonical representation for "get the length of a string or
-list."
+That gives Sigil one canonical representation for "get the length of a string,
+list, or map."
 
 ## Why an Operator Instead of a Function
 
@@ -68,13 +69,18 @@ syntax for primitive operations.
 ## Type Checking and Code Generation
 
 `#` is not a polymorphic library function. It is a primitive operator checked by
-the compiler against known types. The operand must be either `String` or `[T]`,
-and the result is always `Int`.
+the compiler against known types. The operand must be `String`, `[T]`, or
+`{K↦V}`, and the result is always `Int`.
 
 Because the type is already known statically, code generation is straightforward
-and does not require runtime dispatch. On the current JavaScript target, both
-strings and arrays map cleanly to `.length` after the type checker has already
-validated the operation.
+and does not require runtime dispatch. On the current JavaScript target,
+strings and arrays map cleanly to `.length`, while maps lower to `.size`, after
+the type checker has already validated the operation.
+
+That same operator now also participates in Sigil's compile-time proof system.
+Refinements and function contracts can talk about collection sizes without
+introducing a second measure syntax. The same `#` that reads well in ordinary
+code is also the canonical way to talk about length in proof-bearing code.
 
 ## Why This Fits Sigil
 

@@ -16,6 +16,13 @@ pub struct TypeInfo {
     pub constraint: Option<Expr>, // Optional richer meaning for constrained project types
 }
 
+#[derive(Debug, Clone)]
+pub struct FunctionContract {
+    pub params: Vec<String>,
+    pub requires: Option<Expr>,
+    pub ensures: Option<Expr>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct BindingMeta {
     pub is_extern_namespace: bool,
@@ -31,6 +38,7 @@ pub struct TypeEnvironment {
     schemes: HashMap<String, TypeScheme>,
     binding_meta: HashMap<String, BindingMeta>,
     type_registry: HashMap<String, TypeInfo>, // User-defined types
+    function_contracts: HashMap<String, FunctionContract>,
     imported_type_registries: HashMap<String, HashMap<String, TypeInfo>>, // Types from imported modules
     imported_value_schemes: HashMap<String, HashMap<String, TypeScheme>>,
     effect_catalog: EffectCatalog,
@@ -46,6 +54,7 @@ impl TypeEnvironment {
             schemes: HashMap::new(),
             binding_meta: HashMap::new(),
             type_registry: HashMap::new(),
+            function_contracts: HashMap::new(),
             imported_type_registries: HashMap::new(),
             imported_value_schemes: HashMap::new(),
             effect_catalog: EffectCatalog::empty(),
@@ -61,6 +70,7 @@ impl TypeEnvironment {
             schemes: HashMap::new(),
             binding_meta: HashMap::new(),
             type_registry: HashMap::new(),
+            function_contracts: parent.function_contracts.clone(),
             imported_type_registries: HashMap::new(),
             imported_value_schemes: HashMap::new(),
             effect_catalog: parent.effect_catalog.clone(),
@@ -142,6 +152,10 @@ impl TypeEnvironment {
         self.type_registry.insert(name, info);
     }
 
+    pub fn register_function_contract(&mut self, name: String, contract: FunctionContract) {
+        self.function_contracts.insert(name, contract);
+    }
+
     /// Look up a user-defined type
     ///
     /// Searches this environment and all parent environments
@@ -152,6 +166,14 @@ impl TypeEnvironment {
 
         // Search parent scope
         self.parent.as_ref()?.lookup_type(name)
+    }
+
+    pub fn lookup_function_contract(&self, name: &str) -> Option<FunctionContract> {
+        if let Some(contract) = self.function_contracts.get(name) {
+            return Some(contract.clone());
+        }
+
+        self.parent.as_ref()?.lookup_function_contract(name)
     }
 
     /// Register types from an imported module

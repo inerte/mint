@@ -88,9 +88,10 @@ Current Sigil gives this a precise compile-time role:
 - constrained aliases and constrained named product types act as refinements over their underlying type
 - values flow into the constrained type only when the compiler can prove the predicate
 - constrained values widen back to the underlying type automatically
-- the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
-- `match` and internal branching propagate supported branch facts into that proof
+- the current proof fragment covers Bool/Int literals, `value`, field access, `#` over strings/lists/maps, `+`, `-`, comparisons, `and`, `or`, and `not`
+- `match`, exact record patterns, and internal branching propagate supported branch facts into that proof
 - direct boolean local aliases of supported facts also narrow
+- the proof backend is solver-backed, but the surface stays the same small canonical Sigil syntax
 - there is no generated runtime validation
 
 So this feature is about **stronger type meaning with compile-time proof**,
@@ -109,6 +110,16 @@ t BirthYear=Int where value>1800
 
 The `true` arm can return `year` directly because the branch fact becomes part
 of the refinement proof.
+
+For function boundaries, Sigil now uses a separate contract surface rather than
+overloading `where`:
+
+- `where` defines membership in a type
+- `requires` states what a caller must prove before a call
+- `ensures` states what a callee guarantees after it returns
+
+That keeps type membership and call-boundary obligations distinct. See
+[/articles/requires-and-ensures-function-contracts/](/articles/requires-and-ensures-function-contracts/).
 
 ## Type Equality
 

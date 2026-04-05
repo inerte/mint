@@ -480,6 +480,7 @@ struct CompileBatchOutputs {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InspectMode {
     Types,
+    Proof,
     Validate,
     Codegen,
     World,
@@ -489,6 +490,7 @@ impl InspectMode {
     fn command_name(self) -> &'static str {
         match self {
             InspectMode::Types => "sigilc inspect types",
+            InspectMode::Proof => "sigilc inspect proof",
             InspectMode::Validate => "sigilc inspect validate",
             InspectMode::Codegen => "sigilc inspect codegen",
             InspectMode::World => "sigilc inspect world",
@@ -498,6 +500,7 @@ impl InspectMode {
     fn phase(self) -> &'static str {
         match self {
             InspectMode::Types => "typecheck",
+            InspectMode::Proof => "proof",
             InspectMode::Validate => "canonical",
             InspectMode::Codegen => "codegen",
             InspectMode::World => "topology",
@@ -507,6 +510,7 @@ impl InspectMode {
     fn verb(self) -> &'static str {
         match self {
             InspectMode::Types => "inspect types",
+            InspectMode::Proof => "inspect proof",
             InspectMode::Validate => "inspect validate",
             InspectMode::Codegen => "inspect codegen",
             InspectMode::World => "inspect world",
@@ -519,6 +523,7 @@ struct AnalyzedModule {
     module_id: String,
     file_path: PathBuf,
     project: Option<ProjectConfig>,
+    ast: Program,
     typed_program: TypedProgram,
     declaration_types: HashMap<String, InferenceType>,
     declaration_schemes: HashMap<String, TypeScheme>,
@@ -1448,6 +1453,570 @@ fn inspect_types_file_result(input: &Path, module: &AnalyzedModule) -> Value {
     })
 }
 
+fn inspect_proof_site(
+    kind: &str,
+    source_file: &str,
+    owner_kind: &str,
+    owner_name: &str,
+    location: SourceLocation,
+    predicate: Option<&Expr>,
+    pattern: Option<&Pattern>,
+) -> Value {
+    json!({
+        "kind": kind,
+        "ownerKind": owner_kind,
+        "ownerName": owner_name,
+        "location": source_location_json(source_file, location),
+        "predicateSource": predicate.map(print_canonical_expr),
+        "predicateAst": predicate.map(inspect_expr_ast),
+        "patternSource": pattern.map(print_pattern_source),
+        "patternAst": pattern.map(inspect_pattern_ast)
+    })
+}
+
+fn print_pattern_source(pattern: &Pattern) -> String {
+    match pattern {
+        Pattern::Literal(literal) => match &literal.value {
+            sigil_ast::PatternLiteralValue::Int(value) => value.to_string(),
+            sigil_ast::PatternLiteralValue::Float(value) => value.to_string(),
+            sigil_ast::PatternLiteralValue::String(value) => format!("{:?}", value),
+            sigil_ast::PatternLiteralValue::Char(value) => format!("'{}'", value),
+            sigil_ast::PatternLiteralValue::Bool(value) => value.to_string(),
+            sigil_ast::PatternLiteralValue::Unit => "()".to_string(),
+        },
+        Pattern::Identifier(identifier) => identifier.name.clone(),
+        Pattern::Wildcard(_) => "_".to_string(),
+        Pattern::Constructor(constructor) => {
+            let name = if constructor.module_path.is_empty() {
+                constructor.name.clone()
+            } else {
+                format!("{}::{}", constructor.module_path.join("::"), constructor.name)
+            };
+            if constructor.patterns.is_empty() {
+                format!("{}()", name)
+            } else {
+                format!(
+                    "{}({})",
+                    name,
+                    constructor
+                        .patterns
+                        .iter()
+                        .map(print_pattern_source)
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )
+            }
+        }
+        Pattern::List(list) => {
+            let mut parts = list
+                .patterns
+                .iter()
+                .map(print_pattern_source)
+                .collect::<Vec<_>>();
+            if let Some(rest) = &list.rest {
+                parts.push(format!(".{}", rest));
+            }
+            format!("[{}]", parts.join(","))
+        }
+        Pattern::Record(record) => format!(
+            "{{{}}}",
+            record
+                .fields
+                .iter()
+                .map(|field| match &field.pattern {
+                    Some(pattern) => format!("{}:{}", field.name, print_pattern_source(pattern)),
+                    None => field.name.clone(),
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        Pattern::Tuple(tuple) => format!(
+            "({})",
+            tuple
+                .patterns
+                .iter()
+                .map(print_pattern_source)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+    }
+}
+
+fn collect_expr_proof_sites(
+    expr: &Expr,
+    source_file: &str,
+    owner_kind: &str,
+    owner_name: &str,
+    out: &mut Vec<Value>,
+) {
+    match expr {
+        Expr::Match(match_expr) => {
+            for arm in &match_expr.arms {
+                out.push(inspect_proof_site(
+                    "matchArm",
+                    source_file,
+                    owner_kind,
+                    owner_name,
+                    arm.location,
+                    arm.guard.as_ref(),
+                    Some(&arm.pattern),
+                ));
+                if let Some(guard) = &arm.guard {
+                    collect_expr_proof_sites(guard, source_file, owner_kind, owner_name, out);
+                }
+                collect_expr_proof_sites(&arm.body, source_file, owner_kind, owner_name, out);
+            }
+            collect_expr_proof_sites(
+                &match_expr.scrutinee,
+                source_file,
+                owner_kind,
+                owner_name,
+                out,
+            );
+        }
+        Expr::If(if_expr) => {
+            out.push(inspect_proof_site(
+                "ifCondition",
+                source_file,
+                owner_kind,
+                owner_name,
+                if_expr.location,
+                Some(&if_expr.condition),
+                None,
+            ));
+            collect_expr_proof_sites(&if_expr.condition, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(
+                &if_expr.then_branch,
+                source_file,
+                owner_kind,
+                owner_name,
+                out,
+            );
+            if let Some(else_branch) = &if_expr.else_branch {
+                collect_expr_proof_sites(else_branch, source_file, owner_kind, owner_name, out);
+            }
+        }
+        Expr::Lambda(lambda) => {
+            collect_expr_proof_sites(&lambda.body, source_file, owner_kind, owner_name, out)
+        }
+        Expr::Application(application) => {
+            collect_expr_proof_sites(&application.func, source_file, owner_kind, owner_name, out);
+            for arg in &application.args {
+                collect_expr_proof_sites(arg, source_file, owner_kind, owner_name, out);
+            }
+        }
+        Expr::Binary(binary) => {
+            collect_expr_proof_sites(&binary.left, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(&binary.right, source_file, owner_kind, owner_name, out);
+        }
+        Expr::Unary(unary) => {
+            collect_expr_proof_sites(&unary.operand, source_file, owner_kind, owner_name, out);
+        }
+        Expr::Let(let_expr) => {
+            collect_expr_proof_sites(&let_expr.value, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(&let_expr.body, source_file, owner_kind, owner_name, out);
+        }
+        Expr::List(list) => {
+            for item in &list.elements {
+                collect_expr_proof_sites(item, source_file, owner_kind, owner_name, out);
+            }
+        }
+        Expr::Record(record) => {
+            for field in &record.fields {
+                collect_expr_proof_sites(&field.value, source_file, owner_kind, owner_name, out);
+            }
+        }
+        Expr::MapLiteral(map) => {
+            for entry in &map.entries {
+                collect_expr_proof_sites(&entry.key, source_file, owner_kind, owner_name, out);
+                collect_expr_proof_sites(&entry.value, source_file, owner_kind, owner_name, out);
+            }
+        }
+        Expr::Tuple(tuple) => {
+            for item in &tuple.elements {
+                collect_expr_proof_sites(item, source_file, owner_kind, owner_name, out);
+            }
+        }
+        Expr::FieldAccess(field_access) => collect_expr_proof_sites(
+            &field_access.object,
+            source_file,
+            owner_kind,
+            owner_name,
+            out,
+        ),
+        Expr::Index(index) => {
+            collect_expr_proof_sites(&index.object, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(&index.index, source_file, owner_kind, owner_name, out);
+        }
+        Expr::Pipeline(pipeline) => {
+            collect_expr_proof_sites(&pipeline.left, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(&pipeline.right, source_file, owner_kind, owner_name, out);
+        }
+        Expr::Map(map_expr) => {
+            collect_expr_proof_sites(&map_expr.list, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(&map_expr.func, source_file, owner_kind, owner_name, out);
+        }
+        Expr::Filter(filter) => {
+            collect_expr_proof_sites(&filter.list, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(&filter.predicate, source_file, owner_kind, owner_name, out);
+        }
+        Expr::Fold(fold) => {
+            collect_expr_proof_sites(&fold.list, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(&fold.func, source_file, owner_kind, owner_name, out);
+            collect_expr_proof_sites(&fold.init, source_file, owner_kind, owner_name, out);
+        }
+        Expr::Concurrent(concurrent) => {
+            collect_expr_proof_sites(&concurrent.width, source_file, owner_kind, owner_name, out);
+            if let Some(policy) = &concurrent.policy {
+                for field in &policy.fields {
+                    collect_expr_proof_sites(&field.value, source_file, owner_kind, owner_name, out);
+                }
+            }
+            for step in &concurrent.steps {
+                match step {
+                    sigil_ast::ConcurrentStep::Spawn(spawn) => {
+                        collect_expr_proof_sites(&spawn.expr, source_file, owner_kind, owner_name, out);
+                    }
+                    sigil_ast::ConcurrentStep::SpawnEach(spawn_each) => {
+                        collect_expr_proof_sites(&spawn_each.func, source_file, owner_kind, owner_name, out);
+                        collect_expr_proof_sites(&spawn_each.list, source_file, owner_kind, owner_name, out);
+                    }
+                }
+            }
+        }
+        Expr::TypeAscription(ascription) => {
+            collect_expr_proof_sites(&ascription.expr, source_file, owner_kind, owner_name, out);
+        }
+        Expr::Literal(_) | Expr::Identifier(_) | Expr::MemberAccess(_) => {}
+    }
+}
+
+fn inspect_proof_sites(module: &AnalyzedModule) -> Vec<Value> {
+    let source_file = module.file_path.to_string_lossy().to_string();
+    let mut sites = Vec::new();
+
+    for declaration in &module.ast.declarations {
+        match declaration {
+            Declaration::Type(type_decl) => {
+                if let Some(constraint) = &type_decl.constraint {
+                    sites.push(inspect_proof_site(
+                        "typeConstraint",
+                        &source_file,
+                        "type",
+                        &type_decl.name,
+                        type_decl.location,
+                        Some(constraint),
+                        None,
+                    ));
+                }
+            }
+            Declaration::Function(function) => {
+                if let Some(requires) = &function.requires {
+                    sites.push(inspect_proof_site(
+                        "requires",
+                        &source_file,
+                        "function",
+                        &function.name,
+                        function.location,
+                        Some(requires),
+                        None,
+                    ));
+                }
+                if let Some(ensures) = &function.ensures {
+                    sites.push(inspect_proof_site(
+                        "ensures",
+                        &source_file,
+                        "function",
+                        &function.name,
+                        function.location,
+                        Some(ensures),
+                        None,
+                    ));
+                }
+                collect_expr_proof_sites(
+                    &function.body,
+                    &source_file,
+                    "function",
+                    &function.name,
+                    &mut sites,
+                );
+            }
+            Declaration::Test(test_decl) => {
+                collect_expr_proof_sites(
+                    &test_decl.body,
+                    &source_file,
+                    "test",
+                    &test_decl.description,
+                    &mut sites,
+                );
+            }
+            Declaration::Effect(_)
+            | Declaration::Const(_)
+            | Declaration::Extern(_) => {}
+        }
+    }
+
+    sites
+}
+
+fn inspect_proof_summary(sites: &[Value]) -> Value {
+    let mut type_constraints = 0usize;
+    let mut requires = 0usize;
+    let mut ensures = 0usize;
+    let mut match_arms = 0usize;
+    let mut if_conditions = 0usize;
+
+    for site in sites {
+        match site["kind"].as_str() {
+            Some("typeConstraint") => type_constraints += 1,
+            Some("requires") => requires += 1,
+            Some("ensures") => ensures += 1,
+            Some("matchArm") => match_arms += 1,
+            Some("ifCondition") => if_conditions += 1,
+            _ => {}
+        }
+    }
+
+    json!({
+        "sites": sites.len(),
+        "typeConstraints": type_constraints,
+        "requires": requires,
+        "ensures": ensures,
+        "matchArms": match_arms,
+        "ifConditions": if_conditions
+    })
+}
+
+fn inspect_proof_file_result(input: &Path, module: &AnalyzedModule) -> Value {
+    let sites = inspect_proof_sites(module);
+    json!({
+        "input": input.to_string_lossy(),
+        "moduleId": module.module_id,
+        "sourceFile": module.file_path.to_string_lossy(),
+        "project": project_json(module.project.as_ref()),
+        "proofFragment": {
+            "constructs": [
+                "type_where_constraints",
+                "function_requires",
+                "function_ensures",
+                "match_patterns",
+                "match_guards",
+                "if_conditions"
+            ]
+        },
+        "summary": inspect_proof_summary(&sites),
+        "sites": sites
+    })
+}
+
+fn inspect_proof_command(
+    path: &Path,
+    ignore_paths: &[PathBuf],
+    ignore_from: Option<&Path>,
+) -> Result<(), CliError> {
+    if path.is_dir() {
+        inspect_proof_directory_command(path, ignore_paths, ignore_from)
+    } else {
+        inspect_proof_single_file_command(path)
+    }
+}
+
+fn inspect_proof_single_file_command(file: &Path) -> Result<(), CliError> {
+    let graph = match ModuleGraph::build(file) {
+        Ok(graph) => graph,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Proof.command_name(),
+                file,
+                &CliError::ModuleGraph(error),
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+    let module_id = match entry_module_key(file) {
+        Ok(module_id) => module_id,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Proof.command_name(),
+                file,
+                &CliError::ModuleGraph(error),
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+    let analyzed = match analyze_module_graph(&graph) {
+        Ok(analyzed) => analyzed,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Proof.command_name(),
+                file,
+                &error,
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+    let module = analyzed.modules.get(&module_id).ok_or_else(|| {
+        CliError::Codegen(format!(
+            "inspect proof could not resolve requested module '{}'",
+            file.display()
+        ))
+    })?;
+
+    let output = serde_json::json!({
+        "formatVersion": 1,
+        "command": InspectMode::Proof.command_name(),
+        "ok": true,
+        "phase": InspectMode::Proof.phase(),
+        "data": inspect_proof_file_result(file, module)
+    });
+    println!("{}", serde_json::to_string(&output).unwrap());
+    Ok(())
+}
+
+fn inspect_proof_directory_command(
+    path: &Path,
+    ignore_paths: &[PathBuf],
+    ignore_from: Option<&Path>,
+) -> Result<(), CliError> {
+    let start_time = Instant::now();
+    let files =
+        match collect_sigil_targets(InspectMode::Proof.verb(), path, ignore_paths, ignore_from) {
+            Ok(files) => files,
+            Err(error) => {
+                output_inspect_error(
+                    InspectMode::Proof.command_name(),
+                    path,
+                    &error,
+                    serde_json::Map::new(),
+                );
+                return Err(CliError::Reported(1));
+            }
+        };
+    let groups = match group_compile_targets(&files) {
+        Ok(groups) => groups,
+        Err(error) => {
+            output_inspect_error(
+                InspectMode::Proof.command_name(),
+                path,
+                &error,
+                serde_json::Map::new(),
+            );
+            return Err(CliError::Reported(1));
+        }
+    };
+    let group_count = groups.len();
+    let file_order = files
+        .iter()
+        .enumerate()
+        .map(|(index, file)| (file.clone(), index))
+        .collect::<HashMap<_, _>>();
+
+    let mut inspected_file_count = 0usize;
+    let mut compiled_module_count = 0usize;
+    let mut file_results = Vec::new();
+
+    for group in groups {
+        let first_file = group
+            .files
+            .first()
+            .cloned()
+            .unwrap_or_else(|| path.to_path_buf());
+        let graph = match ModuleGraph::build_many(&group.files) {
+            Ok(graph) => graph,
+            Err(error) => {
+                let mut extra = serde_json::Map::new();
+                extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
+                extra.insert("discovered".to_string(), json!(files.len()));
+                extra.insert("inspected".to_string(), json!(inspected_file_count));
+                extra.insert("durationMs".to_string(), json!(start_time.elapsed().as_millis()));
+                output_inspect_error(
+                    InspectMode::Proof.command_name(),
+                    &first_file,
+                    &CliError::ModuleGraph(error),
+                    extra,
+                );
+                return Err(CliError::Reported(1));
+            }
+        };
+        let analyzed = match analyze_module_graph(&graph) {
+            Ok(analyzed) => analyzed,
+            Err(error) => {
+                let mut extra = serde_json::Map::new();
+                extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
+                extra.insert("discovered".to_string(), json!(files.len()));
+                extra.insert("inspected".to_string(), json!(inspected_file_count));
+                extra.insert("durationMs".to_string(), json!(start_time.elapsed().as_millis()));
+                output_inspect_error(
+                    InspectMode::Proof.command_name(),
+                    &first_file,
+                    &error,
+                    extra,
+                );
+                return Err(CliError::Reported(1));
+            }
+        };
+        compiled_module_count += analyzed.compiled_modules;
+
+        for file in &group.files {
+            let module_id = match entry_module_key(file) {
+                Ok(module_id) => module_id,
+                Err(error) => {
+                    let mut extra = serde_json::Map::new();
+                    extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
+                    extra.insert("discovered".to_string(), json!(files.len()));
+                    extra.insert("inspected".to_string(), json!(inspected_file_count));
+                    extra.insert("durationMs".to_string(), json!(start_time.elapsed().as_millis()));
+                    output_inspect_error(
+                        InspectMode::Proof.command_name(),
+                        file,
+                        &CliError::ModuleGraph(error),
+                        extra,
+                    );
+                    return Err(CliError::Reported(1));
+                }
+            };
+            let module = analyzed.modules.get(&module_id).ok_or_else(|| {
+                CliError::Codegen(format!(
+                    "inspect proof did not produce results for '{}'",
+                    file.display()
+                ))
+            })?;
+            file_results.push(inspect_proof_file_result(file, module));
+            inspected_file_count += 1;
+        }
+    }
+
+    file_results.sort_by_key(|result| {
+        result["input"]
+            .as_str()
+            .and_then(|input| file_order.get(Path::new(input)).copied())
+            .unwrap_or(usize::MAX)
+    });
+
+    let output = serde_json::json!({
+        "formatVersion": 1,
+        "command": InspectMode::Proof.command_name(),
+        "ok": true,
+        "phase": InspectMode::Proof.phase(),
+        "data": {
+            "input": path.to_string_lossy(),
+            "summary": {
+                "discovered": files.len(),
+                "inspected": inspected_file_count,
+                "groups": group_count,
+                "modules": compiled_module_count,
+                "durationMs": start_time.elapsed().as_millis()
+            },
+            "files": file_results
+        }
+    });
+    println!("{}", serde_json::to_string(&output).unwrap());
+    Ok(())
+}
+
 fn read_and_parse_program(file: &Path) -> Result<(String, Program), CliError> {
     let source = fs::read_to_string(file)?;
     let filename = file.to_string_lossy().to_string();
@@ -1606,6 +2175,7 @@ pub fn inspect_command(
 ) -> Result<(), CliError> {
     match mode {
         InspectMode::Types => inspect_types_command(path, ignore_paths, ignore_from),
+        InspectMode::Proof => inspect_proof_command(path, ignore_paths, ignore_from),
         InspectMode::Validate => inspect_validate_command(path, ignore_paths, ignore_from),
         InspectMode::Codegen => inspect_codegen_command(path, ignore_paths, ignore_from),
         InspectMode::World => inspect_world_command(
@@ -7825,6 +8395,7 @@ fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphOutputs, Cli
                 module_id: module_id.clone(),
                 file_path: module.file_path.clone(),
                 project: module.project.clone(),
+                ast: module.ast.clone(),
                 typed_program,
                 declaration_types,
                 declaration_schemes,

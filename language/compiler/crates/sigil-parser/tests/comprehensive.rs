@@ -172,6 +172,21 @@ fn test_type_declaration_with_constraint() {
 }
 
 #[test]
+fn test_function_declaration_with_requires_and_ensures() {
+    let source = "λnormalizeYear(raw:Int)=>Int\nrequires raw>0\nensures result>1800\nmatch raw>1800{true=>raw|false=>1900}";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.sigil").unwrap();
+
+    match &program.declarations[0] {
+        Declaration::Function(function) => {
+            assert!(function.requires.is_some());
+            assert!(function.ensures.is_some());
+        }
+        _ => panic!("Expected function declaration"),
+    }
+}
+
+#[test]
 fn test_project_type_root_parses_as_src_types() {
     let source = "λrender(meta:µArticleMeta)=>String=meta.slug";
     let tokens = tokenize(source).unwrap();

@@ -1,7 +1,7 @@
 # Sigil Type System Specification
 
 Version: 1.0.0
-Last Updated: 2026-03-14
+Last Updated: 2026-04-05
 
 ## Overview
 
@@ -11,6 +11,8 @@ Sigil currently uses bidirectional type checking with:
 - exact record types
 - map types
 - explicit top-level parametric polymorphism
+- solver-backed type refinements
+- function contracts
 - effect annotations
 
 Current Sigil does not implement:
@@ -146,10 +148,10 @@ Constraint rules:
 - the constraint must typecheck to `Bool`
 - constraints are pure and world-independent
 - constrained aliases and constrained named product types act as compile-time refinements over their underlying type
-- values flow into a constrained type only when the checker can prove the predicate in Sigil's canonical refinement fragment
+- values flow into a constrained type only when the checker can prove the predicate in Sigil's canonical solver-backed refinement fragment
 - constrained values widen to their underlying type automatically
-- the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
-- `match` and internal branching propagate supported branch facts into refinement checking
+- the current proof fragment covers Bool/Int literals, `value`, field access, `#` over strings/lists/maps, `+`, `-`, comparisons, `and`, `or`, and `not`
+- `match`, exact record patterns, and internal branching propagate supported branch facts into refinement checking
 - direct boolean local aliases of supported facts also narrow
 - constraints do not imply automatic runtime validation
 
@@ -163,6 +165,33 @@ t BirthYear=Int where value>1800
   false=>1900
 }
 ```
+
+## Function Contracts
+
+Functions may carry pure compile-time contracts:
+
+```sigil module
+λnormalizeYear(raw:Int)=>Int
+requires raw>0
+ensures result>1800
+match raw>1800{
+  true=>raw|
+  false=>1900
+}
+```
+
+Contract rules:
+
+- `requires` is checked at call sites
+- `ensures` is checked against the function body and then contributes facts back to callers
+- a function may declare at most one `requires` clause and at most one `ensures` clause
+- `requires` may reference only parameters
+- `ensures` may reference parameters plus `result`
+- both clauses must typecheck to `Bool`
+- both clauses are pure and world-independent
+- effectful functions may carry contracts, but those contracts describe only parameter obligations and returned-value guarantees
+- contracts use the same solver-backed proof fragment as constrained types and narrowing
+- contracts do not imply automatic runtime checks
 
 ## Structural Equality
 

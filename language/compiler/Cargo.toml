@@ -2,6 +2,7 @@
 resolver = "2"
 
 members = [
+    "crates/sigil-solver",
     "crates/sigil-ast",
     "crates/sigil-lexer",
     "crates/sigil-parser",
@@ -38,6 +39,7 @@ im = "15.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 sha2 = "0.10"
+z3 = { version = "0.20", features = ["vendored"] }
 
 # String formatting
 indoc = "2.0"

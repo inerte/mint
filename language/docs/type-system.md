@@ -14,6 +14,8 @@ Implemented today:
 - algebraic data types
 - exact records
 - map types
+- solver-backed type refinements
+- function contracts
 - explicit effect annotations
 
 Not implemented today:
@@ -139,10 +141,10 @@ Current rules:
 - the constraint must typecheck to `Bool`
 - constraints are pure and world-independent
 - constrained aliases and constrained named product types act as compile-time refinements over their underlying type
-- values may flow into a constrained type only when the checker can prove the predicate in Sigil's canonical refinement fragment
+- values may flow into a constrained type only when the checker can prove the predicate in Sigil's canonical solver-backed refinement fragment
 - constrained values widen to their underlying type automatically
-- the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
-- control flow is part of that proof story: `match` and internal branching propagate supported branch facts into refinement checking
+- the current proof fragment covers Bool/Int literals, `value`, field access, `#` over strings/lists/maps, `+`, `-`, comparisons, `and`, `or`, and `not`
+- control flow is part of that proof story: `match`, exact record patterns, and internal branching propagate supported branch facts into refinement checking
 - direct boolean local aliases of supported facts also narrow
 - there is no generated runtime validation in v1
 
@@ -156,6 +158,39 @@ t BirthYear=Int where value>1800
   false=>1900
 }
 ```
+
+## Function Contracts
+
+Functions may also carry pure compile-time contracts:
+
+```sigil module
+λnormalizeYear(raw:Int)=>Int
+requires raw>0
+ensures result>1800
+match raw>1800{
+  true=>raw|
+  false=>1900
+}
+```
+
+Current rules:
+
+- `requires` is checked at call sites
+- `ensures` is checked against the function body and then flows back to callers as a proven fact
+- each function may declare at most one `requires` clause and at most one `ensures` clause
+- `requires` may reference only parameters
+- `ensures` may reference parameters plus `result`
+- contracts must typecheck to `Bool`
+- contracts are pure and world-independent
+- effectful functions may still carry contracts, but the contracts describe only parameter obligations and returned-value guarantees
+- contracts use the same solver-backed proof fragment as constrained types and branch narrowing
+- contracts do not inject runtime checks
+
+That makes `where`, `requires`, and `ensures` complementary:
+
+- `where` defines membership in a type
+- `requires` states what a caller must prove before a call
+- `ensures` states what the callee guarantees after the call returns
 
 ## Type Equality
 

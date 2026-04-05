@@ -35,6 +35,7 @@ The current exhaustiveness pass handles:
 - `Unit`
 - tuples
 - list shapes
+- exact record patterns
 - nominal sum constructors
 
 So these are real checked programs:
@@ -63,21 +64,24 @@ incomplete branch tree.
 
 ## Guards and the Refinement Fragment
 
-Pattern guards are part of the same fact system that constrained types now use.
-The compiler does not have one proof model for `where` constraints and another
-one for `match`. It uses one canonical Bool/Int refinement fragment for both
-coverage and flow-sensitive narrowing.
+Pattern guards are part of the same fact system that constrained types and
+function contracts now use. The compiler does not have one proof model for
+`where`, another for `requires` / `ensures`, and a third for `match`. It uses
+one canonical proof fragment for coverage and flow-sensitive narrowing.
 
 The supported fragment covers:
 
 - `true` and `false`
 - Bool/Int literals
 - rooted or pattern-bound values
+- `value` and `result` when those names are in scope
 - field access
+- `#` over strings, lists, and maps
 - `+` and `-`
 - comparisons
 - boolean `and`, `or`, and `not`
 - direct boolean local aliases of those supported facts
+- shape facts from tuple, list, exact-record, and nominal-constructor patterns
 
 That means the checker can understand cases like:
 
@@ -109,7 +113,7 @@ But it still does not try to prove arbitrary facts about:
 - function calls
 - world-dependent expressions
 - general arithmetic relations between multiple variables
-- field-access-heavy predicates
+- user-defined proof helpers
 
 Those guards remain valid source. They just remain opaque to coverage and
 refinement narrowing.
@@ -125,7 +129,9 @@ On relevant failures, `compile` now includes structured details such as:
 - suggested missing arms
 - known facts from earlier arms
 - unsupported guard facts
-- the current refinement fragment
+- the current proof fragment
+- proof assumptions, goals, and solver outcomes when a proof obligation fails
+- counterexample models when the solver finds one
 
 That matters for both humans and agents. The compiler is not only saying
 "non-exhaustive." It is also saying what it still believes is uncovered and

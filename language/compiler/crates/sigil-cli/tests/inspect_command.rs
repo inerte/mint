@@ -239,6 +239,56 @@ fn inspect_types_emits_json_error_on_type_failure() {
 }
 
 #[test]
+fn inspect_proof_reports_constraints_contracts_and_branch_sites() {
+    let dir = temp_dir("proof-single");
+    let file = write_program(
+        &dir,
+        "proof.lib.sigil",
+        concat!(
+            "t BirthYear=Int where value>1800\n\n",
+            "λnormalize(raw:Int)=>Int\n",
+            "requires raw>0\n",
+            "ensures result>1800\n",
+            "match raw{\n",
+            "  value when value>1800=>value|\n",
+            "  _=>1900\n",
+            "}\n",
+        ),
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("inspect")
+        .arg("proof")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc inspect proof");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["phase"], "proof");
+    assert_eq!(json["data"]["summary"]["typeConstraints"], 1);
+    assert_eq!(json["data"]["summary"]["requires"], 1);
+    assert_eq!(json["data"]["summary"]["ensures"], 1);
+    assert_eq!(json["data"]["summary"]["matchArms"], 2);
+    assert_eq!(json["data"]["summary"]["ifConditions"], 0);
+
+    let sites = json["data"]["sites"].as_array().unwrap();
+    assert!(sites.iter().any(|site| site["kind"] == "typeConstraint"));
+    assert!(sites.iter().any(|site| site["kind"] == "requires"));
+    assert!(sites.iter().any(|site| site["kind"] == "ensures"));
+    assert!(sites.iter().any(|site| {
+        site["kind"] == "matchArm"
+            && site["patternSource"] == "value"
+            && site["predicateSource"] == "value>1800"
+    }));
+}
+
+#[test]
 fn inspect_validate_returns_canonical_source_for_noncanonical_input() {
     let dir = temp_dir("validate-single");
     let file = write_program(&dir, "main.sigil", "λmain()=>Int=1");

@@ -1,0 +1,9 @@
+[package]
+name = "sigil-solver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+z3 = { workspace = true }

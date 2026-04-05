@@ -216,6 +216,20 @@ enum InspectCommand {
         ignore_from: Option<PathBuf>,
     },
 
+    /// Inspect declared proof surfaces and branch facts
+    Proof {
+        /// Input .sigil file or directory
+        path: PathBuf,
+
+        /// Ignore an additional path while inspecting a directory
+        #[arg(long)]
+        ignore: Vec<PathBuf>,
+
+        /// Load gitignore-style ignore rules from a file while inspecting a directory
+        #[arg(long = "ignore-from")]
+        ignore_from: Option<PathBuf>,
+    },
+
     /// Inspect canonical validation and printer output
     Validate {
         /// Input .sigil file or directory
@@ -431,6 +445,17 @@ fn main() {
                 ignore_from,
             } => inspect_command(
                 commands::InspectMode::Types,
+                &path,
+                None,
+                &ignore,
+                ignore_from.as_deref(),
+            ),
+            InspectCommand::Proof {
+                path,
+                ignore,
+                ignore_from,
+            } => inspect_command(
+                commands::InspectMode::Proof,
                 &path,
                 None,
                 &ignore,

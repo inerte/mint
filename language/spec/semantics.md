@@ -1,7 +1,7 @@
 # Sigil Operational Semantics
 
 Version: 1.0.0
-Last Updated: 2026-03-19
+Last Updated: 2026-04-05
 
 ## Overview
 
@@ -158,6 +158,20 @@ Current operationally relevant expression forms include:
 - canonical list operators
 - named concurrent regions
 
+## Function Contracts
+
+Functions may declare pure compile-time contracts with `requires` and
+`ensures`.
+
+Current implemented behavior:
+
+- `requires` is checked at call sites against the current proof context
+- `ensures` is checked against the function body with `result` bound to the returned value
+- successful calls add proven `ensures` facts back into the caller's proof context
+- contracts are pure and world-independent even on effectful functions
+- effectful contracts describe only parameter obligations and returned-value guarantees, not world transitions or effect history
+- contracts do not produce runtime checks or runtime metadata by themselves
+
 ## Local Bindings
 
 Local bindings evaluate their right-hand side, then continue with the bound
@@ -185,10 +199,10 @@ Canonical note:
 Current implemented invariants:
 
 - `match` is the language's branching surface; there is no separate public `if`
-- matches over `Bool`, `Unit`, tuples, list shapes, and nominal sum constructors are checked for exhaustiveness
+- matches over `Bool`, `Unit`, tuples, list shapes, exact record patterns, and nominal sum constructors are checked for exhaustiveness
 - redundant and unreachable arms are rejected before code generation
-- coverage and refinement narrowing share the same canonical Bool/Int proof fragment
-- supported branch facts include Bool/Int literals, rooted or pattern-bound values, field access, `+`, `-`, comparisons, `and`, `or`, `not`, and direct boolean local aliases of those supported facts
+- coverage, contracts, and refinement narrowing share the same canonical proof fragment
+- supported proof facts include Bool/Int literals, rooted or pattern-bound values, `value`, `result`, field access, `#` over strings/lists/maps, `+`, `-`, comparisons, `and`, `or`, `not`, direct boolean local aliases of those supported facts, and shape facts introduced by tuple/list/record/constructor patterns
 - unsupported guard facts remain valid source, but they are opaque to coverage and refinement narrowing
 
 ## Lists

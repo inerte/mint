@@ -11,7 +11,7 @@ pub mod types;
 
 // Re-export main types
 pub use effects::{EffectCatalog, PRIMITIVE_EFFECTS};
-pub use environment::{BindingMeta, TypeEnvironment, TypeInfo};
+pub use environment::{BindingMeta, FunctionContract, TypeEnvironment, TypeInfo};
 pub use errors::{format_type, TypeError};
 pub use typed_ir::{
     PurityClass, StrictnessClass, TypeCheckResult, TypedDeclaration, TypedExpr, TypedExprKind,

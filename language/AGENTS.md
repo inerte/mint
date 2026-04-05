@@ -93,18 +93,20 @@ Canonical source is now printer-first:
 
 Current high-signal printer choices:
 - signatures stay on one line
+- `requires` / `ensures` print on following lines before the body
 - direct `match` bodies begin on that same line
+- direct `match` bodies stay `match ...` with no `=` even after contract lines
 - branching prints multiline early
 - multi-arm `match` is always multiline
 - newline-containing string literals print as multiline `"` strings with exact preserved line breaks
 - each arm starts as `pattern=>`
 - no discretionary alternative layout for the same AST shape
 - `match` is the branching surface; do not reintroduce a separate public `if` story
-- exhaustiveness and dead-arm checking currently cover `Bool`, `Unit`, tuples, list shapes, and nominal sum constructors
-- coverage and refinement narrowing share the same canonical Bool/Int proof fragment
-- supported branch facts include Bool/Int literals, rooted or pattern-bound values, field access, `+`, `-`, comparisons, `and`, `or`, `not`, and direct boolean local aliases of those supported facts
+- exhaustiveness and dead-arm checking currently cover `Bool`, `Unit`, tuples, list shapes, exact record patterns, and nominal sum constructors
+- coverage, contracts, and refinement narrowing share the same canonical proof fragment
+- supported proof facts include Bool/Int literals, rooted or pattern-bound values, `value`, `result`, field access, `#` over strings/lists/maps, `+`, `-`, comparisons, `and`, `or`, `not`, direct boolean local aliases of those supported facts, and pattern-shape facts from tuples, lists, exact records, and nominal sum constructors
 - unsupported guards remain valid syntax but stay opaque to coverage and refinement narrowing
-- record patterns are not part of the current supported checker surface
+- exact record patterns are part of the current supported checker surface and must mention all fields of the matched record type
 
 Current constructor and list invariants:
 - project-defined sum-type constructors from `src/types.lib.sigil` use `µ...` in both expressions and patterns
@@ -149,9 +151,10 @@ Current constructor and list invariants:
   - if a field may be absent, keep the record exact and use `Option[T]` for that field
   - project-defined named types in projects live in `src/types.lib.sigil` and are referenced elsewhere as `µTypeName`
   - `src/types.lib.sigil` is types-only and may reference only `§...` and `¶...` inside type definitions and constraints
-  - `where` on a type declaration defines a pure, world-independent refinement over an alias or named product type; compile-time promotion into that type requires proof in Sigil's canonical refinement fragment, and `match` / internal branching propagate supported branch facts into that proof context
+  - `where` on a type declaration defines a pure, world-independent refinement over an alias or named product type; compile-time promotion into that type requires proof in Sigil's canonical solver-backed refinement fragment, and `match` / internal branching propagate supported branch facts into that proof context
+  - `requires` and `ensures` are the canonical function-contract surface; `requires` may reference parameters, `ensures` may reference parameters plus `result`, and both stay pure and world-independent
   - direct boolean local aliases of supported facts participate in that same flow-sensitive refinement and coverage model
-  - `where` does not imply runtime validation
+  - `where`, `requires`, and `ensures` do not imply runtime validation
   - prefer early boundary conversion with `§decode` instead of carrying raw `JsonValue` deep into business logic
   - when a validated boundary value should remain distinct from a raw primitive, prefer a named wrapper type like `Email` or `UserId`
   - topology-aware projects must declare external HTTP/TCP dependencies and environment names in `src/topology.lib.sigil`

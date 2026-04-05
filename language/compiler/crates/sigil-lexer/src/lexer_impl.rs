@@ -735,6 +735,8 @@ impl Lexer {
             "when" => TokenType::WHEN,
             "effect" => TokenType::Effect,
             "match" => TokenType::MATCH,
+            "requires" => TokenType::Requires,
+            "ensures" => TokenType::Ensures,
             "concurrent" => TokenType::Concurrent,
             "spawn" => TokenType::Spawn,
             "spawnEach" => TokenType::SpawnEach,

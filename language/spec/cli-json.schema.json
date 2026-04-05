@@ -9,6 +9,7 @@
     { "$ref": "#/$defs/parseEnvelope" },
     { "$ref": "#/$defs/compileEnvelope" },
     { "$ref": "#/$defs/inspectTypesEnvelope" },
+    { "$ref": "#/$defs/inspectProofEnvelope" },
     { "$ref": "#/$defs/inspectValidateEnvelope" },
     { "$ref": "#/$defs/inspectCodegenEnvelope" },
     { "$ref": "#/$defs/inspectWorldEnvelope" },
@@ -19,7 +20,7 @@
   "$defs": {
     "phase": {
       "type": "string",
-      "enum": ["cli", "io", "surface", "lexer", "parser", "canonical", "typecheck", "mutability", "extern", "codegen", "runtime"]
+      "enum": ["cli", "io", "surface", "lexer", "parser", "canonical", "typecheck", "mutability", "extern", "codegen", "proof", "runtime"]
     },
     "sourcePoint": {
       "type": "object",
@@ -496,6 +497,134 @@
         { "$ref": "#/$defs/inspectTypesDirectoryData" }
       ]
     },
+    "inspectProofSite": {
+      "type": "object",
+      "required": [
+        "kind",
+        "ownerKind",
+        "ownerName",
+        "location",
+        "predicateSource",
+        "predicateAst",
+        "patternSource",
+        "patternAst"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["typeConstraint", "requires", "ensures", "matchArm", "ifCondition"]
+        },
+        "ownerKind": { "type": "string", "enum": ["type", "function", "test"] },
+        "ownerName": { "type": "string" },
+        "location": { "$ref": "#/$defs/sourceSpan" },
+        "predicateSource": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string" }
+          ]
+        },
+        "predicateAst": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/inspectSemanticNode" }
+          ]
+        },
+        "patternSource": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string" }
+          ]
+        },
+        "patternAst": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/inspectSemanticNode" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspectProofSummary": {
+      "type": "object",
+      "required": ["sites", "typeConstraints", "requires", "ensures", "matchArms", "ifConditions"],
+      "properties": {
+        "sites": { "type": "integer", "minimum": 0 },
+        "typeConstraints": { "type": "integer", "minimum": 0 },
+        "requires": { "type": "integer", "minimum": 0 },
+        "ensures": { "type": "integer", "minimum": 0 },
+        "matchArms": { "type": "integer", "minimum": 0 },
+        "ifConditions": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "inspectProofFragment": {
+      "type": "object",
+      "required": ["constructs"],
+      "properties": {
+        "constructs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "type_where_constraints",
+              "function_requires",
+              "function_ensures",
+              "match_patterns",
+              "match_guards",
+              "if_conditions"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspectProofFileData": {
+      "type": "object",
+      "required": ["input", "moduleId", "sourceFile", "project", "proofFragment", "summary", "sites"],
+      "properties": {
+        "input": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "sourceFile": { "type": "string" },
+        "project": { "$ref": "#/$defs/projectInfo" },
+        "proofFragment": { "$ref": "#/$defs/inspectProofFragment" },
+        "summary": { "$ref": "#/$defs/inspectProofSummary" },
+        "sites": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inspectProofSite" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspectProofDirectoryData": {
+      "type": "object",
+      "required": ["input", "summary", "files"],
+      "properties": {
+        "input": { "type": "string" },
+        "summary": {
+          "type": "object",
+          "required": ["discovered", "inspected", "groups", "modules", "durationMs"],
+          "properties": {
+            "discovered": { "type": "integer", "minimum": 0 },
+            "inspected": { "type": "integer", "minimum": 0 },
+            "groups": { "type": "integer", "minimum": 0 },
+            "modules": { "type": "integer", "minimum": 0 },
+            "durationMs": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inspectProofFileData" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspectProofData": {
+      "oneOf": [
+        { "$ref": "#/$defs/inspectProofFileData" },
+        { "$ref": "#/$defs/inspectProofDirectoryData" }
+      ]
+    },
     "inspectValidateSummary": {
       "type": "object",
       "required": ["declarations", "functions", "types", "effects", "consts", "tests", "externs"],
@@ -739,6 +868,22 @@
           "properties": {
             "command": { "const": "sigilc inspect types" },
             "data": { "$ref": "#/$defs/inspectTypesData" }
+          },
+          "allOf": [
+            { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },
+            { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["error"] } }
+          ]
+        }
+      ]
+    },
+    "inspectProofEnvelope": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEnvelope" },
+        {
+          "type": "object",
+          "properties": {
+            "command": { "const": "sigilc inspect proof" },
+            "data": { "$ref": "#/$defs/inspectProofData" }
           },
           "allOf": [
             { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["data"] } },

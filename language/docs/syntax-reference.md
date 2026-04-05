@@ -143,6 +143,30 @@ effect CliIo=!Fs!Log!Process
 
 Those aliases are project-global and may be used directly in signatures.
 
+Function contracts, when present, appear after the signature and before the
+body:
+
+```sigil module
+λnormalizeYear(raw:Int)=>Int
+requires raw>0
+ensures result>1800
+match raw>1800{
+  true=>raw|
+  false=>1900
+}
+```
+
+Contract rules:
+
+- each function may declare at most one `requires` clause and at most one `ensures` clause
+- if both are present, `requires` must come before `ensures`
+- `requires` may reference only parameters
+- `ensures` may reference parameters plus `result`
+- contracts must typecheck to `Bool`
+- contracts must be pure and world-independent
+- direct `match` bodies still begin with `match`, not `=match`, even after contract lines
+- effectful functions may carry contracts, but the contract surface talks only about parameters and the returned value
+
 ## Lambda Expressions
 
 Lambda expressions are fully typed and use the same body rule as top-level
@@ -236,10 +260,10 @@ Constraint rules:
 - the expression must typecheck to `Bool`
 - constraints are pure and world-independent
 - constrained aliases and constrained named product types act as compile-time refinements over their underlying type
-- values flow into a constrained type only when the checker can prove the predicate in Sigil's canonical refinement fragment
+- values flow into a constrained type only when the checker can prove the predicate in Sigil's canonical solver-backed refinement fragment
 - constrained values widen to their underlying type automatically
-- the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
-- `match` and internal branching propagate supported branch facts into that refinement proof
+- the current proof fragment covers Bool/Int literals, `value`, field access, `#` over strings/lists/maps, `+`, `-`, comparisons, `and`, `or`, and `not`
+- `match`, exact record patterns, and internal branching propagate supported branch facts into that refinement proof
 - direct boolean local aliases of supported facts also narrow
 - constraints do not imply automatic runtime validation
 
@@ -393,6 +417,7 @@ Patterns include:
 - `_`
 - constructors
 - list patterns
+- record patterns
 - tuple patterns
 
 Current match rules:
@@ -400,15 +425,17 @@ Current match rules:
 - `match` is Sigil's only branching surface
 - matches over finite structural spaces must be exhaustive
 - redundant and unreachable arms are rejected
-- `Bool`, `Unit`, tuples, list shapes, and nominal sum constructors participate in exhaustiveness checking
-- coverage and refinement narrowing share the same canonical Bool/Int proof fragment
-- supported branch facts include Bool/Int literals, rooted or pattern-bound values, field access, `+`, `-`, comparisons, `and`, `or`, `not`, and direct boolean local aliases of those supported facts
+- `Bool`, `Unit`, tuples, list shapes, exact record patterns, and nominal sum constructors participate in exhaustiveness checking
+- coverage, contracts, and refinement narrowing share the same canonical proof fragment
+- supported proof facts include Bool/Int literals, rooted or pattern-bound values, field access, `#` over strings/lists/maps, `+`, `-`, comparisons, `and`, `or`, `not`, direct boolean local aliases of those supported facts, and shape facts from tuple/list/record/constructor patterns
 - unsupported guards remain valid source, but they stay opaque to coverage and refinement narrowing
-- record patterns are not part of the current supported checker surface
+- exact record patterns must mention every field of the matched exact record type
 
 Examples:
 
 ```sigil module
+t Point={x:Int,y:Int}
+
 λfromOption(option:Option[Int])=>Int match option{
   Some(value)=>value|
   None()=>0
@@ -424,6 +451,13 @@ Examples:
   (true,false)=>"tf"|
   (false,true)=>"ft"|
   (false,false)=>"ff"
+}
+
+λpointLabel(point:Point)=>String match point{
+  {x:0,y:0}=>"origin"|
+  {x:0,y}=>"y-axis"|
+  {x,y:0}=>"x-axis"|
+  {x,y}=>"plane"
 }
 ```
 

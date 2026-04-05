@@ -51,6 +51,12 @@ pub enum TokenType {
     #[token("match", priority = 3)]
     MATCH,
 
+    #[token("requires", priority = 3)]
+    Requires,
+
+    #[token("ensures", priority = 3)]
+    Ensures,
+
     #[token("concurrent", priority = 3)]
     Concurrent,
 

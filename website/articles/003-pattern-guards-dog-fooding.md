@@ -8,10 +8,11 @@ slug: 003-patternGuards-dog-fooding
 # Pattern Guards and Sigil's Website Parser
 
 > Update (2026-04-05): guards now participate in exhaustiveness, dead-arm
-> checking, and refinement narrowing through the same canonical Bool/Int proof
-> fragment used by constrained types. Direct boolean local aliases of supported
-> facts narrow too. Unsupported guard facts remain valid source, but they stay
-> opaque to coverage and refinement proofs. See
+> checking, contracts, and refinement narrowing through the same canonical proof
+> fragment used by constrained types. Exact record patterns, collection-length
+> facts through `#`, and direct boolean local aliases of supported facts all
+> narrow too. Unsupported guard facts remain valid source, but they stay opaque
+> to coverage and refinement proofs. See
 > [033-exhaustive-match-and-proof-rich-compile-errors](./033-exhaustive-match-and-proof-rich-compile-errors.md).
 
 Pattern guards came out of a concrete implementation problem rather than an

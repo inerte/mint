@@ -26,7 +26,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ Terminal raw-mode input and cursor control - `stdlib/terminal`
 - ✅ URL parsing/query helpers - `stdlib/url`
 - ✅ Core prelude vocabulary (Option, Result) - `core/prelude` (implicit)
-- ✅ Length operator (`#`) - works on strings and lists
+- ✅ Length operator (`#`) - works on strings, lists, and maps
 
 **Not yet implemented:**
 - ⏳ Crypto utilities
@@ -46,7 +46,7 @@ still uses `e module::path`; Sigil modules use roots like `§`, `•`, `¶`, `¤
 
 ## Length Operator (`#`)
 
-The `#` operator is a **built-in language operator** that returns the length of strings and lists.
+The `#` operator is a **built-in language operator** that returns the length of strings, lists, and maps.
 
 **Syntax:**
 ```text
@@ -54,13 +54,13 @@ The `#` operator is a **built-in language operator** that returns the length of 
 ```
 
 **Type Checking:**
-- Works on strings (`String`) and lists (`[T]`)
+- Works on strings (`String`), lists (`[T]`), and maps (`{K↦V}`)
 - Compile error for other types
 - Always returns integer (`Int`)
 
 **Examples:**
 ```sigil program
-λmain()=>Bool=#"hello"=5 and #""=0 and #[1,2,3]=3
+λmain()=>Bool=#"hello"=5 and #""=0 and #[1,2,3]=3 and #{"a"↦1,"b"↦2}=2
 ```
 
 **Note on Empty Lists:**
@@ -80,6 +80,7 @@ Empty lists `[]` infer their type from context:
 ```typescript
 #s          => (await s).length
 #[1,2,3]    => (await [1,2,3]).length
+#{"a"↦1}    => (await new Map([["a",1]])).size
 ```
 
 **Note:** The deprecated `§list.len` function has been removed. Use `#` instead.

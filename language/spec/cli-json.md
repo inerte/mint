@@ -6,6 +6,7 @@ Sigil CLI commands are machine-first. JSON is the default output mode for:
 - `sigilc parse`
 - `sigilc compile`
 - `sigilc inspect types`
+- `sigilc inspect proof`
 - `sigilc inspect validate`
 - `sigilc inspect codegen`
 - `sigilc inspect world`
@@ -72,7 +73,7 @@ Failures emit:
 ```
 
 `sigilc test` keeps a specialized top-level `summary` / `results` envelope.
-`sigilc inspect types`, `sigilc inspect validate`, `sigilc inspect codegen`, and `sigilc inspect world` use inspect-specific envelopes.
+`sigilc inspect types`, `sigilc inspect proof`, `sigilc inspect validate`, `sigilc inspect codegen`, and `sigilc inspect world` use inspect-specific envelopes.
 `sigilc run` uses the `runEnvelope` schema in `--json` mode and for failure payloads.
 `sigilc debug run` and `sigilc debug test` use replay-backed debug envelopes with
 `data.session` and `data.snapshot`.
@@ -83,6 +84,7 @@ Use the current surfaces like this:
 
 - `sigil inspect validate`: canonical source and validation result
 - `sigil inspect types`: solved top-level declaration types plus named type inventory
+- `sigil inspect proof`: declared proof-bearing surfaces and branch gates
 - `sigil inspect world`: normalized runtime world for one project env
 - `sigil inspect codegen`: generated TypeScript plus span-map summary
 - `sigil run --json`: one structured run success/failure envelope
@@ -104,6 +106,15 @@ Diagnostics are structured and machine-oriented:
 - `details`
 - `fixits`
 - `suggestions`
+
+Proof-oriented typecheck failures may also enrich `error.details` with:
+
+- `proof`
+  - `assumptions`
+  - `goal`
+  - `outcome`
+- `proofKind`
+- `proofSummary`
 
 ## Inspect Types
 
@@ -142,6 +153,44 @@ statically known named Sigil type. In v1 this is surfaced on breakpoint locals,
 watch results, and expression value/error payloads rather than every generic
 trace value summary. Breakpoint and debug locals also expose an optional root
 `typeId` when the local itself is statically known to be a named Sigil type.
+
+## Inspect Proof
+
+`sigil inspect proof` inventories the proof-bearing surfaces in one file or
+directory.
+
+Single-file output includes:
+
+- `input`
+- `moduleId`
+- `sourceFile`
+- `project`
+- `proofFragment`
+  - `constructs`
+- `summary`
+  - `sites`
+  - `typeConstraints`
+  - `requires`
+  - `ensures`
+  - `matchArms`
+  - `ifConditions`
+- `sites`
+
+Each `sites[]` entry includes:
+
+- `kind`
+  - `typeConstraint`
+  - `requires`
+  - `ensures`
+  - `matchArm`
+  - `ifCondition`
+- `ownerKind`
+- `ownerName`
+- `location`
+- optional `predicateSource` / `predicateAst`
+- optional `patternSource` / `patternAst`
+
+This is currently a proof-surface inventory, not a full solver transcript.
 
 ## Run Failure Details
 

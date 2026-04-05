@@ -8,7 +8,8 @@
 //! type annotations everywhere, making the inference burden much lighter.
 
 use crate::environment::{
-    collect_type_var_ids, explicit_scheme, BindingMeta, TypeEnvironment, TypeInfo,
+    collect_type_var_ids, explicit_scheme, BindingMeta, FunctionContract, TypeEnvironment,
+    TypeInfo,
 };
 use crate::errors::{format_type, TypeError};
 use crate::typed_ir::{
@@ -26,12 +27,16 @@ use crate::types::{
     InferenceType, TConstructor, TFunction, TMap, TPrimitive, TRecord,
 };
 use crate::TypeCheckOptions;
+use sigil_solver::{
+    formula_and, formula_or, prove_formula, Atom, ComparisonOp, Formula, LinearExpr,
+    SolverOutcome, SymbolPath, SymbolPathStep,
+};
 use sigil_ast::{
     BinaryOperator, Declaration, Expr, FunctionDecl, LiteralType, LiteralValue, PrimitiveName,
     Program, Type, TypeDecl, TypeDef, UnaryOperator,
 };
 use sigil_diagnostics::codes;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 type TypeParamEnv = HashMap<String, InferenceType>;
 
@@ -195,6 +200,21 @@ pub fn type_check(
 
                     if func_decl.type_params.is_empty() {
                         env.bind(func_decl.name.clone(), binding_type.clone());
+                    }
+
+                    if func_decl.requires.is_some() || func_decl.ensures.is_some() {
+                        env.register_function_contract(
+                            func_decl.name.clone(),
+                            FunctionContract {
+                                params: func_decl
+                                    .params
+                                    .iter()
+                                    .map(|param| param.name.clone())
+                                    .collect(),
+                                requires: func_decl.requires.clone(),
+                                ensures: func_decl.ensures.clone(),
+                            },
+                        );
                     }
 
                     types.insert(func_decl.name.clone(), binding_type);
@@ -868,239 +888,27 @@ fn resolve_constrained_type(
         }))
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-enum SymbolPathStep {
-    Binding(String),
-    Field(String),
-    ListHead,
-    ListTail,
-    TupleIndex(usize),
-    VariantField(usize),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-struct SymbolPath(Vec<SymbolPathStep>);
-
-impl SymbolPath {
-    fn root(name: &str) -> Self {
-        Self(vec![SymbolPathStep::Binding(name.to_string())])
-    }
-
-    fn field(&self, field: &str) -> Self {
-        let mut parts = self.0.clone();
-        parts.push(SymbolPathStep::Field(field.to_string()));
-        Self(parts)
-    }
-
-    fn list_head(&self) -> Self {
-        let mut parts = self.0.clone();
-        parts.push(SymbolPathStep::ListHead);
-        Self(parts)
-    }
-
-    fn list_tail(&self) -> Self {
-        let mut parts = self.0.clone();
-        parts.push(SymbolPathStep::ListTail);
-        Self(parts)
-    }
-
-    fn tuple_index(&self, index: usize) -> Self {
-        let mut parts = self.0.clone();
-        parts.push(SymbolPathStep::TupleIndex(index));
-        Self(parts)
-    }
-
-    fn variant_field(&self, index: usize) -> Self {
-        let mut parts = self.0.clone();
-        parts.push(SymbolPathStep::VariantField(index));
-        Self(parts)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct LinearForm {
-    terms: BTreeMap<SymbolPath, i64>,
-}
-
-impl LinearForm {
-    fn zero() -> Self {
-        Self {
-            terms: BTreeMap::new(),
-        }
-    }
-
-    fn from_path(path: SymbolPath) -> Self {
-        let mut terms = BTreeMap::new();
-        terms.insert(path, 1);
-        Self { terms }
-    }
-
-    fn add_scaled(&mut self, other: &Self, scale: i64) {
-        for (path, coeff) in &other.terms {
-            let next = self.terms.get(path).copied().unwrap_or(0) + (*coeff * scale);
-            if next == 0 {
-                self.terms.remove(path);
-            } else {
-                self.terms.insert(path.clone(), next);
-            }
-        }
-    }
-
-    fn single_term(&self) -> Option<(&SymbolPath, i64)> {
-        if self.terms.len() == 1 {
-            self.terms.iter().next().map(|(path, coeff)| (path, *coeff))
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct LinearExpr {
-    form: LinearForm,
-    constant: i64,
-}
-
-impl LinearExpr {
-    fn int(value: i64) -> Self {
-        Self {
-            form: LinearForm::zero(),
-            constant: value,
-        }
-    }
-
-    fn from_path(path: SymbolPath) -> Self {
-        Self {
-            form: LinearForm::from_path(path),
-            constant: 0,
-        }
-    }
-
-    fn add(&self, other: &Self) -> Self {
-        let mut form = self.form.clone();
-        form.add_scaled(&other.form, 1);
-        Self {
-            form,
-            constant: self.constant + other.constant,
-        }
-    }
-
-    fn subtract(&self, other: &Self) -> Self {
-        let mut form = self.form.clone();
-        form.add_scaled(&other.form, -1);
-        Self {
-            form,
-            constant: self.constant - other.constant,
-        }
-    }
-
-    fn negate(&self) -> Self {
-        let mut form = LinearForm::zero();
-        form.add_scaled(&self.form, -1);
-        Self {
-            form,
-            constant: -self.constant,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ComparisonOp {
-    Eq,
-    Ne,
-    Lt,
-    Le,
-    Gt,
-    Ge,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Atom {
-    IntCmp {
-        form: LinearForm,
-        op: ComparisonOp,
-        rhs: i64,
-    },
-    BoolEq {
-        path: SymbolPath,
-        value: bool,
-    },
-}
-
-impl Atom {
-    fn negate(&self) -> Self {
-        match self {
-            Self::IntCmp { form, op, rhs } => Self::IntCmp {
-                form: form.clone(),
-                op: match op {
-                    ComparisonOp::Eq => ComparisonOp::Ne,
-                    ComparisonOp::Ne => ComparisonOp::Eq,
-                    ComparisonOp::Lt => ComparisonOp::Ge,
-                    ComparisonOp::Le => ComparisonOp::Gt,
-                    ComparisonOp::Gt => ComparisonOp::Le,
-                    ComparisonOp::Ge => ComparisonOp::Lt,
-                },
-                rhs: *rhs,
-            },
-            Self::BoolEq { path, value } => Self::BoolEq {
-                path: path.clone(),
-                value: !value,
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Formula {
-    True,
-    False,
-    Atom(Atom),
-    And(Vec<Formula>),
-    Or(Vec<Formula>),
-    Not(Box<Formula>),
-}
-
-fn formula_and(parts: Vec<Formula>) -> Formula {
-    let mut flattened = Vec::new();
-    for part in parts {
-        match part {
-            Formula::True => {}
-            Formula::False => return Formula::False,
-            Formula::And(items) => flattened.extend(items),
-            other => flattened.push(other),
-        }
-    }
-
-    match flattened.len() {
-        0 => Formula::True,
-        1 => flattened.into_iter().next().unwrap(),
-        _ => Formula::And(flattened),
-    }
-}
-
-fn formula_or(parts: Vec<Formula>) -> Formula {
-    let mut flattened = Vec::new();
-    for part in parts {
-        match part {
-            Formula::False => {}
-            Formula::True => return Formula::True,
-            Formula::Or(items) => flattened.extend(items),
-            other => flattened.push(other),
-        }
-    }
-
-    match flattened.len() {
-        0 => Formula::False,
-        1 => flattened.into_iter().next().unwrap(),
-        _ => Formula::Or(flattened),
-    }
-}
-
 #[derive(Debug, Clone)]
 enum SymbolicValue {
     Int(LinearExpr),
     Bool(Formula),
+    Collection(SymbolicCollection),
     Record(SymbolicRecord),
+}
+
+#[derive(Debug, Clone)]
+enum SymbolicCollection {
+    Path(SymbolPath),
+    KnownLength(LinearExpr),
+}
+
+impl SymbolicCollection {
+    fn length_expr(&self) -> LinearExpr {
+        match self {
+            Self::Path(path) => LinearExpr::from_path(path.length()),
+            Self::KnownLength(length) => length.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1157,7 +965,7 @@ const MATCH_SCRUTINEE_BINDING: &str = "$match_scrutinee";
 fn refinement_type_support_error(name: &str, reason: &str) -> TypeError {
     TypeError::new(
         format!(
-            "Type constraint for '{}' uses unsupported refinement syntax: {}. Supported refinement constraints use Bool/Int literals, value, field access, +, -, comparisons, and/or/not.",
+            "Type constraint for '{}' uses unsupported refinement syntax: {}. Supported refinement constraints use Bool/Int literals, value, #value, field access, +, -, comparisons, and/or/not.",
             name, reason
         ),
         None,
@@ -1183,6 +991,13 @@ fn symbolic_value_for_type_path(
             path: path.clone(),
             value: true,
         }))),
+        InferenceType::Primitive(TPrimitive {
+            name: PrimitiveName::String,
+        })
+        | InferenceType::List(_)
+        | InferenceType::Map(_) => Ok(SymbolicValue::Collection(SymbolicCollection::Path(
+            path.clone(),
+        ))),
         InferenceType::Record(record) => Ok(SymbolicValue::Record(SymbolicRecord::Path {
             base: path.clone(),
             fields: record.fields,
@@ -1240,7 +1055,10 @@ fn symbolic_value_from_expr(
             } else {
                 Formula::False
             })),
-            _ => Err("only Int and Bool literals participate in refinement proofs".to_string()),
+            LiteralValue::String(ref value) => Ok(SymbolicValue::Collection(
+                SymbolicCollection::KnownLength(LinearExpr::int(value.chars().count() as i64)),
+            )),
+            _ => Err("only Int, Bool, and String literals participate in refinement proofs".to_string()),
         },
         Expr::Identifier(identifier) => {
             if identifier.name == "value" {
@@ -1263,6 +1081,35 @@ fn symbolic_value_from_expr(
             symbolic_value_for_type_path(env, &binding_type, &SymbolPath::root(&identifier.name))
         }
         Expr::Unary(unary) => {
+            if unary.operator == UnaryOperator::Length {
+                return match &unary.operand {
+                    Expr::List(list) => Ok(SymbolicValue::Int(LinearExpr::int(
+                        list.elements.len() as i64,
+                    ))),
+                    Expr::MapLiteral(map) => Ok(SymbolicValue::Int(LinearExpr::int(
+                        map.entries.len() as i64,
+                    ))),
+                    _ => {
+                        let operand = symbolic_value_from_expr(
+                            env,
+                            proof_context,
+                            &unary.operand,
+                            value_binding,
+                            collector,
+                        )?;
+                        match operand {
+                            SymbolicValue::Collection(collection) => {
+                                Ok(SymbolicValue::Int(collection.length_expr()))
+                            }
+                            _ => Err(
+                                "length in refinement proofs requires a String, list, or map operand"
+                                    .to_string(),
+                            ),
+                        }
+                    }
+                };
+            }
+
             let operand = symbolic_value_from_expr(
                 env,
                 proof_context,
@@ -1297,6 +1144,12 @@ fn symbolic_value_from_expr(
             )?;
             symbolic_value_from_binary(binary.operator, left, right)
         }
+        Expr::List(list) => Ok(SymbolicValue::Collection(SymbolicCollection::KnownLength(
+            LinearExpr::int(list.elements.len() as i64),
+        ))),
+        Expr::MapLiteral(map) => Ok(SymbolicValue::Collection(SymbolicCollection::KnownLength(
+            LinearExpr::int(map.entries.len() as i64),
+        ))),
         Expr::Record(record) => Ok(SymbolicValue::Record(SymbolicRecord::Literal(
             record
                 .fields
@@ -1333,6 +1186,19 @@ fn symbolic_value_from_expr(
         },
         Expr::TypeAscription(type_asc) => {
             symbolic_value_from_expr(env, proof_context, &type_asc.expr, value_binding, collector)
+        }
+        Expr::Application(app) => {
+            let Some(contract) = lookup_contract_for_call(env, &app.func) else {
+                return Err("unsupported expression shape in refinement proof".to_string());
+            };
+
+            let return_type = synthesize_application(env, app).map_err(|error| error.message)?;
+            let result_symbolic =
+                symbolic_value_for_type_path(env, &return_type, &SymbolPath::root("$call_result"))?;
+            let assumptions =
+                call_ensure_assumptions(env, proof_context, &contract, &app.args, result_symbolic.clone())?;
+            collector.assumptions.extend(assumptions);
+            Ok(result_symbolic)
         }
         _ => Err("unsupported expression shape in refinement proof".to_string()),
     }
@@ -1487,132 +1353,39 @@ fn validate_refinement_constraint_shape(
     Ok(())
 }
 
-#[derive(Debug, Clone, Default)]
-struct Bounds {
-    lower: Option<i64>,
-    upper: Option<i64>,
-    excluded: BTreeSet<i64>,
+#[derive(Debug, Clone)]
+enum ConstraintProofResult {
+    Proved,
+    Failed(sigil_solver::ProofCheck),
 }
 
-impl Bounds {
-    fn include_lower(&mut self, value: i64) {
-        self.lower = Some(self.lower.map_or(value, |current| current.max(value)));
+impl ConstraintProofResult {
+    fn proved(&self) -> bool {
+        matches!(self, Self::Proved)
     }
 
-    fn include_upper(&mut self, value: i64) {
-        self.upper = Some(self.upper.map_or(value, |current| current.min(value)));
-    }
-
-    fn set_exact(&mut self, value: i64) {
-        self.lower = Some(value);
-        self.upper = Some(value);
-    }
-
-    fn contradictory(&self) -> bool {
-        match (self.lower, self.upper) {
-            (Some(lower), Some(upper)) if lower > upper => true,
-            (Some(lower), Some(upper)) if lower == upper => self.excluded.contains(&lower),
-            _ => false,
+    fn failed_check(&self) -> Option<&sigil_solver::ProofCheck> {
+        match self {
+            Self::Proved => None,
+            Self::Failed(check) => Some(check),
         }
     }
 }
 
-#[derive(Debug, Default)]
-struct ProofBranch {
-    bool_values: HashMap<SymbolPath, bool>,
-    form_bounds: BTreeMap<LinearForm, Bounds>,
-    variable_bounds: HashMap<SymbolPath, Bounds>,
-    satisfiable: bool,
-}
-
-impl ProofBranch {
-    fn from_atoms(atoms: &[Atom]) -> Self {
-        let mut branch = Self {
-            satisfiable: true,
-            ..Self::default()
-        };
-
-        for atom in atoms {
-            branch.add_atom(atom);
-            if !branch.satisfiable {
-                break;
+fn proof_outcome_reason(outcome: &SolverOutcome) -> String {
+    match outcome {
+        SolverOutcome::Proved => "proved".to_string(),
+        SolverOutcome::Refuted { model } => {
+            if model.is_empty() {
+                "solver found a counterexample".to_string()
+            } else {
+                format!(
+                    "solver found a counterexample: {}",
+                    serde_json::to_string(model).unwrap_or_else(|_| "{}".to_string())
+                )
             }
         }
-
-        branch
-    }
-
-    fn add_atom(&mut self, atom: &Atom) {
-        if !self.satisfiable {
-            return;
-        }
-
-        match atom {
-            Atom::BoolEq { path, value } => {
-                if let Some(current) = self.bool_values.get(path) {
-                    if current != value {
-                        self.satisfiable = false;
-                        return;
-                    }
-                }
-                self.bool_values.insert(path.clone(), *value);
-            }
-            Atom::IntCmp { form, op, rhs } => {
-                let entry = self.form_bounds.entry(form.clone()).or_default();
-                match op {
-                    ComparisonOp::Eq => entry.set_exact(*rhs),
-                    ComparisonOp::Ne => {
-                        entry.excluded.insert(*rhs);
-                    }
-                    ComparisonOp::Lt => entry.include_upper(rhs.saturating_sub(1)),
-                    ComparisonOp::Le => entry.include_upper(*rhs),
-                    ComparisonOp::Gt => entry.include_lower(rhs.saturating_add(1)),
-                    ComparisonOp::Ge => entry.include_lower(*rhs),
-                }
-
-                if entry.contradictory() {
-                    self.satisfiable = false;
-                    return;
-                }
-
-                self.derive_variable_bounds(form, op, *rhs);
-            }
-        }
-    }
-
-    fn derive_variable_bounds(&mut self, form: &LinearForm, op: &ComparisonOp, rhs: i64) {
-        let Some((path, coeff)) = form.single_term() else {
-            return;
-        };
-
-        let entry = self.variable_bounds.entry(path.clone()).or_default();
-        match (coeff, *op) {
-            (0, _) => {}
-            (_, ComparisonOp::Eq) => {
-                if let Some(value) = solve_exact_single_var(coeff, rhs) {
-                    entry.set_exact(value);
-                }
-            }
-            (_, ComparisonOp::Ne) => {
-                if let Some(value) = solve_exact_single_var(coeff, rhs) {
-                    entry.excluded.insert(value);
-                }
-            }
-            _ => {
-                if let Some((lower, upper)) = solve_single_var_interval(coeff, *op, rhs) {
-                    if let Some(lower) = lower {
-                        entry.include_lower(lower);
-                    }
-                    if let Some(upper) = upper {
-                        entry.include_upper(upper);
-                    }
-                }
-            }
-        }
-
-        if entry.contradictory() {
-            self.satisfiable = false;
-        }
+        SolverOutcome::Unknown { reason } => format!("solver returned unknown: {}", reason),
     }
 }
 
@@ -1679,177 +1452,6 @@ fn div_ceil(numerator: i64, denominator: i64) -> i64 {
     }
 }
 
-fn formula_to_nnf(formula: &Formula, negated: bool) -> Formula {
-    match formula {
-        Formula::True => {
-            if negated {
-                Formula::False
-            } else {
-                Formula::True
-            }
-        }
-        Formula::False => {
-            if negated {
-                Formula::True
-            } else {
-                Formula::False
-            }
-        }
-        Formula::Atom(atom) => {
-            if negated {
-                Formula::Atom(atom.negate())
-            } else {
-                Formula::Atom(atom.clone())
-            }
-        }
-        Formula::And(parts) => {
-            if negated {
-                formula_or(parts.iter().map(|part| formula_to_nnf(part, true)).collect())
-            } else {
-                formula_and(parts.iter().map(|part| formula_to_nnf(part, false)).collect())
-            }
-        }
-        Formula::Or(parts) => {
-            if negated {
-                formula_and(parts.iter().map(|part| formula_to_nnf(part, true)).collect())
-            } else {
-                formula_or(parts.iter().map(|part| formula_to_nnf(part, false)).collect())
-            }
-        }
-        Formula::Not(inner) => formula_to_nnf(inner, !negated),
-    }
-}
-
-fn formula_to_dnf(formula: &Formula) -> Vec<Vec<Atom>> {
-    match formula {
-        Formula::True => vec![Vec::new()],
-        Formula::False => Vec::new(),
-        Formula::Atom(atom) => vec![vec![atom.clone()]],
-        Formula::And(parts) => {
-            let mut result = vec![Vec::new()];
-            for part in parts {
-                let next = formula_to_dnf(part);
-                if next.is_empty() {
-                    return Vec::new();
-                }
-                let mut combined = Vec::new();
-                for existing in &result {
-                    for branch in &next {
-                        let mut merged = existing.clone();
-                        merged.extend(branch.clone());
-                        combined.push(merged);
-                    }
-                }
-                result = combined;
-            }
-            result
-        }
-        Formula::Or(parts) => parts.iter().flat_map(formula_to_dnf).collect(),
-        Formula::Not(_) => formula_to_dnf(&formula_to_nnf(formula, false)),
-    }
-}
-
-fn eval_form_bounds(form: &LinearForm, branch: &ProofBranch) -> (Option<i64>, Option<i64>) {
-    let mut lower = Some(0_i128);
-    let mut upper = Some(0_i128);
-
-    for (path, coeff) in &form.terms {
-        let bounds = branch.variable_bounds.get(path);
-        let next_lower = if *coeff >= 0 {
-            bounds.and_then(|item| item.lower).map(i128::from)
-        } else {
-            bounds.and_then(|item| item.upper).map(i128::from)
-        };
-        let next_upper = if *coeff >= 0 {
-            bounds.and_then(|item| item.upper).map(i128::from)
-        } else {
-            bounds.and_then(|item| item.lower).map(i128::from)
-        };
-
-        lower = match (lower, next_lower) {
-            (Some(current), Some(value)) => Some(current + i128::from(*coeff) * value),
-            _ => None,
-        };
-        upper = match (upper, next_upper) {
-            (Some(current), Some(value)) => Some(current + i128::from(*coeff) * value),
-            _ => None,
-        };
-    }
-
-    (
-        lower.and_then(|value| i64::try_from(value).ok()),
-        upper.and_then(|value| i64::try_from(value).ok()),
-    )
-}
-
-fn bounds_imply(bounds: &Bounds, op: ComparisonOp, rhs: i64) -> bool {
-    match op {
-        ComparisonOp::Eq => bounds.lower == Some(rhs) && bounds.upper == Some(rhs),
-        ComparisonOp::Ne => {
-            bounds.excluded.contains(&rhs)
-                || bounds.lower.map_or(false, |lower| lower > rhs)
-                || bounds.upper.map_or(false, |upper| upper < rhs)
-        }
-        ComparisonOp::Lt => bounds.upper.map_or(false, |upper| upper < rhs),
-        ComparisonOp::Le => bounds.upper.map_or(false, |upper| upper <= rhs),
-        ComparisonOp::Gt => bounds.lower.map_or(false, |lower| lower > rhs),
-        ComparisonOp::Ge => bounds.lower.map_or(false, |lower| lower >= rhs),
-    }
-}
-
-fn interval_implies(lower: Option<i64>, upper: Option<i64>, op: ComparisonOp, rhs: i64) -> bool {
-    match op {
-        ComparisonOp::Eq => lower == Some(rhs) && upper == Some(rhs),
-        ComparisonOp::Ne => {
-            lower.map_or(false, |value| value > rhs) || upper.map_or(false, |value| value < rhs)
-        }
-        ComparisonOp::Lt => upper.map_or(false, |value| value < rhs),
-        ComparisonOp::Le => upper.map_or(false, |value| value <= rhs),
-        ComparisonOp::Gt => lower.map_or(false, |value| value > rhs),
-        ComparisonOp::Ge => lower.map_or(false, |value| value >= rhs),
-    }
-}
-
-fn branch_implies_atom(branch: &ProofBranch, atom: &Atom) -> bool {
-    match atom {
-        Atom::BoolEq { path, value } => branch.bool_values.get(path).copied() == Some(*value),
-        Atom::IntCmp { form, op, rhs } => {
-            if let Some(bounds) = branch.form_bounds.get(form) {
-                if bounds_imply(bounds, *op, *rhs) {
-                    return true;
-                }
-            }
-
-            let (lower, upper) = eval_form_bounds(form, branch);
-            interval_implies(lower, upper, *op, *rhs)
-        }
-    }
-}
-
-fn branch_implies_formula(branch: &ProofBranch, formula: &Formula) -> bool {
-    match formula_to_nnf(formula, false) {
-        Formula::True => true,
-        Formula::False => !branch.satisfiable,
-        Formula::Atom(atom) => branch_implies_atom(branch, &atom),
-        Formula::And(parts) => parts.iter().all(|part| branch_implies_formula(branch, part)),
-        Formula::Or(parts) => parts.iter().any(|part| branch_implies_formula(branch, part)),
-        Formula::Not(_) => unreachable!("formula_to_nnf eliminates not"),
-    }
-}
-
-fn prove_formula(assumptions: &[Formula], goal: &Formula) -> bool {
-    let assumption_formula = formula_and(assumptions.to_vec());
-    let branches = formula_to_dnf(&formula_to_nnf(&assumption_formula, false));
-    if branches.is_empty() {
-        return true;
-    }
-
-    branches.into_iter().all(|atoms| {
-        let branch = ProofBranch::from_atoms(&atoms);
-        !branch.satisfiable || branch_implies_formula(&branch, goal)
-    })
-}
-
 fn lower_symbolic_formula(
     env: &TypeEnvironment,
     proof_context: &ProofContext,
@@ -1878,7 +1480,7 @@ fn prove_expr_satisfies_constraint(
     proof_context: &ProofContext,
     expr: &Expr,
     constraint: &Expr,
-) -> Result<bool, String> {
+) -> Result<ConstraintProofResult, String> {
     match expr {
         Expr::If(if_expr) => {
             let (condition_formula, condition_assumptions) =
@@ -1888,17 +1490,21 @@ fn prove_expr_satisfies_constraint(
                 .with_assumption(condition_formula.clone());
             let then_ok =
                 prove_expr_satisfies_constraint(env, &then_context, &if_expr.then_branch, constraint)?;
+            if !then_ok.proved() {
+                return Ok(then_ok);
+            }
 
-            let else_ok = if let Some(else_branch) = &if_expr.else_branch {
+            if let Some(else_branch) = &if_expr.else_branch {
                 let else_context = proof_context
                     .with_assumptions(condition_assumptions)
                     .with_assumption(Formula::Not(Box::new(condition_formula)));
-                prove_expr_satisfies_constraint(env, &else_context, else_branch, constraint)?
+                prove_expr_satisfies_constraint(env, &else_context, else_branch, constraint)
             } else {
-                false
-            };
-
-            Ok(then_ok && else_ok)
+                Ok(ConstraintProofResult::Failed(prove_formula(
+                    &proof_context.assumptions,
+                    &Formula::False,
+                )))
+            }
         }
         Expr::Let(let_expr) => {
             let value_type = synthesize(env, &let_expr.value).map_err(|error| error.message)?;
@@ -1922,8 +1528,12 @@ fn prove_expr_satisfies_constraint(
         }
         _ => {
             let (actual, actual_assumptions) = lower_symbolic_value(env, proof_context, expr, None)?;
+            let goal_context = proof_context.with_symbolic_bindings([(
+                "result".to_string(),
+                actual.clone(),
+            )]);
             let (goal, goal_assumptions) =
-                lower_symbolic_formula(env, proof_context, constraint, Some(&actual))?;
+                lower_symbolic_formula(env, &goal_context, constraint, Some(&actual))?;
             let assumptions = proof_context
                 .assumptions
                 .iter()
@@ -1931,7 +1541,11 @@ fn prove_expr_satisfies_constraint(
                 .chain(actual_assumptions)
                 .chain(goal_assumptions)
                 .collect::<Vec<_>>();
-            Ok(prove_formula(&assumptions, &goal))
+            let check = prove_formula(&assumptions, &goal);
+            match check.outcome {
+                SolverOutcome::Proved => Ok(ConstraintProofResult::Proved),
+                _ => Ok(ConstraintProofResult::Failed(check)),
+            }
         }
     }
 }
@@ -1971,6 +1585,24 @@ fn let_proof_context(
         return proof_context.clone();
     };
 
+    if let Expr::Application(app) = value {
+        if let Some(contract) = lookup_contract_for_call(env, &app.func) {
+            if let Ok(result_symbolic) =
+                symbolic_value_for_type_path(env, value_type, &SymbolPath::root(&id_pattern.name))
+            {
+                if let Ok(assumptions) = call_ensure_assumptions(
+                    env,
+                    proof_context,
+                    &contract,
+                    &app.args,
+                    result_symbolic,
+                ) {
+                    return proof_context.clone().with_assumptions(assumptions);
+                }
+            }
+        }
+    }
+
     if !matches!(
         env.normalize_type(value_type),
         InferenceType::Primitive(TPrimitive {
@@ -2005,18 +1637,30 @@ fn scrutinee_symbolic_value(
         })
 }
 
-fn pattern_refinement_formula(
-    scrutinee_value: Option<&SymbolicValue>,
+fn list_pattern_path(path: &SymbolPath, index: usize) -> SymbolPath {
+    let mut next = path.clone();
+    for _ in 0..index {
+        next = next.list_tail();
+    }
+    next
+}
+
+fn formula_for_literal_at_path(
+    env: &TypeEnvironment,
+    scrutinee_type: &InferenceType,
+    path: &SymbolPath,
+    current_symbolic: Option<&SymbolicValue>,
     pattern: &sigil_ast::Pattern,
 ) -> Option<Formula> {
     use sigil_ast::{Pattern, PatternLiteralValue};
-
-    let scrutinee_value = scrutinee_value?;
     let Pattern::Literal(literal) = pattern else {
         return None;
     };
+    let scrutinee_value = current_symbolic
+        .cloned()
+        .or_else(|| symbolic_value_for_type_path(env, scrutinee_type, path).ok())?;
 
-    match (&literal.value, scrutinee_value) {
+    match (&literal.value, &scrutinee_value) {
         (PatternLiteralValue::Bool(value), SymbolicValue::Bool(formula)) => {
             if *value {
                 Some(formula.clone())
@@ -2032,6 +1676,150 @@ fn pattern_refinement_formula(
             }))
         }
         _ => None,
+    }
+}
+
+fn combine_pattern_formulas(parts: Vec<Formula>) -> Option<Formula> {
+    if parts.is_empty() {
+        None
+    } else {
+        Some(formula_and(parts))
+    }
+}
+
+fn sorted_record_field_types(record: &TRecord) -> Vec<(String, InferenceType)> {
+    let mut fields = record
+        .fields
+        .iter()
+        .map(|(name, field_type)| (name.clone(), field_type.clone()))
+        .collect::<Vec<_>>();
+    fields.sort_by(|left, right| left.0.cmp(&right.0));
+    fields
+}
+
+fn pattern_refinement_formula(
+    env: &TypeEnvironment,
+    scrutinee_type: &InferenceType,
+    path: &SymbolPath,
+    current_symbolic: Option<&SymbolicValue>,
+    pattern: &sigil_ast::Pattern,
+) -> Option<Formula> {
+    use sigil_ast::Pattern;
+
+    match pattern {
+        Pattern::Wildcard(_) | Pattern::Identifier(_) => None,
+        Pattern::Literal(_) => {
+            formula_for_literal_at_path(env, scrutinee_type, path, current_symbolic, pattern)
+        }
+        Pattern::Tuple(tuple_pattern) => {
+            let InferenceType::Tuple(tuple_type) = env.normalize_type(scrutinee_type) else {
+                return None;
+            };
+            let mut parts = Vec::new();
+            for (index, (item_pattern, item_type)) in tuple_pattern
+                .patterns
+                .iter()
+                .zip(tuple_type.types.iter())
+                .enumerate()
+            {
+                if let Some(formula) = pattern_refinement_formula(
+                    env,
+                    item_type,
+                    &path.tuple_index(index),
+                    None,
+                    item_pattern,
+                ) {
+                    parts.push(formula);
+                }
+            }
+            combine_pattern_formulas(parts)
+        }
+        Pattern::List(list_pattern) => {
+            let InferenceType::List(list_type) = env.normalize_type(scrutinee_type) else {
+                return None;
+            };
+
+            let mut parts = Vec::new();
+            let length_expr = LinearExpr::from_path(path.length());
+            parts.push(Formula::Atom(Atom::IntCmp {
+                form: length_expr.form.clone(),
+                op: if list_pattern.rest.is_some() {
+                    ComparisonOp::Ge
+                } else {
+                    ComparisonOp::Eq
+                },
+                rhs: list_pattern.patterns.len() as i64,
+            }));
+
+            for (index, item_pattern) in list_pattern.patterns.iter().enumerate() {
+                let item_path = list_pattern_path(path, index).list_head();
+                if let Some(formula) = pattern_refinement_formula(
+                    env,
+                    &list_type.element_type,
+                    &item_path,
+                    None,
+                    item_pattern,
+                ) {
+                    parts.push(formula);
+                }
+            }
+
+            combine_pattern_formulas(parts)
+        }
+        Pattern::Constructor(constructor_pattern) => {
+            let Some(constructor_type) = lookup_constructor_type(
+                env,
+                &constructor_pattern.module_path,
+                &constructor_pattern.name,
+            )
+            .ok()
+            .flatten()
+            else {
+                return None;
+            };
+            let InferenceType::Function(ctor_fn) = constructor_type else {
+                return None;
+            };
+            let subst = unify(&ctor_fn.return_type, scrutinee_type).ok()?;
+            let mut parts = Vec::new();
+            for (index, (item_pattern, item_type)) in constructor_pattern
+                .patterns
+                .iter()
+                .zip(ctor_fn.params.iter())
+                .enumerate()
+            {
+                if let Some(formula) = pattern_refinement_formula(
+                    env,
+                    &apply_subst(&subst, item_type),
+                    &path.variant_field(index),
+                    None,
+                    item_pattern,
+                ) {
+                    parts.push(formula);
+                }
+            }
+            combine_pattern_formulas(parts)
+        }
+        Pattern::Record(record_pattern) => {
+            let InferenceType::Record(record_type) = env.normalize_type(scrutinee_type) else {
+                return None;
+            };
+            let mut parts = Vec::new();
+            for field in &record_pattern.fields {
+                let field_type = record_type.fields.get(&field.name)?;
+                let nested_pattern = field.pattern.as_ref()?;
+                if let Some(formula) = pattern_refinement_formula(
+                    env,
+                    field_type,
+                    &path.field(&field.name),
+                    None,
+                    nested_pattern,
+                ) {
+                    parts.push(formula);
+                }
+            }
+            combine_pattern_formulas(parts)
+        }
     }
 }
 
@@ -2160,7 +1948,37 @@ fn collect_pattern_symbolic_bindings(
 
             Ok(())
         }
-        Pattern::Record(_) => Ok(()),
+        Pattern::Record(record_pattern) => {
+            let InferenceType::Record(record_type) = env.normalize_type(scrutinee_type) else {
+                return Ok(());
+            };
+
+            for field in &record_pattern.fields {
+                let Some(field_type) = record_type.fields.get(&field.name) else {
+                    continue;
+                };
+                let field_path = scrutinee_path.field(&field.name);
+                match &field.pattern {
+                    Some(pattern) => collect_pattern_symbolic_bindings(
+                        env,
+                        pattern,
+                        field_type,
+                        &field_path,
+                        None,
+                        bindings,
+                    )?,
+                    None => {
+                        if let Ok(symbolic) =
+                            symbolic_value_for_type_path(env, field_type, &field_path)
+                        {
+                            bindings.insert(field.name.clone(), symbolic);
+                        }
+                    }
+                }
+            }
+
+            Ok(())
+        }
     }
 }
 
@@ -2182,7 +2000,13 @@ fn match_arm_refinement(
         &mut symbolic_bindings,
     )?;
 
-    let pattern_formula = pattern_refinement_formula(scrutinee_symbolic.as_ref(), &arm.pattern);
+    let pattern_formula = pattern_refinement_formula(
+        env,
+        scrutinee_type,
+        &match_scrutinee_symbolic_root(),
+        scrutinee_symbolic.as_ref(),
+        &arm.pattern,
+    );
     let mut body_context = proof_context.with_symbolic_bindings(symbolic_bindings);
     if let Some(pattern_formula) = &pattern_formula {
         body_context = body_context.with_assumption(pattern_formula.clone());
@@ -2225,7 +2049,7 @@ fn prove_match_expr_satisfies_constraint(
     proof_context: &ProofContext,
     match_expr: &sigil_ast::MatchExpr,
     constraint: &Expr,
-) -> Result<bool, String> {
+) -> Result<ConstraintProofResult, String> {
     let scrutinee_type = synthesize(env, &match_expr.scrutinee).map_err(|error| error.message)?;
     let base_match_context = scrutinee_proof_context(env, proof_context, &match_expr.scrutinee);
     let mut fallthrough_context = base_match_context.clone();
@@ -2244,8 +2068,10 @@ fn prove_match_expr_satisfies_constraint(
         )
         .map_err(|error| error.message)?;
 
-        if !prove_expr_satisfies_constraint(&arm_env, &arm_refinement.body_context, &arm.body, constraint)? {
-            return Ok(false);
+        let arm_proof =
+            prove_expr_satisfies_constraint(&arm_env, &arm_refinement.body_context, &arm.body, constraint)?;
+        if !arm_proof.proved() {
+            return Ok(arm_proof);
         }
 
         if let Some(condition_formula) = arm_refinement.condition_formula {
@@ -2254,7 +2080,7 @@ fn prove_match_expr_satisfies_constraint(
         }
     }
 
-    Ok(true)
+    Ok(ConstraintProofResult::Proved)
 }
 
 fn type_flows_without_new_proof(
@@ -2300,17 +2126,24 @@ fn try_refinement_compatibility(
             )
         })?;
 
-        if proof_result {
+        if proof_result.proved() {
             return Ok(true);
         }
 
-        return Err(TypeError::new(
+        let mut error = TypeError::new(
             format!(
                 "Constraint for '{}' could not be proven here",
                 expected_refinement.name
             ),
             Some(location),
-        ));
+        );
+        if let Some(check) = proof_result.failed_check() {
+            error = error
+                .with_detail("proof", check)
+                .with_detail("proofKind", "refinement")
+                .with_detail("proofSummary", proof_outcome_reason(&check.outcome));
+        }
+        return Err(error);
     }
 
     if let Some(actual_refinement) = resolve_constrained_type(env, actual_type)? {
@@ -2387,6 +2220,14 @@ fn validate_declaration_surface_types(decl: &Declaration) -> Result<(), TypeErro
 
             if let Some(return_type) = &func_decl.return_type {
                 validate_surface_type(return_type)?;
+            }
+
+            if let Some(requires) = &func_decl.requires {
+                validate_expr_surface_types(requires)?;
+            }
+
+            if let Some(ensures) = &func_decl.ensures {
+                validate_expr_surface_types(ensures)?;
             }
 
             validate_expr_surface_types(&func_decl.body)
@@ -2625,6 +2466,185 @@ fn create_constructor_type_with_result_name(
     })))
 }
 
+fn validate_contract_clause(
+    env: &TypeEnvironment,
+    function_name: &str,
+    clause_name: &str,
+    expr: &Expr,
+) -> Result<(), TypeError> {
+    let clause_type = synthesize(env, expr)?;
+    if !same_type(env, &clause_type, &bool_type()) {
+        return Err(TypeError::new(
+            format!(
+                "Function '{}' {} clause must return Bool, got {}",
+                function_name,
+                clause_name,
+                format_type(&clause_type)
+            ),
+            Some(expr_location(expr)),
+        ));
+    }
+
+    let typed = build_typed_expr(env, expr)?;
+    if !typed.effects.is_empty() {
+        return Err(TypeError::new(
+            format!(
+                "Function '{}' {} clause must be pure",
+                function_name, clause_name
+            ),
+            Some(expr_location(expr)),
+        ));
+    }
+
+    lower_symbolic_formula(env, &ProofContext::default(), expr, None).map_err(|reason| {
+        let mut error = TypeError::new(
+            format!(
+                "Function '{}' {} clause uses unsupported proof syntax: {}",
+                function_name, clause_name, reason
+            ),
+            Some(expr_location(expr)),
+        );
+        error = error.with_detail("proofKind", "contract");
+        error
+    })?;
+
+    Ok(())
+}
+
+fn contract_context_for_call(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    contract: &FunctionContract,
+    args: &[Expr],
+) -> Result<ProofContext, String> {
+    let mut next = proof_context.clone();
+
+    for (param_name, arg) in contract.params.iter().zip(args) {
+        let (symbolic_arg, assumptions) = lower_symbolic_value(env, proof_context, arg, None)?;
+        next = next
+            .with_assumptions(assumptions)
+            .with_symbolic_bindings([(param_name.clone(), symbolic_arg)]);
+    }
+
+    Ok(next)
+}
+
+fn prove_contract_clause(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    expr: &Expr,
+) -> Result<ConstraintProofResult, String> {
+    let (goal, assumptions) = lower_symbolic_formula(env, proof_context, expr, None)?;
+    let all_assumptions = proof_context
+        .assumptions
+        .iter()
+        .cloned()
+        .chain(assumptions)
+        .collect::<Vec<_>>();
+    let check = prove_formula(&all_assumptions, &goal);
+    match check.outcome {
+        SolverOutcome::Proved => Ok(ConstraintProofResult::Proved),
+        _ => Ok(ConstraintProofResult::Failed(check)),
+    }
+}
+
+fn lookup_contract_for_call(
+    env: &TypeEnvironment,
+    func: &Expr,
+) -> Option<FunctionContract> {
+    match func {
+        Expr::Identifier(identifier) => env.lookup_function_contract(&identifier.name),
+        _ => None,
+    }
+}
+
+fn call_ensure_assumptions(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    contract: &FunctionContract,
+    args: &[Expr],
+    result_value: SymbolicValue,
+) -> Result<Vec<Formula>, String> {
+    let Some(ensures) = &contract.ensures else {
+        return Ok(Vec::new());
+    };
+
+    let call_context = contract_context_for_call(env, proof_context, contract, args)?
+        .with_symbolic_bindings([("result".to_string(), result_value)]);
+    let (formula, assumptions) = lower_symbolic_formula(env, &call_context, ensures, None)?;
+    let mut combined = assumptions;
+    combined.push(formula);
+    Ok(combined)
+}
+
+fn enforce_call_requires(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    contract: &FunctionContract,
+    args: &[Expr],
+    location: sigil_lexer::SourceLocation,
+) -> Result<(), TypeError> {
+    let Some(requires) = &contract.requires else {
+        return Ok(());
+    };
+
+    let call_context = contract_context_for_call(env, proof_context, contract, args).map_err(
+        |reason| {
+            TypeError::new(
+                format!("Call requires unsupported proof inputs: {}", reason),
+                Some(location),
+            )
+        },
+    )?;
+    let proof =
+        prove_contract_clause(env, &call_context, requires).map_err(|reason| {
+            TypeError::new(
+                format!("Call requires unsupported proof syntax: {}", reason),
+                Some(location),
+            )
+        })?;
+
+    if proof.proved() {
+        return Ok(());
+    }
+
+    let mut error = TypeError::new("Call does not satisfy requires clause".to_string(), Some(location))
+        .with_detail("proofKind", "requires");
+    if let Some(check) = proof.failed_check() {
+        error = error
+            .with_detail("proof", check)
+            .with_detail("proofSummary", proof_outcome_reason(&check.outcome));
+    }
+    Err(error)
+}
+
+fn call_result_proof_context(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    contract: Option<&FunctionContract>,
+    args: &[Expr],
+    result_type: &InferenceType,
+) -> Result<ProofContext, TypeError> {
+    let Some(contract) = contract else {
+        return Ok(proof_context.clone());
+    };
+
+    let Ok(result_symbolic) =
+        symbolic_value_for_type_path(env, result_type, &SymbolPath::root("$call_result"))
+    else {
+        return Ok(proof_context.clone());
+    };
+
+    let assumptions = call_ensure_assumptions(env, proof_context, contract, args, result_symbolic)
+        .map_err(|reason| {
+            TypeError::new(
+                format!("Call ensures unsupported proof syntax: {}", reason),
+                None,
+            )
+        })?;
+    Ok(proof_context.clone().with_assumptions(assumptions))
+}
+
 /// Type check a function declaration
 fn check_function_decl(env: &TypeEnvironment, func_decl: &FunctionDecl) -> Result<(), TypeError> {
     let type_param_env = make_type_param_env(&func_decl.type_params);
@@ -2649,8 +2669,66 @@ fn check_function_decl(env: &TypeEnvironment, func_decl: &FunctionDecl) -> Resul
         .transpose()?
         .unwrap_or(InferenceType::Any);
 
+    if let Some(requires) = &func_decl.requires {
+        validate_contract_clause(&func_env, &func_decl.name, "requires", requires)?;
+    }
+
+    if let Some(ensures) = &func_decl.ensures {
+        let mut ensures_bindings = HashMap::new();
+        ensures_bindings.insert("result".to_string(), expected_return_type.clone());
+        let ensures_env = func_env.extend(Some(ensures_bindings));
+        validate_contract_clause(&ensures_env, &func_decl.name, "ensures", ensures)?;
+    }
+
     // Type check body
-    check(&func_env, &func_decl.body, &expected_return_type)?;
+    let body_context = if let Some(requires) = &func_decl.requires {
+        let (formula, assumptions) =
+            lower_symbolic_formula(&func_env, &ProofContext::default(), requires, None).map_err(
+                |reason| {
+                    TypeError::new(
+                        format!(
+                            "Function '{}' requires clause could not be lowered: {}",
+                            func_decl.name, reason
+                        ),
+                        Some(expr_location(requires)),
+                    )
+                },
+            )?;
+        ProofContext::default()
+            .with_assumptions(assumptions)
+            .with_assumption(formula)
+    } else {
+        ProofContext::default()
+    };
+
+    check_with_context(&func_env, &body_context, &func_decl.body, &expected_return_type)?;
+
+    if let Some(ensures) = &func_decl.ensures {
+        let proof = prove_expr_satisfies_constraint(&func_env, &body_context, &func_decl.body, ensures)
+            .map_err(|reason| {
+                TypeError::new(
+                    format!(
+                        "Function '{}' ensures clause could not be proven: {}",
+                        func_decl.name, reason
+                    ),
+                    Some(expr_location(ensures)),
+                )
+            })?;
+        if !proof.proved() {
+            let mut error = TypeError::new(
+                format!("Function '{}' ensures clause could not be proven", func_decl.name),
+                Some(expr_location(ensures)),
+            );
+            if let Some(check) = proof.failed_check() {
+                error = error
+                    .with_detail("proof", check)
+                    .with_detail("proofKind", "ensures")
+                    .with_detail("proofSummary", proof_outcome_reason(&check.outcome));
+            }
+            return Err(error);
+        }
+    }
+
     let typed_body = build_typed_expr(&func_env, &func_decl.body)?;
     declared_effects_cover_actual(
         env,
@@ -2898,6 +2976,8 @@ fn build_typed_function_decl(
                 "function signature",
             )?)
         },
+        requires: func_decl.requires.clone(),
+        ensures: func_decl.ensures.clone(),
         body,
         location: func_decl.location,
     })
@@ -3794,6 +3874,7 @@ fn synthesize_application(
     app: &sigil_ast::ApplicationExpr,
 ) -> Result<InferenceType, TypeError> {
     validate_topology_application(env, app)?;
+    let call_contract = lookup_contract_for_call(env, &app.func);
 
     let raw_fn_type = synthesize(env, &app.func)?;
     let fn_type = env.normalize_type(&raw_fn_type);
@@ -3848,6 +3929,16 @@ fn synthesize_application(
                     ),
                     Some(app.location),
                 ));
+            }
+
+            if let Some(contract) = call_contract.as_ref() {
+                enforce_call_requires(
+                    env,
+                    &ProofContext::default(),
+                    contract,
+                    &app.args,
+                    app.location,
+                )?;
             }
 
             Ok(apply_subst(&subst, &tfunc.return_type))
@@ -5186,11 +5277,53 @@ fn check_pattern(
 
             Ok(())
         }
+        Pattern::Record(record_pattern) => {
+            let InferenceType::Record(record_type) = env.normalize_type(scrutinee_type) else {
+                return Err(TypeError::new(
+                    format!(
+                        "Record pattern requires record type, got {}",
+                        format_type(scrutinee_type)
+                    ),
+                    Some(record_pattern.location),
+                ));
+            };
 
-        Pattern::Record(_) => Err(TypeError::new(
-            "Record pattern matching not yet implemented".to_string(),
-            None,
-        )),
+            let expected_fields = sorted_record_field_types(&record_type);
+            if record_pattern.fields.len() != expected_fields.len() {
+                return Err(TypeError::new(
+                    format!(
+                        "Exact record pattern for {} must mention all {} fields, got {}",
+                        format_type(&InferenceType::Record(record_type.clone())),
+                        expected_fields.len(),
+                        record_pattern.fields.len()
+                    ),
+                    Some(record_pattern.location),
+                ));
+            }
+
+            for (field_name, field_type) in expected_fields {
+                let Some(field_pattern) = record_pattern
+                    .fields
+                    .iter()
+                    .find(|field| field.name == field_name)
+                else {
+                    return Err(TypeError::new(
+                        format!(
+                            "Exact record pattern is missing field '{}'",
+                            field_name
+                        ),
+                        Some(record_pattern.location),
+                    ));
+                };
+                if let Some(pattern) = &field_pattern.pattern {
+                    check_pattern(env, pattern, &field_type, bindings)?;
+                } else {
+                    bindings.insert(field_name, field_type);
+                }
+            }
+
+            Ok(())
+        }
     }
 }
 
@@ -5236,6 +5369,11 @@ struct VariantSpace {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct RecordSpace {
+    fields: Vec<(String, MatchSpace)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ListSpace {
     Any(Box<MatchSpace>),
     Nil,
@@ -5250,6 +5388,7 @@ enum MatchSpace {
     Empty,
     Primitive(PrimitiveSpace),
     Variant(VariantSpace),
+    Record(RecordSpace),
     Tuple(Vec<MatchSpace>),
     List(ListSpace),
     Union(Vec<MatchSpace>),
@@ -5459,6 +5598,7 @@ fn intervals_touch_or_overlap(left: &IntInterval, right: &IntInterval) -> bool {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum ValuePathStep {
+    Field(String),
     VariantField(usize),
     TupleIndex(usize),
     ListHead,
@@ -5660,6 +5800,7 @@ fn coverage_scrutinee_roots(
             .map(|(path, _)| vec![path.clone()])
             .unwrap_or_default(),
         SymbolicValue::Bool(Formula::Atom(Atom::BoolEq { path, value: true })) => vec![path],
+        SymbolicValue::Collection(SymbolicCollection::Path(path)) => vec![path],
         SymbolicValue::Record(SymbolicRecord::Path { base, .. }) => vec![base],
         _ => vec![],
     }
@@ -5680,6 +5821,7 @@ fn symbol_path_to_value_path(path: &SymbolPath, scrutinee_roots: &[SymbolPath]) 
             let mut value_path = Vec::new();
             for step in &path.0[matched_root.0.len()..] {
                 match step {
+                    SymbolPathStep::Field(name) => value_path.push(ValuePathStep::Field(name.clone())),
                     SymbolPathStep::VariantField(index) => {
                         value_path.push(ValuePathStep::VariantField(*index))
                     }
@@ -5688,7 +5830,7 @@ fn symbol_path_to_value_path(path: &SymbolPath, scrutinee_roots: &[SymbolPath]) 
                     }
                     SymbolPathStep::ListHead => value_path.push(ValuePathStep::ListHead),
                     SymbolPathStep::ListTail => value_path.push(ValuePathStep::ListTail),
-                    SymbolPathStep::Field(_) | SymbolPathStep::Binding(_) => return None,
+                    SymbolPathStep::Binding(_) | SymbolPathStep::Length => return None,
                 }
             }
             return Some(value_path);
@@ -5699,11 +5841,14 @@ fn symbol_path_to_value_path(path: &SymbolPath, scrutinee_roots: &[SymbolPath]) 
     let mut value_path = Vec::new();
     for step in parts {
         match step {
+            SymbolPathStep::Field(name) => value_path.push(ValuePathStep::Field(name.clone())),
             SymbolPathStep::VariantField(index) => value_path.push(ValuePathStep::VariantField(*index)),
             SymbolPathStep::TupleIndex(index) => value_path.push(ValuePathStep::TupleIndex(*index)),
             SymbolPathStep::ListHead => value_path.push(ValuePathStep::ListHead),
             SymbolPathStep::ListTail => value_path.push(ValuePathStep::ListTail),
-            SymbolPathStep::Field(_) | SymbolPathStep::Binding(_) => return None,
+            SymbolPathStep::Binding(_) | SymbolPathStep::Length => {
+                return None
+            }
         }
     }
 
@@ -5759,7 +5904,10 @@ fn atom_to_space_subset(
         }
         Atom::IntCmp { form, op, rhs } => {
             if form.terms.is_empty() {
-                return Some(if prove_formula(&[], &Formula::Atom(atom.clone())) {
+                return Some(if matches!(
+                    prove_formula(&[], &Formula::Atom(atom.clone())).outcome,
+                    SolverOutcome::Proved
+                ) {
                     base_space.clone()
                 } else {
                     MatchSpace::Empty
@@ -5872,13 +6020,20 @@ fn total_space_for_type_inner(
                 .map(|item| total_space_for_type_inner(env, item, visiting))
                 .collect::<Result<Vec<_>, _>>()?,
         )),
+        InferenceType::Record(record) => Ok(MatchSpace::Record(RecordSpace {
+            fields: sorted_record_field_types(&record)
+                .into_iter()
+                .map(|(name, field_type)| {
+                    total_space_for_type_inner(env, &field_type, visiting).map(|space| (name, space))
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        })),
         InferenceType::List(list) => Ok(MatchSpace::List(ListSpace::Any(Box::new(
             total_space_for_type_inner(env, &list.element_type, visiting)?,
         )))),
         InferenceType::Constructor(constructor) => {
             total_space_for_constructor_inner(env, &constructor, visiting)
         }
-        InferenceType::Record(_) => Ok(MatchSpace::Opaque(format_type(&normalized))),
         InferenceType::Function(_)
         | InferenceType::Any
         | InferenceType::Var(_)
@@ -6142,7 +6297,43 @@ fn pattern_to_space(
                 fields,
             }))
         }
-        Pattern::Record(_) => Ok(MatchSpace::Empty),
+        Pattern::Record(record_pattern) => {
+            let InferenceType::Record(record_type) = &normalized_scrutinee_type else {
+                return Ok(MatchSpace::Empty);
+            };
+            let expected_fields = sorted_record_field_types(record_type);
+            if record_pattern.fields.len() != expected_fields.len() {
+                return Ok(MatchSpace::Empty);
+            }
+
+            let mut fields = Vec::new();
+            for (field_name, field_type) in expected_fields {
+                let Some(field_pattern) = record_pattern
+                    .fields
+                    .iter()
+                    .find(|field| field.name == field_name)
+                else {
+                    return Ok(MatchSpace::Empty);
+                };
+                let mut field_path = path.clone();
+                field_path.push(ValuePathStep::Field(field_name.clone()));
+                let field_space = if let Some(pattern) = &field_pattern.pattern {
+                    pattern_to_space(
+                        env,
+                        &field_type,
+                        pattern,
+                        bindings,
+                        &field_path,
+                        visiting,
+                    )?
+                } else {
+                    bindings.insert(field_name.clone(), field_path);
+                    total_space_for_type_inner(env, &field_type, visiting)?
+                };
+                fields.push((field_name, field_space));
+            }
+            Ok(MatchSpace::Record(RecordSpace { fields }))
+        }
     }
 }
 
@@ -6207,6 +6398,7 @@ fn space_is_empty(space: &MatchSpace) -> bool {
             PrimitiveSpace::EqFinite { values, .. } => values.is_empty(),
         },
         MatchSpace::Variant(variant) => variant.fields.iter().any(space_is_empty),
+        MatchSpace::Record(record) => record.fields.iter().any(|(_, field)| space_is_empty(field)),
         MatchSpace::Tuple(items) => items.iter().any(space_is_empty),
         MatchSpace::List(list) => match list {
             ListSpace::Any(_) => false,
@@ -6236,6 +6428,18 @@ fn normalize_space(space: MatchSpace) -> MatchSpace {
                     name: variant.name,
                     fields,
                 })
+            }
+        }
+        MatchSpace::Record(record) => {
+            let fields = record
+                .fields
+                .into_iter()
+                .map(|(name, field)| (name, normalize_space(field)))
+                .collect::<Vec<_>>();
+            if fields.iter().any(|(_, field)| space_is_empty(field)) {
+                MatchSpace::Empty
+            } else {
+                MatchSpace::Record(RecordSpace { fields })
             }
         }
         MatchSpace::Tuple(items) => {
@@ -6616,6 +6820,25 @@ fn space_intersection(left: &MatchSpace, right: &MatchSpace) -> MatchSpace {
                     .collect(),
             }))
         }
+        (MatchSpace::Record(left), MatchSpace::Record(right))
+            if left.fields.len() == right.fields.len()
+                && left
+                    .fields
+                    .iter()
+                    .zip(right.fields.iter())
+                    .all(|((left_name, _), (right_name, _))| left_name == right_name) =>
+        {
+            normalize_space(MatchSpace::Record(RecordSpace {
+                fields: left
+                    .fields
+                    .iter()
+                    .zip(right.fields.iter())
+                    .map(|((name, left), (_, right))| {
+                        (name.clone(), space_intersection(left, right))
+                    })
+                    .collect(),
+            }))
+        }
         (MatchSpace::Tuple(left), MatchSpace::Tuple(right)) if left.len() == right.len() => {
             normalize_space(MatchSpace::Tuple(
                 left.iter()
@@ -6696,6 +6919,17 @@ fn space_difference(base: &MatchSpace, remove: &MatchSpace) -> MatchSpace {
             difference_variant(left, right)
         }
         (MatchSpace::Variant(_), MatchSpace::Variant(_)) => base.clone(),
+        (MatchSpace::Record(left), MatchSpace::Record(right))
+            if left.fields.len() == right.fields.len()
+                && left
+                    .fields
+                    .iter()
+                    .zip(right.fields.iter())
+                    .all(|((left_name, _), (right_name, _))| left_name == right_name) =>
+        {
+            difference_record(left, right)
+        }
+        (MatchSpace::Record(_), MatchSpace::Record(_)) => base.clone(),
         (MatchSpace::Tuple(left), MatchSpace::Tuple(right)) if left.len() == right.len() => {
             difference_tuple(left, right)
         }
@@ -6730,6 +6964,16 @@ fn space_subset_of(left: &MatchSpace, right: &MatchSpace) -> bool {
                     .iter()
                     .zip(right.fields.iter())
                     .all(|(left, right)| space_subset_of(left, right))
+        }
+        (MatchSpace::Record(left), MatchSpace::Record(right)) => {
+            left.fields.len() == right.fields.len()
+                && left
+                    .fields
+                    .iter()
+                    .zip(right.fields.iter())
+                    .all(|((left_name, left), (right_name, right))| {
+                        left_name == right_name && space_subset_of(left, right)
+                    })
         }
         (MatchSpace::Tuple(left), MatchSpace::Tuple(right)) => {
             left.len() == right.len()
@@ -6792,6 +7036,35 @@ fn difference_tuple(left: &[MatchSpace], right: &[MatchSpace]) -> MatchSpace {
     let products = difference_product_fields(left, right);
     normalize_space(MatchSpace::Union(
         products.into_iter().map(MatchSpace::Tuple).collect(),
+    ))
+}
+
+fn difference_record(left: &RecordSpace, right: &RecordSpace) -> MatchSpace {
+    let left_fields = left
+        .fields
+        .iter()
+        .map(|(_, field)| field.clone())
+        .collect::<Vec<_>>();
+    let right_fields = right
+        .fields
+        .iter()
+        .map(|(_, field)| field.clone())
+        .collect::<Vec<_>>();
+    let products = difference_product_fields(&left_fields, &right_fields);
+    normalize_space(MatchSpace::Union(
+        products
+            .into_iter()
+            .map(|fields| {
+                MatchSpace::Record(RecordSpace {
+                    fields: left
+                        .fields
+                        .iter()
+                        .map(|(name, _)| name.clone())
+                        .zip(fields)
+                        .collect(),
+                })
+            })
+            .collect(),
     ))
 }
 
@@ -6934,6 +7207,19 @@ fn refine_space_at_path(
                 fields,
             })))
         }
+        MatchSpace::Record(record) => {
+            let ValuePathStep::Field(name) = step else {
+                return None;
+            };
+            let index = record
+                .fields
+                .iter()
+                .position(|(field_name, _)| field_name == name)?;
+            let refined_field = refine_space_at_path(&record.fields[index].1, rest, constraint)?;
+            let mut fields = record.fields.clone();
+            fields[index].1 = refined_field;
+            Some(normalize_space(MatchSpace::Record(RecordSpace { fields })))
+        }
         MatchSpace::Tuple(items) => {
             let ValuePathStep::TupleIndex(index) = step else {
                 return None;
@@ -7051,6 +7337,18 @@ fn collect_case_summaries(space: &MatchSpace, limit: usize, out: &mut Vec<String
             } else {
                 format!("{}({})", variant.name, fields.join(","))
             };
+            push_unique(out, summary);
+        }
+        MatchSpace::Record(record) => {
+            let summary = format!(
+                "{{{}}}",
+                record
+                    .fields
+                    .iter()
+                    .map(|(name, field)| format!("{}:{}", name, case_summary_atom(field)))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
             push_unique(out, summary);
         }
         MatchSpace::Tuple(items) => {
@@ -7238,7 +7536,18 @@ fn pattern_summary(pattern: &sigil_ast::Pattern) -> String {
                 )
             }
         }
-        Pattern::Record(_) => "{...}".to_string(),
+        Pattern::Record(record) => format!(
+            "{{{}}}",
+            record
+                .fields
+                .iter()
+                .map(|field| match &field.pattern {
+                    Some(pattern) => format!("{}:{}", field.name, pattern_summary(pattern)),
+                    None => field.name.clone(),
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
     }
 }
 
@@ -7380,6 +7689,7 @@ fn check_application(
     app: &sigil_ast::ApplicationExpr,
     expected_type: &InferenceType,
 ) -> Result<(), TypeError> {
+    let call_contract = lookup_contract_for_call(env, &app.func);
     let raw_fn_type = synthesize(env, &app.func)?;
     let fn_type = env.normalize_type(&raw_fn_type);
 
@@ -7436,10 +7746,16 @@ fn check_application(
         ));
     }
 
+    if let Some(contract) = call_contract.as_ref() {
+        enforce_call_requires(env, proof_context, contract, &app.args, app.location)?;
+    }
+
     let actual_return = apply_subst(&subst, &tfunc.return_type);
+    let result_context =
+        call_result_proof_context(env, proof_context, call_contract.as_ref(), &app.args, &actual_return)?;
     ensure_expr_matches_expected(
         env,
-        proof_context,
+        &result_context,
         &Expr::Application(Box::new(app.clone())),
         &actual_return,
         expected_type,
@@ -8364,8 +8680,86 @@ mod tests {
     }
 
     #[test]
-    fn test_constrained_type_rejects_unsupported_refinement_syntax() {
-        let source = "t NonEmpty=String where #value>0\nλmain()=>Unit=()";
+    fn test_function_requires_and_ensures_typecheck() {
+        let source = "t BirthYear=Int where value>1800\nλnormalizeYear(raw:Int)=>Int\nrequires raw>0\nensures result>1800\nmatch raw>1800{\n  true=>raw|\n  false=>1900\n}\nλmain()=>BirthYear=normalizeYear(100)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_call_requires_clause_rejects_unproven_call_site() {
+        let source = "λpositiveOnly(value:Int)=>Int\nrequires value>0\n=value\nλmain()=>Int=positiveOnly(0)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let error = type_check(&program, source, TypeCheckOptions::default()).unwrap_err();
+        assert!(error.message.contains("Call does not satisfy requires clause"));
+        let details = error.details.unwrap();
+        assert_eq!(details.get("proofKind").unwrap(), &serde_json::json!("requires"));
+    }
+
+    #[test]
+    fn test_function_ensures_flows_across_calls_into_refinement() {
+        let source = "t BirthYear=Int where value>1800\nλnormalizeYear(raw:Int)=>Int\nensures result>1800\nmatch raw>1800{\n  true=>raw|\n  false=>1900\n}\nλmain()=>BirthYear=normalizeYear(10)";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_function_ensures_rejects_unprovable_body() {
+        let source = "λbad(raw:Int)=>Int\nensures result>raw\n=raw";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let error = type_check(&program, source, TypeCheckOptions::default()).unwrap_err();
+        assert!(error
+            .message
+            .contains("Function 'bad' ensures clause could not be proven"));
+        let details = error.details.unwrap();
+        assert_eq!(details.get("proofKind").unwrap(), &serde_json::json!("ensures"));
+    }
+
+    #[test]
+    fn test_exact_record_patterns_typecheck_and_cover_bool_space() {
+        let source =
+            "t Flagged={done:Bool,id:Int}\nλmain(item:Flagged)=>Int match item{\n  {done:true,id}=>id|\n  {done:false,id}=>id\n}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_exact_record_pattern_can_feed_refinement_from_field_fact() {
+        let source =
+            "t BirthYear=Int where value>1800\n\nt User={birthYear:Int,name:String}\n\nλpick(user:User)=>BirthYear match user{\n  {birthYear:year,name}=>match year>1800{\n    true=>year|\n    false=>1900\n  }\n}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_type_supports_builtin_length_measures() {
+        let source = "t NonEmpty=String where #value>0\nλmain()=>NonEmpty=\"ok\"";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_type_rejects_still_unsupported_refinement_syntax() {
+        let source = "t Positive=Int where value*2>0\nλmain()=>Unit=()";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "src/types.lib.sigil").unwrap();
 

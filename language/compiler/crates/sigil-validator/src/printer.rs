@@ -130,9 +130,30 @@ impl Printer {
             self.push(&self.type_text(return_type));
         }
 
+        if let Some(requires) = &function.requires {
+            self.newline();
+            self.indent(indent);
+            self.push("requires ");
+            self.push(&self.expr(requires, indent, 0));
+        }
+
+        if let Some(ensures) = &function.ensures {
+            self.newline();
+            self.indent(indent);
+            self.push("ensures ");
+            self.push(&self.expr(ensures, indent, 0));
+        }
+
+        if function.requires.is_some() || function.ensures.is_some() {
+            self.newline();
+            self.indent(indent);
+        }
+
         match &function.body {
             Expr::Match(match_expr) => {
-                self.push(" ");
+                if function.requires.is_none() && function.ensures.is_none() {
+                    self.push(" ");
+                }
                 self.match_expr(match_expr, indent);
             }
             Expr::Let(let_expr) => {

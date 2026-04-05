@@ -34,6 +34,7 @@ The important design choices are:
 | --- | --- |
 | Did the compiler reject the source shape? | `sigil inspect validate <file-or-dir>` |
 | What top-level types did the checker solve? | `sigil inspect types <file-or-dir>` |
+| Which proof surfaces and branch gates exist here? | `sigil inspect proof <file-or-dir>` |
 | What runtime world will this env use? | `sigil inspect world <path> --env <name>` |
 | What TypeScript did this compile to? | `sigil inspect codegen <file-or-dir>` |
 | Where did one run fail? | `sigil run --json <file>` |
@@ -80,6 +81,30 @@ Current scope:
 - top-level declaration-focused
 - useful for exported/library surfaces and entry declarations
 - not a nested-expression type explorer
+
+### `sigil inspect proof`
+
+Use this when you need the declared proof surface without waiting for a failing
+compile.
+
+```bash
+sigil inspect proof language/examples/genericFunctions.sigil
+```
+
+Current scope:
+
+- type `where` constraints
+- function `requires` clauses
+- function `ensures` clauses
+- `match` arms and guards
+- `if` conditions
+
+This surface inventories proof sites. It does not yet replay every solver step.
+Use it to answer questions like:
+
+- where does this module introduce refinements or contracts?
+- which branches participate in narrowing?
+- how many proof-bearing sites exist in this file or directory?
 
 ### `sigil inspect world`
 

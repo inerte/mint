@@ -6855,6 +6855,8 @@ mod tests {
                 params: vec![],
                 return_type: InferenceType::Any,
                 effects: None,
+                requires: None,
+                ensures: None,
                 body: TypedExpr {
                     kind: TypedExprKind::ConstructorCall(TypedConstructorCallExpr {
                         module_path: Some(vec!["src".to_string(), "graphTypes".to_string()]),
@@ -7147,6 +7149,8 @@ mod tests {
                 params: vec![],
                 return_type: InferenceType::Any,
                 effects: None,
+                requires: None,
+                ensures: None,
                 body: TypedExpr {
                     kind: TypedExprKind::Call(TypedCallExpr {
                         func: Box::new(TypedExpr {

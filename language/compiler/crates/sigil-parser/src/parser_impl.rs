@@ -124,6 +124,22 @@ impl Parser {
         let effects = self.parse_effects()?;
 
         let return_type = Some(self.parse_type()?);
+        let requires = if self.match_token(TokenType::Requires) {
+            Some(self.contract_clause_expression("requires")?)
+        } else {
+            None
+        };
+        let ensures = if self.match_token(TokenType::Ensures) {
+            Some(self.contract_clause_expression("ensures")?)
+        } else {
+            None
+        };
+
+        if self.check(TokenType::Requires) || self.check(TokenType::Ensures) {
+            return Err(self.error(
+                "Function contracts use at most one requires and one ensures clause, in that order",
+            ));
+        }
 
         // Canonical form: = required UNLESS body starts with match expression
         let has_equal = self.match_token(TokenType::EQUAL);
@@ -150,9 +166,61 @@ impl Parser {
             params,
             effects,
             return_type,
+            requires,
+            ensures,
             body,
             location,
         }))
+    }
+
+    fn contract_clause_expression(&mut self, clause_name: &str) -> Result<Expr, ParseError> {
+        if self.is_at_end() {
+            return Err(self.error(&format!(
+                "Expected expression after {} clause",
+                clause_name
+            )));
+        }
+
+        let start_index = self.current;
+        let clause_line = self.peek().location.start.line;
+        let mut end_index = start_index;
+        while end_index < self.tokens.len() {
+            let token = &self.tokens[end_index];
+            if token.token_type == TokenType::EOF || token.location.start.line != clause_line {
+                break;
+            }
+            end_index += 1;
+        }
+
+        if end_index == start_index {
+            return Err(self.error(&format!(
+                "Expected expression after {} clause",
+                clause_name
+            )));
+        }
+
+        let mut clause_tokens = self.tokens[start_index..end_index].to_vec();
+        let eof_location = clause_tokens
+            .last()
+            .map(|token| SourceLocation::single(token.location.end))
+            .unwrap_or_else(|| SourceLocation::single(self.peek().location.start));
+        clause_tokens.push(Token::new(TokenType::EOF, String::new(), eof_location));
+
+        let mut subparser = Parser {
+            tokens: clause_tokens,
+            current: 0,
+            filename: self.filename.clone(),
+        };
+        let expr = subparser.expression()?;
+        if !subparser.is_at_end() {
+            return Err(self.error(&format!(
+                "{} clause must stay on one canonical line",
+                clause_name
+            )));
+        }
+
+        self.current = end_index;
+        Ok(expr)
     }
 
     fn parameter_list(&mut self) -> Result<Vec<Param>, ParseError> {

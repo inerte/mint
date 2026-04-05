@@ -32,6 +32,10 @@ pub struct FunctionDecl {
     pub effects: Vec<String>, // Effect annotations: ['IO', 'Network', 'Error', 'Mut']
     #[cfg_attr(feature = "serde", serde(rename = "returnType"))]
     pub return_type: Option<Type>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub requires: Option<Expr>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub ensures: Option<Expr>,
     pub body: Expr,
     pub location: SourceLocation,
 }

@@ -8504,7 +8504,7 @@ fn compile_module_graph(
         if let Some(parent) = generated_output.output_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::write(&generated_output.output_path, generated_output.ts_code)?;
+        write_atomic_file(&generated_output.output_path, generated_output.ts_code.as_bytes())?;
         write_span_map_file(&generated_output.span_map_path, &generated_output.span_map)?;
         module_outputs.insert(module_id.clone(), generated_output.output_path);
         span_map_outputs.insert(module_id, generated_output.span_map_path);
@@ -8523,10 +8523,48 @@ fn span_map_output_path(output_path: &Path) -> PathBuf {
     output_path.with_extension("span.json")
 }
 
+fn atomic_write_path(path: &Path) -> PathBuf {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let file_name = path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    path.with_file_name(format!(
+        ".{}.{}.{}.tmp",
+        file_name,
+        std::process::id(),
+        unique
+    ))
+}
+
+fn write_atomic_file(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let temp_path = atomic_write_path(path);
+    fs::write(&temp_path, bytes)?;
+
+    #[cfg(windows)]
+    if path.exists() {
+        fs::remove_file(path)?;
+    }
+
+    fs::rename(&temp_path, path).map_err(|error| {
+        let _ = fs::remove_file(&temp_path);
+        CliError::Io(error)
+    })?;
+    Ok(())
+}
+
 fn write_span_map_file(path: &Path, span_map: &ModuleSpanMap) -> Result<(), CliError> {
     let serialized = serde_json::to_string(span_map)
         .map_err(|error| CliError::Codegen(format!("failed to serialize span map: {}", error)))?;
-    fs::write(path, serialized)?;
+    write_atomic_file(path, serialized.as_bytes())?;
     Ok(())
 }
 

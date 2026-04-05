@@ -36,6 +36,8 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.z3-trace
+**/.z3-trace
 
 # Testing
 coverage/

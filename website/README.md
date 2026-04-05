@@ -1,4 +1,4 @@
-# ⌬ Sigil
+# Sigil
 
 A programming language for Claude Code and other AI coding agents.
 

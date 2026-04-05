@@ -10,10 +10,7 @@
 
 λdocsDriftRoot(root:String)=>String=§path.join(§path.join(root,"projects"),"docsDriftAudit")
 
-λfailedCommandMessage(command:§process.Command,result:§process.ProcessResult)=>String="command failed: "++(§string.join(" ",command.argv):String)++(match command.cwd{
-  Some(value)=>" (cwd "++value++")"|
-  None()=>""
-}:String)++" (exit "++(§string.intToString(result.code):String)++")"
+λfailedCommandMessage(command:§process.Command,result:§process.ProcessResult)=>String="command failed: "++renderCommand(command.argv)++" (exit "++(§string.intToString(result.code):String)++")"
 
 λfailedSuiteMessage(suite:µSuiteResult)=>String=failedCommandMessage(suite.command,suite.result)
 
@@ -74,6 +71,16 @@
   l _=(§io.println(""):Unit);
   l _=(§io.println("==> "++suite.label):Unit);
   printResultOutput(suite.result)
+}
+
+λrenderCommand(args:[String])=>String match args{
+  []=>""|
+  [head,.tail]=>renderCommandRest(§path.basename(head),tail)
+}
+
+λrenderCommandRest(acc:String,args:[String])=>String match args{
+  []=>acc|
+  [head,.tail]=>renderCommandRest(acc++" "++head,tail)
 }
 
 λrepoRoot()=>!Process Result[String,String]={

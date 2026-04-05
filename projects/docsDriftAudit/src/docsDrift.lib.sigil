@@ -73,7 +73,7 @@
     false=>{
       l _=(§file.writeText(wrappedSource++"
 ",snippetPath):Unit);
-      l result=(§process.run(compilerCommand([subcommand,snippetPath],root)):§process.ProcessResult);
+      l result=(§process.run(compilerCommand([subcommand,relativeToRootPath(root,snippetPath)],root)):§process.ProcessResult);
       match expectsSuccess{
         true=>match result.code=0{
           true=>[]|
@@ -277,11 +277,19 @@
 λreadStdlibExportsInner(acc:[String],paths:[String],root:String)=>!AuditIo Result[[String],String] match paths{
   []=>Ok(acc)|
   [head,.tail]=>{
-    l parseResult=(§process.run(compilerCommand(["parse",§path.join(root,head)],root)):§process.ProcessResult);
+    l parseResult=(§process.run(compilerCommand(["parse",head],root)):§process.ProcessResult);
     match parseResult.code=0{
       true=>readStdlibExportsInner(mergeUnique(acc,•coverage.collectStdlibExports(head,parseResult.stdout)),tail,root)|
       false=>Err("sigil parse failed for "++head++": "++processOutput(parseResult))
     }
+  }
+}
+
+λrelativeToRootPath(root:String,value:String)=>String match value=root{
+  true=>"."|
+  false=>match §string.startsWith(root++"/",value){
+    true=>§string.substring(#value,value,#root+1)|
+    false=>value
   }
 }
 

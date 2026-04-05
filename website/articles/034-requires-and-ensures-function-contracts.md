@@ -59,6 +59,10 @@ match raw>1800{
 }
 ```
 
+The canonical runnable example for this surface now lives in
+`language/examples/functionContracts.sigil`, and the companion measure/narrowing
+example lives in `language/examples/proofMeasures.sigil`.
+
 The split is intentional:
 
 - `where` defines membership in a type
@@ -133,3 +137,6 @@ There is still one canonical way to express each kind of fact:
 The compiler can now prove more across call boundaries, and agents get a more
 useful machine-readable failure surface, without forcing users to write proof
 scripts or learn a second mini-language.
+
+For how this moved from isolated snippets into real project code, see
+`dogfooding-contracts-and-refinements`.

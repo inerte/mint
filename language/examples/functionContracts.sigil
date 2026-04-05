@@ -1,0 +1,15 @@
+t BirthYear=Int where value>1800
+
+λmain()=>Int=positiveGap(1800,normalizeYear(1700))
+
+λnormalizeYear(raw:Int)=>Int
+ensures result>1800
+match raw>1800{
+  true=>raw|
+  false=>1900
+}
+
+λpositiveGap(baseline:Int,current:BirthYear)=>Int
+requires current≥baseline
+ensures result≥0
+=current-baseline

@@ -159,18 +159,29 @@ t BirthYear=Int where value>1800
 }
 ```
 
+Runnable examples:
+
+- `language/examples/functionContracts.sigil`
+- `language/examples/proofMeasures.sigil`
+
 ## Function Contracts
 
 Functions may also carry pure compile-time contracts:
 
 ```sigil module
+t BirthYear=Int where value>1800
+
 λnormalizeYear(raw:Int)=>Int
-requires raw>0
 ensures result>1800
 match raw>1800{
   true=>raw|
   false=>1900
 }
+
+λpositiveGap(baseline:Int,current:BirthYear)=>Int
+requires current≥baseline
+ensures result≥0
+=current-baseline
 ```
 
 Current rules:
@@ -191,6 +202,15 @@ That makes `where`, `requires`, and `ensures` complementary:
 - `where` defines membership in a type
 - `requires` states what a caller must prove before a call
 - `ensures` states what the callee guarantees after the call returns
+
+The same surfaces now appear in runnable project code too:
+
+- `projects/todo-app/src/todoDomain.lib.sigil`
+- `projects/flashcards/src/flashcardsDomain.lib.sigil`
+- `projects/algorithms/src/fibonacciSearch.lib.sigil`
+- `projects/game-2048/src/game2048.lib.sigil`
+- `projects/minesweep/src/minesweepDomain.lib.sigil`
+- `projects/roguelike/src/roguelike.lib.sigil`
 
 ## Type Equality
 

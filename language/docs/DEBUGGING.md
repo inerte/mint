@@ -88,7 +88,7 @@ Use this when you need the declared proof surface without waiting for a failing
 compile.
 
 ```bash
-sigil inspect proof language/examples/genericFunctions.sigil
+sigil inspect proof language/examples/functionContracts.sigil
 ```
 
 Current scope:
@@ -105,6 +105,11 @@ Use it to answer questions like:
 - where does this module introduce refinements or contracts?
 - which branches participate in narrowing?
 - how many proof-bearing sites exist in this file or directory?
+
+The canonical runnable proof examples are:
+
+- `language/examples/functionContracts.sigil`
+- `language/examples/proofMeasures.sigil`
 
 ### `sigil inspect world`
 

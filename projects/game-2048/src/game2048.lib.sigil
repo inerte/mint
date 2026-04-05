@@ -1,6 +1,8 @@
 c boardSize=(4:Int)
 
-λapplyMove(direction:String,game:µGame)=>µGame match game.status{
+λapplyMove(direction:String,game:µGame)=>µGame
+ensures result.size=game.size
+match game.status{
   "playing"=>{
     l outcome=(match direction{
       "down"=>moveColumnsDown(game.board,0,0)|
@@ -41,7 +43,9 @@ c boardSize=(4:Int)
 
 λcontainsWinningTile(board:[µCell])=>Bool=board reduce (λ(acc:Bool,cell:µCell)=>Bool=acc or cell.value=2048) from false
 
-λemptyGame()=>µGame={board:(buildBoard(0):[µCell]),score:0,size:boardSize,status:"playing"}
+λemptyGame()=>µGame
+ensures result.score=0 and result.size=boardSize
+={board:(buildBoard(0):[µCell]),score:0,size:boardSize,status:"playing"}
 
 λhasEmptyCell(board:[µCell])=>Bool=board reduce (λ(acc:Bool,cell:µCell)=>Bool=acc or cell.value=0) from false
 

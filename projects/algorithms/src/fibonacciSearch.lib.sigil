@@ -1,4 +1,6 @@
-λcandidateIndex(frame:µFibFrame,xs:[Int])=>Int=minIndex(#xs-1,frame.offset+frame.fibMm2)
+λcandidateIndex(frame:µFibFrame,xs:[Int])=>Int
+ensures result<#xs
+=minIndex(#xs-1,frame.offset+frame.fibMm2)
 
 λfibonacciSearch(target:Int,xs:[Int])=>Int match #xs=0{
   true=>-1|
@@ -17,7 +19,9 @@
   false=>frame
 }
 
-λminIndex(left:Int,right:Int)=>Int match left<right{
+λminIndex(left:Int,right:Int)=>Int
+ensures result≤left and result≤right
+match left<right{
   true=>left|
   false=>right
 }

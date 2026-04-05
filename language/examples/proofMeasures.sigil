@@ -1,0 +1,15 @@
+t NonEmpty=[Int] where #value>0
+
+λmain()=>Int=#takeOne(normalize([]))
+
+λnormalize(values:[Int])=>NonEmpty match values{
+  []=>[0]|
+  [head,.tail]=>[head]
+}
+
+λtakeOne(values:[Int])=>[Int]
+ensures #result≤1
+match values{
+  []=>[]|
+  [head,.tail]=>[head]
+}

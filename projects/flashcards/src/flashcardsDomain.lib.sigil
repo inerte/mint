@@ -18,7 +18,9 @@
   false=>{cards:session.cards,currentIndex:session.currentIndex-1,revealed:false,selectedTopic:session.selectedTopic,topics:session.topics}
 }
 
-λrevealAnswer(session:µStudySession)=>µStudySession={cards:session.cards,currentIndex:session.currentIndex,revealed:true,selectedTopic:session.selectedTopic,topics:session.topics}
+λrevealAnswer(session:µStudySession)=>µStudySession
+ensures result.revealed
+={cards:session.cards,currentIndex:session.currentIndex,revealed:true,selectedTopic:session.selectedTopic,topics:session.topics}
 
 λselectCards(cards:[µCard],selectedTopic:String)=>[µCard] match cards{
   []=>[]|
@@ -28,6 +30,8 @@
   }
 }
 
-λsessionForTopic(selectedTopic:String)=>µStudySession={cards:(selectCards(allCards(),selectedTopic):[µCard]),currentIndex:0,revealed:false,selectedTopic:selectedTopic,topics:(topicCatalog():[String])}
+λsessionForTopic(selectedTopic:String)=>µStudySession
+ensures result.currentIndex=0 and ¬result.revealed
+={cards:(selectCards(allCards(),selectedTopic):[µCard]),currentIndex:0,revealed:false,selectedTopic:selectedTopic,topics:(topicCatalog():[String])}
 
 λtopicCatalog()=>[String]=["all","topology","worlds","types","boundaries","testing","debugging","concurrency","canonical"]

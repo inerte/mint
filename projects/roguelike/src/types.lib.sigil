@@ -8,7 +8,9 @@ t Direction=East()|North()|South()|West()
 
 t Frame={map:String,status:String,turn:Int}
 
-t GameState={actorIndex:{String↦Actor},actors:[Actor],collectedTreasure:Int,exit:Point,floorIndex:{String↦Bool},floors:[Point],lastAction:String,loadout:PlayerLoadout,pickupIndex:{String↦Pickup},pickups:[Pickup],rooms:[Room],turn:Int}
+t InventoryCount=Int where value≥0
+
+t GameState={actorIndex:{String↦Actor},actors:[Actor],collectedTreasure:TreasureCount,exit:Point,floorIndex:{String↦Bool},floors:[Point],lastAction:String,loadout:PlayerLoadout,pickupIndex:{String↦Pickup},pickups:[Pickup],rooms:[Room],turn:TurnCount}
 
 t InputMode=BlinkMode()|BombMode()|MoveMode()|ShootMode()
 
@@ -30,10 +32,14 @@ t PickupKind=BlinkPickup()|BombPickup()|PotionPickup()|SpearPickup()|TreasurePic
 
 t PlayerCommand=Blink(Direction)|Bomb(Direction)|DrinkPotion()|Move(Direction)|Shoot(Direction)|Wait()
 
-t PlayerLoadout={arrows:Int,blinks:Int,bombs:Int,melee:MeleeWeapon,potions:Int,ranged:Option[RangedWeapon]}
+t PlayerLoadout={arrows:InventoryCount,blinks:InventoryCount,bombs:InventoryCount,melee:MeleeWeapon,potions:InventoryCount,ranged:Option[RangedWeapon]}
 
 t Point={x:Int,y:Int}
 
 t RangedWeapon=Bow()
 
 t Room={h:Int,w:Int,x:Int,y:Int}
+
+t TreasureCount=Int where value≥0
+
+t TurnCount=Int where value≥0

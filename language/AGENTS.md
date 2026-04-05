@@ -215,6 +215,14 @@ For non-trivial language changes (syntax, semantics, codegen contracts):
 5. Run targeted tests/compiles
 6. Summarize unrelated failures explicitly
 
+For refinement/contract changes, keep these runnable examples current:
+
+- `language/examples/functionContracts.sigil`
+- `language/examples/proofMeasures.sigil`
+
+The aggregate repo pass now compiles `language/examples/`, so `pnpm sigil:test:all`
+is expected to catch drift there.
+
 ## Common Commands (from repo root)
 
 Build compiler:

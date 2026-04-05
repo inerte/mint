@@ -7,7 +7,9 @@ c boardWidth=(6:Int)
   false=>b-a
 }
 
-λadjacentBombs(points:[µPoint],x:Int,y:Int)=>Int match points{
+λadjacentBombs(points:[µPoint],x:Int,y:Int)=>Int
+ensures result≥0
+match points{
   []=>0|
   [head,.tail]=>match isNeighbor(head.x,head.y,x,y){
     true=>1+adjacentBombs(tail,x,y)|
@@ -73,7 +75,9 @@ c boardWidth=(6:Int)
   }
 }
 
-λgameFromBombs(points:[µPoint])=>µGame={board:(buildBoard(boardHeight,points,boardWidth,0):[µCell]),height:boardHeight,status:"playing",width:boardWidth}
+λgameFromBombs(points:[µPoint])=>µGame
+ensures result.height=boardHeight and result.width=boardWidth
+={board:(buildBoard(boardHeight,points,boardWidth,0):[µCell]),height:boardHeight,status:"playing",width:boardWidth}
 
 λhasBomb(points:[µPoint],x:Int,y:Int)=>Bool match points{
   []=>false|

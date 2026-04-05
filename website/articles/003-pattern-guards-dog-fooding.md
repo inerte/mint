@@ -7,9 +7,11 @@ slug: 003-patternGuards-dog-fooding
 
 # Pattern Guards and Sigil's Website Parser
 
-> Update (2026-03-26): guards now participate in exhaustiveness and dead-arm
-> checking only through a small explicit proof fragment. Unsupported guard
-> facts remain valid source, but they are opaque to coverage proofs. See
+> Update (2026-04-05): guards now participate in exhaustiveness, dead-arm
+> checking, and refinement narrowing through the same canonical Bool/Int proof
+> fragment used by constrained types. Direct boolean local aliases of supported
+> facts narrow too. Unsupported guard facts remain valid source, but they stay
+> opaque to coverage and refinement proofs. See
 > [033-exhaustive-match-and-proof-rich-compile-errors](./033-exhaustive-match-and-proof-rich-compile-errors.md).
 
 Pattern guards came out of a concrete implementation problem rather than an

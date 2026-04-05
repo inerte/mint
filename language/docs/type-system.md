@@ -142,7 +142,20 @@ Current rules:
 - values may flow into a constrained type only when the checker can prove the predicate in Sigil's canonical refinement fragment
 - constrained values widen to their underlying type automatically
 - the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
+- control flow is part of that proof story: `match` and internal branching propagate supported branch facts into refinement checking
+- direct boolean local aliases of supported facts also narrow
 - there is no generated runtime validation in v1
+
+Example:
+
+```sigil module
+t BirthYear=Int where value>1800
+
+λpromote(year:Int)=>BirthYear match year>1800{
+  true=>year|
+  false=>1900
+}
+```
 
 ## Type Equality
 

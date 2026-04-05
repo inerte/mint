@@ -187,11 +187,9 @@ Current implemented invariants:
 - `match` is the language's branching surface; there is no separate public `if`
 - matches over `Bool`, `Unit`, tuples, list shapes, and nominal sum constructors are checked for exhaustiveness
 - redundant and unreachable arms are rejected before code generation
-- guards participate in coverage only through the current small proof fragment:
-  - `true` / `false`
-  - equality and order comparisons between a bound pattern variable and a literal
-  - boolean `and` / `or` / `not` over those supported facts
-- unsupported guard facts remain valid source, but they are opaque to the coverage proof and therefore do not count as full coverage
+- coverage and refinement narrowing share the same canonical Bool/Int proof fragment
+- supported branch facts include Bool/Int literals, rooted or pattern-bound values, field access, `+`, `-`, comparisons, `and`, `or`, `not`, and direct boolean local aliases of those supported facts
+- unsupported guard facts remain valid source, but they are opaque to coverage and refinement narrowing
 
 ## Lists
 

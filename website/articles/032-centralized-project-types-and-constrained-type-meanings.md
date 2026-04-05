@@ -89,10 +89,26 @@ Current Sigil gives this a precise compile-time role:
 - values flow into the constrained type only when the compiler can prove the predicate
 - constrained values widen back to the underlying type automatically
 - the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
+- `match` and internal branching propagate supported branch facts into that proof
+- direct boolean local aliases of supported facts also narrow
 - there is no generated runtime validation
 
 So this feature is about **stronger type meaning with compile-time proof**,
 not about silently inserting runtime checks.
+
+That proof is flow-sensitive, not only literal-based. For example:
+
+```sigil module
+t BirthYear=Int where value>1800
+
+λpromote(year:Int)=>BirthYear match year>1800{
+  true=>year|
+  false=>1900
+}
+```
+
+The `true` arm can return `year` directly because the branch fact becomes part
+of the refinement proof.
 
 ## Type Equality
 

@@ -868,259 +868,51 @@ fn resolve_constrained_type(
         }))
 }
 
-#[derive(Debug, Clone, PartialEq)]
-enum StaticValue {
-    Int(i64),
-    Float(f64),
-    String(String),
-    Char(char),
-    Bool(bool),
-    Unit,
-    List(Vec<StaticValue>),
-    Map(Vec<(StaticValue, StaticValue)>),
-    Tuple(Vec<StaticValue>),
-    Record(HashMap<String, StaticValue>),
-}
-
-fn static_value_from_expr(expr: &Expr) -> Option<StaticValue> {
-    match expr {
-        Expr::Literal(literal) => match &literal.value {
-            LiteralValue::Int(value) => Some(StaticValue::Int(*value)),
-            LiteralValue::Float(value) => Some(StaticValue::Float(*value)),
-            LiteralValue::String(value) => Some(StaticValue::String(value.clone())),
-            LiteralValue::Char(value) => Some(StaticValue::Char(*value)),
-            LiteralValue::Bool(value) => Some(StaticValue::Bool(*value)),
-            LiteralValue::Unit => Some(StaticValue::Unit),
-        },
-        Expr::List(list) => {
-            let mut values = Vec::with_capacity(list.elements.len());
-            for element in &list.elements {
-                values.push(static_value_from_expr(element)?);
-            }
-            Some(StaticValue::List(values))
-        }
-        Expr::MapLiteral(map) => {
-            let mut values = Vec::with_capacity(map.entries.len());
-            for entry in &map.entries {
-                values.push((
-                    static_value_from_expr(&entry.key)?,
-                    static_value_from_expr(&entry.value)?,
-                ));
-            }
-            Some(StaticValue::Map(values))
-        }
-        Expr::Tuple(tuple) => {
-            let mut values = Vec::with_capacity(tuple.elements.len());
-            for element in &tuple.elements {
-                values.push(static_value_from_expr(element)?);
-            }
-            Some(StaticValue::Tuple(values))
-        }
-        Expr::Record(record) => {
-            let mut fields = HashMap::new();
-            for field in &record.fields {
-                fields.insert(field.name.clone(), static_value_from_expr(&field.value)?);
-            }
-            Some(StaticValue::Record(fields))
-        }
-        Expr::Unary(unary) => match unary.operator {
-            UnaryOperator::Negate => match static_value_from_expr(&unary.operand)? {
-                StaticValue::Int(value) => Some(StaticValue::Int(-value)),
-                StaticValue::Float(value) => Some(StaticValue::Float(-value)),
-                _ => None,
-            },
-            UnaryOperator::Not => match static_value_from_expr(&unary.operand)? {
-                StaticValue::Bool(value) => Some(StaticValue::Bool(!value)),
-                _ => None,
-            },
-            UnaryOperator::Length => match static_value_from_expr(&unary.operand)? {
-                StaticValue::String(value) => Some(StaticValue::Int(value.chars().count() as i64)),
-                StaticValue::List(values) => Some(StaticValue::Int(values.len() as i64)),
-                StaticValue::Map(entries) => Some(StaticValue::Int(entries.len() as i64)),
-                StaticValue::Tuple(values) => Some(StaticValue::Int(values.len() as i64)),
-                _ => None,
-            },
-        },
-        Expr::TypeAscription(type_asc) => static_value_from_expr(&type_asc.expr),
-        _ => None,
-    }
-}
-
-fn eval_static_expr(
-    expr: &Expr,
-    value: &StaticValue,
-    locals: &HashMap<String, StaticValue>,
-) -> Option<StaticValue> {
-    match expr {
-        Expr::Literal(_)
-        | Expr::List(_)
-        | Expr::MapLiteral(_)
-        | Expr::Tuple(_)
-        | Expr::Record(_) => static_value_from_expr(expr),
-        Expr::Identifier(identifier) => {
-            if identifier.name == "value" {
-                Some(value.clone())
-            } else {
-                locals.get(&identifier.name).cloned()
-            }
-        }
-        Expr::Unary(unary) => match unary.operator {
-            UnaryOperator::Negate => match eval_static_expr(&unary.operand, value, locals)? {
-                StaticValue::Int(inner) => Some(StaticValue::Int(-inner)),
-                StaticValue::Float(inner) => Some(StaticValue::Float(-inner)),
-                _ => None,
-            },
-            UnaryOperator::Not => match eval_static_expr(&unary.operand, value, locals)? {
-                StaticValue::Bool(inner) => Some(StaticValue::Bool(!inner)),
-                _ => None,
-            },
-            UnaryOperator::Length => match eval_static_expr(&unary.operand, value, locals)? {
-                StaticValue::String(inner) => Some(StaticValue::Int(inner.chars().count() as i64)),
-                StaticValue::List(inner) => Some(StaticValue::Int(inner.len() as i64)),
-                StaticValue::Map(inner) => Some(StaticValue::Int(inner.len() as i64)),
-                StaticValue::Tuple(inner) => Some(StaticValue::Int(inner.len() as i64)),
-                _ => None,
-            },
-        },
-        Expr::Binary(binary) => {
-            let left = eval_static_expr(&binary.left, value, locals)?;
-            let right = eval_static_expr(&binary.right, value, locals)?;
-            eval_static_binary(binary.operator, left, right)
-        }
-        Expr::If(if_expr) => match eval_static_expr(&if_expr.condition, value, locals)? {
-            StaticValue::Bool(true) => eval_static_expr(&if_expr.then_branch, value, locals),
-            StaticValue::Bool(false) => if_expr
-                .else_branch
-                .as_ref()
-                .and_then(|branch| eval_static_expr(branch, value, locals)),
-            _ => None,
-        },
-        Expr::FieldAccess(field_access) => {
-            match eval_static_expr(&field_access.object, value, locals)? {
-                StaticValue::Record(fields) => fields.get(&field_access.field).cloned(),
-                _ => None,
-            }
-        }
-        Expr::TypeAscription(type_asc) => eval_static_expr(&type_asc.expr, value, locals),
-        _ => None,
-    }
-}
-
-fn eval_static_binary(
-    operator: BinaryOperator,
-    left: StaticValue,
-    right: StaticValue,
-) -> Option<StaticValue> {
-    match operator {
-        BinaryOperator::Add => match (left, right) {
-            (StaticValue::Int(left), StaticValue::Int(right)) => {
-                Some(StaticValue::Int(left + right))
-            }
-            (StaticValue::Float(left), StaticValue::Float(right)) => {
-                Some(StaticValue::Float(left + right))
-            }
-            _ => None,
-        },
-        BinaryOperator::Subtract => match (left, right) {
-            (StaticValue::Int(left), StaticValue::Int(right)) => {
-                Some(StaticValue::Int(left - right))
-            }
-            (StaticValue::Float(left), StaticValue::Float(right)) => {
-                Some(StaticValue::Float(left - right))
-            }
-            _ => None,
-        },
-        BinaryOperator::Multiply => match (left, right) {
-            (StaticValue::Int(left), StaticValue::Int(right)) => {
-                Some(StaticValue::Int(left * right))
-            }
-            (StaticValue::Float(left), StaticValue::Float(right)) => {
-                Some(StaticValue::Float(left * right))
-            }
-            _ => None,
-        },
-        BinaryOperator::Divide => match (left, right) {
-            (_, StaticValue::Int(0)) | (_, StaticValue::Float(0.0)) => None,
-            (StaticValue::Int(left), StaticValue::Int(right)) => {
-                Some(StaticValue::Int(left / right))
-            }
-            (StaticValue::Float(left), StaticValue::Float(right)) => {
-                Some(StaticValue::Float(left / right))
-            }
-            _ => None,
-        },
-        BinaryOperator::Modulo => match (left, right) {
-            (_, StaticValue::Int(0)) => None,
-            (StaticValue::Int(left), StaticValue::Int(right)) => {
-                Some(StaticValue::Int(left % right))
-            }
-            _ => None,
-        },
-        BinaryOperator::Power => None,
-        BinaryOperator::Equal => Some(StaticValue::Bool(left == right)),
-        BinaryOperator::NotEqual => Some(StaticValue::Bool(left != right)),
-        BinaryOperator::Less => static_ordering_bool(left, right, |left, right| left < right),
-        BinaryOperator::Greater => static_ordering_bool(left, right, |left, right| left > right),
-        BinaryOperator::LessEq => static_ordering_bool(left, right, |left, right| left <= right),
-        BinaryOperator::GreaterEq => static_ordering_bool(left, right, |left, right| left >= right),
-        BinaryOperator::And => match (left, right) {
-            (StaticValue::Bool(left), StaticValue::Bool(right)) => {
-                Some(StaticValue::Bool(left && right))
-            }
-            _ => None,
-        },
-        BinaryOperator::Or => match (left, right) {
-            (StaticValue::Bool(left), StaticValue::Bool(right)) => {
-                Some(StaticValue::Bool(left || right))
-            }
-            _ => None,
-        },
-        BinaryOperator::Append => match (left, right) {
-            (StaticValue::String(left), StaticValue::String(right)) => {
-                Some(StaticValue::String(left + &right))
-            }
-            _ => None,
-        },
-        BinaryOperator::ListAppend => match (left, right) {
-            (StaticValue::List(mut left), StaticValue::List(right)) => {
-                left.extend(right);
-                Some(StaticValue::List(left))
-            }
-            _ => None,
-        },
-        BinaryOperator::Pipe | BinaryOperator::ComposeFwd | BinaryOperator::ComposeBwd => None,
-    }
-}
-
-fn static_ordering_bool(
-    left: StaticValue,
-    right: StaticValue,
-    predicate: impl FnOnce(f64, f64) -> bool,
-) -> Option<StaticValue> {
-    let left = match left {
-        StaticValue::Int(value) => value as f64,
-        StaticValue::Float(value) => value,
-        _ => return None,
-    };
-    let right = match right {
-        StaticValue::Int(value) => value as f64,
-        StaticValue::Float(value) => value,
-        _ => return None,
-    };
-    Some(StaticValue::Bool(predicate(left, right)))
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+enum SymbolPathStep {
+    Binding(String),
+    Field(String),
+    ListHead,
+    ListTail,
+    TupleIndex(usize),
+    VariantField(usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-struct SymbolPath(Vec<String>);
+struct SymbolPath(Vec<SymbolPathStep>);
 
 impl SymbolPath {
     fn root(name: &str) -> Self {
-        Self(vec![name.to_string()])
+        Self(vec![SymbolPathStep::Binding(name.to_string())])
     }
 
-    fn child(&self, field: &str) -> Self {
+    fn field(&self, field: &str) -> Self {
         let mut parts = self.0.clone();
-        parts.push(field.to_string());
+        parts.push(SymbolPathStep::Field(field.to_string()));
+        Self(parts)
+    }
+
+    fn list_head(&self) -> Self {
+        let mut parts = self.0.clone();
+        parts.push(SymbolPathStep::ListHead);
+        Self(parts)
+    }
+
+    fn list_tail(&self) -> Self {
+        let mut parts = self.0.clone();
+        parts.push(SymbolPathStep::ListTail);
+        Self(parts)
+    }
+
+    fn tuple_index(&self, index: usize) -> Self {
+        let mut parts = self.0.clone();
+        parts.push(SymbolPathStep::TupleIndex(index));
+        Self(parts)
+    }
+
+    fn variant_field(&self, index: usize) -> Self {
+        let mut parts = self.0.clone();
+        parts.push(SymbolPathStep::VariantField(index));
         Self(parts)
     }
 }
@@ -1326,6 +1118,42 @@ struct AssumptionCollector {
     seen_bindings: HashSet<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+struct ProofContext {
+    assumptions: Vec<Formula>,
+    symbolic_bindings: HashMap<String, SymbolicValue>,
+}
+
+impl ProofContext {
+    fn with_assumptions<I>(&self, assumptions: I) -> Self
+    where
+        I: IntoIterator<Item = Formula>,
+    {
+        let mut next = self.clone();
+        next.assumptions.extend(assumptions);
+        next
+    }
+
+    fn with_assumption(&self, assumption: Formula) -> Self {
+        self.with_assumptions([assumption])
+    }
+
+    fn with_symbolic_bindings<I>(&self, bindings: I) -> Self
+    where
+        I: IntoIterator<Item = (String, SymbolicValue)>,
+    {
+        let mut next = self.clone();
+        next.symbolic_bindings.extend(bindings);
+        next
+    }
+
+    fn lookup_symbolic_binding(&self, name: &str) -> Option<SymbolicValue> {
+        self.symbolic_bindings.get(name).cloned()
+    }
+}
+
+const MATCH_SCRUTINEE_BINDING: &str = "$match_scrutinee";
+
 fn refinement_type_support_error(name: &str, reason: &str) -> TypeError {
     TypeError::new(
         format!(
@@ -1388,6 +1216,7 @@ fn collect_identifier_assumption(
         symbolic_value_for_type_path(env, &constrained.underlying_type, &SymbolPath::root(name))?;
     let assumption = symbolic_formula_from_expr(
         env,
+        &ProofContext::default(),
         &constrained.constraint,
         Some(&placeholder),
         &mut AssumptionCollector::default(),
@@ -1398,6 +1227,7 @@ fn collect_identifier_assumption(
 
 fn symbolic_value_from_expr(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     expr: &Expr,
     value_binding: Option<&SymbolicValue>,
     collector: &mut AssumptionCollector,
@@ -1419,6 +1249,10 @@ fn symbolic_value_from_expr(
                 }
             }
 
+            if let Some(symbolic_binding) = proof_context.lookup_symbolic_binding(&identifier.name) {
+                return Ok(symbolic_binding);
+            }
+
             collect_identifier_assumption(env, &identifier.name, collector)?;
             let Some(binding_type) = env.lookup(&identifier.name) else {
                 return Err(format!(
@@ -1429,7 +1263,13 @@ fn symbolic_value_from_expr(
             symbolic_value_for_type_path(env, &binding_type, &SymbolPath::root(&identifier.name))
         }
         Expr::Unary(unary) => {
-            let operand = symbolic_value_from_expr(env, &unary.operand, value_binding, collector)?;
+            let operand = symbolic_value_from_expr(
+                env,
+                proof_context,
+                &unary.operand,
+                value_binding,
+                collector,
+            )?;
             match (unary.operator, operand) {
                 (UnaryOperator::Negate, SymbolicValue::Int(value)) => {
                     Ok(SymbolicValue::Int(value.negate()))
@@ -1441,8 +1281,20 @@ fn symbolic_value_from_expr(
             }
         }
         Expr::Binary(binary) => {
-            let left = symbolic_value_from_expr(env, &binary.left, value_binding, collector)?;
-            let right = symbolic_value_from_expr(env, &binary.right, value_binding, collector)?;
+            let left = symbolic_value_from_expr(
+                env,
+                proof_context,
+                &binary.left,
+                value_binding,
+                collector,
+            )?;
+            let right = symbolic_value_from_expr(
+                env,
+                proof_context,
+                &binary.right,
+                value_binding,
+                collector,
+            )?;
             symbolic_value_from_binary(binary.operator, left, right)
         }
         Expr::Record(record) => Ok(SymbolicValue::Record(SymbolicRecord::Literal(
@@ -1454,6 +1306,7 @@ fn symbolic_value_from_expr(
         ))),
         Expr::FieldAccess(field_access) => match symbolic_value_from_expr(
             env,
+            proof_context,
             &field_access.object,
             value_binding,
             collector,
@@ -1465,7 +1318,7 @@ fn symbolic_value_from_expr(
                         field_access.field
                     ));
                 };
-                symbolic_value_from_expr(env, field_expr, value_binding, collector)
+                symbolic_value_from_expr(env, proof_context, field_expr, value_binding, collector)
             }
             SymbolicValue::Record(SymbolicRecord::Path { base, fields }) => {
                 let Some(field_type) = fields.get(&field_access.field) else {
@@ -1474,12 +1327,12 @@ fn symbolic_value_from_expr(
                         field_access.field
                     ));
                 };
-                symbolic_value_for_type_path(env, field_type, &base.child(&field_access.field))
+                symbolic_value_for_type_path(env, field_type, &base.field(&field_access.field))
             }
             _ => Err("field access in refinement proofs requires an exact record".to_string()),
         },
         Expr::TypeAscription(type_asc) => {
-            symbolic_value_from_expr(env, &type_asc.expr, value_binding, collector)
+            symbolic_value_from_expr(env, proof_context, &type_asc.expr, value_binding, collector)
         }
         _ => Err("unsupported expression shape in refinement proof".to_string()),
     }
@@ -1487,11 +1340,12 @@ fn symbolic_value_from_expr(
 
 fn symbolic_formula_from_expr(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     expr: &Expr,
     value_binding: Option<&SymbolicValue>,
     collector: &mut AssumptionCollector,
 ) -> Result<Formula, String> {
-    match symbolic_value_from_expr(env, expr, value_binding, collector)? {
+    match symbolic_value_from_expr(env, proof_context, expr, value_binding, collector)? {
         SymbolicValue::Bool(formula) => Ok(formula),
         _ => Err("refinement expressions must evaluate to Bool".to_string()),
     }
@@ -1619,6 +1473,7 @@ fn validate_refinement_constraint_shape(
         })?;
     symbolic_formula_from_expr(
         env,
+        &ProofContext::default(),
         constraint,
         Some(&placeholder),
         &mut AssumptionCollector::default(),
@@ -1995,55 +1850,411 @@ fn prove_formula(assumptions: &[Formula], goal: &Formula) -> bool {
     })
 }
 
+fn lower_symbolic_formula(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    expr: &Expr,
+    value_binding: Option<&SymbolicValue>,
+) -> Result<(Formula, Vec<Formula>), String> {
+    let mut collector = AssumptionCollector::default();
+    let formula =
+        symbolic_formula_from_expr(env, proof_context, expr, value_binding, &mut collector)?;
+    Ok((formula, collector.assumptions))
+}
+
+fn lower_symbolic_value(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    expr: &Expr,
+    value_binding: Option<&SymbolicValue>,
+) -> Result<(SymbolicValue, Vec<Formula>), String> {
+    let mut collector = AssumptionCollector::default();
+    let value = symbolic_value_from_expr(env, proof_context, expr, value_binding, &mut collector)?;
+    Ok((value, collector.assumptions))
+}
+
 fn prove_expr_satisfies_constraint(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     expr: &Expr,
     constraint: &Expr,
-    extra_assumptions: &[Formula],
 ) -> Result<bool, String> {
     match expr {
         Expr::If(if_expr) => {
-            let mut condition_collector = AssumptionCollector::default();
-            let condition_formula = symbolic_formula_from_expr(
-                env,
-                &if_expr.condition,
-                None,
-                &mut condition_collector,
-            )?;
-            let mut then_assumptions = extra_assumptions.to_vec();
-            then_assumptions.extend(condition_collector.assumptions.clone());
-            then_assumptions.push(condition_formula.clone());
-            let then_ok = prove_expr_satisfies_constraint(
-                env,
-                &if_expr.then_branch,
-                constraint,
-                &then_assumptions,
-            )?;
+            let (condition_formula, condition_assumptions) =
+                lower_symbolic_formula(env, proof_context, &if_expr.condition, None)?;
+            let then_context = proof_context
+                .with_assumptions(condition_assumptions.clone())
+                .with_assumption(condition_formula.clone());
+            let then_ok =
+                prove_expr_satisfies_constraint(env, &then_context, &if_expr.then_branch, constraint)?;
 
             let else_ok = if let Some(else_branch) = &if_expr.else_branch {
-                let mut else_assumptions = extra_assumptions.to_vec();
-                else_assumptions.extend(condition_collector.assumptions);
-                else_assumptions.push(Formula::Not(Box::new(condition_formula)));
-                prove_expr_satisfies_constraint(env, else_branch, constraint, &else_assumptions)?
+                let else_context = proof_context
+                    .with_assumptions(condition_assumptions)
+                    .with_assumption(Formula::Not(Box::new(condition_formula)));
+                prove_expr_satisfies_constraint(env, &else_context, else_branch, constraint)?
             } else {
                 false
             };
 
             Ok(then_ok && else_ok)
         }
+        Expr::Let(let_expr) => {
+            let value_type = synthesize(env, &let_expr.value).map_err(|error| error.message)?;
+            let mut bindings = HashMap::new();
+            if let sigil_ast::Pattern::Identifier(id_pattern) = &let_expr.pattern {
+                bindings.insert(id_pattern.name.clone(), value_type.clone());
+            }
+            let body_env = env.extend(Some(bindings));
+            let body_context =
+                let_proof_context(env, proof_context, &let_expr.pattern, &let_expr.value, &value_type);
+            prove_expr_satisfies_constraint(&body_env, &body_context, &let_expr.body, constraint)
+        }
+        Expr::Match(match_expr) => prove_match_expr_satisfies_constraint(
+            env,
+            proof_context,
+            match_expr,
+            constraint,
+        ),
         Expr::TypeAscription(type_asc) => {
-            prove_expr_satisfies_constraint(env, &type_asc.expr, constraint, extra_assumptions)
+            prove_expr_satisfies_constraint(env, proof_context, &type_asc.expr, constraint)
         }
         _ => {
-            let mut collector = AssumptionCollector::default();
-            let actual = symbolic_value_from_expr(env, expr, None, &mut collector)?;
-            let goal =
-                symbolic_formula_from_expr(env, constraint, Some(&actual), &mut collector)?;
-            let mut assumptions = extra_assumptions.to_vec();
-            assumptions.extend(collector.assumptions);
+            let (actual, actual_assumptions) = lower_symbolic_value(env, proof_context, expr, None)?;
+            let (goal, goal_assumptions) =
+                lower_symbolic_formula(env, proof_context, constraint, Some(&actual))?;
+            let assumptions = proof_context
+                .assumptions
+                .iter()
+                .cloned()
+                .chain(actual_assumptions)
+                .chain(goal_assumptions)
+                .collect::<Vec<_>>();
             Ok(prove_formula(&assumptions, &goal))
         }
     }
+}
+
+#[derive(Debug, Clone)]
+struct MatchArmRefinement {
+    body_context: ProofContext,
+    condition_formula: Option<Formula>,
+    guard_supported: bool,
+    unsupported_facts: Vec<String>,
+}
+
+fn match_scrutinee_symbolic_root() -> SymbolPath {
+    SymbolPath::root(MATCH_SCRUTINEE_BINDING)
+}
+
+fn scrutinee_proof_context(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    scrutinee: &Expr,
+) -> ProofContext {
+    if let Ok((_, assumptions)) = lower_symbolic_value(env, proof_context, scrutinee, None) {
+        proof_context.with_assumptions(assumptions)
+    } else {
+        proof_context.clone()
+    }
+}
+
+fn let_proof_context(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    pattern: &sigil_ast::Pattern,
+    value: &Expr,
+    value_type: &InferenceType,
+) -> ProofContext {
+    let sigil_ast::Pattern::Identifier(id_pattern) = pattern else {
+        return proof_context.clone();
+    };
+
+    if !matches!(
+        env.normalize_type(value_type),
+        InferenceType::Primitive(TPrimitive {
+            name: PrimitiveName::Bool,
+        })
+    ) {
+        return proof_context.clone();
+    }
+
+    match lower_symbolic_formula(env, proof_context, value, None) {
+        Ok((formula, assumptions)) => proof_context
+            .with_assumptions(assumptions)
+            .with_symbolic_bindings([(
+                id_pattern.name.clone(),
+                SymbolicValue::Bool(formula),
+            )]),
+        Err(_) => proof_context.clone(),
+    }
+}
+
+fn scrutinee_symbolic_value(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    scrutinee: &Expr,
+    scrutinee_type: &InferenceType,
+) -> Option<SymbolicValue> {
+    lower_symbolic_value(env, proof_context, scrutinee, None)
+        .ok()
+        .map(|(value, _)| value)
+        .or_else(|| {
+            symbolic_value_for_type_path(env, scrutinee_type, &match_scrutinee_symbolic_root()).ok()
+        })
+}
+
+fn pattern_refinement_formula(
+    scrutinee_value: Option<&SymbolicValue>,
+    pattern: &sigil_ast::Pattern,
+) -> Option<Formula> {
+    use sigil_ast::{Pattern, PatternLiteralValue};
+
+    let scrutinee_value = scrutinee_value?;
+    let Pattern::Literal(literal) = pattern else {
+        return None;
+    };
+
+    match (&literal.value, scrutinee_value) {
+        (PatternLiteralValue::Bool(value), SymbolicValue::Bool(formula)) => {
+            if *value {
+                Some(formula.clone())
+            } else {
+                Some(Formula::Not(Box::new(formula.clone())))
+            }
+        }
+        (PatternLiteralValue::Int(value), SymbolicValue::Int(expr)) => {
+            Some(Formula::Atom(Atom::IntCmp {
+                form: expr.form.clone(),
+                op: ComparisonOp::Eq,
+                rhs: value.saturating_sub(expr.constant),
+            }))
+        }
+        _ => None,
+    }
+}
+
+fn collect_pattern_symbolic_bindings(
+    env: &TypeEnvironment,
+    pattern: &sigil_ast::Pattern,
+    scrutinee_type: &InferenceType,
+    scrutinee_path: &SymbolPath,
+    current_symbolic: Option<&SymbolicValue>,
+    bindings: &mut HashMap<String, SymbolicValue>,
+) -> Result<(), TypeError> {
+    use sigil_ast::Pattern;
+
+    match pattern {
+        Pattern::Wildcard(_) | Pattern::Literal(_) => Ok(()),
+        Pattern::Identifier(identifier) => {
+            let symbolic = current_symbolic
+                .cloned()
+                .or_else(|| symbolic_value_for_type_path(env, scrutinee_type, scrutinee_path).ok());
+            if let Some(symbolic) = symbolic {
+                bindings.insert(identifier.name.clone(), symbolic);
+            }
+            Ok(())
+        }
+        Pattern::List(list_pattern) => {
+            let InferenceType::List(list_type) = scrutinee_type else {
+                return Ok(());
+            };
+
+            for (index, pattern) in list_pattern.patterns.iter().enumerate() {
+                let mut item_path = scrutinee_path.clone();
+                for _ in 0..index {
+                    item_path = item_path.list_tail();
+                }
+                let head_path = item_path.list_head();
+                collect_pattern_symbolic_bindings(
+                    env,
+                    pattern,
+                    &list_type.element_type,
+                    &head_path,
+                    None,
+                    bindings,
+                )?;
+            }
+
+            if let Some(rest_name) = &list_pattern.rest {
+                let mut rest_path = scrutinee_path.clone();
+                for _ in 0..list_pattern.patterns.len() {
+                    rest_path = rest_path.list_tail();
+                }
+                if let Some(rest_symbolic) =
+                    symbolic_value_for_type_path(env, scrutinee_type, &rest_path).ok()
+                {
+                    bindings.insert(rest_name.clone(), rest_symbolic);
+                }
+            }
+
+            Ok(())
+        }
+        Pattern::Tuple(tuple_pattern) => {
+            let InferenceType::Tuple(tuple_type) = scrutinee_type else {
+                return Ok(());
+            };
+
+            for (index, (pattern, item_type)) in tuple_pattern
+                .patterns
+                .iter()
+                .zip(&tuple_type.types)
+                .enumerate()
+            {
+                collect_pattern_symbolic_bindings(
+                    env,
+                    pattern,
+                    item_type,
+                    &scrutinee_path.tuple_index(index),
+                    None,
+                    bindings,
+                )?;
+            }
+
+            Ok(())
+        }
+        Pattern::Constructor(constructor_pattern) => {
+            let Some(constructor_type) = lookup_constructor_type(
+                env,
+                &constructor_pattern.module_path,
+                &constructor_pattern.name,
+            )? else {
+                return Ok(());
+            };
+
+            let InferenceType::Function(ctor_fn) = constructor_type else {
+                return Ok(());
+            };
+
+            let subst = unify(&ctor_fn.return_type, scrutinee_type).map_err(|message| {
+                TypeError::new(
+                    format!(
+                        "Constructor '{}' does not match scrutinee type {} ({})",
+                        constructor_display_name(
+                            &constructor_pattern.module_path,
+                            &constructor_pattern.name
+                        ),
+                        format_type(scrutinee_type),
+                        message
+                    ),
+                    Some(constructor_pattern.location),
+                )
+            })?;
+
+            for (index, (pattern, param_type)) in constructor_pattern
+                .patterns
+                .iter()
+                .zip(&ctor_fn.params)
+                .enumerate()
+            {
+                collect_pattern_symbolic_bindings(
+                    env,
+                    pattern,
+                    &apply_subst(&subst, param_type),
+                    &scrutinee_path.variant_field(index),
+                    None,
+                    bindings,
+                )?;
+            }
+
+            Ok(())
+        }
+        Pattern::Record(_) => Ok(()),
+    }
+}
+
+fn match_arm_refinement(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    scrutinee: &Expr,
+    scrutinee_type: &InferenceType,
+    arm: &sigil_ast::MatchArm,
+) -> Result<MatchArmRefinement, TypeError> {
+    let scrutinee_symbolic = scrutinee_symbolic_value(env, proof_context, scrutinee, scrutinee_type);
+    let mut symbolic_bindings = HashMap::new();
+    collect_pattern_symbolic_bindings(
+        env,
+        &arm.pattern,
+        scrutinee_type,
+        &match_scrutinee_symbolic_root(),
+        scrutinee_symbolic.as_ref(),
+        &mut symbolic_bindings,
+    )?;
+
+    let pattern_formula = pattern_refinement_formula(scrutinee_symbolic.as_ref(), &arm.pattern);
+    let mut body_context = proof_context.with_symbolic_bindings(symbolic_bindings);
+    if let Some(pattern_formula) = &pattern_formula {
+        body_context = body_context.with_assumption(pattern_formula.clone());
+    }
+
+    let mut condition_formula = pattern_formula;
+    let mut guard_supported = arm.guard.is_none();
+    let mut unsupported_facts = Vec::new();
+
+    if let Some(guard) = &arm.guard {
+        match lower_symbolic_formula(env, &body_context, guard, None) {
+            Ok((guard_formula, assumptions)) => {
+                body_context = body_context
+                    .with_assumptions(assumptions)
+                    .with_assumption(guard_formula.clone());
+                condition_formula = Some(match condition_formula {
+                    Some(pattern_formula) => formula_and(vec![pattern_formula, guard_formula]),
+                    None => guard_formula,
+                });
+                guard_supported = true;
+            }
+            Err(_) => {
+                guard_supported = false;
+                unsupported_facts.push(expr_summary(guard));
+                condition_formula = None;
+            }
+        }
+    }
+
+    Ok(MatchArmRefinement {
+        body_context,
+        condition_formula,
+        guard_supported,
+        unsupported_facts,
+    })
+}
+
+fn prove_match_expr_satisfies_constraint(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    match_expr: &sigil_ast::MatchExpr,
+    constraint: &Expr,
+) -> Result<bool, String> {
+    let scrutinee_type = synthesize(env, &match_expr.scrutinee).map_err(|error| error.message)?;
+    let base_match_context = scrutinee_proof_context(env, proof_context, &match_expr.scrutinee);
+    let mut fallthrough_context = base_match_context.clone();
+
+    for arm in &match_expr.arms {
+        let mut bindings = HashMap::new();
+        check_pattern(env, &arm.pattern, &scrutinee_type, &mut bindings)
+            .map_err(|error| error.message)?;
+        let arm_env = env.extend(Some(bindings));
+        let arm_refinement = match_arm_refinement(
+            env,
+            &fallthrough_context,
+            &match_expr.scrutinee,
+            &scrutinee_type,
+            arm,
+        )
+        .map_err(|error| error.message)?;
+
+        if !prove_expr_satisfies_constraint(&arm_env, &arm_refinement.body_context, &arm.body, constraint)? {
+            return Ok(false);
+        }
+
+        if let Some(condition_formula) = arm_refinement.condition_formula {
+            fallthrough_context =
+                fallthrough_context.with_assumption(Formula::Not(Box::new(condition_formula)));
+        }
+    }
+
+    Ok(true)
 }
 
 fn type_flows_without_new_proof(
@@ -2064,25 +2275,30 @@ fn type_flows_without_new_proof(
 
 fn try_refinement_compatibility(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     expr: &Expr,
     actual_type: &InferenceType,
     expected_type: &InferenceType,
     location: sigil_lexer::SourceLocation,
 ) -> Result<bool, TypeError> {
     if let Some(expected_refinement) = resolve_constrained_type(env, expected_type)? {
-        check(env, expr, &expected_refinement.underlying_type)?;
-        let proof_result =
-            prove_expr_satisfies_constraint(env, expr, &expected_refinement.constraint, &[])
-                .map_err(|reason| {
-                    TypeError::new(
-                        format!(
-                            "Constraint for '{}' could not be proven here: {}",
-                            expected_refinement.name,
-                            reason,
-                        ),
-                        Some(location),
-                    )
-                })?;
+        check_with_context(env, proof_context, expr, &expected_refinement.underlying_type)?;
+        let proof_result = prove_expr_satisfies_constraint(
+            env,
+            proof_context,
+            expr,
+            &expected_refinement.constraint,
+        )
+        .map_err(|reason| {
+            TypeError::new(
+                format!(
+                    "Constraint for '{}' could not be proven here: {}",
+                    expected_refinement.name,
+                    reason,
+                ),
+                Some(location),
+            )
+        })?;
 
         if proof_result {
             return Ok(true);
@@ -2108,6 +2324,7 @@ fn try_refinement_compatibility(
 
 fn ensure_expr_matches_expected(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     expr: &Expr,
     actual_type: &InferenceType,
     expected_type: &InferenceType,
@@ -2117,7 +2334,14 @@ fn ensure_expr_matches_expected(
         return Ok(());
     }
 
-    if try_refinement_compatibility(env, expr, actual_type, expected_type, location)? {
+    if try_refinement_compatibility(
+        env,
+        proof_context,
+        expr,
+        actual_type,
+        expected_type,
+        location,
+    )? {
         return Ok(());
     }
 
@@ -3607,6 +3831,7 @@ fn synthesize_application(
 
                 if try_refinement_compatibility(
                     env,
+                    &ProofContext::default(),
                     arg,
                     &arg_type,
                     &expected_param,
@@ -3891,7 +4116,7 @@ fn synthesize_let(
     let mut bindings = HashMap::new();
     match &let_expr.pattern {
         Pattern::Identifier(id_pattern) => {
-            bindings.insert(id_pattern.name.clone(), value_type);
+            bindings.insert(id_pattern.name.clone(), value_type.clone());
         }
         Pattern::Wildcard(_) => {
             // Wildcard pattern: discard the value, no bindings
@@ -3948,19 +4173,29 @@ fn synthesize_match(
                     "Pattern guard must have type Bool, got {}",
                     format_type(&normalized_guard)
                 ),
-                Some(match_expr.location),
-            ));
+        Some(match_expr.location),
+                ));
         }
     }
 
+    let base_match_context =
+        scrutinee_proof_context(env, &ProofContext::default(), &match_expr.scrutinee);
     // Synthesize first arm body to get expected type
     let expected_type = synthesize(&first_arm_env, &first_arm.body)?;
+    let mut fallthrough_context = base_match_context.clone();
 
-    // Check remaining arms against the first arm's type
-    for arm in &match_expr.arms[1..] {
+    for arm in &match_expr.arms {
         let mut bindings = HashMap::new();
         check_pattern(env, &arm.pattern, &scrutinee_type, &mut bindings)?;
         let arm_env = env.extend(Some(bindings));
+        let arm_refinement = match_arm_refinement(
+            env,
+            &fallthrough_context,
+            &match_expr.scrutinee,
+            &scrutinee_type,
+            arm,
+        )?;
+        let arm_context = arm_refinement.body_context.clone();
 
         // Check guard if present (must be boolean)
         if let Some(ref guard) = arm.guard {
@@ -3978,13 +4213,18 @@ fn synthesize_match(
                     Some(match_expr.location),
                 ));
             }
+            check_with_context(&arm_env, &arm_context, guard, &bool_type)?;
         }
 
-        // Check subsequent arms against first arm's type
-        check(&arm_env, &arm.body, &expected_type)?;
+        check_with_context(&arm_env, &arm_context, &arm.body, &expected_type)?;
+
+        if let Some(condition_formula) = arm_refinement.condition_formula {
+            fallthrough_context =
+                fallthrough_context.with_assumption(Formula::Not(Box::new(condition_formula)));
+        }
     }
 
-    analyze_match_coverage(env, &scrutinee_type, match_expr)?;
+    analyze_match_coverage(env, &ProofContext::default(), &scrutinee_type, match_expr)?;
 
     Ok(expected_type)
 }
@@ -5050,18 +5290,6 @@ impl IntRangeSet {
         Self { intervals: vec![] }
     }
 
-    fn greater_than(value: i64) -> Self {
-        value
-            .checked_add(1)
-            .map(|start| Self {
-                intervals: vec![IntInterval {
-                    start: Some(start),
-                    end: None,
-                }],
-            })
-            .unwrap_or_else(Self::empty)
-    }
-
     fn greater_eq(value: i64) -> Self {
         Self {
             intervals: vec![IntInterval {
@@ -5069,18 +5297,6 @@ impl IntRangeSet {
                 end: None,
             }],
         }
-    }
-
-    fn less_than(value: i64) -> Self {
-        value
-            .checked_sub(1)
-            .map(|end| Self {
-                intervals: vec![IntInterval {
-                    start: None,
-                    end: Some(end),
-                }],
-            })
-            .unwrap_or_else(Self::empty)
     }
 
     fn less_eq(value: i64) -> Self {
@@ -5257,10 +5473,12 @@ struct ArmProof {
     guard_supported: bool,
     facts: Vec<String>,
     unsupported_facts: Vec<String>,
+    condition_formula: Option<Formula>,
 }
 
 fn analyze_match_coverage(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     scrutinee_type: &InferenceType,
     match_expr: &sigil_ast::MatchExpr,
 ) -> Result<(), TypeError> {
@@ -5268,9 +5486,16 @@ fn analyze_match_coverage(
     let mut remaining = scrutinee_space.clone();
     let mut previous_facts: Vec<serde_json::Value> = Vec::new();
     let mut unsupported_facts = Vec::new();
+    let mut fallthrough_context = scrutinee_proof_context(env, proof_context, &match_expr.scrutinee);
 
     for (index, arm) in match_expr.arms.iter().enumerate() {
-        let arm_proof = arm_proof(env, scrutinee_type, &arm.pattern, arm.guard.as_ref())?;
+        let arm_proof = arm_proof(
+            env,
+            &fallthrough_context,
+            &match_expr.scrutinee,
+            scrutinee_type,
+            arm,
+        )?;
         if !arm_proof.unsupported_facts.is_empty() {
             unsupported_facts.extend(arm_proof.unsupported_facts.clone());
         }
@@ -5321,6 +5546,10 @@ fn analyze_match_coverage(
         if arm_proof.guard_supported {
             remaining = space_difference(&remaining, &arm_proof.space);
         }
+        if let Some(condition_formula) = arm_proof.condition_formula {
+            fallthrough_context =
+                fallthrough_context.with_assumption(Formula::Not(Box::new(condition_formula)));
+        }
     }
 
     if !space_is_empty(&remaining) {
@@ -5357,62 +5586,219 @@ fn proof_fragment() -> serde_json::Value {
             "int_literal_equality",
             "int_literal_order",
             "bool_and_or_not",
-            "guard_true_false"
+            "refinement_bool_aliases",
+            "match_guard_refinement_facts"
         ]
     })
 }
 
 fn arm_proof(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    scrutinee: &Expr,
     scrutinee_type: &InferenceType,
-    pattern: &sigil_ast::Pattern,
-    guard: Option<&Expr>,
+    arm: &sigil_ast::MatchArm,
 ) -> Result<ArmProof, TypeError> {
     let mut bindings = HashMap::new();
     let mut visiting = std::collections::BTreeSet::new();
     let mut base_space = pattern_to_space(
         env,
         scrutinee_type,
-        pattern,
+        &arm.pattern,
         &mut bindings,
         &vec![],
         &mut visiting,
     )?;
-    let mut facts = vec![pattern_summary(pattern)];
-    let mut unsupported_facts = Vec::new();
-
-    if let Some(guard) = guard {
-        match guard_to_space_subset(&base_space, guard, &bindings) {
-            Ok(Some((guard_space, guard_facts))) => {
-                base_space = space_intersection(&base_space, &guard_space);
-                facts.extend(guard_facts);
-                Ok(ArmProof {
-                    space: base_space,
-                    guard_supported: true,
-                    facts,
-                    unsupported_facts,
-                })
-            }
-            Ok(None) => {
-                unsupported_facts.push(expr_summary(guard));
-                Ok(ArmProof {
-                    space: base_space,
-                    guard_supported: false,
-                    facts,
-                    unsupported_facts,
-                })
-            }
-            Err(message) => Err(TypeError::new(message, Some(expr_location(guard)))
-                .with_code(codes::typecheck::ERROR)),
-        }
-    } else {
-        Ok(ArmProof {
-            space: base_space,
-            guard_supported: true,
-            facts,
-            unsupported_facts,
-        })
+    let scrutinee_roots = coverage_scrutinee_roots(env, proof_context, scrutinee, scrutinee_type);
+    let arm_refinement =
+        match_arm_refinement(env, proof_context, scrutinee, scrutinee_type, arm)?;
+    let mut facts = vec![pattern_summary(&arm.pattern)];
+    if let Some(guard) = &arm.guard {
+        facts.push(expr_summary(guard));
     }
+
+    if let Some(condition_formula) = &arm_refinement.condition_formula {
+        if let Some(guard_space) =
+            formula_to_space_subset(&base_space, condition_formula, &scrutinee_roots)
+        {
+            base_space = space_intersection(&base_space, &guard_space);
+        } else if arm.guard.is_some() {
+            return Ok(ArmProof {
+                space: base_space,
+                guard_supported: false,
+                facts,
+                unsupported_facts: arm_refinement.unsupported_facts,
+                condition_formula: None,
+            });
+        }
+    }
+
+    Ok(ArmProof {
+        space: base_space,
+        guard_supported: arm_refinement.guard_supported,
+        facts,
+        unsupported_facts: arm_refinement.unsupported_facts,
+        condition_formula: arm_refinement.condition_formula,
+    })
+}
+
+fn coverage_scrutinee_roots(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    scrutinee: &Expr,
+    scrutinee_type: &InferenceType,
+) -> Vec<SymbolPath> {
+    let Some(symbolic) = scrutinee_symbolic_value(env, proof_context, scrutinee, scrutinee_type) else {
+        return vec![];
+    };
+
+    match symbolic {
+        SymbolicValue::Int(linear) if linear.constant == 0 => linear
+            .form
+            .single_term()
+            .filter(|(_, coeff)| *coeff == 1)
+            .map(|(path, _)| vec![path.clone()])
+            .unwrap_or_default(),
+        SymbolicValue::Bool(Formula::Atom(Atom::BoolEq { path, value: true })) => vec![path],
+        SymbolicValue::Record(SymbolicRecord::Path { base, .. }) => vec![base],
+        _ => vec![],
+    }
+}
+
+fn symbol_path_to_value_path(path: &SymbolPath, scrutinee_roots: &[SymbolPath]) -> Option<ValuePath> {
+    let mut parts = path.0.iter();
+    let first = parts.next()?;
+    match first {
+        SymbolPathStep::Binding(name) if name == MATCH_SCRUTINEE_BINDING => {}
+        SymbolPathStep::Binding(_) => {
+            let matched_root = scrutinee_roots
+                .iter()
+                .find(|candidate| candidate.0.first() == Some(first))?;
+            if path.0.len() < matched_root.0.len() || path.0[..matched_root.0.len()] != matched_root.0[..] {
+                return None;
+            }
+            let mut value_path = Vec::new();
+            for step in &path.0[matched_root.0.len()..] {
+                match step {
+                    SymbolPathStep::VariantField(index) => {
+                        value_path.push(ValuePathStep::VariantField(*index))
+                    }
+                    SymbolPathStep::TupleIndex(index) => {
+                        value_path.push(ValuePathStep::TupleIndex(*index))
+                    }
+                    SymbolPathStep::ListHead => value_path.push(ValuePathStep::ListHead),
+                    SymbolPathStep::ListTail => value_path.push(ValuePathStep::ListTail),
+                    SymbolPathStep::Field(_) | SymbolPathStep::Binding(_) => return None,
+                }
+            }
+            return Some(value_path);
+        }
+        _ => return None,
+    }
+
+    let mut value_path = Vec::new();
+    for step in parts {
+        match step {
+            SymbolPathStep::VariantField(index) => value_path.push(ValuePathStep::VariantField(*index)),
+            SymbolPathStep::TupleIndex(index) => value_path.push(ValuePathStep::TupleIndex(*index)),
+            SymbolPathStep::ListHead => value_path.push(ValuePathStep::ListHead),
+            SymbolPathStep::ListTail => value_path.push(ValuePathStep::ListTail),
+            SymbolPathStep::Field(_) | SymbolPathStep::Binding(_) => return None,
+        }
+    }
+
+    Some(value_path)
+}
+
+fn formula_to_space_subset(
+    base_space: &MatchSpace,
+    formula: &Formula,
+    scrutinee_roots: &[SymbolPath],
+) -> Option<MatchSpace> {
+    match formula {
+        Formula::True => Some(base_space.clone()),
+        Formula::False => Some(MatchSpace::Empty),
+        Formula::Atom(atom) => atom_to_space_subset(base_space, atom, scrutinee_roots),
+        Formula::And(parts) => {
+            let mut current = base_space.clone();
+            for part in parts {
+                current = space_intersection(
+                    &current,
+                    &formula_to_space_subset(&current, part, scrutinee_roots)?,
+                );
+            }
+            Some(current)
+        }
+        Formula::Or(parts) => {
+            let mut spaces = Vec::new();
+            for part in parts {
+                spaces.push(formula_to_space_subset(base_space, part, scrutinee_roots)?);
+            }
+            Some(normalize_space(MatchSpace::Union(spaces)))
+        }
+        Formula::Not(part) => {
+            let inner = formula_to_space_subset(base_space, part, scrutinee_roots)?;
+            Some(space_difference(base_space, &inner))
+        }
+    }
+}
+
+fn atom_to_space_subset(
+    base_space: &MatchSpace,
+    atom: &Atom,
+    scrutinee_roots: &[SymbolPath],
+) -> Option<MatchSpace> {
+    match atom {
+        Atom::BoolEq { path, value } => {
+            let value_path = symbol_path_to_value_path(path, scrutinee_roots)?;
+            let constraint = MatchSpace::Primitive(PrimitiveSpace::Bool {
+                allow_true: *value,
+                allow_false: !*value,
+            });
+            refine_space_at_path(base_space, &value_path, &constraint)
+        }
+        Atom::IntCmp { form, op, rhs } => {
+            if form.terms.is_empty() {
+                return Some(if prove_formula(&[], &Formula::Atom(atom.clone())) {
+                    base_space.clone()
+                } else {
+                    MatchSpace::Empty
+                });
+            }
+
+            let (path, coeff) = form.single_term()?;
+            let value_path = symbol_path_to_value_path(path, scrutinee_roots)?;
+            let constraint = int_constraint_space(coeff, *op, *rhs)?;
+            refine_space_at_path(base_space, &value_path, &constraint)
+        }
+    }
+}
+
+fn int_constraint_space(coeff: i64, op: ComparisonOp, rhs: i64) -> Option<MatchSpace> {
+    let ranges = match op {
+        ComparisonOp::Eq => IntRangeSet::singleton(solve_exact_single_var(coeff, rhs)?),
+        ComparisonOp::Ne => {
+            let value = solve_exact_single_var(coeff, rhs)?;
+            IntRangeSet::all().difference(&IntRangeSet::singleton(value))
+        }
+        ComparisonOp::Lt | ComparisonOp::Le | ComparisonOp::Gt | ComparisonOp::Ge => {
+            let (lower, upper) = solve_single_var_interval(coeff, op, rhs)?;
+            match (lower, upper) {
+                (None, None) => IntRangeSet::all(),
+                (Some(lower), None) => IntRangeSet::greater_eq(lower),
+                (None, Some(upper)) => IntRangeSet::less_eq(upper),
+                (Some(lower), Some(upper)) if lower <= upper => IntRangeSet {
+                    intervals: vec![IntInterval {
+                        start: Some(lower),
+                        end: Some(upper),
+                    }],
+                },
+                (Some(_), Some(_)) => IntRangeSet::empty(),
+            }
+        }
+    };
+
+    Some(MatchSpace::Primitive(PrimitiveSpace::Int(ranges)))
 }
 
 fn total_space_for_type(
@@ -5805,174 +6191,6 @@ fn list_pattern_to_space(
         head: Box::new(head),
         tail: Box::new(tail),
     }))
-}
-
-fn guard_to_space_subset(
-    base_space: &MatchSpace,
-    expr: &Expr,
-    bindings: &HashMap<String, ValuePath>,
-) -> Result<Option<(MatchSpace, Vec<String>)>, String> {
-    match expr {
-        Expr::Literal(literal) => match literal.value {
-            LiteralValue::Bool(true) => Ok(Some((base_space.clone(), vec!["true".to_string()]))),
-            LiteralValue::Bool(false) => Ok(Some((MatchSpace::Empty, vec!["false".to_string()]))),
-            _ => Ok(None),
-        },
-        Expr::Unary(unary) if unary.operator == UnaryOperator::Not => {
-            let Some((inner_space, mut facts)) =
-                guard_to_space_subset(base_space, &unary.operand, bindings)?
-            else {
-                return Ok(None);
-            };
-            facts = facts
-                .into_iter()
-                .map(|fact| format!("not ({})", fact))
-                .collect::<Vec<_>>();
-            Ok(Some((space_difference(base_space, &inner_space), facts)))
-        }
-        Expr::Binary(binary) if binary.operator == BinaryOperator::And => {
-            let Some((left_space, mut left_facts)) =
-                guard_to_space_subset(base_space, &binary.left, bindings)?
-            else {
-                return Ok(None);
-            };
-            let Some((right_space, right_facts)) =
-                guard_to_space_subset(base_space, &binary.right, bindings)?
-            else {
-                return Ok(None);
-            };
-            left_facts.extend(right_facts);
-            Ok(Some((
-                space_intersection(&left_space, &right_space),
-                left_facts,
-            )))
-        }
-        Expr::Binary(binary) if binary.operator == BinaryOperator::Or => {
-            let Some((left_space, mut left_facts)) =
-                guard_to_space_subset(base_space, &binary.left, bindings)?
-            else {
-                return Ok(None);
-            };
-            let Some((right_space, right_facts)) =
-                guard_to_space_subset(base_space, &binary.right, bindings)?
-            else {
-                return Ok(None);
-            };
-            left_facts.extend(right_facts);
-            Ok(Some((
-                normalize_space(MatchSpace::Union(vec![left_space, right_space])),
-                left_facts,
-            )))
-        }
-        Expr::Binary(binary) => guard_binary_to_space(base_space, binary, bindings),
-        _ => Ok(None),
-    }
-}
-
-fn guard_binary_to_space(
-    base_space: &MatchSpace,
-    binary: &sigil_ast::BinaryExpr,
-    bindings: &HashMap<String, ValuePath>,
-) -> Result<Option<(MatchSpace, Vec<String>)>, String> {
-    let left_path = expr_binding_path(&binary.left, bindings);
-    let right_path = expr_binding_path(&binary.right, bindings);
-    let empty_locals = HashMap::new();
-    let left_value = eval_static_expr(&binary.left, &StaticValue::Unit, &empty_locals);
-    let right_value = eval_static_expr(&binary.right, &StaticValue::Unit, &empty_locals);
-
-    let (path, static_value, flipped) = match (left_path, right_path, left_value, right_value) {
-        (Some(path), None, _, Some(value)) => (path, value, false),
-        (None, Some(path), Some(value), _) => (path, value, true),
-        _ => return Ok(None),
-    };
-
-    let operator = if flipped {
-        flip_comparison(binary.operator)
-            .ok_or_else(|| expr_summary(&Expr::Binary(Box::new(binary.clone()))))?
-    } else {
-        binary.operator
-    };
-
-    let constraint_space = constraint_space_for_value(operator, &static_value)
-        .ok_or_else(|| expr_summary(&Expr::Binary(Box::new(binary.clone()))))?;
-    let refined =
-        refine_space_at_path(base_space, &path, &constraint_space).unwrap_or(MatchSpace::Empty);
-    Ok(Some((
-        refined,
-        vec![expr_summary(&Expr::Binary(Box::new(binary.clone())))],
-    )))
-}
-
-fn expr_binding_path(expr: &Expr, bindings: &HashMap<String, ValuePath>) -> Option<ValuePath> {
-    let Expr::Identifier(identifier) = expr else {
-        return None;
-    };
-    bindings.get(&identifier.name).cloned()
-}
-
-fn flip_comparison(operator: BinaryOperator) -> Option<BinaryOperator> {
-    match operator {
-        BinaryOperator::Equal => Some(BinaryOperator::Equal),
-        BinaryOperator::NotEqual => Some(BinaryOperator::NotEqual),
-        BinaryOperator::Less => Some(BinaryOperator::Greater),
-        BinaryOperator::LessEq => Some(BinaryOperator::GreaterEq),
-        BinaryOperator::Greater => Some(BinaryOperator::Less),
-        BinaryOperator::GreaterEq => Some(BinaryOperator::LessEq),
-        _ => None,
-    }
-}
-
-fn constraint_space_for_value(operator: BinaryOperator, value: &StaticValue) -> Option<MatchSpace> {
-    match (operator, value) {
-        (BinaryOperator::Equal, StaticValue::Int(value)) => Some(MatchSpace::Primitive(
-            PrimitiveSpace::Int(IntRangeSet::singleton(*value)),
-        )),
-        (BinaryOperator::NotEqual, StaticValue::Int(value)) => Some(MatchSpace::Primitive(
-            PrimitiveSpace::Int(IntRangeSet::all().difference(&IntRangeSet::singleton(*value))),
-        )),
-        (BinaryOperator::Less, StaticValue::Int(value)) => Some(MatchSpace::Primitive(
-            PrimitiveSpace::Int(IntRangeSet::less_than(*value)),
-        )),
-        (BinaryOperator::LessEq, StaticValue::Int(value)) => Some(MatchSpace::Primitive(
-            PrimitiveSpace::Int(IntRangeSet::less_eq(*value)),
-        )),
-        (BinaryOperator::Greater, StaticValue::Int(value)) => Some(MatchSpace::Primitive(
-            PrimitiveSpace::Int(IntRangeSet::greater_than(*value)),
-        )),
-        (BinaryOperator::GreaterEq, StaticValue::Int(value)) => Some(MatchSpace::Primitive(
-            PrimitiveSpace::Int(IntRangeSet::greater_eq(*value)),
-        )),
-        (BinaryOperator::Equal, StaticValue::Bool(value)) => {
-            Some(MatchSpace::Primitive(PrimitiveSpace::Bool {
-                allow_true: *value,
-                allow_false: !*value,
-            }))
-        }
-        (BinaryOperator::NotEqual, StaticValue::Bool(value)) => {
-            Some(MatchSpace::Primitive(PrimitiveSpace::Bool {
-                allow_true: !*value,
-                allow_false: *value,
-            }))
-        }
-        (BinaryOperator::Equal, StaticValue::Unit) => {
-            Some(MatchSpace::Primitive(PrimitiveSpace::Unit {
-                present: true,
-            }))
-        }
-        (BinaryOperator::Equal, StaticValue::String(value)) => {
-            Some(MatchSpace::Primitive(PrimitiveSpace::EqFinite {
-                kind: PrimitiveEqKind::String,
-                values: std::collections::BTreeSet::from([LiteralAtom::String(value.clone())]),
-            }))
-        }
-        (BinaryOperator::Equal, StaticValue::Char(value)) => {
-            Some(MatchSpace::Primitive(PrimitiveSpace::EqFinite {
-                kind: PrimitiveEqKind::Char,
-                values: std::collections::BTreeSet::from([LiteralAtom::Char(*value)]),
-            }))
-        }
-        _ => None,
-    }
 }
 
 fn space_is_empty(space: &MatchSpace) -> bool {
@@ -7078,25 +7296,34 @@ fn check(
     expr: &Expr,
     expected_type: &InferenceType,
 ) -> Result<(), TypeError> {
+    check_with_context(env, &ProofContext::default(), expr, expected_type)
+}
+
+fn check_with_context(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    expr: &Expr,
+    expected_type: &InferenceType,
+) -> Result<(), TypeError> {
     // Special case: checking against 'any' type always succeeds (FFI trust mode)
     if matches!(expected_type, InferenceType::Any) {
         return Ok(());
     }
 
     if let Expr::Application(app) = expr {
-        return check_application(env, app, expected_type);
+        return check_application(env, proof_context, app, expected_type);
     }
 
     if let Expr::If(if_expr) = expr {
-        return check_if(env, if_expr, expected_type);
+        return check_if(env, proof_context, if_expr, expected_type);
     }
 
     if let Expr::Let(let_expr) = expr {
-        return check_let(env, let_expr, expected_type);
+        return check_let(env, proof_context, let_expr, expected_type);
     }
 
     if let Expr::Match(match_expr) = expr {
-        return check_match(env, match_expr, expected_type);
+        return check_match(env, proof_context, match_expr, expected_type);
     }
 
     let normalized_expected = env.normalize_type(expected_type);
@@ -7137,11 +7364,19 @@ fn check(
         return Ok(());
     }
 
-    ensure_expr_matches_expected(env, expr, &actual_type, expected_type, expr_location(expr))
+    ensure_expr_matches_expected(
+        env,
+        proof_context,
+        expr,
+        &actual_type,
+        expected_type,
+        expr_location(expr),
+    )
 }
 
 fn check_application(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     app: &sigil_ast::ApplicationExpr,
     expected_type: &InferenceType,
 ) -> Result<(), TypeError> {
@@ -7180,7 +7415,14 @@ fn check_application(
             continue;
         }
 
-        if try_refinement_compatibility(env, arg, &arg_type, &expected_param, app.location)? {
+        if try_refinement_compatibility(
+            env,
+            proof_context,
+            arg,
+            &arg_type,
+            &expected_param,
+            app.location,
+        )? {
             continue;
         }
 
@@ -7197,6 +7439,7 @@ fn check_application(
     let actual_return = apply_subst(&subst, &tfunc.return_type);
     ensure_expr_matches_expected(
         env,
+        proof_context,
         &Expr::Application(Box::new(app.clone())),
         &actual_return,
         expected_type,
@@ -7206,13 +7449,30 @@ fn check_application(
 
 fn check_if(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     if_expr: &sigil_ast::IfExpr,
     expected_type: &InferenceType,
 ) -> Result<(), TypeError> {
-    check(env, &if_expr.condition, &bool_type())?;
+    check_with_context(env, proof_context, &if_expr.condition, &bool_type())?;
+
+    let narrowed = lower_symbolic_formula(env, proof_context, &if_expr.condition, None).ok();
+    let then_context = if let Some((condition_formula, condition_assumptions)) = narrowed.clone() {
+        proof_context
+            .with_assumptions(condition_assumptions)
+            .with_assumption(condition_formula)
+    } else {
+        proof_context.clone()
+    };
+    let else_context = if let Some((condition_formula, condition_assumptions)) = narrowed {
+        proof_context
+            .with_assumptions(condition_assumptions)
+            .with_assumption(Formula::Not(Box::new(condition_formula)))
+    } else {
+        proof_context.clone()
+    };
 
     if if_expr.else_branch.is_none() {
-        check(env, &if_expr.then_branch, &unit_type())?;
+        check_with_context(env, &then_context, &if_expr.then_branch, &unit_type())?;
         if !type_flows_without_new_proof(env, &unit_type(), expected_type)? {
             let (normalized_actual, normalized_expected) =
                 canonical_pair(env, &unit_type(), expected_type);
@@ -7230,12 +7490,18 @@ fn check_if(
         return Ok(());
     }
 
-    check(env, &if_expr.then_branch, expected_type)?;
-    check(env, if_expr.else_branch.as_ref().unwrap(), expected_type)
+    check_with_context(env, &then_context, &if_expr.then_branch, expected_type)?;
+    check_with_context(
+        env,
+        &else_context,
+        if_expr.else_branch.as_ref().unwrap(),
+        expected_type,
+    )
 }
 
 fn check_let(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     let_expr: &sigil_ast::LetExpr,
     expected_type: &InferenceType,
 ) -> Result<(), TypeError> {
@@ -7245,7 +7511,7 @@ fn check_let(
     let mut bindings = HashMap::new();
     match &let_expr.pattern {
         Pattern::Identifier(id_pattern) => {
-            bindings.insert(id_pattern.name.clone(), value_type);
+            bindings.insert(id_pattern.name.clone(), value_type.clone());
         }
         Pattern::Wildcard(_) => {}
         _ => {
@@ -7257,11 +7523,14 @@ fn check_let(
     }
 
     let body_env = env.extend(Some(bindings));
-    check(&body_env, &let_expr.body, expected_type)
+    let body_context =
+        let_proof_context(env, proof_context, &let_expr.pattern, &let_expr.value, &value_type);
+    check_with_context(&body_env, &body_context, &let_expr.body, expected_type)
 }
 
 fn check_match(
     env: &TypeEnvironment,
+    proof_context: &ProofContext,
     match_expr: &sigil_ast::MatchExpr,
     expected_type: &InferenceType,
 ) -> Result<(), TypeError> {
@@ -7274,19 +7543,35 @@ fn check_match(
         ));
     }
 
+    let base_match_context = scrutinee_proof_context(env, proof_context, &match_expr.scrutinee);
+    let mut fallthrough_context = base_match_context.clone();
+
     for arm in &match_expr.arms {
         let mut bindings = HashMap::new();
         check_pattern(env, &arm.pattern, &scrutinee_type, &mut bindings)?;
         let arm_env = env.extend(Some(bindings));
+        let arm_refinement = match_arm_refinement(
+            env,
+            &fallthrough_context,
+            &match_expr.scrutinee,
+            &scrutinee_type,
+            arm,
+        )?;
+        let arm_context = arm_refinement.body_context.clone();
 
         if let Some(guard) = &arm.guard {
-            check(&arm_env, guard, &bool_type())?;
+            check_with_context(&arm_env, &arm_context, guard, &bool_type())?;
         }
 
-        check(&arm_env, &arm.body, expected_type)?;
+        check_with_context(&arm_env, &arm_context, &arm.body, expected_type)?;
+
+        if let Some(condition_formula) = arm_refinement.condition_formula {
+            fallthrough_context =
+                fallthrough_context.with_assumption(Formula::Not(Box::new(condition_formula)));
+        }
     }
 
-    analyze_match_coverage(env, &scrutinee_type, match_expr)
+    analyze_match_coverage(env, proof_context, &scrutinee_type, match_expr)
 }
 
 fn check_list(
@@ -7991,6 +8276,65 @@ mod tests {
 
         let result = type_check(&program, source, TypeCheckOptions::default());
         assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_alias_narrows_through_match_on_boolean_fact() {
+        let source =
+            "t BirthYear=Int where value>1800\nλpromote(year:Int)=>BirthYear match year>1800{\n  true=>year|\n  false=>1900\n}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_alias_narrows_later_match_arms_from_fallthrough() {
+        let source =
+            "t NonPositive=Int where value≤0\nλkeep(value:Int)=>NonPositive match value>0{\n  true=>0|\n  false=>value\n}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_alias_narrows_through_match_guard() {
+        let source =
+            "t BirthYear=Int where value>1800\nλpromote(year:Int)=>BirthYear match year{\n  candidate when candidate>1800=>candidate|\n  _=>1900\n}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_alias_narrows_through_direct_boolean_local_alias() {
+        let source =
+            "t BirthYear=Int where value>1800\nλpromote(year:Int)=>BirthYear=l ok=((year>1800):Bool);match ok{\n  true=>year|\n  false=>1900\n}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn test_constrained_alias_rejects_opaque_boolean_local_alias_for_narrowing() {
+        let source =
+            "t BirthYear=Int where value>1800\nλisBirthYear(year:Int)=>Bool=year>1800\nλpromote(year:Int)=>BirthYear=l ok=((isBirthYear(year)):Bool);match ok{\n  true=>year|\n  false=>1900\n}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "src/types.lib.sigil").unwrap();
+
+        let result = type_check(&program, source, TypeCheckOptions::default());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("Constraint for 'BirthYear' could not be proven here"));
     }
 
     #[test]
@@ -8839,6 +9183,16 @@ mod tests {
     #[test]
     fn test_match_guard_redundancy_is_rejected() {
         let source = "λmain(x:Int)=>String match x{\n  n when n>0=>\"p\"|\n  n when n>1=>\"pp\"|\n  _=>\"rest\"\n}";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+
+        let error = type_check(&program, source, TypeCheckOptions::default()).unwrap_err();
+        assert_eq!(error.code, codes::typecheck::MATCH_REDUNDANT_PATTERN);
+    }
+
+    #[test]
+    fn test_match_guard_redundancy_tracks_direct_boolean_aliases() {
+        let source = "λmain(x:Int)=>String=l ok=((x>0):Bool);match x{\n  n when ok=>\"p\"|\n  n when n>1=>\"pp\"|\n  _=>\"rest\"\n}";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 

@@ -279,7 +279,7 @@ fn run_json_breakpoint_hits_include_live_let_locals() {
     let file = write_program(
         &dir,
         "main.sigil",
-        "t UserId=Int where value≥0\n\nλhelper(userId:UserId)=>Int={\n  l current=(userId:UserId);\n  match current=current{\n    true=>1|\n    false=>0\n  }\n}\n\nλmain()=>Int=helper((1:UserId))\n",
+        "t UserId=Int where value≥0\n\nλhelper(userId:UserId)=>Int={\n  l current=(userId:UserId);\n  match current=(0:UserId){\n    true=>1|\n    false=>current-current\n  }\n}\n\nλmain()=>Int=helper((1:UserId))\n",
     );
 
     let output = Command::new(sigil_bin())
@@ -287,7 +287,7 @@ fn run_json_breakpoint_hits_include_live_let_locals() {
         .arg("run")
         .arg("--json")
         .arg("--break")
-        .arg(line_break_selector(&file, 5))
+        .arg(line_break_selector(&file, 7))
         .arg(&file)
         .output()
         .unwrap();
@@ -767,7 +767,7 @@ fn run_json_runtime_expression_includes_live_locals_when_breakpoints_are_enabled
     let file = write_program(
         &dir,
         "main.sigil",
-        "t UserId=Int where value≥0\n\ne boom:{explode:λ()=>Int}\n\nλhelper(userId:UserId)=>Int={\n  l current=(userId:UserId);\n  boom.explode()+(match current=current{\n    true=>1|\n    false=>0\n  })\n}\n\nλmain()=>Int=helper((1:UserId))\n",
+        "t UserId=Int where value≥0\n\ne boom:{explode:λ()=>Int}\n\nλhelper(userId:UserId)=>Int={\n  l current=(userId:UserId);\n  boom.explode()+(match current=(0:UserId){\n    true=>1|\n    false=>current-current\n  })\n}\n\nλmain()=>Int=helper((1:UserId))\n",
     );
 
     let output = Command::new(sigil_bin())

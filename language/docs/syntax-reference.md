@@ -239,7 +239,20 @@ Constraint rules:
 - values flow into a constrained type only when the checker can prove the predicate in Sigil's canonical refinement fragment
 - constrained values widen to their underlying type automatically
 - the current proof fragment covers Bool/Int literals, `value`, field access, `+`, `-`, comparisons, `and`, `or`, and `not`
+- `match` and internal branching propagate supported branch facts into that refinement proof
+- direct boolean local aliases of supported facts also narrow
 - constraints do not imply automatic runtime validation
+
+Example:
+
+```sigil module
+t BirthYear=Int where value>1800
+
+λpromote(year:Int)=>BirthYear match year>1800{
+  true=>year|
+  false=>1900
+}
+```
 
 ## Constants
 
@@ -388,11 +401,9 @@ Current match rules:
 - matches over finite structural spaces must be exhaustive
 - redundant and unreachable arms are rejected
 - `Bool`, `Unit`, tuples, list shapes, and nominal sum constructors participate in exhaustiveness checking
-- guards participate in coverage only through a small proof fragment:
-  - `true` / `false`
-  - equality and order comparisons between a bound pattern variable and a literal
-  - boolean `and` / `or` / `not` over those supported facts
-- guards outside that fragment remain valid source, but they do not count as full coverage and do not make later arms dead by themselves
+- coverage and refinement narrowing share the same canonical Bool/Int proof fragment
+- supported branch facts include Bool/Int literals, rooted or pattern-bound values, field access, `+`, `-`, comparisons, `and`, `or`, `not`, and direct boolean local aliases of those supported facts
+- unsupported guards remain valid source, but they stay opaque to coverage and refinement narrowing
 - record patterns are not part of the current supported checker surface
 
 Examples:

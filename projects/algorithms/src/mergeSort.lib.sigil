@@ -12,7 +12,7 @@
     []=>left|
     [rightHead,.rightTail]=>match leftHead≤rightHead{
       true=>[leftHead]⧺merge(leftTail,right)|
-      false=>[rightHead]⧺merge(left,rightTail)
+      _=>[rightHead]⧺merge(left,rightTail)
     }
   }
 }

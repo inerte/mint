@@ -61,16 +61,23 @@ So these are real checked programs:
 If one arm is missing, `compile` now fails instead of silently accepting an
 incomplete branch tree.
 
-## Guards and the Proof Fragment
+## Guards and the Refinement Fragment
 
-Pattern guards are still part of the language, but the compiler now makes an
-explicit distinction between guards it can reason about and guards it cannot.
+Pattern guards are part of the same fact system that constrained types now use.
+The compiler does not have one proof model for `where` constraints and another
+one for `match`. It uses one canonical Bool/Int refinement fragment for both
+coverage and flow-sensitive narrowing.
 
-The supported proof fragment is intentionally small:
+The supported fragment covers:
 
 - `true` and `false`
-- equality and order comparisons between a bound pattern variable and a literal
-- boolean `and`, `or`, and `not` over those facts
+- Bool/Int literals
+- rooted or pattern-bound values
+- field access
+- `+` and `-`
+- comparisons
+- boolean `and`, `or`, and `not`
+- direct boolean local aliases of those supported facts
 
 That means the checker can understand cases like:
 
@@ -83,15 +90,29 @@ That means the checker can understand cases like:
 }
 ```
 
-But it does not try to prove arbitrary facts about:
+So the checker can understand not only direct guards, but also small staged
+facts like:
+
+```sigil module
+λband(n:Int)=>String={
+  l ok=(n<10:Bool);
+  match n{
+    value when ok and value≥0=>"single-digit positive"|
+    value when ok=>"single-digit"|
+    _=>"other"
+  }
+}
+```
+
+But it still does not try to prove arbitrary facts about:
 
 - function calls
 - world-dependent expressions
 - general arithmetic relations between multiple variables
 - field-access-heavy predicates
 
-Those guards remain valid source. They just remain opaque to the exhaustiveness
-proof.
+Those guards remain valid source. They just remain opaque to coverage and
+refinement narrowing.
 
 ## Why the Compile Errors Changed
 
@@ -104,11 +125,11 @@ On relevant failures, `compile` now includes structured details such as:
 - suggested missing arms
 - known facts from earlier arms
 - unsupported guard facts
-- the current proof fragment
+- the current refinement fragment
 
 That matters for both humans and agents. The compiler is not only saying
 "non-exhaustive." It is also saying what it still believes is uncovered and
-which guard facts it ignored.
+which facts stayed outside the supported fragment.
 
 ## The Goal
 

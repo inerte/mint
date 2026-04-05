@@ -354,7 +354,7 @@ Sigil also rejects obvious nested amplification of that same shape, such as:
     []=>left|
     [rh,.rt]=>match lh≤rh{
       true=>[lh]⧺merge(lt,right)|
-      false=>[rh]⧺merge(left,rt)
+      _=>[rh]⧺merge(left,rt)
     }
   }
 }

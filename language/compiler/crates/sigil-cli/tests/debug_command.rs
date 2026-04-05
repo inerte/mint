@@ -375,7 +375,7 @@ fn debug_run_watches_follow_scope_and_record_fields() {
     let file = write_program(
         &dir,
         "main.sigil",
-        "t User={name:String,score:Int}\n\nt UserId=Int where value≥0\n\nλhelper(user:User,userId:UserId)=>Int={\n  l current=(userId:UserId);\n  user.score+(match current=current{\n    true=>0|\n    false=>0\n  })\n}\n\nλmain()=>Int=helper({name:\"Ada\",score:1},(1:UserId))\n",
+        "t User={name:String,score:Int}\n\nt UserId=Int where value≥0\n\nλhelper(user:User,userId:UserId)=>Int={\n  l current=(userId:UserId);\n  user.score+(match current=(0:UserId){\n    true=>0|\n    false=>current-current\n  })\n}\n\nλmain()=>Int=helper({name:\"Ada\",score:1},(1:UserId))\n",
     );
     let artifact = dir.join("run.replay.json");
 
@@ -515,7 +515,7 @@ fn debug_test_watches_resolve_at_breakpoint_scope() {
     let file = write_program(
         &dir,
         "tests/basic.sigil",
-        "t User={name:String,score:Int}\n\nt UserId=Int where value≥0\n\nλhelper(user:User,userId:UserId)=>Int={\n  l current=(userId:UserId);\n  user.score+(match current=current{\n    true=>0|\n    false=>0\n  })\n}\n\nλmain()=>Unit=()\n\ntest \"demo\" {\n  helper({name:\"Ada\",score:2},(2:UserId))=2\n}\n",
+        "t User={name:String,score:Int}\n\nt UserId=Int where value≥0\n\nλhelper(user:User,userId:UserId)=>Int={\n  l current=(userId:UserId);\n  user.score+(match current=(0:UserId){\n    true=>0|\n    false=>current-current\n  })\n}\n\nλmain()=>Unit=()\n\ntest \"demo\" {\n  helper({name:\"Ada\",score:2},(2:UserId))=2\n}\n",
     );
     let artifact = dir.join("tests.replay.json");
 

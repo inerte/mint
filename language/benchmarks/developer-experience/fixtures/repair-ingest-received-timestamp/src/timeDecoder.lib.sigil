@@ -1,0 +1,7 @@
+λinstant(value:§json.JsonValue)=>Result[§time.Instant,§decode.DecodeError] match §decode.string(value){
+  Ok(text)=>match §time.parseIso(text){
+    Ok(decoded)=>Ok(decoded)|
+    Err(error)=>Err({message:error.message,path:[]})
+  }|
+  Err(error)=>Err(error)
+}

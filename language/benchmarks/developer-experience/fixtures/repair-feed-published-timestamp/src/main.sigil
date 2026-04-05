@@ -1,0 +1,4 @@
+λmain()=>String match §decode.parse(•feed.decodeHeadline,"{\"publishedAt\":\"2026-03-07T00:00:00.000Z\"}"){
+  Ok(_)=>"ok"|
+  Err(error)=>"ERR:"++error.message
+}

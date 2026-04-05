@@ -1,0 +1,38 @@
+{
+  "id": "repair-ingest-received-timestamp",
+  "title": "Repair a broken ingest timestamp decode",
+  "goal": "Restore the ingest flow so the project accepts its received timestamp payload and prints ok again.",
+  "initialPrompt": "A Sigil project now fails while ingesting a received timestamp. Find the smallest coherent fix so running the program prints ok again. Use any Sigil tooling you want, but keep the patch inside the allowed source paths.",
+  "fixture": "repair-ingest-received-timestamp",
+  "setupCommands": [],
+  "oracleCommands": [
+    {
+      "command": "output=\"$(\"$SIGIL_BIN\" run src/main.sigil)\"; [ \"$output\" = \"ok\" ]",
+      "timeoutMs": 300000
+    }
+  ],
+  "successCriteria": [
+    "Running src/main.sigil prints ok.",
+    "The patch stays inside the allowed source paths."
+  ],
+  "allowedEditPaths": [
+    "src"
+  ],
+  "forbiddenEditPaths": [
+    ".local",
+    "sigil.json",
+    "src/ingest.lib.sigil",
+    "src/main.sigil",
+    "src/types.lib.sigil"
+  ],
+  "budgets": {
+    "maxCommandExecutions": 36,
+    "maxEffectiveTokens": 27000,
+    "maxWallClockMs": 420000
+  },
+  "rootCauseTags": [
+    "wrong_decode_field",
+    "decode_boundary_mismatch",
+    "wrong_decoder_module"
+  ]
+}

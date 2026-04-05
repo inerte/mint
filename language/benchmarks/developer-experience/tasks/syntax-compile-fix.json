@@ -1,0 +1,32 @@
+{
+  "id": "syntax-compile-fix",
+  "title": "Repair a broken Sigil file so it compiles again",
+  "goal": "Restore the fixture to a compilable state with the smallest coherent source edit.",
+  "initialPrompt": "The benchmark fixture no longer compiles. Fix the broken source so the file compiles again. Keep the patch focused and do not edit files outside the allowed path.",
+  "fixture": "syntax-compile-fix",
+  "setupCommands": [],
+  "oracleCommands": [
+    {
+      "command": "\"$SIGIL_BIN\" compile src/main.sigil >/dev/null"
+    }
+  ],
+  "successCriteria": [
+    "The fixture compiles successfully.",
+    "Only src/main.sigil is edited."
+  ],
+  "allowedEditPaths": [
+    "src/main.sigil"
+  ],
+  "forbiddenEditPaths": [
+    ".local"
+  ],
+  "budgets": {
+    "maxCommandExecutions": 84,
+    "maxEffectiveTokens": 65000,
+    "maxWallClockMs": 300000
+  },
+  "rootCauseTags": [
+    "syntax_error",
+    "missing_delimiter"
+  ]
+}

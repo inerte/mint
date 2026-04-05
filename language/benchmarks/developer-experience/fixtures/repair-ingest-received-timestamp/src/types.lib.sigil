@@ -1,0 +1,5 @@
+t ArchivedAt=§time.Instant
+
+t PublishedAt=§time.Instant
+
+t ReceivedAt=§time.Instant

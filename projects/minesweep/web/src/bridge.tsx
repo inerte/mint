@@ -5,9 +5,14 @@ import * as sigilRaw from './generated/minesweep-domain';
 type Cell = { adjacent: number; bomb: boolean; flagged: boolean; revealed: boolean; x: number; y: number };
 type Game = { board: Cell[]; height: number; status: string; width: number };
 type Mode = 'reveal' | 'flag';
+type Point = { x: number; y: number };
+
+const BOARD_HEIGHT = 6;
+const BOARD_WIDTH = 6;
+const TOTAL_BOMBS = 6;
 
 type SigilDomain = {
-  initialGame: () => Promise<Game>;
+  gameFromBombs: (points: Point[]) => Promise<Game>;
   revealCell: (game: Game, targetX: number, targetY: number) => Promise<Game>;
   toggleFlag: (game: Game, targetX: number, targetY: number) => Promise<Game>;
 };
@@ -40,12 +45,28 @@ function statusText(game: Game): string {
   const hiddenSafe = game.board.filter((cell) => !cell.bomb && !cell.revealed).length;
   switch (game.status) {
     case 'lost':
-      return 'Boom. The fixed board keeps the demo deterministic, so you can retry the same puzzle.';
+      return 'Boom. Restart loads a fresh randomized board.';
     case 'won':
-      return 'Board cleared. Sigil owns the state transitions; the browser only renders them.';
+      return 'Board cleared. Zero-adjacent cells cascade open automatically.';
     default:
       return `${hiddenSafe} safe cells left`;
   }
+}
+
+function randomBombPositions(): Point[] {
+  const cells: Point[] = [];
+  for (let y = 0; y < BOARD_HEIGHT; y += 1) {
+    for (let x = 0; x < BOARD_WIDTH; x += 1) {
+      cells.push({ x, y });
+    }
+  }
+  for (let index = cells.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    const current = cells[index];
+    cells[index] = cells[swapIndex];
+    cells[swapIndex] = current;
+  }
+  return cells.slice(0, TOTAL_BOMBS);
 }
 
 function MinesweepApp(): JSX.Element {
@@ -59,7 +80,7 @@ function MinesweepApp(): JSX.Element {
   }, [game]);
 
   useEffect(() => {
-    void sigil.initialGame()
+    void sigil.gameFromBombs(randomBombPositions())
       .then((nextGame) => {
         setGame(nextGame);
         setAppError(null);
@@ -69,7 +90,7 @@ function MinesweepApp(): JSX.Element {
 
   async function restart(): Promise<void> {
     try {
-      const nextGame = await sigil.initialGame();
+      const nextGame = await sigil.gameFromBombs(randomBombPositions());
       setGame(nextGame);
       setMode('reveal');
       setAppError(null);
@@ -109,7 +130,7 @@ function MinesweepApp(): JSX.Element {
         <div>
           <p className="eyebrow">Projects / Sigil Minesweep</p>
           <h1>Sigil Minesweep</h1>
-          <p className="subtitle">A deterministic browser demo where Sigil owns board state and the React bridge owns the interaction layer.</p>
+          <p className="subtitle">A browser demo where Sigil owns randomized board state and the React bridge owns the interaction layer.</p>
         </div>
         <button className="restart" onClick={() => void restart()}>Restart</button>
       </header>
@@ -130,7 +151,7 @@ function MinesweepApp(): JSX.Element {
       {appError ? <p className="minesweep-banner error">App error: {appError}</p> : null}
       <section className="minesweep-board" aria-label="Minesweep board">
         {boardRows(game).map((row, index) => (
-          <div className="minesweep-row" key={index}>
+          <div className="minesweep-row" key={index} style={{ gridTemplateColumns: `repeat(${game.width}, minmax(0, 1fr))` }}>
             {row.map((cell) => {
               const tone = cell.revealed
                 ? cell.bomb
@@ -163,7 +184,7 @@ function MinesweepApp(): JSX.Element {
         ))}
       </section>
       <p className="minesweep-banner muted">
-        Left click uses the selected mode. Right click always toggles a flag. The current board is fixed so the website demo stays stable on GitHub Pages and CI.
+        Left click uses the selected mode. Right click always toggles a flag. Reveal a zero-adjacent cell and the surrounding empty region opens automatically, like classic Minesweeper.
       </p>
     </div>
   );

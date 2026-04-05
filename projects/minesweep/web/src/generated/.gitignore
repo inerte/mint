@@ -1,2 +1,3 @@
 minesweep-domain.ts
 *.span.json
+core/

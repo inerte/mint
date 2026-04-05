@@ -1,6 +1,6 @@
 ---
 title: Sigil Minesweep
-description: Browser-runnable Minesweep project with Sigil game logic and a React + TypeScript UI bridge.
+description: Browser-runnable 6x6 Minesweep project with Sigil game logic, a React + TypeScript UI bridge, and 6 randomized mines by default.
 slug: sigil-minesweep
 ---
 
@@ -16,7 +16,8 @@ This project follows the same integration pattern as the Todo app:
 Current status:
 
 - browser-runnable demo published under `/projects/sigil-minesweep/demo/`
-- deterministic fixed board so the project is stable in CI and on GitHub Pages
+- randomized `6x6` board on every load and restart with `6` mines by default
+- zero-adjacent reveals cascade open the surrounding safe region
 - source-first domain logic with room to grow into a richer game later
 
 ## Run

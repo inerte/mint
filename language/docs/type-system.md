@@ -143,6 +143,14 @@ Rules:
 Projects pair labelled types with boundary rules in `src/policies.lib.sigil`.
 That file owns `rule` and `transform` declarations.
 
+Topology-aware labelled-boundary tests run under `sigil test --env <name>` and
+assert the resulting boundary behavior directly with named-boundary helpers such
+as:
+
+- `※check::file.existsAt(path,•topology.exportsDir)`
+- `※check::log.containsAt(message,•topology.auditLog)`
+- `※observe::process.commandsAt(•topology.govBrCli)`
+
 ## Records and Maps
 
 Records and maps are different concepts:

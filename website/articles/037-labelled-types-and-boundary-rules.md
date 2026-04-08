@@ -119,3 +119,11 @@ and then handled through exact topology boundaries:
 - USA PII heading to the audit log must go through a transform
 - Brazilian PII may be written to a named export root
 - the gov.br token may only reach the named gov.br process boundary
+
+It also shows the canonical testing shape for these policies: run the shared
+library entrypoint from a test-local `world { ... }`, then assert the exact
+named boundary effect with helpers such as:
+
+- `※check::file.existsAt(path,•topology.exportsDir)`
+- `※check::log.containsAt(message,•topology.auditLog)`
+- `※observe::process.commandsAt(•topology.govBrCli)`

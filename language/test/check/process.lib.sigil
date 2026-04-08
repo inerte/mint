@@ -1,5 +1,11 @@
 λcalled()=>Bool=※observe::process.callCount()>0
 
+λcalledAt(handle:§topology.ProcessHandle)=>Bool=※observe::process.callCountAt(handle)>0
+
 λcalledNTimes(count:Int)=>Bool=※observe::process.callCount()=count
 
+λcalledNTimesAt(count:Int,handle:§topology.ProcessHandle)=>Bool=※observe::process.callCountAt(handle)=count
+
 λcalledOnce()=>Bool=calledNTimes(1)
+
+λcalledOnceAt(handle:§topology.ProcessHandle)=>Bool=calledNTimesAt(1,handle)

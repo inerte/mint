@@ -138,6 +138,11 @@ Label rules:
 Projects pair labelled types with `src/policies.lib.sigil`, which owns
 `rule` and `transform` declarations for named topology boundaries.
 
+Topology-aware labelled-boundary tests run under `sigil test --env <name>` and
+assert the resulting boundary behavior with named-boundary helpers such as
+`※check::file.existsAt`, `※check::log.containsAt`, and
+`※observe::process.commandsAt`.
+
 ## Algebraic Data Types
 
 Examples:

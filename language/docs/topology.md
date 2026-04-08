@@ -124,8 +124,9 @@ rules can target exact `•topology...` boundaries.
 
 Example:
 
-```sigil program projects/labelled-boundaries/src/main.sigil
-λmain()=>!Fs!Log!Process Unit={
+```sigil module projects/labelled-boundaries/src/app.lib.sigil
+λrunExample()=>!Fs!Log!Process Unit={
+  l _=(§file.makeDirsAt("",•topology.exportsDir):Unit);
   l cpf=("12345678901":µCpf);
   l ssn=("123456789":µSsn);
   l token=("gov-br-token":µGovBrToken);
@@ -180,3 +181,23 @@ That keeps one runtime model for:
 - local development
 - integration tests
 - production
+
+For labelled boundaries, tests should assert the exact named-boundary outcome
+instead of relying on ambient global state. The canonical helpers are:
+
+- `※check::file.existsAt(path,•topology.exportsDir)`
+- `※check::log.containsAt(message,•topology.auditLog)`
+- `※observe::process.commandsAt(•topology.govBrCli)`
+
+The canonical example shape is:
+
+```sigil program projects/labelled-boundaries/tests/boundaries.sigil
+λmain()=>Unit=()
+
+test "audit sink receives redacted ssn" =>!Fs!Log!Process world {
+  c exports=(†fs.sandboxRoot(".local/labelled-boundaries-tests/audit",•topology.exportsDir):†fs.FsRootEntry)
+} {
+  l _=(•app.runExample():Unit);
+  ※check::log.containsAt("***-**-6789",•topology.auditLog)
+}
+```

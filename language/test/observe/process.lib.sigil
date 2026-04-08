@@ -1,3 +1,7 @@
 λcallCount()=>Int=0
 
+λcallCountAt(handle:§topology.ProcessHandle)=>Int=0
+
 λcommands()=>[§process.Command]=[]
+
+λcommandsAt(handle:§topology.ProcessHandle)=>[§process.Command]=[]

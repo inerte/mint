@@ -131,6 +131,33 @@ test "captured log contains line" =>!Log world {
 }
 ```
 
+Canonical named-boundary helpers include:
+
+- `※observe::file.readTextAt`
+- `※observe::log.entriesAt`
+- `※observe::process.commandsAt`
+- `※check::file.existsAt`
+- `※check::file.textEqualsAt`
+- `※check::log.containsAt`
+- `※check::process.calledOnceAt`
+
+For topology-aware labelled-boundary projects, these helpers are the canonical
+testing surface. They let a test assert the observed effect at the exact named
+boundary instead of inferring it from ambient global state.
+
+Example:
+
+```sigil program projects/labelled-boundaries/tests/boundaries.sigil
+λmain()=>Unit=()
+
+test "audit sink receives redacted ssn" =>!Fs!Log!Process world {
+  c exports=(†fs.sandboxRoot(".local/labelled-boundaries-tests/audit",•topology.exportsDir):†fs.FsRootEntry)
+} {
+  l _=(•app.runExample():Unit);
+  ※check::log.containsAt("***-**-6789",•topology.auditLog)
+}
+```
+
 `sigil test` also enforces project-surface coverage for project source modules:
 
 - every project `src/*.lib.sigil` function must be executed by the suite

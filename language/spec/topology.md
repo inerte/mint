@@ -131,6 +131,15 @@ sigil test <path> --env <name>
 Sigil does not provide an implicit default environment for topology-aware
 projects.
 
+## Test-World Observation
+
+Topology-aware tests assert exact named-boundary outcomes through the active
+test world. Canonical examples include:
+
+- `※check::file.existsAt(path,•topology.exportsDir)`
+- `※check::log.containsAt(message,•topology.auditLog)`
+- `※observe::process.commandsAt(•topology.govBrCli)`
+
 ## Diagnostics
 
 Topology diagnostics use `SIGIL-TOPO-*`.

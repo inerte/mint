@@ -33,6 +33,8 @@
 
 λhttpTestCommand(root:String)=>§process.Command=sigilCommand(["test","language/integrationTests/tests/httpClientServer.sigil"],root)
 
+λlabelledBoundariesSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","projects/labelled-boundaries/tests","--env","test"],root),label:"labelled boundaries suite"}
+
 λlanguageSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","language/tests"],root),label:"language suite"}
 
 λmain()=>!CliIo Unit match repoRoot(){
@@ -44,7 +46,7 @@
 
 λmultimoduleSuite(root:String)=>µParallelSuite={command:sigilCommand(["test","language/integrationTests/tests/multimodule.sigil"],root),label:"multimodule integration"}
 
-λparallelSuites(root:String)=>[µParallelSuite]=[algorithmsSuite(root),canonicalIntegrationSuite(root),flashcardsSuite(root),game2048Suite(root),languageSuite(root),minesweepSuite(root),multimoduleSuite(root),roguelikeSuite(root),ssgSuite(root),stdlibSuite(root),todoSuite(root)]
+λparallelSuites(root:String)=>[µParallelSuite]=[algorithmsSuite(root),canonicalIntegrationSuite(root),flashcardsSuite(root),game2048Suite(root),labelledBoundariesSuite(root),languageSuite(root),minesweepSuite(root),multimoduleSuite(root),roguelikeSuite(root),ssgSuite(root),stdlibSuite(root),todoSuite(root)]
 
 λpnpmCommand(args:[String],root:String)=>§process.Command=§process.withCwd(§process.command(["pnpm"]⧺args),root)
 

@@ -1,5 +1,11 @@
 λexists(path:String)=>Bool=false
 
+λexistsAt(path:String,root:§topology.FsRoot)=>Bool=false
+
 λlistDir(path:String)=>[String]=[]
 
+λlistDirAt(path:String,root:§topology.FsRoot)=>[String]=[]
+
 λreadText(path:String)=>String=""
+
+λreadTextAt(path:String,root:§topology.FsRoot)=>String=""

@@ -900,11 +900,17 @@ function __sigil_world_tcp_trace(world, dependencyName, request) {
   }
   world.traces.tcp[dependencyName].push(String(request));
 }
-function __sigil_world_log_trace(world, message) {
-  world.traces.log.push(String(message));
+function __sigil_world_log_trace(world, sinkName, message) {
+  world.traces.log.push({
+    message: String(message),
+    sinkName: sinkName == null ? null : String(sinkName)
+  });
 }
-function __sigil_world_process_trace(world, command) {
-  world.traces.process.push({ command });
+function __sigil_world_process_trace(world, handleName, command) {
+  world.traces.process.push({
+    command,
+    handleName: handleName == null ? null : String(handleName)
+  });
 }
 function __sigil_world_process_matches(rule, command) {
   const argv = Array.isArray(command?.argv) ? command.argv.map((item) => String(item)) : [];
@@ -1307,7 +1313,7 @@ async function __sigil_world_file_writeTextAt(rootName, content, pathValue) {
 function __sigil_world_log_debug(message) {
   const world = __sigil_current_world();
   const text = String(message);
-  __sigil_world_log_trace(world, text);
+  __sigil_world_log_trace(world, null, text);
   if (world.log.kind === 'stdout') {
     console.debug(text);
   }
@@ -1316,7 +1322,7 @@ function __sigil_world_log_debug(message) {
 function __sigil_world_log_eprintln(message) {
   const world = __sigil_current_world();
   const text = String(message);
-  __sigil_world_log_trace(world, text);
+  __sigil_world_log_trace(world, null, text);
   if (world.log.kind === 'stdout') {
     console.error(text);
   }
@@ -1325,7 +1331,7 @@ function __sigil_world_log_eprintln(message) {
 function __sigil_world_log_print(message) {
   const world = __sigil_current_world();
   const text = String(message);
-  __sigil_world_log_trace(world, text);
+  __sigil_world_log_trace(world, null, text);
   if (world.log.kind === 'stdout') {
     process.stdout.write(text);
   }
@@ -1334,7 +1340,7 @@ function __sigil_world_log_print(message) {
 function __sigil_world_log_println(message) {
   const world = __sigil_current_world();
   const text = String(message);
-  __sigil_world_log_trace(world, text);
+  __sigil_world_log_trace(world, null, text);
   if (world.log.kind === 'stdout') {
     console.log(text);
   }
@@ -1343,7 +1349,7 @@ function __sigil_world_log_println(message) {
 function __sigil_world_log_warn(message) {
   const world = __sigil_current_world();
   const text = String(message);
-  __sigil_world_log_trace(world, text);
+  __sigil_world_log_trace(world, null, text);
   if (world.log.kind === 'stdout') {
     console.warn(text);
   }
@@ -1353,7 +1359,7 @@ function __sigil_world_log_write_to(sinkName, message) {
   const world = __sigil_current_world();
   const entry = __sigil_world_named_log_sink(sinkName);
   const text = String(message);
-  __sigil_world_log_trace(world, text);
+  __sigil_world_log_trace(world, sinkName, text);
   if (entry.kind === 'stdout') {
     process.stdout.write(text);
   }
@@ -1550,12 +1556,12 @@ async function __sigil_world_process_exit(code) {
   }
   const world = __sigil_current_world();
   if (world.process.kind === 'deny') {
-    __sigil_world_process_trace(world, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
+    __sigil_world_process_trace(world, null, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
     __sigil_replay_record_return('process', 'exit', { code: Number(code) }, { code: Number(code), exited: false, result: null });
     return null;
   }
   if (world.process.kind === 'fixture') {
-    __sigil_world_process_trace(world, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
+    __sigil_world_process_trace(world, null, { argv: ['exit', String(code)], cwd: { __tag: 'None', __fields: [] }, env: __sigil_map_empty() });
     __sigil_replay_record_return('process', 'exit', { code: Number(code) }, { code: Number(code), exited: false, result: null });
     return null;
   }
@@ -1572,7 +1578,7 @@ async function __sigil_world_process_spawn(command) {
     })?.handle ?? { pid: -1 };
   }
   const world = __sigil_current_world();
-  __sigil_world_process_trace(world, command);
+  __sigil_world_process_trace(world, null, command);
   if (world.process.kind === 'deny') {
     const handle = { pid: -1 };
     const token = __sigil_replay_next_handle_token();
@@ -1645,7 +1651,7 @@ async function __sigil_world_process_spawn_at(handleName, command) {
   }
   const world = __sigil_current_world();
   const entry = __sigil_world_named_process_handle(handleName);
-  __sigil_world_process_trace(world, command);
+  __sigil_world_process_trace(world, handleName, command);
   if (entry.kind === 'deny') {
     const handle = { pid: -1 };
     const token = __sigil_replay_next_handle_token();
@@ -1883,20 +1889,44 @@ function __sigil_test_tcp_last_request(entry) {
 async function __sigil_test_file_exists(pathValue) {
   return await __sigil_world_file_exists(pathValue);
 }
+async function __sigil_test_file_exists_at(rootName, pathValue) {
+  return await __sigil_world_file_existsAt(rootName, pathValue);
+}
 async function __sigil_test_file_list_dir(pathValue) {
   return await __sigil_world_file_listDir(pathValue);
+}
+async function __sigil_test_file_list_dir_at(rootName, pathValue) {
+  return await __sigil_world_file_listDirAt(rootName, pathValue);
 }
 async function __sigil_test_file_read_text(pathValue) {
   return await __sigil_world_file_readText(pathValue);
 }
+async function __sigil_test_file_read_text_at(rootName, pathValue) {
+  return await __sigil_world_file_readTextAt(rootName, pathValue);
+}
 function __sigil_test_log_entries() {
-  return __sigil_current_world().traces.log.slice();
+  return __sigil_current_world().traces.log.map((entry) => entry.message);
+}
+function __sigil_test_log_entries_at(sinkName) {
+  return __sigil_current_world().traces.log
+    .filter((entry) => entry.sinkName === String(sinkName))
+    .map((entry) => entry.message);
 }
 function __sigil_test_process_call_count() {
   return __sigil_current_world().traces.process.length;
 }
+function __sigil_test_process_call_count_at(handleName) {
+  return __sigil_current_world().traces.process
+    .filter((entry) => entry.handleName === String(handleName))
+    .length;
+}
 function __sigil_test_process_commands() {
   return __sigil_current_world().traces.process.map((entry) => entry.command);
+}
+function __sigil_test_process_commands_at(handleName) {
+  return __sigil_current_world().traces.process
+    .filter((entry) => entry.handleName === String(handleName))
+    .map((entry) => entry.command);
 }
 function __sigil_test_current_iso() {
   return new Date(__sigil_world_now_ms(__sigil_current_world())).toISOString();
@@ -5408,13 +5438,25 @@ impl TypeScriptGenerator {
                 "{}.then((__path) => __sigil_test_file_exists(__path))",
                 generated_args[0]
             ))),
+            ("test/observe/file", "existsAt", 2) => Ok(Some(format!(
+                "Promise.all([{}, {}]).then(([__path, __root]) => __sigil_test_file_exists_at(__root?.__fields?.[0] ?? '', __path))",
+                generated_args[0], generated_args[1]
+            ))),
             ("test/observe/file", "listDir", 1) => Ok(Some(format!(
                 "{}.then((__path) => __sigil_test_file_list_dir(__path))",
                 generated_args[0]
             ))),
+            ("test/observe/file", "listDirAt", 2) => Ok(Some(format!(
+                "Promise.all([{}, {}]).then(([__path, __root]) => __sigil_test_file_list_dir_at(__root?.__fields?.[0] ?? '', __path))",
+                generated_args[0], generated_args[1]
+            ))),
             ("test/observe/file", "readText", 1) => Ok(Some(format!(
                 "{}.then((__path) => __sigil_test_file_read_text(__path))",
                 generated_args[0]
+            ))),
+            ("test/observe/file", "readTextAt", 2) => Ok(Some(format!(
+                "Promise.all([{}, {}]).then(([__path, __root]) => __sigil_test_file_read_text_at(__root?.__fields?.[0] ?? '', __path))",
+                generated_args[0], generated_args[1]
             ))),
             ("test/observe/http", "callCount", 1) => Ok(Some(format!(
                 "{}.then((__entry) => __sigil_test_http_requests(__entry).length)",
@@ -5435,12 +5477,24 @@ impl TypeScriptGenerator {
             ("test/observe/log", "entries", 0) => Ok(Some(
                 "__sigil_ready(__sigil_test_log_entries())".to_string(),
             )),
+            ("test/observe/log", "entriesAt", 1) => Ok(Some(format!(
+                "{}.then((__sink) => __sigil_test_log_entries_at(__sink?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
             ("test/observe/process", "callCount", 0) => Ok(Some(
                 "__sigil_ready(__sigil_test_process_call_count())".to_string(),
             )),
+            ("test/observe/process", "callCountAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_process_call_count_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
             ("test/observe/process", "commands", 0) => Ok(Some(
                 "__sigil_ready(__sigil_test_process_commands())".to_string(),
             )),
+            ("test/observe/process", "commandsAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_process_commands_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
             ("test/observe/tcp", "callCount", 1) => Ok(Some(format!(
                 "{}.then((__entry) => __sigil_test_tcp_requests(__entry).length)",
                 generated_args[0]

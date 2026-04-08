@@ -77,7 +77,16 @@ Those belong in config.
 Each declared environment gets one config module exporting `world`:
 
 ```sigil module projects/topology-http/config/test.lib.sigil
-c world=(†runtime.withProcessHandles([†process.fixtureHandle(•topology.mailerCli,[†process.rule(["mailer"],None(),{code:0,stderr:"",stdout:"ok"})])],†runtime.withLogSinks([†log.captureSink(•topology.auditLog)],†runtime.withFsRoots([†fs.sandboxRoot(".local/topology-http",•topology.exportsDir)],†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy("http://127.0.0.1:45110",•topology.mailerApi)],†log.capture(),†process.deny(),†random.seeded(1337),[],†timer.virtual())))):†runtime.World)
+e process
+
+c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy(mailerApiBaseUrl(),•topology.mailerApi)],†log.capture(),†process.real(),†random.seeded(1337),[],†timer.virtual()):†runtime.World)
+
+λmailerApiBaseUrl()=>String=mailerApiBaseUrlFromProperty(process.env.hasOwnProperty("sigilHttpTestBaseUrl"))
+
+λmailerApiBaseUrlFromProperty(hasValue:Bool)=>String match hasValue{
+  true=>(process.env.sigilHttpTestBaseUrl:String)|
+  false=>"http://127.0.0.1:45110"
+}
 ```
 
 Production-style config can read env vars, but only there:
@@ -127,12 +136,9 @@ Example:
 ```sigil module projects/labelled-boundaries/src/app.lib.sigil
 λrunExample()=>!Fs!Log!Process Unit={
   l _=(§file.makeDirsAt("",•topology.exportsDir):Unit);
-  l cpf=("12345678901":µCpf);
-  l ssn=("123456789":µSsn);
-  l token=("gov-br-token":µGovBrToken);
-  l _=(§file.writeTextAt(cpf,"cpf.txt",•topology.exportsDir):Unit);
-  l _=(§log.write(•policies.redactSsn(ssn),•topology.auditLog):Unit);
-  l _=(§process.runAt(•policies.govBrCommand(token),•topology.govBrCli):§process.ProcessResult);
+  l _=(§file.writeTextAt(("12345678901":µCpf),"cpf.txt",•topology.exportsDir):Unit);
+  l _=(§log.write(•policies.redactSsn(("123456789":µSsn)),•topology.auditLog):Unit);
+  l _=(§process.runAt(•policies.govBrCommand(("gov-br-token":µGovBrToken)),•topology.govBrCli):§process.ProcessResult);
   ()
 }
 ```

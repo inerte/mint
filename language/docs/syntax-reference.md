@@ -220,6 +220,10 @@ Rules:
 Projects and standalone files may declare labels:
 
 ```sigil module
+label Brazil
+
+label Paraguay
+
 label Pii
 
 label Mercosur combines [Brazil,Paraguay]
@@ -228,6 +232,10 @@ label Mercosur combines [Brazil,Paraguay]
 Types may attach one or more labels:
 
 ```sigil module
+label Pii
+
+label Usa
+
 t Ssn=String label [Pii,Usa]
 ```
 
@@ -257,7 +265,7 @@ for small examples and scripts.
 
 Example:
 
-```sigil module
+```sigil module projects/labelled-boundaries/src/policies.lib.sigil
 transform λredactSsn(ssn:µSsn)=>String="***"
 
 rule [µ.Pii,µ.Usa] for •topology.auditLog=Through(•policies.redactSsn)

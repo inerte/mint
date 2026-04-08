@@ -168,7 +168,7 @@ projects. They take a `Command` plus a `§topology.ProcessHandle`.
 
 `§log` is the named-boundary logging surface:
 
-```sigil program
+```sigil program projects/labelled-boundaries/src/logExample.sigil
 λmain()=>!Log Unit=§log.write("customer created",•topology.auditLog)
 ```
 

@@ -627,3 +627,7 @@ For canonical formatting and validator-enforced rules, see:
 
 - `language/docs/CANONICAL_FORMS.md`
 - `language/docs/CANONICAL_ENFORCEMENT.md`
+Comments are non-semantic trivia. They are allowed in canonical source, but
+they do not participate in canonical source comparison or code coverage
+extraction for checked docs.
+

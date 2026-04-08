@@ -41,6 +41,10 @@ What they mean:
 - `decl`: declaration-only stdlib docs snippet used for stdlib coverage
 - `invalid-*`: snippet is intentionally invalid and must fail
 
+Valid checked `sigil module` and `sigil program` fences may contain real Sigil
+comments. Docs drift mirrors the compiler: comments are ignored for canonical
+source comparison and for snippet ref coverage extraction.
+
 Doc-only annotation lines are ignored inside Sigil fences when they start with:
 
 - `//`

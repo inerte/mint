@@ -129,3 +129,6 @@ Current high-signal printer choices:
 - branching and non-trivial structure print multiline earlier than dense inline forms
 - newline-containing string values print as multiline `"` literals, not `\n`-escaped one-line strings
 - spacing is a consequence of the printer, not a second style system
+Sigil comments are ignored for this comparison. They are valid syntax, but they
+are not part of canonical source form.
+

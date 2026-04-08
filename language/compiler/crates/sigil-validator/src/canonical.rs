@@ -167,6 +167,204 @@ fn first_source_difference(source: &str, canonical_source: &str) -> SourceLocati
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CommentNormalizedLineKind {
+    Blank,
+    Code,
+    CommentOnly,
+}
+
+#[derive(Debug, Clone)]
+struct CommentNormalizedLine {
+    had_comment: bool,
+    has_newline: bool,
+    text: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CommentScanState {
+    Code,
+    Comment,
+    String { escaped: bool },
+    Char { escaped: bool },
+}
+
+impl CommentNormalizedLine {
+    fn kind(&self) -> CommentNormalizedLineKind {
+        if self.text.trim().is_empty() {
+            if self.had_comment {
+                CommentNormalizedLineKind::CommentOnly
+            } else {
+                CommentNormalizedLineKind::Blank
+            }
+        } else {
+            CommentNormalizedLineKind::Code
+        }
+    }
+}
+
+fn comment_normalized_lines(source: &str) -> Vec<CommentNormalizedLine> {
+    let mut lines = Vec::new();
+    let mut current = String::new();
+    let mut line_had_comment = false;
+    let mut state = CommentScanState::Code;
+
+    let push_line = |lines: &mut Vec<CommentNormalizedLine>,
+                     current: &mut String,
+                     line_had_comment: bool| {
+        lines.push(CommentNormalizedLine {
+            had_comment: line_had_comment,
+            has_newline: true,
+            text: current.clone(),
+        });
+        current.clear();
+    };
+
+    for ch in source.chars() {
+        match state {
+            CommentScanState::Code => match ch {
+                '⟦' => {
+                    state = CommentScanState::Comment;
+                    line_had_comment = true;
+                }
+                '"' => {
+                    current.push(ch);
+                    state = CommentScanState::String { escaped: false };
+                }
+                '\'' => {
+                    current.push(ch);
+                    state = CommentScanState::Char { escaped: false };
+                }
+                '\n' => {
+                    push_line(&mut lines, &mut current, line_had_comment);
+                    line_had_comment = false;
+                }
+                _ => current.push(ch),
+            },
+            CommentScanState::Comment => match ch {
+                '⟧' => {
+                    state = CommentScanState::Code;
+                    line_had_comment = true;
+                }
+                '\n' => {
+                    push_line(&mut lines, &mut current, true);
+                    line_had_comment = true;
+                }
+                _ => {
+                    line_had_comment = true;
+                }
+            },
+            CommentScanState::String { escaped } => match ch {
+                '\n' => {
+                    push_line(&mut lines, &mut current, line_had_comment);
+                    line_had_comment = false;
+                    state = CommentScanState::String { escaped: false };
+                }
+                _ => {
+                    current.push(ch);
+                    state = if escaped {
+                        CommentScanState::String { escaped: false }
+                    } else if ch == '\\' {
+                        CommentScanState::String { escaped: true }
+                    } else if ch == '"' {
+                        CommentScanState::Code
+                    } else {
+                        CommentScanState::String { escaped: false }
+                    };
+                }
+            },
+            CommentScanState::Char { escaped } => match ch {
+                '\n' => {
+                    push_line(&mut lines, &mut current, line_had_comment);
+                    line_had_comment = false;
+                    state = CommentScanState::Char { escaped: false };
+                }
+                _ => {
+                    current.push(ch);
+                    state = if escaped {
+                        CommentScanState::Char { escaped: false }
+                    } else if ch == '\\' {
+                        CommentScanState::Char { escaped: true }
+                    } else if ch == '\'' {
+                        CommentScanState::Code
+                    } else {
+                        CommentScanState::Char { escaped: false }
+                    };
+                }
+            },
+        }
+    }
+
+    if !current.is_empty() || line_had_comment || !source.ends_with('\n') {
+        lines.push(CommentNormalizedLine {
+            had_comment: line_had_comment,
+            has_newline: false,
+            text: current,
+        });
+    }
+
+    for line in &mut lines {
+        if line.had_comment {
+            line.text = line.text.trim_end_matches([' ', '\t']).to_string();
+        }
+    }
+
+    lines
+}
+
+fn normalize_source_for_canonical_compare(source: &str) -> String {
+    let lines = comment_normalized_lines(source);
+    if lines.is_empty() {
+        return String::new();
+    }
+
+    let mut kept = Vec::new();
+    let mut idx = 0;
+    while idx < lines.len() {
+        match lines[idx].kind() {
+            CommentNormalizedLineKind::Code => {
+                kept.push(lines[idx].clone());
+                idx += 1;
+            }
+            _ => {
+                let run_start = idx;
+                let mut has_comment_only = false;
+                while idx < lines.len() {
+                    match lines[idx].kind() {
+                        CommentNormalizedLineKind::Code => break,
+                        CommentNormalizedLineKind::CommentOnly => {
+                            has_comment_only = true;
+                            idx += 1;
+                        }
+                        CommentNormalizedLineKind::Blank => idx += 1,
+                    }
+                }
+
+                if has_comment_only {
+                    if !kept.is_empty() && idx < lines.len() {
+                        kept.push(CommentNormalizedLine {
+                            had_comment: false,
+                            has_newline: true,
+                            text: String::new(),
+                        });
+                    }
+                } else {
+                    kept.extend(lines[run_start..idx].iter().cloned());
+                }
+            }
+        }
+    }
+
+    let mut normalized = String::new();
+    for line in kept {
+        normalized.push_str(&line.text);
+        if line.has_newline {
+            normalized.push('\n');
+        }
+    }
+    normalized
+}
+
 /// Validate EOF newline requirement
 fn validate_eof_newline(source: &str, file_path: &str) -> Result<(), Vec<ValidationError>> {
     if source.is_empty() {
@@ -727,10 +925,11 @@ pub fn validate_canonical_form_with_options(
     let mut errors = Vec::new();
 
     if let (Some(_path), Some(src)) = (file_path, source) {
+        let normalized_source = normalize_source_for_canonical_compare(src);
         let canonical_source =
             print_canonical_program_with_effects(program, options.effect_catalog.as_ref());
-        if src != canonical_source {
-            let location = first_source_difference(src, &canonical_source);
+        if normalized_source != canonical_source {
+            let location = first_source_difference(&normalized_source, &canonical_source);
             errors.push(ValidationError::SourceForm {
                 canonical_source,
                 location,
@@ -5827,6 +6026,67 @@ mod tests {
         let program = parse(tokens, "test.sigil").unwrap();
 
         let result = validate_canonical_form(&program, Some("test.sigil"), Some(source));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|error| matches!(error, ValidationError::SourceForm { .. })));
+    }
+
+    #[test]
+    fn test_source_form_ignores_comment_only_lines_between_declarations() {
+        let source = r#"λalpha()=>Int=1
+
+⟦ keep this explanation in checked docs ⟧
+λbeta()=>Int=2
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source)).is_ok());
+    }
+
+    #[test]
+    fn test_source_form_ignores_inline_comments() {
+        let source = r#"λalpha()=>Int=1 ⟦ comment after code ⟧
+
+λbeta()=>Int=2 ⟦ another note ⟧
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source)).is_ok());
+    }
+
+    #[test]
+    fn test_source_form_keeps_comment_delimiters_inside_strings() {
+        let source = "λclose()=>String=\"⟧\"\n\nλopen()=>String=\"⟦\"\n";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source)).is_ok());
+    }
+
+    #[test]
+    fn test_source_form_keeps_multiline_strings_with_comment_delimiters() {
+        let source = "λtemplate()=>String=\"first ⟦ not a comment\nsecond ⟧ still string\"\n";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source)).is_ok());
+    }
+
+    #[test]
+    fn test_normalized_source_keeps_real_extra_blank_lines_without_comments() {
+        let source = r#"λalpha()=>Int=1
+
+
+λbeta()=>Int=2
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        let result = validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source));
         assert!(result.is_err());
         assert!(result
             .unwrap_err()

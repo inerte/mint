@@ -1,5 +1,5 @@
 λcollectQualifiedRefs(source:String)=>[String] match §regex.compile("","§[A-Za-z0-9]+\\.[a-z][A-Za-z0-9]*"){
-  Ok(pattern)=>collectQualifiedRefsLines(§string.lines(source),pattern,[])|
+  Ok(pattern)=>collectQualifiedRefsLines(normalizedRefLines(§string.lines(stripInlineComments(source))),pattern,[])|
   Err(_)=>[]
 }
 
@@ -84,6 +84,8 @@
   false=>items⧺[item]
 }
 
+λisDocRefIgnoredLine(trimmed:String)=>Bool=§string.startsWith("//",trimmed) or §string.startsWith("✅",trimmed) or §string.startsWith("❌",trimmed)
+
 λisIdentifierChar(ch:String)=>Bool match §regex.compile("","^[A-Za-z0-9_]$"){
   Ok(pattern)=>§regex.isMatch(ch,pattern)|
   Err(_)=>false
@@ -101,6 +103,40 @@
 
 λmodulePathFromStdlibFile(filePath:String)=>String="§"++moduleNameFromStdlibFile(filePath)
 
+λnormalizedRefLines(lines:[String])=>[String] match lines{
+  []=>[]|
+  [line,.rest]=>{
+    l trimmed=(§string.trim(line):String);
+    match #trimmed=0 or isDocRefIgnoredLine(trimmed){
+      true=>normalizedRefLines(rest)|
+      false=>[line]⧺normalizedRefLines(rest)
+    }
+  }
+}
+
 λqualifyExports(exports:[String],modulePath:String)=>[String]=exports map (λ(name:String)=>String=modulePath++"."++name)
+
+λstripInlineComments(source:String)=>String=stripInlineCommentsInner(false,source)
+
+λstripInlineCommentsInner(inComment:Bool,source:String)=>String match #source=0{
+  true=>""|
+  false=>{
+    l ch=(§string.charAt(0,source):String);
+    l rest=(§string.drop(1,source):String);
+    match inComment{
+      true=>match ch{
+        "⟧"=>stripInlineCommentsInner(false,rest)|
+        "
+"=>"
+"++stripInlineCommentsInner(true,rest)|
+        _=>stripInlineCommentsInner(true,rest)
+      }|
+      false=>match ch{
+        "⟦"=>stripInlineCommentsInner(true,rest)|
+        _=>ch++stripInlineCommentsInner(false,rest)
+      }
+    }
+  }
+}
 
 λtokenName(token:String)=>String=dropUntilBoundary("",§string.drop(8,token))

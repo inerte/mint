@@ -23,19 +23,15 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/setup-node@v6
+      - uses: actions/cache@v4
         with:
-          node-version: 24
-          package-manager-cache: false
-
-      - name: Enable corepack pnpm
-        shell: bash
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.0.0 --activate
-
-      - name: Install Node dependencies
-        run: pnpm install --frozen-lockfile
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            language/compiler/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('language/compiler/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Run compiler tests
         run: cargo test --manifest-path language/compiler/Cargo.toml
@@ -51,7 +47,17 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          package-manager-cache: false
+          package-manager-cache: true
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            language/compiler/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('language/compiler/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Enable corepack pnpm
         shell: bash

@@ -8861,6 +8861,7 @@ mod tests {
                 location: synthetic_loc(),
             }),
             constraint: None,
+            labels: BTreeSet::new(),
         };
 
         let option_info = TypeInfo {
@@ -8884,6 +8885,7 @@ mod tests {
                 location: synthetic_loc(),
             }),
             constraint: None,
+            labels: BTreeSet::new(),
         };
 
         let result_info = TypeInfo {
@@ -8910,6 +8912,7 @@ mod tests {
                 location: synthetic_loc(),
             }),
             constraint: None,
+            labels: BTreeSet::new(),
         };
 
         let prelude_registry = HashMap::from([
@@ -9018,7 +9021,7 @@ mod tests {
                 "core::prelude".to_string(),
                 prelude_schemes,
             )])),
-            source_file: None,
+            ..TypeCheckOptions::default()
         }
     }
 
@@ -9044,6 +9047,7 @@ mod tests {
                 location: synthetic_loc(),
             }),
             constraint: None,
+            labels: BTreeSet::new(),
         };
 
         let mut env = TypeEnvironment::create_initial();
@@ -9297,6 +9301,7 @@ mod tests {
                         location: synthetic_loc(),
                     }),
                     constraint: None,
+                    labels: BTreeSet::new(),
                 },
             )]),
         );
@@ -9315,7 +9320,7 @@ mod tests {
                 )])),
                 imported_type_registries: Some(imported_type_registries),
                 imported_value_schemes: None,
-                source_file: None,
+                ..TypeCheckOptions::default()
             },
         );
         assert!(result.is_ok());
@@ -9648,6 +9653,7 @@ mod tests {
                         location: synthetic_loc(),
                     }),
                     constraint: None,
+                    labels: BTreeSet::new(),
                 },
             )]),
         )]);
@@ -9682,6 +9688,7 @@ mod tests {
                 imported_type_registries: None,
                 imported_value_schemes: None,
                 source_file: Some("/tmp/project/src/main.sigil".to_string()),
+                ..TypeCheckOptions::default()
             },
         );
         assert!(result.is_err());
@@ -9706,6 +9713,7 @@ mod tests {
                 imported_type_registries: None,
                 imported_value_schemes: None,
                 source_file: Some("/tmp/project/config/local.lib.sigil".to_string()),
+                ..TypeCheckOptions::default()
             },
         );
         assert!(result.is_ok());
@@ -9767,6 +9775,7 @@ mod tests {
                                 location: synthetic_loc(),
                             }),
                             constraint: None,
+                            labels: BTreeSet::new(),
                         },
                     )]),
                 )]))
@@ -9812,6 +9821,7 @@ mod tests {
                         location: synthetic_loc(),
                     }),
                     constraint: None,
+                    labels: BTreeSet::new(),
                 },
             )]),
         );
@@ -9830,7 +9840,7 @@ mod tests {
                 )])),
                 imported_type_registries: Some(imported_type_registries),
                 imported_value_schemes: None,
-                source_file: None,
+                ..TypeCheckOptions::default()
             },
         );
         assert!(result.is_ok(), "{result:?}");
@@ -9871,6 +9881,7 @@ mod tests {
                         location: synthetic_loc(),
                     }),
                     constraint: None,
+                    labels: BTreeSet::new(),
                 },
             )]),
         );
@@ -9883,7 +9894,7 @@ mod tests {
                 imported_namespaces: None,
                 imported_type_registries: Some(imported_type_registries),
                 imported_value_schemes: None,
-                source_file: None,
+                ..TypeCheckOptions::default()
             },
         );
         assert!(result.is_ok());

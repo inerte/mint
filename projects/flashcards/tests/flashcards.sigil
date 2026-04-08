@@ -27,3 +27,8 @@ test "flashcards cards preserve linked references" {
   l session=(•flashcardsDomain.sessionForTopic("debugging"):µStudySession);
   #session.cards[0].references>0 and session.cards[0].references[0].route="/docs/debugging/"
 }
+
+test "flashcards labels topic exposes labelled-type cards" {
+  l session=(•flashcardsDomain.sessionForTopic("labels"):µStudySession);
+  #session.cards>0 and session.cards[0].id="label-vs-where"
+}

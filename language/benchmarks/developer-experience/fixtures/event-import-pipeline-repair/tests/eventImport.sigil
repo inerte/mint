@@ -1,0 +1,22 @@
+λmain()=>Unit=()
+
+test "event import accepts reviewed article payloads" {
+  match •eventImport.importReviewedHeadline("{\"headline\":\"Review queue\",\"reviewedAt\":\"2026-03-07T00:00:00.000Z\"}"){
+    Ok(text)=>text="Review queue@2026-03-07T00:00:00.000Z"|
+    Err(_)=>false
+  }
+}
+
+test "event import accepts retired article payloads" {
+  match •eventImport.importRetiredHeadline("{\"headline\":\"Archive migration\",\"retiredAt\":\"2026-03-08T00:00:00.000Z\"}"){
+    Ok(text)=>text="Archive migration@2026-03-08T00:00:00.000Z"|
+    Err(_)=>false
+  }
+}
+
+test "event import accepts published article payloads" {
+  match •eventImport.importPublishedHeadline("{\"headline\":\"Ship releases\",\"publishedAt\":\"2026-03-09T00:00:00.000Z\"}"){
+    Ok(text)=>text="Ship releases@2026-03-09T00:00:00.000Z"|
+    Err(_)=>false
+  }
+}

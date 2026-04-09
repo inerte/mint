@@ -1,0 +1,4 @@
+λstamp(value:§json.JsonValue)=>Result[µPublishedAt,§decode.DecodeError] match §decode.field(•timeDecoder.instant,"publishedAt")(value){
+  Ok(decoded)=>Ok(decoded)|
+  Err(error)=>Err(error)
+}

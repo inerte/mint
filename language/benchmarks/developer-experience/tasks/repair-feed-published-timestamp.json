@@ -1,0 +1,38 @@
+{
+  "id": "repair-feed-published-timestamp",
+  "title": "Repair a broken feed publication timestamp decode",
+  "goal": "Restore the feed publishing flow so the project accepts its published timestamp payload and prints ok again.",
+  "initialPrompt": "A Sigil project now fails while decoding a published timestamp for a feed entry. Find the smallest coherent fix so running the program prints ok again. Use any Sigil tooling you want, but keep the patch inside the allowed source paths.",
+  "fixture": "repair-feed-published-timestamp",
+  "setupCommands": [],
+  "oracleCommands": [
+    {
+      "command": "output=\"$(\"$SIGIL_BIN\" run src/main.sigil)\"; [ \"$output\" = \"ok\" ]",
+      "timeoutMs": 300000
+    }
+  ],
+  "successCriteria": [
+    "Running src/main.sigil prints ok.",
+    "The patch stays inside the allowed source paths."
+  ],
+  "allowedEditPaths": [
+    "src"
+  ],
+  "forbiddenEditPaths": [
+    ".local",
+    "sigil.json",
+    "src/feed.lib.sigil",
+    "src/main.sigil",
+    "src/types.lib.sigil"
+  ],
+  "budgets": {
+    "maxCommandExecutions": 39,
+    "maxEffectiveTokens": 28000,
+    "maxWallClockMs": 420000
+  },
+  "rootCauseTags": [
+    "wrong_decode_field",
+    "decode_boundary_mismatch",
+    "wrong_decoder_module"
+  ]
+}

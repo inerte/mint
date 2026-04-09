@@ -1,0 +1,1 @@
+λdecodeHeadline(value:§json.JsonValue)=>Result[µPublishedAt,§decode.DecodeError]=•publicationDecoder.stamp(value)

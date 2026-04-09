@@ -1,0 +1,38 @@
+{
+  "id": "event-import-pipeline-repair",
+  "title": "Repair a broken event import pipeline without editing tests",
+  "goal": "Restore the event import library so its Sigil tests pass again.",
+  "initialPrompt": "A cut-down event import library now fails its Sigil tests. Fix the implementation so the tests pass again. The tests are part of the oracle and must not be edited.",
+  "fixture": "event-import-pipeline-repair",
+  "setupCommands": [],
+  "oracleCommands": [
+    {
+      "command": "\"$SIGIL_BIN\" test tests/eventImport.sigil >/dev/null",
+      "timeoutMs": 300000
+    }
+  ],
+  "successCriteria": [
+    "The event import tests pass again.",
+    "The patch stays inside the allowed source paths."
+  ],
+  "allowedEditPaths": [
+    "src"
+  ],
+  "forbiddenEditPaths": [
+    "tests",
+    ".local",
+    "sigil.json",
+    "src/timeDecoder.lib.sigil",
+    "src/types.lib.sigil"
+  ],
+  "budgets": {
+    "maxCommandExecutions": 36,
+    "maxEffectiveTokens": 30000,
+    "maxWallClockMs": 420000
+  },
+  "rootCauseTags": [
+    "event_import_failure",
+    "wrong_decode_field",
+    "wrong_decoder_module"
+  ]
+}

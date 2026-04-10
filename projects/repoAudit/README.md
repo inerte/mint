@@ -7,7 +7,7 @@ V1 owns three checks:
 
 1. `docs-drift` validates tracked Markdown Sigil fences and stdlib doc coverage
 2. `canonical-stdlib` rejects local wrappers around canonical stdlib helpers
-3. `examples-compile` compiles tracked files under `language/examples`
+3. `repo-compile` batch-compiles non-ignored Sigil source across the repo
 
 ## Running it
 
@@ -27,7 +27,7 @@ Supported v1 check ids:
 
 - `docs-drift`
 - `canonical-stdlib`
-- `examples-compile`
+- `repo-compile`
 
 ## Docs Drift Fence Kinds
 

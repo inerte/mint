@@ -223,8 +223,9 @@ For refinement/contract changes, keep these runnable examples current:
 - `language/examples/functionContracts.sigil`
 - `language/examples/proofMeasures.sigil`
 
-The aggregate repo pass now compiles `language/examples/`, so `pnpm sigil:test:all`
-is expected to catch drift there.
+`projects/repoAudit` now includes a full repo compile check, so
+`pnpm sigil:test:repo-audit` and the aggregate `pnpm sigil:test:all` pass are
+expected to catch compile drift across first-party Sigil sources.
 
 ## Common Commands (from repo root)
 

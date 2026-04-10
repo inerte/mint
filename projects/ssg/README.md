@@ -30,5 +30,5 @@ Generated output goes to `website/.local/site/`.
 
 ```bash
 language/compiler/target/debug/sigil test projects/ssg/tests
-./compile-all.sh
+language/compiler/target/debug/sigil run projects/repoAudit/src/main.sigil -- --check repo-compile
 ```

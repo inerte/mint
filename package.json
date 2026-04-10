@@ -35,6 +35,7 @@
     "sigil:test:flashcards": "cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli && language/compiler/target/debug/sigil test projects/flashcards/tests",
     "sigil:build:flashcards": "(cd projects/flashcards && pnpm install && SIGIL_FLASHCARDS_BASE=${sigilSiteBasePath:-/}projects/sigil-flashcards/demo/ pnpm build)",
     "sigil:test:repo-audit": "cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli && language/compiler/target/debug/sigil test projects/repoAudit/tests && language/compiler/target/debug/sigil run projects/repoAudit/src/main.sigil",
+    "sigil:test:repo-compile": "cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli && language/compiler/target/debug/sigil run projects/repoAudit/src/main.sigil -- --check repo-compile",
     "sigil:test:canonical": "cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli && language/compiler/target/debug/sigil test language/integrationTests/tests/canonical.sigil",
     "sigil:test:multimodule": "cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli && language/compiler/target/debug/sigil test language/integrationTests/tests/multimodule.sigil",
     "sigil:test:all": "cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli && language/compiler/target/debug/sigil run projects/testAllRunner/src/main.sigil --env local",

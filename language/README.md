@@ -83,7 +83,7 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run pr
 ```
 
 Use repeated `--check <id>` flags to run a subset such as `docs-drift`,
-`canonical-stdlib`, or `examples-compile`.
+`canonical-stdlib`, or `repo-compile`.
 
 ## Module System (Typed Rooted References)
 

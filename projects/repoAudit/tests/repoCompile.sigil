@@ -1,0 +1,200 @@
+λallOk(results:[Bool])=>Bool=§list.all(
+  λ(result:Bool)=>Bool=result,
+  results
+)
+
+λmain()=>Unit=()
+
+test "compiler command uses repo relative output paths" {
+  l command=(•repoCompile.compilerCommand("/repo"):§process.Command);
+  allOk([
+    command.argv=[
+      §path.join(
+        "/repo",
+        "language/compiler/target/debug/sigil"
+      ),
+      "compile",
+      ".",
+      "--ignore",
+      ".git",
+      "--ignore-from",
+      ".gitignore"
+    ],
+    match command.cwd{
+      Some(cwd)=>cwd="/repo"|
+      None()=>false
+    }
+  ])
+}
+
+test "process output prefers stderr then stdout" {
+  allOk([
+    •repoCompile.processOutput({
+      code:1,
+      stderr:" boom ",
+      stdout:"ok"
+    })="boom",
+    •repoCompile.processOutput({
+      code:1,
+      stderr:"",
+      stdout:" ok "
+    })="ok"
+  ])
+}
+
+test "parse compile issue decodes structured compiler failures" {
+  •repoCompile.parseCompileIssue("{\"error\":{\"message\":\"boom\",\"details\":{\"file\":\"language/examples/demo.sigil\"}}}")=Some({
+    message:"compile failed: boom",
+    path:"language/examples/demo.sigil"
+  })
+}
+
+test "parse compile issue falls back on invalid json" {
+  match •repoCompile.parseCompileIssue("nope"){
+    Some(_)=>false|
+    None()=>true
+  }
+}
+
+test "fallback and helper none paths stay stable" {
+  l empty=(({↦}:{String↦§json.JsonValue}):{String↦§json.JsonValue});
+  allOk([
+    •repoCompile.fallbackCompileIssue({
+      code:1,
+      stderr:"",
+      stdout:" bad "
+    })={
+      message:"compile failed: bad",
+      path:"."
+    },
+    match •repoCompile.compileIssuePath(empty){
+      Some(_)=>false|
+      None()=>true
+    },
+    match •repoCompile.jsonObjectField(
+      "details",
+      empty
+    ){
+      Some(_)=>false|
+      None()=>true
+    },
+    match •repoCompile.jsonStringField(
+      "message",
+      empty
+    ){
+      Some(_)=>false|
+      None()=>true
+    }
+  ])
+}
+
+test "git top level surfaces process failure" =>!Process world {
+  c process=(†process.fixture([†process.rule(
+  [
+    "git",
+    "rev-parse",
+    "--show-toplevel"
+  ],
+  None(),
+  {
+    code:1,
+    stderr:"boom",
+    stdout:""
+  }
+)]):†process.ProcessEntry)
+} {
+  match •repoCompile.gitTopLevel(){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  }
+}
+
+test "run check surfaces git top level failure" =>!AuditIo world {
+  c process=(†process.fixture([†process.rule(
+  [
+    "git",
+    "rev-parse",
+    "--show-toplevel"
+  ],
+  None(),
+  {
+    code:1,
+    stderr:"boom",
+    stdout:""
+  }
+)]):†process.ProcessEntry)
+} {
+  match •repoCompile.runCheck(){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  }
+}
+
+test "run check succeeds under a controlled world" =>!AuditIo world {
+  c process=(†process.fixture([
+  †process.rule(
+    [
+      "git",
+      "rev-parse",
+      "--show-toplevel"
+    ],
+    None(),
+    {
+      code:0,
+      stderr:"",
+      stdout:".
+"
+    }
+  ),
+  †process.rule(
+    (•repoCompile.compilerCommand(".").argv:[String]),
+    Some("."),
+    {
+      code:0,
+      stderr:"",
+      stdout:""
+    }
+  )
+]):†process.ProcessEntry)
+} {
+  match •repoCompile.runCheck(){
+    Ok(issues)=>issues=[]|
+    Err(_)=>false
+  }
+}
+
+test "run check reports compile failures from compiler json" =>!AuditIo world {
+  c process=(†process.fixture([
+  †process.rule(
+    [
+      "git",
+      "rev-parse",
+      "--show-toplevel"
+    ],
+    None(),
+    {
+      code:0,
+      stderr:"",
+      stdout:".
+"
+    }
+  ),
+  †process.rule(
+    (•repoCompile.compilerCommand(".").argv:[String]),
+    Some("."),
+    {
+      code:1,
+      stderr:"",
+      stdout:"{\"error\":{\"message\":\"bad compile\",\"details\":{\"file\":\"projects/demo/src/main.sigil\"}}}"
+    }
+  )
+]):†process.ProcessEntry)
+} {
+  match •repoCompile.runCheck(){
+    Ok(issues)=>issues=[{
+      message:"compile failed: bad compile",
+      path:"projects/demo/src/main.sigil"
+    }]|
+    Err(_)=>false
+  }
+}

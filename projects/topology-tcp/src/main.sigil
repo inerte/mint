@@ -1,0 +1,14 @@
+c helpLines=([
+  "Topology TCP project default entrypoint",
+  "",
+  "Run an explicit file with --env <name>.",
+  "Available envs: local, prod, test",
+  "",
+  "Available executable files:",
+  "  src/echoClient.sigil",
+  "  src/pingClient.sigil",
+  "  src/tcpRoundtripServer.sigil",
+  "  src/upperClient.sigil"
+]:[String])
+
+λmain()=>String=§string.unlines(helpLines)

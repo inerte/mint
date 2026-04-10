@@ -3,7 +3,9 @@
 use crate::module_graph::{
     entry_module_key, load_project_effect_catalog_for, LoadedModule, ModuleGraph, ModuleGraphError,
 };
-use crate::project::{get_project_config, ProjectConfig, ProjectConfigError};
+use crate::project::{
+    get_project_config, validate_project_default_entrypoint, ProjectConfig, ProjectConfigError,
+};
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use rayon::{prelude::*, ThreadPoolBuilder};
 use serde_json::{json, Value};
@@ -223,6 +225,47 @@ fn merge_json_details(
     serde_json::Value::Object(merged)
 }
 
+fn project_error_json_details(
+    project_error: &ProjectConfigError,
+    path_key: &str,
+    path: &Path,
+    extra: serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Value {
+    let mut details = match project_error.details() {
+        serde_json::Value::Object(map) => map,
+        _ => serde_json::Map::new(),
+    };
+    details.insert(
+        path_key.to_string(),
+        json!(path.to_string_lossy().to_string()),
+    );
+    details.extend(extra);
+    serde_json::Value::Object(details)
+}
+
+fn validate_project_entrypoint_for_path(path: &Path) -> Result<(), CliError> {
+    if let Some(project) = get_project_config(path)? {
+        validate_project_default_entrypoint(&project)?;
+    }
+    Ok(())
+}
+
+fn validate_project_entrypoints_for_files(files: &[PathBuf]) -> Result<(), CliError> {
+    let mut projects = BTreeMap::new();
+
+    for file in files {
+        if let Some(project) = get_project_config(file)? {
+            projects.entry(project.root.clone()).or_insert(project);
+        }
+    }
+
+    for project in projects.values() {
+        validate_project_default_entrypoint(project)?;
+    }
+
+    Ok(())
+}
+
 fn output_inspect_error(
     command: &str,
     file: &Path,
@@ -329,15 +372,10 @@ fn output_inspect_error(
         CliError::ModuleGraph(ModuleGraphError::ProjectConfig(project_error))
         | CliError::ProjectConfig(project_error) => output_json_error(
             command,
-            "cli",
-            codes::cli::UNEXPECTED,
+            phase_for_code(project_error.code()),
+            project_error.code(),
             &project_error.to_string(),
-            merge_json_details(
-                json!({
-                    "file": file.to_string_lossy()
-                }),
-                extra_details,
-            ),
+            project_error_json_details(project_error, "file", file, extra_details),
         ),
         CliError::Io(error) | CliError::ModuleGraph(ModuleGraphError::Io(error)) => {
             output_json_error(
@@ -1500,7 +1538,11 @@ fn print_pattern_source(pattern: &Pattern) -> String {
             let name = if constructor.module_path.is_empty() {
                 constructor.name.clone()
             } else {
-                format!("{}::{}", constructor.module_path.join("::"), constructor.name)
+                format!(
+                    "{}::{}",
+                    constructor.module_path.join("::"),
+                    constructor.name
+                )
             };
             if constructor.patterns.is_empty() {
                 format!("{}()", name)
@@ -1679,17 +1721,41 @@ fn collect_expr_proof_sites(
             collect_expr_proof_sites(&concurrent.width, source_file, owner_kind, owner_name, out);
             if let Some(policy) = &concurrent.policy {
                 for field in &policy.fields {
-                    collect_expr_proof_sites(&field.value, source_file, owner_kind, owner_name, out);
+                    collect_expr_proof_sites(
+                        &field.value,
+                        source_file,
+                        owner_kind,
+                        owner_name,
+                        out,
+                    );
                 }
             }
             for step in &concurrent.steps {
                 match step {
                     sigil_ast::ConcurrentStep::Spawn(spawn) => {
-                        collect_expr_proof_sites(&spawn.expr, source_file, owner_kind, owner_name, out);
+                        collect_expr_proof_sites(
+                            &spawn.expr,
+                            source_file,
+                            owner_kind,
+                            owner_name,
+                            out,
+                        );
                     }
                     sigil_ast::ConcurrentStep::SpawnEach(spawn_each) => {
-                        collect_expr_proof_sites(&spawn_each.func, source_file, owner_kind, owner_name, out);
-                        collect_expr_proof_sites(&spawn_each.list, source_file, owner_kind, owner_name, out);
+                        collect_expr_proof_sites(
+                            &spawn_each.func,
+                            source_file,
+                            owner_kind,
+                            owner_name,
+                            out,
+                        );
+                        collect_expr_proof_sites(
+                            &spawn_each.list,
+                            source_file,
+                            owner_kind,
+                            owner_name,
+                            out,
+                        );
                     }
                 }
             }
@@ -1941,10 +2007,16 @@ fn inspect_proof_directory_command(
             Ok(graph) => graph,
             Err(error) => {
                 let mut extra = serde_json::Map::new();
-                extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
+                extra.insert(
+                    "input".to_string(),
+                    json!(path.to_string_lossy().to_string()),
+                );
                 extra.insert("discovered".to_string(), json!(files.len()));
                 extra.insert("inspected".to_string(), json!(inspected_file_count));
-                extra.insert("durationMs".to_string(), json!(start_time.elapsed().as_millis()));
+                extra.insert(
+                    "durationMs".to_string(),
+                    json!(start_time.elapsed().as_millis()),
+                );
                 output_inspect_error(
                     InspectMode::Proof.command_name(),
                     &first_file,
@@ -1958,10 +2030,16 @@ fn inspect_proof_directory_command(
             Ok(analyzed) => analyzed,
             Err(error) => {
                 let mut extra = serde_json::Map::new();
-                extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
+                extra.insert(
+                    "input".to_string(),
+                    json!(path.to_string_lossy().to_string()),
+                );
                 extra.insert("discovered".to_string(), json!(files.len()));
                 extra.insert("inspected".to_string(), json!(inspected_file_count));
-                extra.insert("durationMs".to_string(), json!(start_time.elapsed().as_millis()));
+                extra.insert(
+                    "durationMs".to_string(),
+                    json!(start_time.elapsed().as_millis()),
+                );
                 output_inspect_error(
                     InspectMode::Proof.command_name(),
                     &first_file,
@@ -1978,10 +2056,16 @@ fn inspect_proof_directory_command(
                 Ok(module_id) => module_id,
                 Err(error) => {
                     let mut extra = serde_json::Map::new();
-                    extra.insert("input".to_string(), json!(path.to_string_lossy().to_string()));
+                    extra.insert(
+                        "input".to_string(),
+                        json!(path.to_string_lossy().to_string()),
+                    );
                     extra.insert("discovered".to_string(), json!(files.len()));
                     extra.insert("inspected".to_string(), json!(inspected_file_count));
-                    extra.insert("durationMs".to_string(), json!(start_time.elapsed().as_millis()));
+                    extra.insert(
+                        "durationMs".to_string(),
+                        json!(start_time.elapsed().as_millis()),
+                    );
                     output_inspect_error(
                         InspectMode::Proof.command_name(),
                         file,
@@ -2045,6 +2129,7 @@ fn read_and_parse_program(file: &Path) -> Result<(String, Program), CliError> {
 }
 
 fn inspect_validate_file_result(file: &Path) -> Result<serde_json::Value, CliError> {
+    validate_project_entrypoint_for_path(file)?;
     let (source, ast) = read_and_parse_program(file)?;
     let effect_catalog = load_project_effect_catalog_for(file)?;
     let canonical_source = print_canonical_program_with_effects(&ast, effect_catalog.as_ref());
@@ -2729,6 +2814,27 @@ fn inspect_validate_directory_command(
         }
     };
 
+    if let Err(error) = validate_project_entrypoints_for_files(&files) {
+        output_inspect_error(
+            InspectMode::Validate.command_name(),
+            path,
+            &error,
+            serde_json::Map::from_iter([
+                (
+                    "input".to_string(),
+                    json!(path.to_string_lossy().to_string()),
+                ),
+                ("discovered".to_string(), json!(files.len())),
+                ("inspected".to_string(), json!(0)),
+                (
+                    "durationMs".to_string(),
+                    json!(start_time.elapsed().as_millis()),
+                ),
+            ]),
+        );
+        return Err(CliError::Reported(1));
+    }
+
     let mut inspected_file_count = 0usize;
     let mut file_results = Vec::new();
 
@@ -2985,6 +3091,16 @@ fn compile_single_file_command(
             }
             return Err(ModuleGraphError::Validation(errors).into());
         }
+        Err(ModuleGraphError::ProjectConfig(project_error)) => {
+            output_json_error(
+                "sigilc compile",
+                phase_for_code(project_error.code()),
+                project_error.code(),
+                &project_error.to_string(),
+                project_error_json_details(&project_error, "file", file, serde_json::Map::new()),
+            );
+            return Err(ModuleGraphError::ProjectConfig(project_error).into());
+        }
         Err(error) => return Err(error.into()),
     };
 
@@ -3120,6 +3236,34 @@ fn compile_directory_command(
                             &type_error.code,
                             &type_error.message,
                             serde_json::Value::Object(details),
+                        );
+                    }
+                    CliError::ModuleGraph(ModuleGraphError::ProjectConfig(project_error))
+                    | CliError::ProjectConfig(project_error) => {
+                        output_json_error(
+                            "sigilc compile",
+                            phase_for_code(project_error.code()),
+                            project_error.code(),
+                            &project_error.to_string(),
+                            project_error_json_details(
+                                project_error,
+                                "input",
+                                path,
+                                serde_json::Map::from_iter([
+                                    (
+                                        "file".to_string(),
+                                        json!(first_file
+                                            .as_ref()
+                                            .map(|file| file.to_string_lossy().to_string())),
+                                    ),
+                                    ("discovered".to_string(), json!(files.len())),
+                                    ("compiled".to_string(), json!(compiled_file_count)),
+                                    (
+                                        "durationMs".to_string(),
+                                        json!(start_time.elapsed().as_millis()),
+                                    ),
+                                ]),
+                            ),
                         );
                     }
                     _ => {
@@ -6775,12 +6919,10 @@ fn output_run_error(file: &Path, error: &CliError, to_stderr: bool) {
         CliError::ModuleGraph(ModuleGraphError::ProjectConfig(project_error))
         | CliError::ProjectConfig(project_error) => output_json_error_to(
             "sigilc run",
-            "cli",
-            codes::cli::UNEXPECTED,
+            phase_for_code(project_error.code()),
+            project_error.code(),
             &project_error.to_string(),
-            json!({
-                "file": file.to_string_lossy()
-            }),
+            project_error_json_details(project_error, "file", file, serde_json::Map::new()),
             to_stderr,
         ),
         CliError::Io(error) => output_json_error_to(
@@ -6911,12 +7053,10 @@ fn output_test_error(path: &Path, error: &CliError) {
         CliError::ModuleGraph(ModuleGraphError::ProjectConfig(project_error))
         | CliError::ProjectConfig(project_error) => output_json_error_to(
             "sigilc test",
-            "cli",
-            codes::cli::UNEXPECTED,
+            phase_for_code(project_error.code()),
+            project_error.code(),
             &project_error.to_string(),
-            json!({
-                "path": path.to_string_lossy()
-            }),
+            project_error_json_details(project_error, "path", path, serde_json::Map::new()),
             false,
         ),
         CliError::Io(io_error) => output_json_error_to(
@@ -8366,7 +8506,8 @@ fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphOutputs, Cli
         )
         .map_err(CliError::Type)?;
 
-        let extracted_type_registry = extract_type_registry(&module.ast, &module.file_path, module_id);
+        let extracted_type_registry =
+            extract_type_registry(&module.ast, &module.file_path, module_id);
 
         validate_typed_canonical_form(
             &typecheck_result.typed_program,
@@ -8534,7 +8675,10 @@ fn compile_module_graph(
         if let Some(parent) = generated_output.output_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        write_atomic_file(&generated_output.output_path, generated_output.ts_code.as_bytes())?;
+        write_atomic_file(
+            &generated_output.output_path,
+            generated_output.ts_code.as_bytes(),
+        )?;
         write_span_map_file(&generated_output.span_map_path, &generated_output.span_map)?;
         module_outputs.insert(module_id.clone(), generated_output.output_path);
         span_map_outputs.insert(module_id, generated_output.span_map_path);
@@ -10128,9 +10272,7 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
 
     // Calculate relative path from repo root to source file
     let rel_source = abs_source.strip_prefix(&repo_root).unwrap_or(&abs_source);
-    let rel_source = rel_source
-        .strip_prefix(".local")
-        .unwrap_or(rel_source);
+    let rel_source = rel_source.strip_prefix(".local").unwrap_or(rel_source);
 
     // Build output path: <repo_root>/.local/<rel_path>.ts
     let mut output = repo_root.join(".local");

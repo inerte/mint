@@ -384,6 +384,33 @@ fn inspect_validate_directory_reports_per_file_status() {
 }
 
 #[test]
+fn inspect_validate_rejects_project_executables_without_src_main() {
+    let dir = temp_dir("validate-missing-project-main");
+    write_program(
+        &dir,
+        "sigil.json",
+        "{\"name\":\"inspect-validate\",\"version\":\"0.1.0\"}\n",
+    );
+    write_program(&dir, "src/demo.sigil", "λmain()=>Int=1\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("inspect")
+        .arg("validate")
+        .arg(&dir)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc inspect validate");
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["error"]["code"], "SIGIL-CLI-PROJECT-MAIN-REQUIRED");
+}
+
+#[test]
 fn inspect_codegen_returns_inline_ts_and_module_inventory_without_writing_files() {
     let dir = temp_dir("codegen-single");
     write_program(

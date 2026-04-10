@@ -30,9 +30,13 @@ Standalone algorithm/demo entrypoints:
 Commands (from repo root):
 
 ```bash
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run projects/algorithms/src/main.sigil
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile projects/algorithms/src/collatzConjecture.sigil
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- test projects/algorithms/tests
 ```
+
+`src/main.sigil` is the default project entrypoint and prints the available
+standalone/demo executables in this project.
 
 These files are the canonical home for the practical algorithm corpus that used to be split across `language/examples/` and `projects/algorithms/`.
 

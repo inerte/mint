@@ -2,7 +2,9 @@
 //!
 //! Handles building a dependency graph of Sigil modules for multi-module compilation
 
-use crate::project::{get_project_config, ProjectConfig, ProjectConfigError};
+use crate::project::{
+    get_project_config, validate_project_default_entrypoint, ProjectConfig, ProjectConfigError,
+};
 use sigil_ast::{
     ConcurrentStep, Declaration, Expr, LabelRef, MemberRef, Pattern, Program, RecordPatternField,
     RuleAction, Type, TypeDef,
@@ -104,6 +106,7 @@ struct ModuleGraphBuilder {
     topo_order: Vec<String>,
     visiting: HashSet<String>,
     visit_stack: Vec<String>,
+    validated_projects: HashSet<PathBuf>,
 }
 
 impl ModuleGraphBuilder {
@@ -113,6 +116,7 @@ impl ModuleGraphBuilder {
             topo_order: Vec::new(),
             visiting: HashSet::new(),
             visit_stack: Vec::new(),
+            validated_projects: HashSet::new(),
         }
     }
 
@@ -126,6 +130,11 @@ impl ModuleGraphBuilder {
 
         // Determine project
         let project = get_project_config(&abs_file)?.or(inherited_project);
+        if let Some(project) = project.as_ref() {
+            if self.validated_projects.insert(project.root.clone()) {
+                validate_project_default_entrypoint(project)?;
+            }
+        }
 
         // Compute logical ID
         let computed_id = logical_id.or_else(|| file_path_to_module_id(&abs_file, &project));
@@ -206,8 +215,8 @@ impl ModuleGraphBuilder {
                     )
                 })
                 .unwrap_or(false);
-            let should_load_project_policies = abs_file.starts_with(&project_src_root)
-                && !canonical_project_lib_file;
+            let should_load_project_policies =
+                abs_file.starts_with(&project_src_root) && !canonical_project_lib_file;
             let policies_path = project.root.join("src/policies.lib.sigil");
             if should_load_project_policies && policies_path.exists() && policies_path != abs_file {
                 self.visit(
@@ -300,7 +309,10 @@ fn collect_declaration_modules(declaration: &Declaration, modules: &mut HashSet<
             collect_expr_modules(&function.body, modules);
         }
         Declaration::Transform(transform_decl) => {
-            collect_declaration_modules(&Declaration::Function(transform_decl.function.clone()), modules);
+            collect_declaration_modules(
+                &Declaration::Function(transform_decl.function.clone()),
+                modules,
+            );
         }
         Declaration::Type(type_decl) => match &type_decl.definition {
             TypeDef::Sum(sum) => {

@@ -135,6 +135,7 @@ pub mod cli {
     pub const IMPORT_NOT_FOUND: &str = "SIGIL-CLI-IMPORT-NOT-FOUND";
     pub const IMPORT_CYCLE: &str = "SIGIL-CLI-IMPORT-CYCLE";
     pub const INVALID_IMPORT: &str = "SIGIL-CLI-INVALID-IMPORT";
+    pub const PROJECT_MAIN_REQUIRED: &str = "SIGIL-CLI-PROJECT-MAIN-REQUIRED";
     pub const PROJECT_ROOT_REQUIRED: &str = "SIGIL-CLI-PROJECT-ROOT-REQUIRED";
 }
 
@@ -266,6 +267,7 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     cli::IMPORT_NOT_FOUND,
     cli::IMPORT_CYCLE,
     cli::INVALID_IMPORT,
+    cli::PROJECT_MAIN_REQUIRED,
     cli::PROJECT_ROOT_REQUIRED,
     // Topology (10 codes)
     topology::BINDING_KIND_MISMATCH,

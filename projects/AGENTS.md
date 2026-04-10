@@ -32,6 +32,12 @@ Most Sigil projects in this repo use:
 
 When creating new projects, follow that layout unless there is a clear reason not to.
 
+Default runnable entrypoint:
+- if a project has any executable `src/*.sigil` files, it must provide `src/main.sigil`
+- `src/main.sigil` is the canonical default runnable entrypoint for that project
+- projects may still expose other executable `src/*.sigil` files, but `src/main.sigil` is the one LLMs and humans should check first
+- library-only projects may omit `src/main.sigil`
+
 ## Working Rules for `projects/`
 
 ### 1) Treat project code as consumer code
@@ -70,6 +76,12 @@ Compile or run a single project file:
 ```bash
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- compile projects/<project>/src/<file>.sigil
 cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run projects/<project>/src/<file>.sigil
+```
+
+Run the default project entrypoint when present:
+
+```bash
+cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run projects/<project>/src/main.sigil
 ```
 
 Run project tests:

@@ -31,6 +31,9 @@ fn temp_dir(label: &str) -> PathBuf {
 
 fn write_program(dir: &Path, name: &str, source: &str) -> PathBuf {
     let file = dir.join(name);
+    if let Some(parent) = file.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
     fs::write(&file, source).unwrap();
     file
 }
@@ -67,7 +70,8 @@ fn compile_emits_root_span_map_for_single_file() {
         .iter()
         .any(|module| module["spanMapFile"] == span_map_path.to_string_lossy().to_string()));
 
-    let span_map: Value = serde_json::from_str(&fs::read_to_string(&span_map_path).unwrap()).unwrap();
+    let span_map: Value =
+        serde_json::from_str(&fs::read_to_string(&span_map_path).unwrap()).unwrap();
     assert_eq!(span_map["formatVersion"], 1);
     assert_eq!(span_map["sourceFile"], file.to_string_lossy().to_string());
     assert_eq!(span_map["outputFile"], json["data"]["outputs"]["rootTs"]);
@@ -97,4 +101,65 @@ fn compile_directory_reports_root_span_map_per_entry() {
             .expect("rootSpanMap path"),
     );
     assert!(span_map_path.exists());
+}
+
+#[test]
+fn compile_rejects_project_executables_without_src_main() {
+    let dir = temp_dir("missing-project-main-single");
+    write_program(&dir, "sigil.json", r#"{"name":"demo","version":"0.1.0"}"#);
+    let file = write_program(&dir, "src/demo.sigil", "λmain()=>Int=1\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("compile")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["error"]["code"], "SIGIL-CLI-PROJECT-MAIN-REQUIRED");
+    assert_eq!(
+        json["error"]["details"]["missingPath"],
+        dir.join("src/main.sigil").to_string_lossy().to_string()
+    );
+    assert_eq!(
+        json["error"]["details"]["executableSources"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn compile_directory_reports_missing_project_main_once_per_project() {
+    let dir = temp_dir("missing-project-main-directory");
+    write_program(&dir, "sigil.json", r#"{"name":"demo","version":"0.1.0"}"#);
+    write_program(&dir, "src/demo.sigil", "λmain()=>Int=1\n");
+    write_program(&dir, "src/other.sigil", "λmain()=>Int=2\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("compile")
+        .arg(&dir)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["error"]["code"], "SIGIL-CLI-PROJECT-MAIN-REQUIRED");
+    assert_eq!(json["error"]["details"]["discovered"], 2);
+    assert_eq!(json["error"]["details"]["compiled"], 0);
+    assert_eq!(
+        json["error"]["details"]["executableSources"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
 }

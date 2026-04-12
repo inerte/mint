@@ -15,6 +15,7 @@ Implemented today:
 - exact records
 - map types
 - solver-backed type refinements
+- nominal type labels
 - function contracts
 - explicit effect annotations
 
@@ -50,6 +51,40 @@ c pi=(3.14:Float)
 ```
 
 Missing parameter or return type annotations are parse errors.
+
+## Type Ascription
+
+Type ascription uses one explicit expression form:
+
+```sigil expr
+(expr:Type)
+```
+
+Examples:
+
+```sigil module
+c airAccel=(1:Int)
+```
+
+```sigil program
+λmain()=>Int={
+  l speed=(1:Int);
+  speed+speed
+}
+```
+
+Sigil intentionally keeps this as one uniform rule. It does not use separate
+binding-level surfaces like `c name:Type=value`, and it does not use bare
+postfix expression forms like `expr:Type`.
+
+The goal is canonical simplicity for humans and LLMs:
+
+- if you want to ascribe a type to an expression, write `(expr:Type)`
+- the same rule applies everywhere
+- there is no second declaration-specific rule to learn
+
+The tradeoff is extra parentheses. Sigil accepts that cost to keep one
+teachable surface instead of multiple equivalent annotation forms.
 
 ## Top-Level Generics
 
@@ -92,15 +127,66 @@ Example:
 ```sigil module projects/todo-app/src/types.lib.sigil
 t BirthYear=Int where value>1800 and value<10000
 
-t User={birthYear:BirthYear,name:String}
+t User={
+  birthYear:BirthYear,
+  name:String
+}
 ```
 
 ```sigil module projects/todo-app/src/todoDomain.lib.sigil
 λtodoId(todo:µTodo)=>Int=todo.id
 ```
 
-`src/types.lib.sigil` is types-only and may reference only `§...` and `¶...`
-inside type definitions and constraints.
+`src/types.lib.sigil` owns `t`, `label`, and `label ... combines ...`
+declarations. Type definitions and constraints may reference only `§...` and
+`¶...`.
+
+## Labelled Types
+
+Sigil separates type membership from type classification.
+
+`where` describes what values belong to a type.
+`label` describes what kind of data a value represents for boundary handling.
+
+Example:
+
+```sigil module projects/labelled-boundaries/src/types.lib.sigil
+label Brazil
+
+label Credential
+
+label GovAuth
+
+label Pii
+
+label Usa
+
+t Cpf=String label [Brazil,Pii]
+
+t GovBrToken=String label [Brazil,Credential,GovAuth]
+
+t Ssn=String label [Pii,Usa]
+```
+
+Rules:
+
+- labels are nominal classifications, not predicates over `value`
+- `label X combines Y` adds implied labels during checking
+- labelled values behave like ordinary values inside local computation
+- labels matter when a labelled value crosses a named topology boundary
+- direct consumers must handle directly exposed labelled data at their own boundaries
+- unlabeled data is unaffected by boundary-rule checking
+
+Projects pair labelled types with boundary rules in `src/policies.lib.sigil`.
+That file owns `rule` and `transform` declarations.
+
+Topology-aware labelled-boundary tests run under `sigil test --env <name>` and
+assert the resulting boundary behavior directly with named-boundary helpers such
+as:
+
+- `※check::file.existsAt(path,•topology.exportsDir)`
+- `※check::log.containsAt(message,•topology.auditLog)`
+- `※observe::process.commandsAt(•topology.govBrCli)`
 
 ## Records and Maps
 
@@ -112,7 +198,10 @@ Records and maps are different concepts:
 Examples:
 
 ```sigil module
-t User={id:Int,name:String}
+t User={
+  id:Int,
+  name:String
+}
 
 t Scores={String↦Int}
 ```
@@ -132,7 +221,10 @@ Named user-defined types may carry a pure `where` clause:
 ```sigil module
 t BirthYear=Int where value>1800 and value<10000
 
-t DateRange={end:Int,start:Int} where value.end≥value.start
+t DateRange={
+  end:Int,
+  start:Int
+} where value.end≥value.start
 ```
 
 Current rules:
@@ -243,7 +335,7 @@ Aliases must expand to at least two primitive effects.
 
 Example:
 
-```sigil module projects/docsDriftAudit/src/effects.lib.sigil
+```sigil module projects/repoAudit/src/effects.lib.sigil
 effect CliIo=!Fs!Log!Process
 ```
 
@@ -306,7 +398,10 @@ Examples:
 ```sigil module
 t Email=Email(String)
 
-t Message={createdAt:§time.Instant,text:String}
+t Message={
+  createdAt:§time.Instant,
+  text:String
+}
 ```
 
 ## Source of Truth

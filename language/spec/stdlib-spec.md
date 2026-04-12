@@ -211,19 +211,31 @@ Semantics:
 
 ```sigil decl §file
 λappendText(content:String,path:String)=>!Fs Unit
+λappendTextAt(content:String,path:String,handle:§topology.FsRoot)=>!Fs Unit
 λexists(path:String)=>!Fs Bool
+λexistsAt(path:String,handle:§topology.FsRoot)=>!Fs Bool
 λlistDir(path:String)=>!Fs [String]
+λlistDirAt(path:String,handle:§topology.FsRoot)=>!Fs [String]
 λmakeDir(path:String)=>!Fs Unit
+λmakeDirAt(path:String,handle:§topology.FsRoot)=>!Fs Unit
 λmakeDirs(path:String)=>!Fs Unit
+λmakeDirsAt(path:String,handle:§topology.FsRoot)=>!Fs Unit
 λmakeTempDir(prefix:String)=>!Fs String
+λmakeTempDirAt(prefix:String,handle:§topology.FsRoot)=>!Fs String
 λreadText(path:String)=>!Fs String
+λreadTextAt(path:String,handle:§topology.FsRoot)=>!Fs String
 λremove(path:String)=>!Fs Unit
+λremoveAt(path:String,handle:§topology.FsRoot)=>!Fs Unit
 λremoveTree(path:String)=>!Fs Unit
+λremoveTreeAt(path:String,handle:§topology.FsRoot)=>!Fs Unit
 λwriteText(content:String,path:String)=>!Fs Unit
+λwriteTextAt(content:String,path:String,handle:§topology.FsRoot)=>!Fs Unit
 ```
 
 `makeTempDir(prefix)` creates a fresh temp directory and returns its absolute
 path. Cleanup remains explicit through `removeTree`.
+
+The `*At` variants are the named-boundary surface for topology-aware projects.
 
 ### Implemented `§process` Types and Functions
 
@@ -234,10 +246,12 @@ t ProcessResult={code:Int,stderr:String,stdout:String}
 
 λcommand(argv:[String])=>Command
 λexit(code:Int)=>!Process Unit
+λrun(command:Command)=>!Process ProcessResult
+λrunAt(command:Command,handle:§topology.ProcessHandle)=>!Process ProcessResult
+λstart(command:Command)=>!Process RunningProcess
+λstartAt(command:Command,handle:§topology.ProcessHandle)=>!Process RunningProcess
 λwithCwd(command:Command,cwd:String)=>Command
 λwithEnv(command:Command,env:{String↦String})=>Command
-λrun(command:Command)=>!Process ProcessResult
-λstart(command:Command)=>!Process RunningProcess
 λwait(process:RunningProcess)=>!Process ProcessResult
 λkill(process:RunningProcess)=>!Process Unit
 ```
@@ -247,6 +261,7 @@ Process rules:
 - `withEnv` overlays explicit variables on top of the inherited environment
 - non-zero exit codes are reported in `ProcessResult.code`
 - `run` captures stdout and stderr in memory
+- `runAt` and `startAt` are the named-boundary variants for topology-aware projects
 - `kill` is a normal termination request, not a timeout/escalation protocol
 
 ### Implemented `§terminal` Types and Functions
@@ -279,14 +294,64 @@ t RegexMatch={captures:[String],end:Int,full:String,start:Int}
 
 λcompile(flags:String,pattern:String)=>Result[Regex,RegexError]
 λfind(input:String,regex:Regex)=>Option[RegexMatch]
+λfindAll(input:String,regex:Regex)=>[RegexMatch]
 λisMatch(input:String,regex:Regex)=>Bool
 ```
 
 Regex rules:
-- v1 semantics follow JavaScript `RegExp`
+- semantics follow JavaScript `RegExp`
 - `compile` validates both flags and pattern before returning `Ok`
 - `find` returns the first match only
+- `findAll` returns all non-overlapping matches; adds the `g` flag internally
 - unmatched capture groups are returned as empty strings in `captures`
+
+### Implemented `§float` Types and Functions
+
+```sigil decl §float
+λabs(x:Float)=>Float
+λceil(x:Float)=>Int
+λcos(x:Float)=>Float
+λexp(x:Float)=>Float
+λfloor(x:Float)=>Int
+λisFinite(x:Float)=>Bool
+λisNaN(x:Float)=>Bool
+λlog(x:Float)=>Float
+λmax(a:Float,b:Float)=>Float
+λmin(a:Float,b:Float)=>Float
+λpow(base:Float,exp:Float)=>Float
+λround(x:Float)=>Int
+λsin(x:Float)=>Float
+λsqrt(x:Float)=>Float
+λtan(x:Float)=>Float
+λtoFloat(x:Int)=>Float
+λtoInt(x:Float)=>Int
+```
+
+Float rules:
+- all functions delegate to `Math.*` or `Number.*` in the JS runtime
+- `ceil`, `floor`, `round`, `toInt` return `Int` (not `Float`)
+- `toInt` truncates toward zero (equivalent to `Math.trunc`)
+- `log` is the natural logarithm
+- functions producing `NaN` or `±Infinity` do so silently; use `isNaN` / `isFinite` to guard
+
+### Implemented `§crypto` Types and Functions
+
+```sigil decl §crypto
+t CryptoError={message:String}
+
+λbase64Decode(input:String)=>Result[String,CryptoError]
+λbase64Encode(input:String)=>String
+λhexDecode(input:String)=>Result[String,CryptoError]
+λhexEncode(input:String)=>String
+λhmacSha256(key:String,message:String)=>String
+λsha256(input:String)=>String
+```
+
+Crypto rules:
+- all functions are pure (no effect annotation); all inputs are treated as UTF-8
+- `sha256` and `hmacSha256` return lowercase hex strings
+- `base64Decode` and `hexDecode` return `Err` on invalid input; `hexDecode` additionally errors on odd-length input
+- backed by `node:crypto` (`createHash`, `createHmac`) and `Buffer`
 
 ### Implemented `§time` Additions
 
@@ -411,6 +476,13 @@ math module today.
 λprintln(msg:String)=>!Log Unit
 λwarn(msg:String)=>!Log Unit
 ```
+
+```sigil decl §log
+λwrite(message:String,sink:§topology.LogSink)=>!Log Unit
+```
+
+`§log.write` is the named-boundary logging surface used by labelled
+boundary rules.
 
 ## Module System
 
@@ -699,7 +771,6 @@ Projects may define reusable multi-effect aliases in `src/effects.lib.sigil`.
 
 Planned for future stdlib versions:
 
-- **§crypto** - Cryptographic functions
 - **§stream** - Streaming I/O
 - **§concurrency** - Threads and channels
 

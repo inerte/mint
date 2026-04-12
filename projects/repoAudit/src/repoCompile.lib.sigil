@@ -1,0 +1,117 @@
+λcompileIssue(result:§process.ProcessResult)=>µRepoCompileIssue match parseCompileIssue(result.stdout){
+  Some(issue)=>issue|
+  None()=>fallbackCompileIssue(result)
+}
+
+λcompileIssuePath(error:{String↦§json.JsonValue})=>Option[String] match jsonObjectField(
+  "details",
+  error
+){
+  Some(details)=>jsonStringField(
+    "file",
+    details
+  )|
+  None()=>None()
+}
+
+λcompilerCommand(root:String)=>§process.Command=§process.withCwd(
+  §process.command([
+    §path.join(
+      root,
+      "language/compiler/target/debug/sigil"
+    ),
+    "compile",
+    ".",
+    "--ignore",
+    ".git",
+    "--ignore-from",
+    ".gitignore"
+  ]),
+  root
+)
+
+λfallbackCompileIssue(result:§process.ProcessResult)=>µRepoCompileIssue={
+  message:"compile failed: "++processOutput(result),
+  path:"."
+}
+
+λgitTopLevel()=>!Process Result[
+  String,
+  String
+]={
+  l result=(§process.run(§process.command([
+    "git",
+    "rev-parse",
+    "--show-toplevel"
+  ])):§process.ProcessResult);
+  match result.code=0{
+    true=>Ok((§string.trim(result.stdout):String))|
+    false=>Err("git rev-parse failed: "++result.stderr)
+  }
+}
+
+λjsonObjectField(key:String,obj:{String↦§json.JsonValue})=>Option[{String↦§json.JsonValue}] match §json.getField(
+  key,
+  obj
+){
+  Some(value)=>§json.asObject(value)|
+  None()=>None()
+}
+
+λjsonStringField(key:String,obj:{String↦§json.JsonValue})=>Option[String] match §json.getField(
+  key,
+  obj
+){
+  Some(value)=>§json.asString(value)|
+  None()=>None()
+}
+
+λoptionDefault(fallback:String,value:Option[String])=>String match value{
+  Some(text)=>text|
+  None()=>fallback
+}
+
+λparseCompileIssue(output:String)=>Option[µRepoCompileIssue] match §json.parse(output){
+  Ok(value)=>match §json.asObject(value){
+    Some(root)=>match jsonObjectField(
+      "error",
+      root
+    ){
+      Some(error)=>match jsonStringField(
+        "message",
+        error
+      ){
+        Some(message)=>Some({
+          message:"compile failed: "++message,
+          path:optionDefault(
+            ".",
+            compileIssuePath(error)
+          )
+        })|
+        None()=>None()
+      }|
+      None()=>None()
+    }|
+    None()=>None()
+  }|
+  Err(_)=>None()
+}
+
+λprocessOutput(result:§process.ProcessResult)=>String match #§string.trim(result.stderr)>0{
+  true=>§string.trim(result.stderr)|
+  false=>§string.trim(result.stdout)
+}
+
+λrunCheck()=>!AuditIo Result[
+  [µRepoCompileIssue],
+  String
+] match gitTopLevel(){
+  Ok(root)=>{
+    l result=(§process.run(compilerCommand(root)):§process.ProcessResult);
+    match result.code=0{
+      true=>Ok([])|
+      false=>Ok([compileIssue(result)])
+    }
+  }|
+  Err(message)=>Err(message)
+}

@@ -35,7 +35,18 @@ Library code is file-based, not `export`-based:
 λmain()=>Unit=()
 
 test "count completed todos" {
-  •todoDomain.completedCount([{done:true,id:1,text:"A"},{done:false,id:2,text:"B"}])=1
+  •todoDomain.completedCount([
+    {
+      done:true,
+      id:1,
+      text:"A"
+    },
+    {
+      done:false,
+      id:2,
+      text:"B"
+    }
+  ])=1
 }
 ```
 
@@ -91,7 +102,10 @@ Multiline descriptions use the same string syntax:
 test "multiline
 test description works" {
   §string.lines("alpha
-beta")=["alpha","beta"]
+beta")=[
+    "alpha",
+    "beta"
+  ]
 }
 ```
 
@@ -128,6 +142,39 @@ test "captured log contains line" =>!Log world {
 } {
   l _=(§io.println("captured"):Unit);
   ※check::log.contains("captured")
+}
+```
+
+Canonical named-boundary helpers include:
+
+- `※observe::file.readTextAt`
+- `※observe::log.entriesAt`
+- `※observe::process.commandsAt`
+- `※check::file.existsAt`
+- `※check::file.textEqualsAt`
+- `※check::log.containsAt`
+- `※check::process.calledOnceAt`
+
+For topology-aware labelled-boundary projects, these helpers are the canonical
+testing surface. They let a test assert the observed effect at the exact named
+boundary instead of inferring it from ambient global state.
+
+Example:
+
+```sigil program projects/labelled-boundaries/tests/boundaries.sigil
+λmain()=>Unit=()
+
+test "audit sink receives redacted ssn" =>!Fs!Log!Process world {
+  c exports=(†fs.sandboxRoot(
+  ".local/labelled-boundaries-tests/audit",
+  •topology.exportsDir
+):†fs.FsRootEntry)
+} {
+  l _=(•app.runExample():Unit);
+  ※check::log.containsAt(
+    "***-**-6789",
+    •topology.auditLog
+  )
 }
 ```
 

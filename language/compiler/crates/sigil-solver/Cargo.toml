@@ -3,6 +3,10 @@ name = "sigil-solver"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["vendored-z3"]
+vendored-z3 = ["z3/vendored"]
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }

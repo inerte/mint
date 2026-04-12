@@ -3,11 +3,15 @@ name = "sigil-typechecker"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["vendored-z3"]
+vendored-z3 = ["sigil-solver/vendored-z3"]
+
 [dependencies]
 sigil-ast = { path = "../sigil-ast" }
 sigil-lexer = { path = "../sigil-lexer" }
 sigil-diagnostics = { path = "../sigil-diagnostics" }
-sigil-solver = { path = "../sigil-solver" }
+sigil-solver = { path = "../sigil-solver", default-features = false }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

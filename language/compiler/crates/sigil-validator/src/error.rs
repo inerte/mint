@@ -185,6 +185,12 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
+    #[error("SIGIL-CANON-POLICY-DECL-PLACEMENT: {message}")]
+    PolicyDeclarationPlacement {
+        message: String,
+        location: SourceLocation,
+    },
+
     #[error("SIGIL-CANON-IDENTIFIER-FORM: value identifiers must be lowerCamelCase\n\nFound: {found}\nExpected form: lowerCamelCase{suggestion}")]
     IdentifierForm {
         found: String,
@@ -254,9 +260,6 @@ pub enum ValidationError {
 
     #[error("SIGIL-CANON-OPERATOR-SPACING: non-canonical operator spacing\n\nUse no spaces around ':', '=>', '=', '|', '+', '-', '*', '/', and '%'.")]
     OperatorSpacing { location: SourceLocation },
-
-    #[error("SIGIL-CANON-SIGNATURE-LAYOUT: function and lambda signatures must stay on one line\n\nKeep the full signature and direct body introducer on a single line.")]
-    SignatureLayout { location: SourceLocation },
 
     #[error("SIGIL-CANON-MATCH-LAYOUT: non-canonical match layout\n\nSingle-arm match may stay on one line. Multi-arm match must use multiline canonical layout.")]
     MatchLayout { location: SourceLocation },
@@ -520,6 +523,7 @@ impl ValidationError {
             ValidationError::SourceForm { location, .. } => *location,
             ValidationError::EffectDeclarationPlacement { location, .. } => *location,
             ValidationError::TypeDeclarationPlacement { location, .. } => *location,
+            ValidationError::PolicyDeclarationPlacement { location, .. } => *location,
             ValidationError::IdentifierForm { location, .. } => *location,
             ValidationError::TypeNameForm { location, .. } => *location,
             ValidationError::ConstructorNameForm { location, .. } => *location,
@@ -531,7 +535,6 @@ impl ValidationError {
             ValidationError::BlankLines { location, .. } => *location,
             ValidationError::DelimiterSpacing { location } => *location,
             ValidationError::OperatorSpacing { location } => *location,
-            ValidationError::SignatureLayout { location } => *location,
             ValidationError::MatchLayout { location } => *location,
             ValidationError::MatchArmLayout { location } => *location,
             ValidationError::RedundantParens { location } => *location,
@@ -899,6 +902,20 @@ impl From<ValidationError> for Diagnostic {
             )
             .with_location(source_location_to_span(get_file(), location)),
 
+            ValidationError::TypeDeclarationPlacement { message, location } => Diagnostic::new(
+                codes::canonical::SOURCE_FORM,
+                SigilPhase::Canonical,
+                message,
+            )
+            .with_location(source_location_to_span(get_file(), location)),
+
+            ValidationError::PolicyDeclarationPlacement { message, location } => Diagnostic::new(
+                codes::canonical::SOURCE_FORM,
+                SigilPhase::Canonical,
+                message,
+            )
+            .with_location(source_location_to_span(get_file(), location)),
+
             ValidationError::IdentifierForm { found, suggestion, location } => Diagnostic::new(
                 codes::canonical::IDENTIFIER_FORM,
                 SigilPhase::Canonical,
@@ -967,15 +984,6 @@ impl From<ValidationError> for Diagnostic {
                     codes::canonical::OPERATOR_SPACING,
                     SigilPhase::Canonical,
                     "non-canonical operator spacing",
-                )
-                .with_location(source_location_to_span(get_file(), location))
-            }
-
-            ValidationError::SignatureLayout { location } => {
-                Diagnostic::new(
-                    codes::canonical::SIGNATURE_LAYOUT,
-                    SigilPhase::Canonical,
-                    "function and lambda signatures must stay on one line",
                 )
                 .with_location(source_location_to_span(get_file(), location))
             }

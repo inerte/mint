@@ -1,0 +1,17 @@
+c helpLines=([
+  "Topology HTTP project default entrypoint",
+  "",
+  "Run an explicit file with --env <name>.",
+  "Available envs: local, prod, test",
+  "",
+  "Available executable files:",
+  "  src/getClient.sigil",
+  "  src/headersClient.sigil",
+  "  src/httpRoundtripServer.sigil",
+  "  src/jsonClient.sigil",
+  "  src/missingClient.sigil",
+  "  src/postClient.sigil",
+  "  src/routesClient.sigil"
+]:[String])
+
+λmain()=>String=§string.unlines(helpLines)

@@ -12,6 +12,7 @@ Sigil currently uses bidirectional type checking with:
 - map types
 - explicit top-level parametric polymorphism
 - solver-backed type refinements
+- nominal type labels
 - function contracts
 - effect annotations
 
@@ -36,6 +37,39 @@ This matches Sigil’s explicit surface:
 - function return types are required
 - lambda parameter types are required
 - lambda return types are required
+
+## Type Ascription
+
+Sigil defines one expression-level type-ascription form:
+
+```sigil expr
+(expr:Type)
+```
+
+Examples:
+
+```sigil module
+c airAccel=(1:Int)
+```
+
+```sigil program
+λmain()=>Int={
+  l speed=(1:Int);
+  speed+speed
+}
+```
+
+Current Sigil does not define separate declaration-level annotation surfaces
+such as `c name:Type=value`, and it does not define a bare postfix expression
+surface such as `expr:Type`.
+
+This is intentional. The language keeps one canonical ascription rule:
+
+- if a type is being ascribed to an expression, the source form is `(expr:Type)`
+- the same form is used in constant values, local bindings, and ordinary
+  subexpressions
+
+The purpose is canonical simplicity rather than minimizing parentheses.
 
 ## Local Bindings
 
@@ -89,15 +123,61 @@ Example:
 ```sigil module projects/todo-app/src/types.lib.sigil
 t BirthYear=Int where value>1800 and value<10000
 
-t User={birthYear:BirthYear,name:String}
+t User={
+  birthYear:BirthYear,
+  name:String
+}
 ```
 
 ```sigil module projects/todo-app/src/todoDomain.lib.sigil
 λtodoId(todo:µTodo)=>Int=todo.id
 ```
 
-`src/types.lib.sigil` is types-only and may reference only `§...` and `¶...`
-inside type definitions and constraints.
+`src/types.lib.sigil` owns `t`, `label`, and `label ... combines ...`
+declarations. Type definitions and constraints may reference only `§...` and
+`¶...`.
+
+## Labelled Types
+
+Sigil has a separate type-classification layer in addition to `where`
+refinements.
+
+Example:
+
+```sigil module projects/labelled-boundaries/src/types.lib.sigil
+label Brazil
+
+label Credential
+
+label GovAuth
+
+label Pii
+
+label Usa
+
+t Cpf=String label [Brazil,Pii]
+
+t GovBrToken=String label [Brazil,Credential,GovAuth]
+
+t Ssn=String label [Pii,Usa]
+```
+
+Label rules:
+
+- labels are nominal classifications rather than value predicates
+- `label X combines Y` contributes transitive implied labels during checking
+- labelled values keep those labels through aggregate construction
+- field projection returns the projected field's labels
+- labels participate in named-boundary checking, not ordinary local computation
+- unlabeled values are unaffected by boundary-rule enforcement
+
+Projects pair labelled types with `src/policies.lib.sigil`, which owns
+`rule` and `transform` declarations for named topology boundaries.
+
+Topology-aware labelled-boundary tests run under `sigil test --env <name>` and
+assert the resulting boundary behavior with named-boundary helpers such as
+`※check::file.existsAt`, `※check::log.containsAt`, and
+`※observe::process.commandsAt`.
 
 ## Algebraic Data Types
 
@@ -139,7 +219,10 @@ Named user-defined types may carry a pure `where` clause:
 ```sigil module
 t BirthYear=Int where value>1800 and value<10000
 
-t DateRange={end:Int,start:Int} where value.end≥value.start
+t DateRange={
+  end:Int,
+  start:Int
+} where value.end≥value.start
 ```
 
 Constraint rules:
@@ -247,7 +330,7 @@ Aliases must expand to at least two primitive effects.
 
 Example:
 
-```sigil module projects/docsDriftAudit/src/effects.lib.sigil
+```sigil module projects/repoAudit/src/effects.lib.sigil
 effect CliIo=!Fs!Log!Process
 ```
 

@@ -23,10 +23,25 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Install system Z3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libz3-dev pkg-config
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          package-manager-cache: false
+          package-manager-cache: true
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            language/compiler/target
+          key: ${{ runner.os }}-cargo-system-z3-${{ hashFiles('language/compiler/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-system-z3-
 
       - name: Enable corepack pnpm
         shell: bash
@@ -38,7 +53,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run compiler tests
-        run: cargo test --manifest-path language/compiler/Cargo.toml
+        run: cargo test --manifest-path language/compiler/Cargo.toml --workspace --no-default-features
 
   todo-app:
     runs-on: ubuntu-latest
@@ -48,10 +63,25 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Install system Z3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libz3-dev pkg-config
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          package-manager-cache: false
+          package-manager-cache: true
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            language/compiler/target
+          key: ${{ runner.os }}-cargo-system-z3-${{ hashFiles('language/compiler/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-system-z3-
 
       - name: Enable corepack pnpm
         shell: bash
@@ -62,8 +92,16 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build Sigil CLI
+        run: cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli --no-default-features
+
       - name: Run Sigil todo tests
-        run: pnpm sigil:test:todo
+        run: language/compiler/target/debug/sigil test projects/todo-app/tests
+
+      - name: Generate React todo bindings
+        run: language/compiler/target/debug/sigil compile projects/todo-app/src/todoDomain.lib.sigil -o projects/todo-app/web/src/generated/todo-domain.ts
 
       - name: Build React todo app
-        run: pnpm --filter @sigil-lang/example-todo-react build
+        run: |
+          cd projects/todo-app
+          SIGIL_TODO_BASE=${sigilSiteBasePath:-/}projects/sigil-todo/demo/ pnpm exec vite build

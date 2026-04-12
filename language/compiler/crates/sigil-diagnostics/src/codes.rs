@@ -43,7 +43,6 @@ pub mod canonical {
     pub const SOURCE_FORM: &str = "SIGIL-CANON-SOURCE-FORM";
     pub const DELIMITER_SPACING: &str = "SIGIL-CANON-DELIMITER-SPACING";
     pub const OPERATOR_SPACING: &str = "SIGIL-CANON-OPERATOR-SPACING";
-    pub const SIGNATURE_LAYOUT: &str = "SIGIL-CANON-SIGNATURE-LAYOUT";
     pub const MATCH_LAYOUT: &str = "SIGIL-CANON-MATCH-LAYOUT";
     pub const MATCH_ARM_LAYOUT: &str = "SIGIL-CANON-MATCH-ARM-LAYOUT";
     pub const REDUNDANT_PARENS: &str = "SIGIL-CANON-REDUNDANT-PARENS";
@@ -136,6 +135,7 @@ pub mod cli {
     pub const IMPORT_NOT_FOUND: &str = "SIGIL-CLI-IMPORT-NOT-FOUND";
     pub const IMPORT_CYCLE: &str = "SIGIL-CLI-IMPORT-CYCLE";
     pub const INVALID_IMPORT: &str = "SIGIL-CLI-INVALID-IMPORT";
+    pub const PROJECT_MAIN_REQUIRED: &str = "SIGIL-CLI-PROJECT-MAIN-REQUIRED";
     pub const PROJECT_ROOT_REQUIRED: &str = "SIGIL-CLI-PROJECT-ROOT-REQUIRED";
 }
 
@@ -199,7 +199,6 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     canonical::SOURCE_FORM,
     canonical::DELIMITER_SPACING,
     canonical::OPERATOR_SPACING,
-    canonical::SIGNATURE_LAYOUT,
     canonical::MATCH_LAYOUT,
     canonical::MATCH_ARM_LAYOUT,
     canonical::REDUNDANT_PARENS,
@@ -268,6 +267,7 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     cli::IMPORT_NOT_FOUND,
     cli::IMPORT_CYCLE,
     cli::INVALID_IMPORT,
+    cli::PROJECT_MAIN_REQUIRED,
     cli::PROJECT_ROOT_REQUIRED,
     // Topology (10 codes)
     topology::BINDING_KIND_MISMATCH,
@@ -324,8 +324,8 @@ mod tests {
         // Keep this in sync when adding or removing diagnostic codes.
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            114,
-            "Expected 114 error codes, found {}",
+            113,
+            "Expected 113 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

@@ -48,12 +48,19 @@ Sigil uses one comment syntax:
 
 `#`, `//`, and `/* ... */` are not Sigil comments.
 
+Comments are non-semantic trivia. They are allowed in canonical source, but
+they do not participate in canonical source comparison or code coverage
+extraction for checked docs.
+
 ## Top-Level Declarations
 
 Module scope is declaration-only.
 
 Valid top-level forms:
 
+- `label`
+- `rule`
+- `transform`
 - `t`
 - `e`
 - `c`
@@ -67,7 +74,7 @@ Invalid at top level:
 Canonical declaration ordering is:
 
 ```text
-t => e => c => λ => test
+label => t => e => c => transform => λ => rule => test
 ```
 
 There is no `export` keyword in current Sigil. Visibility is file-based:
@@ -106,7 +113,7 @@ For function declarations:
 
 - `=` is required before a non-`match` body
 - `=` is forbidden before a `match` body
-- the canonical printer keeps the full signature on one physical line
+- delimited aggregate forms stay flat with `0` or `1` item and print multiline with `2+` items, including type arguments inside signatures
 - a direct `match` body begins on that same line
 
 Effects, when present, appear between `=>` and the return type:
@@ -137,7 +144,7 @@ The built-in primitive effects are:
 
 Projects may define reusable multi-effect aliases only in `src/effects.lib.sigil`:
 
-```sigil module projects/docsDriftAudit/src/effects.lib.sigil
+```sigil module projects/repoAudit/src/effects.lib.sigil
 effect CliIo=!Fs!Log!Process
 ```
 
@@ -203,15 +210,77 @@ src/types.lib.sigil
 
 Rules:
 
-- `src/types.lib.sigil` may contain only `t` declarations
+- `src/types.lib.sigil` may contain only `t` and `label` declarations
 - outside that file, project-defined types are referenced as `µTypeName`
 - project sum constructors and patterns from `src/types.lib.sigil` also use `µ...`
 - `src/types.lib.sigil` may reference only `§...` and `¶...` inside type definitions and constraints
 
+### Labels
+
+Projects and standalone files may declare labels:
+
+```sigil module
+label Brazil
+
+label Paraguay
+
+label Pii
+
+label Mercosur combines [Brazil,Paraguay]
+```
+
+Types may attach one or more labels:
+
+```sigil module
+label Pii
+
+label Usa
+
+t Ssn=String label [Pii,Usa]
+```
+
+Rules:
+
+- `where` and `label` are separate surfaces
+- `label` classifies the type; it does not replace value-level refinement
+- `label X combines Y` adds implied labels during boundary checking
+- singleton label attachment prints as `label Pii`
+- multiple labels print as `label [A,B]`
+
+### Boundary Rules and Transforms
+
+Projects use:
+
+```text
+src/policies.lib.sigil
+```
+
+That file is the canonical home for:
+
+- `rule`
+- `transform`
+
+Standalone `.sigil` and `.lib.sigil` files may also declare these forms locally
+for small examples and scripts.
+
+Example:
+
+```sigil module projects/labelled-boundaries/src/policies.lib.sigil
+transform λredactSsn(ssn:µSsn)=>String="***"
+
+rule [µ.Pii,µ.Usa] for •topology.auditLog=Through(•policies.redactSsn)
+```
+
+`rule` targets exact named boundaries only in the current surface.
+
 ### Product Types
 
 ```sigil module
-t User={active:Bool,id:Int,name:String}
+t User={
+  active:Bool,
+  id:Int,
+  name:String
+}
 ```
 
 Record fields are canonical alphabetical order everywhere records appear.
@@ -236,7 +305,11 @@ t TopologicalSortResult=CycleDetected()|Ordering([Int])
 ```
 
 ```sigil module projects/algorithms/src/orderingExample.lib.sigil
-λorderingResult()=>µTopologicalSortResult=µOrdering([1,2,3])
+λorderingResult()=>µTopologicalSortResult=µOrdering([
+  1,
+  2,
+  3
+])
 
 λorderingValues(result:µTopologicalSortResult)=>[Int] match result{
   µOrdering(order)=>order|
@@ -251,7 +324,10 @@ Named types may carry a pure `where` clause:
 ```sigil module
 t BirthYear=Int where value>1800 and value<10000
 
-t DateRange={end:Int,start:Int} where value.end≥value.start
+t DateRange={
+  end:Int,
+  start:Int
+} where value.end≥value.start
 ```
 
 Constraint rules:
@@ -290,6 +366,16 @@ c greeting=("hello":String)
 
 Current parser behavior requires the typed form above. Untyped constants and the
 older `c name:Type=value` surface are not current Sigil.
+
+This follows Sigil's general type-ascription rule:
+
+- if you want to ascribe a type to an expression, write `(expr:Type)`
+- the same parenthesized form is used everywhere instead of declaration-specific
+  variants
+
+Sigil keeps that single rule even though it adds parentheses, because the
+language prefers one canonical annotation surface over multiple equivalent
+forms.
 
 ## String Literals
 
@@ -445,7 +531,10 @@ Current match rules:
 Examples:
 
 ```sigil module
-t Point={x:Int,y:Int}
+t Point={
+  x:Int,
+  y:Int
+}
 
 λfromOption(option:Option[Int])=>Int match option{
   Some(value)=>value|
@@ -454,21 +543,51 @@ t Point={x:Int,y:Int}
 
 λheadOrZero(list:[Int])=>Int match list{
   []=>0|
-  [head,.rest]=>head
+  [
+  head,
+  .rest
+]=>head
 }
 
-λpairLabel(left:Bool,right:Bool)=>String match (left,right){
-  (true,true)=>"tt"|
-  (true,false)=>"tf"|
-  (false,true)=>"ft"|
-  (false,false)=>"ff"
+λpairLabel(left:Bool,right:Bool)=>String match (
+  left,
+  right
+){
+  (
+  true,
+  true
+)=>"tt"|
+  (
+  true,
+  false
+)=>"tf"|
+  (
+  false,
+  true
+)=>"ft"|
+  (
+  false,
+  false
+)=>"ff"
 }
 
 λpointLabel(point:Point)=>String match point{
-  {x:0,y:0}=>"origin"|
-  {x:0,y}=>"y-axis"|
-  {x,y:0}=>"x-axis"|
-  {x,y}=>"plane"
+  {
+  x:0,
+  y:0
+}=>"origin"|
+  {
+  x:0,
+  y
+}=>"y-axis"|
+  {
+  x,
+  y:0
+}=>"x-axis"|
+  {
+  x,
+  y
+}=>"plane"
 }
 ```
 
@@ -483,7 +602,11 @@ t IntList=[Int]
 List literal:
 
 ```sigil expr
-[1,2,3]
+[
+  1,
+  2,
+  3
+]
 ```
 
 Map type:
@@ -494,17 +617,27 @@ t StringIntMap={String↦Int}
 
 Map literals use `↦`:
 
-```sigil exprs
-{"a"↦1,"b"↦2}
-({↦}:{String↦Int})
+```sigil module
+λsample1()=>{String↦Int}={
+  "a"↦1,
+  "b"↦2
+}
+
+λsample2()=>{String↦Int}=({↦}:{String↦Int})
 ```
 
 Record types and literals use `:`:
 
 ```sigil module
-t User={id:Int,name:String}
+t User={
+  id:Int,
+  name:String
+}
 
-λsampleUser()=>User={id:1,name:"Ana"}
+λsampleUser()=>User={
+  id:1,
+  name:"Ana"
+}
 ```
 
 ## Built-In List Operators
@@ -519,13 +652,31 @@ Sigil includes canonical list operators:
 Examples:
 
 ```sigil module
-λconcatenated()=>[Int]=[1,2]⧺[3,4]
+λconcatenated()=>[Int]=[
+  1,
+  2
+]⧺[
+  3,
+  4
+]
 
-λdoubled()=>[Int]=[1,2,3] map (λ(x:Int)=>Int=x*2)
+λdoubled()=>[Int]=[
+  1,
+  2,
+  3
+] map (λ(x:Int)=>Int=x*2)
 
-λfiltered()=>[Int]=[1,2,3] filter (λ(x:Int)=>Bool=x>1)
+λfiltered()=>[Int]=[
+  1,
+  2,
+  3
+] filter (λ(x:Int)=>Bool=x>1)
 
-λsummed()=>Int=[1,2,3] reduce (λ(acc:Int,x:Int)=>Int=acc+x) from 0
+λsummed()=>Int=[
+  1,
+  2,
+  3
+] reduce (λ(acc:Int,x:Int)=>Int=acc+x) from 0
 ```
 
 `map` and `filter` require pure callbacks.
@@ -535,17 +686,37 @@ Examples:
 Sigil uses one explicit concurrency surface:
 
 ```sigil program
-λmain()=>!Timer [ConcurrentOutcome[Int,String]]=concurrent urlAudit@5:{jitterMs:Some({max:25,min:1}),stopOn:shouldStop,windowMs:Some(1000)}{
+λmain()=>!Timer [ConcurrentOutcome[
+  Int,
+  String
+]]=concurrent urlAudit@5:{
+  jitterMs:Some({
+    max:25,
+    min:1
+  }),
+  stopOn:shouldStop,
+  windowMs:Some(1000)
+}{
   spawn one()
-  spawnEach [1,2,3] process
+  spawnEach [
+    1,
+    2,
+    3
+  ] process
 }
 
-λone()=>!Timer Result[Int,String]={
+λone()=>!Timer Result[
+  Int,
+  String
+]={
   l _=(§time.sleepMs(0):Unit);
   Ok(1)
 }
 
-λprocess(value:Int)=>!Timer Result[Int,String]={
+λprocess(value:Int)=>!Timer Result[
+  Int,
+  String
+]={
   l _=(§time.sleepMs(0):Unit);
   Ok(value)
 }

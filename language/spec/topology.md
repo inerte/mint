@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Sigil topology defines the canonical representation of external runtime
-dependencies for topology-aware projects.
+Sigil topology defines the canonical representation of named runtime
+boundaries for topology-aware projects.
 
 Topology is declaration only.
 Concrete environment worlds live in config modules.
@@ -18,11 +18,15 @@ config/<env>.lib.sigil
 ```
 
 `src/topology.lib.sigil` is the canonical source of truth for:
-- declared dependency handles
+- declared boundary handles
 - declared environment names
 
 `config/<env>.lib.sigil` is the canonical source of truth for:
 - one selected environment's runtime world
+
+`src/policies.lib.sigil` is the canonical source of truth for:
+- boundary rules over labelled data
+- trusted transforms referenced by `Through(...)`
 
 ## Topology Surface
 
@@ -30,20 +34,29 @@ config/<env>.lib.sigil
 
 ```sigil decl §topology
 t Environment=Environment(String)
+t FsRoot=FsRoot(String)
 t HttpServiceDependency=HttpServiceDependency(String)
+t LogSink=LogSink(String)
+t ProcessHandle=ProcessHandle(String)
 t TcpServiceDependency=TcpServiceDependency(String)
 
 λenvironment(name:String)=>Environment
+λfsRoot(name:String)=>FsRoot
 λhttpService(name:String)=>HttpServiceDependency
+λlogSink(name:String)=>LogSink
+λprocessHandle(name:String)=>ProcessHandle
 λtcpService(name:String)=>TcpServiceDependency
 ```
 
 `†runtime` and world entry roots define the canonical env surface:
 
 ```sigil decl †runtime
-t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
+t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,fsRoots:[†fs.FsRootEntry],http:[†http.HttpEntry],log:†log.LogEntry,logSinks:[†log.LogSinkEntry],process:†process.ProcessEntry,processHandles:[†process.ProcessHandleEntry],random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
 
 λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World
+λwithFsRoots(fsRoots:[†fs.FsRootEntry],world:World)=>World
+λwithLogSinks(logSinks:[†log.LogSinkEntry],world:World)=>World
+λwithProcessHandles(processHandles:[†process.ProcessHandleEntry],world:World)=>World
 ```
 
 ## Compile-Time Rules
@@ -51,13 +64,16 @@ t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log
 ### Topology declaration location
 
 Calls to these constructors are only valid in `src/topology.lib.sigil`:
+- `§topology.fsRoot`
 - `§topology.httpService`
+- `§topology.logSink`
+- `§topology.processHandle`
 - `§topology.tcpService`
 - `§topology.environment`
 
 ### World entry location
 
-Calls to `†http.*` and `†tcp.*` entry constructors are only valid in:
+Calls to `†http.*`, `†fs.*Root`, `†log.*Sink`, and `†process.*Handle` entry constructors are only valid in:
 
 - `config/*.lib.sigil`
 - test-local `world { ... }` clauses
@@ -83,6 +99,11 @@ The compiler rejects:
 - raw host/port values passed to topology-aware TCP client APIs
 - dependency kind mismatches
 
+Label-aware boundary rules operate on exact named boundaries:
+- `§file.*At` requires `FsRoot`
+- `§log.write` requires `LogSink`
+- `§process.runAt` / `§process.startAt` require `ProcessHandle`
+
 ## Validate-Time Rules
 
 Validation is environment-specific.
@@ -93,9 +114,9 @@ For selected environment `<env>`:
 - `config/<env>.lib.sigil` must exist
 - `config/<env>.lib.sigil` must export `world`
 - `world` must provide all primitive effect entries
-- every declared dependency must appear exactly once in `world`
-- no undeclared dependencies may appear in `world`
-- dependency names must be unique in topology
+- every declared named boundary must appear in the matching `world` entry collection
+- no undeclared boundaries may appear in `world`
+- boundary names must be unique in topology
 
 ## Execution Model
 
@@ -109,6 +130,15 @@ sigil test <path> --env <name>
 
 Sigil does not provide an implicit default environment for topology-aware
 projects.
+
+## Test-World Observation
+
+Topology-aware tests assert exact named-boundary outcomes through the active
+test world. Canonical examples include:
+
+- `※check::file.existsAt(path,•topology.exportsDir)`
+- `※check::log.containsAt(message,•topology.auditLog)`
+- `※observe::process.commandsAt(•topology.govBrCli)`
 
 ## Diagnostics
 

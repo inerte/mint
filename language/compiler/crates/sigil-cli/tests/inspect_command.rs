@@ -94,8 +94,8 @@ fn inspect_types_reports_named_type_inventory_and_constraints() {
         concat!(
             "t Age=Int\n\n",
             "t BirthYear=Int where value>1800 and value<10000\n\n",
-            "t User={birthYear:BirthYear,name:String}\n\n",
-            "t DateRange={end:Int,start:Int} where value.end≥value.start\n\n",
+            "t User={\n  birthYear:BirthYear,\n  name:String\n}\n\n",
+            "t DateRange={\n  end:Int,\n  start:Int\n} where value.end≥value.start\n\n",
             "t Result=Ok(Int)|Err(String)\n",
         ),
     );
@@ -317,6 +317,34 @@ fn inspect_validate_returns_canonical_source_for_noncanonical_input() {
 }
 
 #[test]
+fn inspect_validate_rejects_leading_blank_line_as_noncanonical() {
+    let dir = temp_dir("validate-leading-blank-line");
+    let file = write_program(&dir, "main.sigil", "\nλmain()=>Int=1\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("inspect")
+        .arg("validate")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc inspect validate");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["data"]["alreadyCanonical"], false);
+    assert_eq!(json["data"]["validation"]["ok"], false);
+    assert_eq!(json["data"]["canonicalSource"], "λmain()=>Int=1\n");
+    assert!(!json["data"]["validation"]["errors"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
 fn inspect_validate_directory_reports_per_file_status() {
     let dir = temp_dir("validate-directory");
     let canonical = write_program(&dir, "ok.sigil", "λmain()=>Int=1\n");
@@ -353,6 +381,33 @@ fn inspect_validate_directory_reports_per_file_status() {
     assert_eq!(noncanonical_result["alreadyCanonical"], false);
     assert_eq!(noncanonical_result["validation"]["ok"], false);
     assert_eq!(noncanonical_result["canonicalSource"], "λmain()=>Int=2\n");
+}
+
+#[test]
+fn inspect_validate_rejects_project_executables_without_src_main() {
+    let dir = temp_dir("validate-missing-project-main");
+    write_program(
+        &dir,
+        "sigil.json",
+        "{\"name\":\"inspectValidate\",\"version\":\"2026-04-05T14-58-24Z\"}\n",
+    );
+    write_program(&dir, "src/demo.sigil", "λmain()=>Int=1\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("inspect")
+        .arg("validate")
+        .arg(&dir)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc inspect validate");
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["error"]["code"], "SIGIL-CLI-PROJECT-MAIN-REQUIRED");
 }
 
 #[test]
@@ -496,7 +551,21 @@ fn inspect_world_reports_normalized_runtime_world_for_topology_project() {
     write_program(
         &dir,
         "config/local.lib.sigil",
-        "c world=(†runtime.world(†clock.systemClock(),†fs.real(),[†http.proxy(\"http://127.0.0.1:45110\",•topology.mailerApi)],†log.capture(),†process.real(),†random.seeded(1337),[],†timer.virtual()):†runtime.World)\n",
+        concat!(
+            "c world=(†runtime.world(\n",
+            "  †clock.systemClock(),\n",
+            "  †fs.real(),\n",
+            "  [†http.proxy(\n",
+            "    \"http://127.0.0.1:45110\",\n",
+            "    •topology.mailerApi\n",
+            "  )],\n",
+            "  †log.capture(),\n",
+            "  †process.real(),\n",
+            "  †random.seeded(1337),\n",
+            "  [],\n",
+            "  †timer.virtual()\n",
+            "):†runtime.World)\n",
+        ),
     );
 
     let output = Command::new(sigil_bin())
@@ -546,7 +615,18 @@ fn inspect_world_supports_config_only_projects_without_topology() {
     write_program(
         &dir,
         "config/local.lib.sigil",
-        "c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.stdout(),†process.real(),†random.seeded(7),[],†timer.real()):†runtime.World)\n",
+        concat!(
+            "c world=(†runtime.world(\n",
+            "  †clock.systemClock(),\n",
+            "  †fs.real(),\n",
+            "  [],\n",
+            "  †log.stdout(),\n",
+            "  †process.real(),\n",
+            "  †random.seeded(7),\n",
+            "  [],\n",
+            "  †timer.real()\n",
+            "):†runtime.World)\n",
+        ),
     );
 
     let output = Command::new(sigil_bin())
@@ -593,7 +673,18 @@ fn inspect_world_emits_json_error_when_env_is_undeclared() {
     write_program(
         &dir,
         "config/prod.lib.sigil",
-        "c world=(†runtime.world(†clock.systemClock(),†fs.real(),[],†log.stdout(),†process.real(),†random.real(),[],†timer.real()):†runtime.World)\n",
+        concat!(
+            "c world=(†runtime.world(\n",
+            "  †clock.systemClock(),\n",
+            "  †fs.real(),\n",
+            "  [],\n",
+            "  †log.stdout(),\n",
+            "  †process.real(),\n",
+            "  †random.real(),\n",
+            "  [],\n",
+            "  †timer.real()\n",
+            "):†runtime.World)\n",
+        ),
     );
 
     let output = Command::new(sigil_bin())

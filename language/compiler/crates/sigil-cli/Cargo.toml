@@ -3,6 +3,14 @@ name = "sigil-cli"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["vendored-z3"]
+vendored-z3 = [
+    "sigil-codegen/vendored-z3",
+    "sigil-typechecker/vendored-z3",
+    "sigil-validator/vendored-z3",
+]
+
 [[bin]]
 name = "sigil"
 path = "src/main.rs"
@@ -10,9 +18,9 @@ path = "src/main.rs"
 [dependencies]
 sigil-lexer = { path = "../sigil-lexer" }
 sigil-parser = { path = "../sigil-parser" }
-sigil-validator = { path = "../sigil-validator" }
-sigil-typechecker = { path = "../sigil-typechecker" }
-sigil-codegen = { path = "../sigil-codegen" }
+sigil-validator = { path = "../sigil-validator", default-features = false }
+sigil-typechecker = { path = "../sigil-typechecker", default-features = false }
+sigil-codegen = { path = "../sigil-codegen", default-features = false }
 sigil-ast = { path = "../sigil-ast", features = ["serde"] }
 sigil-diagnostics = { path = "../sigil-diagnostics" }
 clap = { version = "4.4", features = ["derive"] }

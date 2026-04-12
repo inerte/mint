@@ -167,6 +167,204 @@ fn first_source_difference(source: &str, canonical_source: &str) -> SourceLocati
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CommentNormalizedLineKind {
+    Blank,
+    Code,
+    CommentOnly,
+}
+
+#[derive(Debug, Clone)]
+struct CommentNormalizedLine {
+    had_comment: bool,
+    has_newline: bool,
+    text: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CommentScanState {
+    Code,
+    Comment,
+    String { escaped: bool },
+    Char { escaped: bool },
+}
+
+impl CommentNormalizedLine {
+    fn kind(&self) -> CommentNormalizedLineKind {
+        if self.text.trim().is_empty() {
+            if self.had_comment {
+                CommentNormalizedLineKind::CommentOnly
+            } else {
+                CommentNormalizedLineKind::Blank
+            }
+        } else {
+            CommentNormalizedLineKind::Code
+        }
+    }
+}
+
+fn comment_normalized_lines(source: &str) -> Vec<CommentNormalizedLine> {
+    let mut lines = Vec::new();
+    let mut current = String::new();
+    let mut line_had_comment = false;
+    let mut state = CommentScanState::Code;
+
+    let push_line = |lines: &mut Vec<CommentNormalizedLine>,
+                     current: &mut String,
+                     line_had_comment: bool| {
+        lines.push(CommentNormalizedLine {
+            had_comment: line_had_comment,
+            has_newline: true,
+            text: current.clone(),
+        });
+        current.clear();
+    };
+
+    for ch in source.chars() {
+        match state {
+            CommentScanState::Code => match ch {
+                '⟦' => {
+                    state = CommentScanState::Comment;
+                    line_had_comment = true;
+                }
+                '"' => {
+                    current.push(ch);
+                    state = CommentScanState::String { escaped: false };
+                }
+                '\'' => {
+                    current.push(ch);
+                    state = CommentScanState::Char { escaped: false };
+                }
+                '\n' => {
+                    push_line(&mut lines, &mut current, line_had_comment);
+                    line_had_comment = false;
+                }
+                _ => current.push(ch),
+            },
+            CommentScanState::Comment => match ch {
+                '⟧' => {
+                    state = CommentScanState::Code;
+                    line_had_comment = true;
+                }
+                '\n' => {
+                    push_line(&mut lines, &mut current, true);
+                    line_had_comment = true;
+                }
+                _ => {
+                    line_had_comment = true;
+                }
+            },
+            CommentScanState::String { escaped } => match ch {
+                '\n' => {
+                    push_line(&mut lines, &mut current, line_had_comment);
+                    line_had_comment = false;
+                    state = CommentScanState::String { escaped: false };
+                }
+                _ => {
+                    current.push(ch);
+                    state = if escaped {
+                        CommentScanState::String { escaped: false }
+                    } else if ch == '\\' {
+                        CommentScanState::String { escaped: true }
+                    } else if ch == '"' {
+                        CommentScanState::Code
+                    } else {
+                        CommentScanState::String { escaped: false }
+                    };
+                }
+            },
+            CommentScanState::Char { escaped } => match ch {
+                '\n' => {
+                    push_line(&mut lines, &mut current, line_had_comment);
+                    line_had_comment = false;
+                    state = CommentScanState::Char { escaped: false };
+                }
+                _ => {
+                    current.push(ch);
+                    state = if escaped {
+                        CommentScanState::Char { escaped: false }
+                    } else if ch == '\\' {
+                        CommentScanState::Char { escaped: true }
+                    } else if ch == '\'' {
+                        CommentScanState::Code
+                    } else {
+                        CommentScanState::Char { escaped: false }
+                    };
+                }
+            },
+        }
+    }
+
+    if !current.is_empty() || line_had_comment || !source.ends_with('\n') {
+        lines.push(CommentNormalizedLine {
+            had_comment: line_had_comment,
+            has_newline: false,
+            text: current,
+        });
+    }
+
+    for line in &mut lines {
+        if line.had_comment {
+            line.text = line.text.trim_end_matches([' ', '\t']).to_string();
+        }
+    }
+
+    lines
+}
+
+fn normalize_source_for_canonical_compare(source: &str) -> String {
+    let lines = comment_normalized_lines(source);
+    if lines.is_empty() {
+        return String::new();
+    }
+
+    let mut kept = Vec::new();
+    let mut idx = 0;
+    while idx < lines.len() {
+        match lines[idx].kind() {
+            CommentNormalizedLineKind::Code => {
+                kept.push(lines[idx].clone());
+                idx += 1;
+            }
+            _ => {
+                let run_start = idx;
+                let mut has_comment_only = false;
+                while idx < lines.len() {
+                    match lines[idx].kind() {
+                        CommentNormalizedLineKind::Code => break,
+                        CommentNormalizedLineKind::CommentOnly => {
+                            has_comment_only = true;
+                            idx += 1;
+                        }
+                        CommentNormalizedLineKind::Blank => idx += 1,
+                    }
+                }
+
+                if has_comment_only {
+                    if !kept.is_empty() && idx < lines.len() {
+                        kept.push(CommentNormalizedLine {
+                            had_comment: false,
+                            has_newline: true,
+                            text: String::new(),
+                        });
+                    }
+                } else {
+                    kept.extend(lines[run_start..idx].iter().cloned());
+                }
+            }
+        }
+    }
+
+    let mut normalized = String::new();
+    for line in kept {
+        normalized.push_str(&line.text);
+        if line.has_newline {
+            normalized.push('\n');
+        }
+    }
+    normalized
+}
+
 /// Validate EOF newline requirement
 fn validate_eof_newline(source: &str, file_path: &str) -> Result<(), Vec<ValidationError>> {
     if source.is_empty() {
@@ -430,11 +628,6 @@ fn validate_function_body_layout(
     source: &str,
 ) -> Result<(), Vec<ValidationError>> {
     let body_location = expr_location(&function.body);
-    if function.location.start.line != body_location.start.line {
-        return Err(vec![ValidationError::SignatureLayout {
-            location: function.location,
-        }]);
-    }
 
     if matches!(function.body, Expr::Match(_)) {
         let between = slice_between(
@@ -459,11 +652,6 @@ fn validate_lambda_body_layout(
     source: &str,
 ) -> Result<(), Vec<ValidationError>> {
     let body_location = expr_location(&lambda.body);
-    if lambda.location.start.line != body_location.start.line {
-        return Err(vec![ValidationError::SignatureLayout {
-            location: lambda.location,
-        }]);
-    }
 
     if matches!(lambda.body, Expr::Match(_)) {
         let between = slice_between(
@@ -698,7 +886,12 @@ fn validate_source_layout(
             Declaration::Test(test_decl) => {
                 validate_expr_layout(&test_decl.body, source, &mut errors);
             }
-            Declaration::Type(_) | Declaration::Effect(_) | Declaration::Extern(_) => {}
+            Declaration::Type(_)
+            | Declaration::Effect(_)
+            | Declaration::Extern(_)
+            | Declaration::Transform(_)
+            | Declaration::Label(_)
+            | Declaration::Rule(_) => {}
         }
     }
 
@@ -727,10 +920,11 @@ pub fn validate_canonical_form_with_options(
     let mut errors = Vec::new();
 
     if let (Some(_path), Some(src)) = (file_path, source) {
+        let normalized_source = normalize_source_for_canonical_compare(src);
         let canonical_source =
             print_canonical_program_with_effects(program, options.effect_catalog.as_ref());
-        if src != canonical_source {
-            let location = first_source_difference(src, &canonical_source);
+        if normalized_source != canonical_source {
+            let location = first_source_difference(&normalized_source, &canonical_source);
             errors.push(ValidationError::SourceForm {
                 canonical_source,
                 location,
@@ -748,6 +942,10 @@ pub fn validate_canonical_form_with_options(
     }
 
     if let Err(e) = validate_project_type_declaration_placement(program, file_path) {
+        errors.extend(e);
+    }
+
+    if let Err(e) = validate_project_policy_declaration_placement(program, file_path) {
         errors.extend(e);
     }
 
@@ -1626,7 +1824,11 @@ fn validate_record_field_ordering(program: &Program) -> Result<(), Vec<Validatio
             Declaration::Test(test_decl) => {
                 validate_expr_record_fields(&test_decl.body, &mut errors)
             }
-            Declaration::Effect(_) | Declaration::Extern(_) => {}
+            Declaration::Effect(_)
+            | Declaration::Extern(_)
+            | Declaration::Transform(_)
+            | Declaration::Label(_)
+            | Declaration::Rule(_) => {}
         }
     }
 
@@ -1945,7 +2147,12 @@ fn validate_no_shadowing(program: &Program) -> Result<(), Vec<ValidationError>> 
                 let mut scopes = Vec::new();
                 validate_expr_no_shadowing(&test_decl.body, &mut scopes, &mut errors);
             }
-            Declaration::Type(_) | Declaration::Effect(_) | Declaration::Extern(_) => {}
+            Declaration::Type(_)
+            | Declaration::Effect(_)
+            | Declaration::Extern(_)
+            | Declaration::Transform(_)
+            | Declaration::Label(_)
+            | Declaration::Rule(_) => {}
         }
     }
 
@@ -1965,6 +2172,7 @@ fn validate_no_duplicates(program: &Program) -> Result<(), Vec<ValidationError>>
     let mut extern_names: HashMap<String, SourceLocation> = HashMap::new();
     let mut const_names: HashMap<String, SourceLocation> = HashMap::new();
     let mut function_names: HashMap<String, SourceLocation> = HashMap::new();
+    let mut label_names: HashMap<String, SourceLocation> = HashMap::new();
     let mut test_names: HashMap<String, SourceLocation> = HashMap::new();
 
     for decl in &program.declarations {
@@ -2043,6 +2251,40 @@ fn validate_no_duplicates(program: &Program) -> Result<(), Vec<ValidationError>>
                     function_names.insert(name.clone(), *location);
                 }
             }
+
+            Declaration::Transform(transform_decl) => {
+                let name = &transform_decl.function.name;
+                let location = transform_decl.function.location;
+                if let Some(first_loc) = function_names.get(name) {
+                    errors.push(ValidationError::DuplicateDeclaration {
+                        kind: "TRANSFORM".to_string(),
+                        what: "transform".to_string(),
+                        name: name.clone(),
+                        location,
+                        first_location: *first_loc,
+                    });
+                } else {
+                    function_names.insert(name.clone(), location);
+                }
+            }
+
+            Declaration::Label(label_decl) => {
+                let name = &label_decl.name;
+                let location = label_decl.location;
+                if let Some(first_loc) = label_names.get(name) {
+                    errors.push(ValidationError::DuplicateDeclaration {
+                        kind: "LABEL".to_string(),
+                        what: "label".to_string(),
+                        name: name.clone(),
+                        location,
+                        first_location: *first_loc,
+                    });
+                } else {
+                    label_names.insert(name.clone(), location);
+                }
+            }
+
+            Declaration::Rule(_) => {}
 
             Declaration::Test(TestDecl {
                 description,
@@ -2183,6 +2425,15 @@ fn validate_project_type_declaration_placement(
 
     for decl in &program.declarations {
         match decl {
+            Declaration::Label(label_decl) => {
+                if !is_types_file {
+                    errors.push(ValidationError::TypeDeclarationPlacement {
+                        message: "Project-defined labels must live in src/types.lib.sigil"
+                            .to_string(),
+                        location: label_decl.location,
+                    });
+                }
+            }
             Declaration::Type(type_decl) => {
                 if !is_types_file {
                     errors.push(ValidationError::TypeDeclarationPlacement {
@@ -2197,7 +2448,62 @@ fn validate_project_type_declaration_placement(
             _ => {
                 if is_types_file {
                     errors.push(ValidationError::TypeDeclarationPlacement {
-                        message: "src/types.lib.sigil may only contain type declarations"
+                        message: "src/types.lib.sigil may only contain type and label declarations"
+                            .to_string(),
+                        location: *get_declaration_location(decl),
+                    });
+                }
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+fn validate_project_policy_declaration_placement(
+    program: &Program,
+    file_path: Option<&str>,
+) -> Result<(), Vec<ValidationError>> {
+    let Some(path) = file_path else {
+        return Ok(());
+    };
+
+    if find_project_root(Path::new(path)).is_none() {
+        return Ok(());
+    }
+
+    let normalized_path = path.replace('\\', "/");
+    let is_policies_file = normalized_path.ends_with("/src/policies.lib.sigil");
+    let mut errors = Vec::new();
+
+    for decl in &program.declarations {
+        match decl {
+            Declaration::Rule(rule_decl) => {
+                if !is_policies_file {
+                    errors.push(ValidationError::PolicyDeclarationPlacement {
+                        message: "Project-defined boundary rules must live in src/policies.lib.sigil"
+                            .to_string(),
+                        location: rule_decl.location,
+                    });
+                }
+            }
+            Declaration::Transform(transform_decl) => {
+                if !is_policies_file {
+                    errors.push(ValidationError::PolicyDeclarationPlacement {
+                        message: "Project-defined transforms must live in src/policies.lib.sigil"
+                            .to_string(),
+                        location: transform_decl.function.location,
+                    });
+                }
+            }
+            _ => {
+                if is_policies_file {
+                    errors.push(ValidationError::PolicyDeclarationPlacement {
+                        message: "src/policies.lib.sigil may only contain rule and transform declarations"
                             .to_string(),
                         location: *get_declaration_location(decl),
                     });
@@ -2520,6 +2826,7 @@ fn validate_no_unused_items(
         .iter()
         .filter_map(|decl| match decl {
             Declaration::Function(function_decl) => Some(function_decl.name.clone()),
+            Declaration::Transform(transform_decl) => Some(transform_decl.function.name.clone()),
             Declaration::Const(const_decl) => Some(const_decl.name.clone()),
             _ => None,
         })
@@ -2529,6 +2836,7 @@ fn validate_no_unused_items(
         .iter()
         .filter_map(|decl| match decl {
             Declaration::Type(type_decl) => Some(type_decl.name.clone()),
+            Declaration::Label(label_decl) => Some(label_decl.name.clone()),
             _ => None,
         })
         .collect();
@@ -2563,6 +2871,7 @@ fn validate_no_unused_items(
     let mut values = HashMap::new();
     let mut types = HashMap::new();
     let mut effects = HashMap::new();
+    let mut rules = Vec::new();
     let mut tests = Vec::new();
 
     for decl in &program.declarations {
@@ -2587,6 +2896,25 @@ fn validate_no_unused_items(
                     function_decl.name.clone(),
                     NamedUsage {
                         kind: "function",
+                        location: function_decl.location,
+                        summary: collect_function_usage_summary(
+                            function_decl,
+                            &top_level_values,
+                            &top_level_types,
+                            &top_level_effects,
+                            &constructor_to_type,
+                            &import_paths,
+                            &extern_paths,
+                        ),
+                    },
+                );
+            }
+            Declaration::Transform(transform_decl) => {
+                let function_decl = &transform_decl.function;
+                values.insert(
+                    function_decl.name.clone(),
+                    NamedUsage {
+                        kind: "transform",
                         location: function_decl.location,
                         summary: collect_function_usage_summary(
                             function_decl,
@@ -2644,6 +2972,16 @@ fn validate_no_unused_items(
                     },
                 );
             }
+            Declaration::Label(label_decl) => {
+                types.insert(
+                    label_decl.name.clone(),
+                    NamedUsage {
+                        kind: "label",
+                        location: label_decl.location,
+                        summary: collect_label_decl_usage_summary(label_decl, &top_level_types),
+                    },
+                );
+            }
             Declaration::Test(test_decl) => {
                 tests.push(collect_test_usage_summary(
                     test_decl,
@@ -2655,13 +2993,21 @@ fn validate_no_unused_items(
                     &extern_paths,
                 ));
             }
+            Declaration::Rule(rule_decl) => {
+                rules.push(collect_rule_usage_summary(
+                    rule_decl,
+                    &top_level_values,
+                    &top_level_types,
+                    &import_paths,
+                ));
+            }
         }
     }
 
     let reachability = if is_lib_file {
-        collect_library_usage(&values, &types, &effects, &externs, &tests)
+        collect_library_usage(&values, &types, &effects, &externs, &tests, &rules)
     } else {
-        collect_executable_usage(&values, &types, &externs, &tests)
+        collect_executable_usage(&values, &types, &externs, &tests, &rules)
     };
 
     if !is_lib_file {
@@ -2718,6 +3064,7 @@ fn collect_library_usage(
     effects: &HashMap<String, NamedUsage>,
     externs: &HashMap<String, NamedUsage>,
     tests: &[UsageSummary],
+    rules: &[UsageSummary],
 ) -> Reachability {
     let mut aggregate = UsageSummary::default();
     for usage in values.values() {
@@ -2731,6 +3078,9 @@ fn collect_library_usage(
     }
     for test in tests {
         aggregate.merge_from(test);
+    }
+    for rule in rules {
+        aggregate.merge_from(rule);
     }
 
     let mut reachability = Reachability {
@@ -2751,6 +3101,7 @@ fn collect_executable_usage(
     types: &HashMap<String, NamedUsage>,
     externs: &HashMap<String, NamedUsage>,
     tests: &[UsageSummary],
+    rules: &[UsageSummary],
 ) -> Reachability {
     let mut aggregate = UsageSummary::default();
     let mut reachable_values = HashSet::new();
@@ -2765,6 +3116,14 @@ fn collect_executable_usage(
     for test in tests {
         aggregate.merge_from(test);
         for name in &test.value_refs {
+            if values.contains_key(name) && reachable_values.insert(name.clone()) {
+                pending_values.push(name.clone());
+            }
+        }
+    }
+    for rule in rules {
+        aggregate.merge_from(rule);
+        for name in &rule.value_refs {
             if values.contains_key(name) && reachable_values.insert(name.clone()) {
                 pending_values.push(name.clone());
             }
@@ -2967,6 +3326,9 @@ fn collect_type_decl_usage_summary(
     import_paths: &HashSet<String>,
 ) -> UsageSummary {
     let mut summary = UsageSummary::default();
+    for label_ref in &type_decl.labels {
+        collect_label_ref_usage(label_ref, &mut summary, top_level_types);
+    }
     match &type_decl.definition {
         TypeDef::Sum(sum_type) => {
             for variant in &sum_type.variants {
@@ -2993,6 +3355,37 @@ fn collect_type_decl_usage_summary(
                 top_level_effects,
             );
         }
+    }
+    summary.imports.retain(|path| import_paths.contains(path));
+    summary
+}
+
+fn collect_label_decl_usage_summary(
+    label_decl: &LabelDecl,
+    top_level_types: &HashSet<String>,
+) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    for label_ref in &label_decl.combines {
+        collect_label_ref_usage(label_ref, &mut summary, top_level_types);
+    }
+    summary
+}
+
+fn collect_rule_usage_summary(
+    rule_decl: &RuleDecl,
+    top_level_values: &HashSet<String>,
+    top_level_types: &HashSet<String>,
+    import_paths: &HashSet<String>,
+) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    for label_ref in &rule_decl.labels {
+        collect_label_ref_usage(label_ref, &mut summary, top_level_types);
+    }
+    if !rule_decl.boundary.module_path.is_empty() {
+        summary.imports.insert(rule_decl.boundary.module_path.join("::"));
+    }
+    if let RuleAction::Through { transform, .. } = &rule_decl.action {
+        collect_member_ref_usage(transform, &mut summary, top_level_values);
     }
     summary.imports.retain(|path| import_paths.contains(path));
     summary
@@ -3035,6 +3428,30 @@ fn collect_effect_usage(
         if top_level_effects.contains(effect) {
             summary.effect_refs.insert(effect.clone());
         }
+    }
+}
+
+fn collect_label_ref_usage(
+    label_ref: &LabelRef,
+    summary: &mut UsageSummary,
+    top_level_types: &HashSet<String>,
+) {
+    if label_ref.module_path.is_empty() && top_level_types.contains(&label_ref.name) {
+        summary.type_refs.insert(label_ref.name.clone());
+    } else if !label_ref.module_path.is_empty() {
+        summary.imports.insert(label_ref.module_path.join("::"));
+    }
+}
+
+fn collect_member_ref_usage(
+    member_ref: &MemberRef,
+    summary: &mut UsageSummary,
+    top_level_values: &HashSet<String>,
+) {
+    if member_ref.module_path.is_empty() && top_level_values.contains(&member_ref.member) {
+        summary.value_refs.insert(member_ref.member.clone());
+    } else if !member_ref.module_path.is_empty() {
+        summary.imports.insert(member_ref.module_path.join("::"));
     }
 }
 
@@ -4258,10 +4675,95 @@ fn validate_identifier_forms_in_expr(expr: &Expr, errors: &mut Vec<ValidationErr
     }
 }
 
+fn validate_identifier_forms_in_label_ref(label_ref: &LabelRef, errors: &mut Vec<ValidationError>) {
+    for segment in &label_ref.module_path {
+        if !is_lower_camel_case(segment) {
+            errors.push(ValidationError::ModulePathForm {
+                found: segment.clone(),
+                suggestion: suggestion_suffix(segment, to_lower_camel_case(segment)),
+                location: label_ref.location,
+            });
+        }
+    }
+    if !is_upper_camel_case(&label_ref.name) {
+        errors.push(ValidationError::TypeNameForm {
+            found: label_ref.name.clone(),
+            suggestion: suggestion_suffix(&label_ref.name, to_upper_camel_case(&label_ref.name)),
+            location: label_ref.location,
+        });
+    }
+}
+
+fn validate_identifier_forms_in_member_ref(member_ref: &MemberRef, errors: &mut Vec<ValidationError>) {
+    for segment in &member_ref.module_path {
+        if !is_lower_camel_case(segment) {
+            errors.push(ValidationError::ModulePathForm {
+                found: segment.clone(),
+                suggestion: suggestion_suffix(segment, to_lower_camel_case(segment)),
+                location: member_ref.location,
+            });
+        }
+    }
+    if !is_lower_camel_case(&member_ref.member) {
+        errors.push(ValidationError::IdentifierForm {
+            found: member_ref.member.clone(),
+            suggestion: suggestion_suffix(
+                &member_ref.member,
+                to_lower_camel_case(&member_ref.member),
+            ),
+            location: member_ref.location,
+        });
+    }
+}
+
 fn validate_naming_forms(program: &Program, errors: &mut Vec<ValidationError>) {
     for decl in &program.declarations {
         match decl {
             Declaration::Function(function) => {
+                if !is_lower_camel_case(&function.name) {
+                    errors.push(ValidationError::IdentifierForm {
+                        found: function.name.clone(),
+                        suggestion: suggestion_suffix(
+                            &function.name,
+                            to_lower_camel_case(&function.name),
+                        ),
+                        location: function.location,
+                    });
+                }
+                for type_param in &function.type_params {
+                    if !is_upper_camel_case(type_param) {
+                        errors.push(ValidationError::TypeVarForm {
+                            found: type_param.clone(),
+                            suggestion: suggestion_suffix(
+                                type_param,
+                                to_upper_camel_case(type_param),
+                            ),
+                            location: function.location,
+                        });
+                    }
+                }
+                for param in &function.params {
+                    if !is_lower_camel_case(&param.name) {
+                        errors.push(ValidationError::IdentifierForm {
+                            found: param.name.clone(),
+                            suggestion: suggestion_suffix(
+                                &param.name,
+                                to_lower_camel_case(&param.name),
+                            ),
+                            location: param.location,
+                        });
+                    }
+                    if let Some(type_annotation) = &param.type_annotation {
+                        validate_identifier_forms_in_type(type_annotation, errors);
+                    }
+                }
+                if let Some(return_type) = &function.return_type {
+                    validate_identifier_forms_in_type(return_type, errors);
+                }
+                validate_identifier_forms_in_expr(&function.body, errors);
+            }
+            Declaration::Transform(transform_decl) => {
+                let function = &transform_decl.function;
                 if !is_lower_camel_case(&function.name) {
                     errors.push(ValidationError::IdentifierForm {
                         found: function.name.clone(),
@@ -4365,6 +4867,21 @@ fn validate_naming_forms(program: &Program, errors: &mut Vec<ValidationError>) {
                     }
                 }
             }
+            Declaration::Label(label_decl) => {
+                if !is_upper_camel_case(&label_decl.name) {
+                    errors.push(ValidationError::TypeNameForm {
+                        found: label_decl.name.clone(),
+                        suggestion: suggestion_suffix(
+                            &label_decl.name,
+                            to_upper_camel_case(&label_decl.name),
+                        ),
+                        location: label_decl.location,
+                    });
+                }
+                for label_ref in &label_decl.combines {
+                    validate_identifier_forms_in_label_ref(label_ref, errors);
+                }
+            }
             Declaration::Effect(effect_decl) => {
                 if !is_upper_camel_case(&effect_decl.name) {
                     errors.push(ValidationError::TypeNameForm {
@@ -4420,6 +4937,15 @@ fn validate_naming_forms(program: &Program, errors: &mut Vec<ValidationError>) {
                         }
                         validate_identifier_forms_in_type(&member.member_type, errors);
                     }
+                }
+            }
+            Declaration::Rule(rule_decl) => {
+                for label_ref in &rule_decl.labels {
+                    validate_identifier_forms_in_label_ref(label_ref, errors);
+                }
+                validate_identifier_forms_in_member_ref(&rule_decl.boundary, errors);
+                if let RuleAction::Through { transform, .. } = &rule_decl.action {
+                    validate_identifier_forms_in_member_ref(transform, errors);
                 }
             }
         }
@@ -5549,7 +6075,12 @@ fn collect_filter_then_count_errors(program: &Program, errors: &mut Vec<Validati
             Declaration::Test(test_decl) => {
                 collect_filter_then_count_in_expr(&test_decl.body, errors)
             }
-            Declaration::Type(_) | Declaration::Effect(_) | Declaration::Extern(_) => {}
+            Declaration::Type(_)
+            | Declaration::Effect(_)
+            | Declaration::Extern(_)
+            | Declaration::Transform(_)
+            | Declaration::Label(_)
+            | Declaration::Rule(_) => {}
         }
     }
 }
@@ -5835,6 +6366,67 @@ mod tests {
     }
 
     #[test]
+    fn test_source_form_ignores_comment_only_lines_between_declarations() {
+        let source = r#"λalpha()=>Int=1
+
+⟦ keep this explanation in checked docs ⟧
+λbeta()=>Int=2
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source)).is_ok());
+    }
+
+    #[test]
+    fn test_source_form_ignores_inline_comments() {
+        let source = r#"λalpha()=>Int=1 ⟦ comment after code ⟧
+
+λbeta()=>Int=2 ⟦ another note ⟧
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source)).is_ok());
+    }
+
+    #[test]
+    fn test_source_form_keeps_comment_delimiters_inside_strings() {
+        let source = "λclose()=>String=\"⟧\"\n\nλopen()=>String=\"⟦\"\n";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source)).is_ok());
+    }
+
+    #[test]
+    fn test_source_form_keeps_multiline_strings_with_comment_delimiters() {
+        let source = "λtemplate()=>String=\"first ⟦ not a comment\nsecond ⟧ still string\"\n";
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        assert!(validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source)).is_ok());
+    }
+
+    #[test]
+    fn test_normalized_source_keeps_real_extra_blank_lines_without_comments() {
+        let source = r#"λalpha()=>Int=1
+
+
+λbeta()=>Int=2
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "helpers.lib.sigil").unwrap();
+
+        let result = validate_canonical_form(&program, Some("helpers.lib.sigil"), Some(source));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|error| matches!(error, ValidationError::SourceForm { .. })));
+    }
+
+    #[test]
     fn test_direct_match_body_canonical_layout_allowed() {
         let source = r#"λcountdown(n:Int)=>Int match n{
   0=>0|
@@ -5908,7 +6500,10 @@ mod tests {
   _=>3
 }
 
-λmain()=>Int=f(0,1)
+λmain()=>Int=f(
+  0,
+  1
+)
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
@@ -5918,7 +6513,7 @@ mod tests {
     }
 
     #[test]
-    fn test_non_canonical_signature_layout_rejected() {
+    fn test_non_canonical_match_after_signature_rejected_as_source_form() {
         let source = "λfib(n:Int)=>Int\nmatch n{0=>0}\n";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
@@ -6149,7 +6744,11 @@ mod tests {
     fn test_canonical_map_operator_allowed() {
         let source = r#"λdouble(xs:[Int])=>[Int]=xs map (λ(x:Int)=>Int=x*2)
 
-λmain()=>[Int]=double([1,2,3])
+λmain()=>[Int]=double([
+  1,
+  2,
+  3
+])
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
@@ -6158,13 +6757,37 @@ mod tests {
 
     #[test]
     fn test_canonical_any_all_find_allowed() {
-        let source = r#"λallPositive(xs:[Int])=>Bool=§list.all(λ(x:Int)=>Bool=x>0,xs)
+        let source = r#"λallPositive(xs:[Int])=>Bool=§list.all(
+  λ(x:Int)=>Bool=x>0,
+  xs
+)
 
-λanyEven(xs:[Int])=>Bool=§list.any(λ(x:Int)=>Bool=x%2=0,xs)
+λanyEven(xs:[Int])=>Bool=§list.any(
+  λ(x:Int)=>Bool=x%2=0,
+  xs
+)
 
-λfindEven(xs:[Int])=>Option[Int]=§list.find(λ(x:Int)=>Bool=x%2=0,xs)
+λfindEven(xs:[Int])=>Option[Int]=§list.find(
+  λ(x:Int)=>Bool=x%2=0,
+  xs
+)
 
-λmain()=>Bool=allPositive([1,2,3]) and anyEven([1,2,3]) and findEven([1,2,3,4])=Some(2)
+λmain()=>Bool=allPositive([
+  1,
+  2,
+  3
+])
+  and anyEven([
+    1,
+    2,
+    3
+  ])
+  and findEven([
+    1,
+    2,
+    3,
+    4
+  ])=Some(2)
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
@@ -6173,11 +6796,33 @@ mod tests {
 
     #[test]
     fn test_canonical_flat_map_and_count_if_allowed() {
-        let source = r#"λcountEven(xs:[Int])=>Int=§list.countIf(λ(x:Int)=>Bool=x%2=0,xs)
+        let source = r#"λcountEven(xs:[Int])=>Int=§list.countIf(
+  λ(x:Int)=>Bool=x%2=0,
+  xs
+)
 
-λexplode(xs:[Int])=>[Int]=§list.flatMap(λ(x:Int)=>[Int]=[x,x],xs)
+λexplode(xs:[Int])=>[Int]=§list.flatMap(
+  λ(x:Int)=>[Int]=[
+    x,
+    x
+  ],
+  xs
+)
 
-λmain()=>Bool=countEven([1,2,3,4])=2 and explode([1,2])=[1,1,2,2]
+λmain()=>Bool=countEven([
+  1,
+  2,
+  3,
+  4
+])=2 and explode([
+  1,
+  2
+])=[
+  1,
+  1,
+  2,
+  2
+]
 "#;
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
@@ -6303,12 +6948,15 @@ fn validate_declaration_ordering(program: &Program) -> Result<(), Vec<Validation
 fn validate_category_boundaries(declarations: &[Declaration]) -> Result<(), Vec<ValidationError>> {
     let get_category_index = |decl: &Declaration| -> usize {
         match decl {
-            Declaration::Type(_) => 0,
-            Declaration::Effect(_) => 1,
-            Declaration::Extern(_) => 2,
-            Declaration::Const(_) => 3,
-            Declaration::Function(_) => 4,
-            Declaration::Test(_) => 5,
+            Declaration::Label(_) => 0,
+            Declaration::Type(_) => 1,
+            Declaration::Effect(_) => 2,
+            Declaration::Extern(_) => 3,
+            Declaration::Const(_) => 4,
+            Declaration::Transform(_) => 5,
+            Declaration::Function(_) => 6,
+            Declaration::Rule(_) => 7,
+            Declaration::Test(_) => 8,
         }
     };
 
@@ -6318,14 +6966,34 @@ fn validate_category_boundaries(declarations: &[Declaration]) -> Result<(), Vec<
         let current_index = get_category_index(decl) as i32;
 
         if current_index < last_category_index {
-            let category_names = ["type", "effect", "extern", "const", "function", "test"];
-            let category_symbols = ["t", "effect", "e", "c", "λ", "test"];
+            let category_names = [
+                "label",
+                "type",
+                "effect",
+                "extern",
+                "const",
+                "transform",
+                "function",
+                "rule",
+                "test",
+            ];
+            let category_symbols = [
+                "label",
+                "t",
+                "effect",
+                "e",
+                "c",
+                "transform",
+                "λ",
+                "rule",
+                "test",
+            ];
 
             return Err(vec![ValidationError::DeclarationOrderOld {
                 message: format!(
                     "SIGIL-CANON-DECL-CATEGORY-ORDER: Wrong category position\n\
                      Found: {} ({}) at line {}\n\
-                     Category order: t => effect => e => c => λ => test",
+                     Category order: label => t => effect => e => c => transform => λ => rule => test",
                     category_symbols[current_index as usize],
                     category_names[current_index as usize],
                     get_declaration_location(decl).start.line
@@ -6402,10 +7070,13 @@ fn validate_effect_alphabetical_order(effects: &[&EffectDecl]) -> Result<(), Vec
 /// Get location from any declaration
 fn get_declaration_location(decl: &Declaration) -> &SourceLocation {
     match decl {
+        Declaration::Label(LabelDecl { location, .. }) => location,
         Declaration::Type(TypeDecl { location, .. }) => location,
+        Declaration::Rule(RuleDecl { location, .. }) => location,
         Declaration::Effect(EffectDecl { location, .. }) => location,
         Declaration::Extern(ExternDecl { location, .. }) => location,
         Declaration::Const(ConstDecl { location, .. }) => location,
+        Declaration::Transform(TransformDecl { function, .. }) => &function.location,
         Declaration::Function(FunctionDecl { location, .. }) => location,
         Declaration::Test(TestDecl { location, .. }) => location,
     }

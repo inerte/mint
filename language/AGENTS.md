@@ -60,7 +60,7 @@ Current canonical boolean operators:
 - `¬`
 
 Module scope is declaration-only:
-- valid top-level forms: `t`, `e`, `c`, `λ`, `test`
+- valid top-level forms: `label`, `rule`, `transform`, `t`, `e`, `c`, `λ`, `test`
 - never generate top-level `l`
 - use `c` for immutable module-level values
 - move setup bindings inside `main()` or another function body
@@ -92,11 +92,11 @@ Canonical source is now printer-first:
 - when updating syntax or source shape, think in terms of AST => one printed form
 
 Current high-signal printer choices:
-- signatures stay on one line
+- delimited aggregate forms stay flat with `0` or `1` item and print multiline with `2+` items
+- repeated `++`, `⧺`, `and`, and `or` chains print vertically one continued operand per line
 - `requires` / `ensures` print on following lines before the body
 - direct `match` bodies begin on that same line
 - direct `match` bodies stay `match ...` with no `=` even after contract lines
-- branching prints multiline early
 - multi-arm `match` is always multiline
 - newline-containing string literals print as multiline `"` strings with exact preserved line breaks
 - each arm starts as `pattern=>`
@@ -150,16 +150,19 @@ Current constructor and list invariants:
   - records are exact and closed; Sigil does not have open records, row tails, or width subtyping
   - if a field may be absent, keep the record exact and use `Option[T]` for that field
   - project-defined named types in projects live in `src/types.lib.sigil` and are referenced elsewhere as `µTypeName`
-  - `src/types.lib.sigil` is types-only and may reference only `§...` and `¶...` inside type definitions and constraints
+  - `src/types.lib.sigil` owns `t`, `label`, and `label ... combines ...` declarations
+  - `src/policies.lib.sigil` owns `rule` and `transform` declarations
+  - `src/types.lib.sigil` may reference only `§...` and `¶...` inside type definitions and constraints
+  - `label` is the type-classification surface; boundary handling belongs in `src/policies.lib.sigil`
   - `where` on a type declaration defines a pure, world-independent refinement over an alias or named product type; compile-time promotion into that type requires proof in Sigil's canonical solver-backed refinement fragment, and `match` / internal branching propagate supported branch facts into that proof context
   - `requires` and `ensures` are the canonical function-contract surface; `requires` may reference parameters, `ensures` may reference parameters plus `result`, and both stay pure and world-independent
   - direct boolean local aliases of supported facts participate in that same flow-sensitive refinement and coverage model
   - `where`, `requires`, and `ensures` do not imply runtime validation
   - prefer early boundary conversion with `§decode` instead of carrying raw `JsonValue` deep into business logic
   - when a validated boundary value should remain distinct from a raw primitive, prefer a named wrapper type like `Email` or `UserId`
-  - topology-aware projects must declare external HTTP/TCP dependencies and environment names in `src/topology.lib.sigil`
+  - topology-aware projects must declare named runtime boundaries and environment names in `src/topology.lib.sigil`
   - topology-aware projects are validated against the selected `--env`, which must resolve to `config/<env>.lib.sigil`
-  - topology-aware application code must use `•topology` dependency handles, not raw URLs, hosts, ports, or env-derived endpoints
+  - topology-aware application code must use `•topology` boundary handles for named HTTP/TCP/Fs/Log/Process crossings instead of raw endpoints or ad hoc boundary names
   - `process.env` belongs only in `config/*.lib.sigil`, never in ordinary application code
   - tests run in explicit worlds; prefer `config/<env>.lib.sigil` baseline worlds plus test-local `world { ... }` derivation over ad hoc rewiring
   - unused extern declarations are non-canonical in executable `.sigil` files; `.lib.sigil` files may expose extern-based API surface that is unused locally
@@ -224,8 +227,9 @@ For refinement/contract changes, keep these runnable examples current:
 - `language/examples/functionContracts.sigil`
 - `language/examples/proofMeasures.sigil`
 
-The aggregate repo pass now compiles `language/examples/`, so `pnpm sigil:test:all`
-is expected to catch drift there.
+`projects/repoAudit` now includes a full repo compile check, so
+`pnpm sigil:test:repo-audit` and the aggregate `pnpm sigil:test:all` pass are
+expected to catch compile drift across first-party Sigil sources.
 
 ## Common Commands (from repo root)
 
@@ -346,7 +350,11 @@ Create new test file:
 λmain()=>Unit=()
 
 test "my feature works" {
-  #[1,2,3]=3
+  #[
+    1,
+    2,
+    3
+  ]=3
 }
 ```
 
@@ -379,11 +387,19 @@ Use one of these instead:
 Canonical example:
 
 ```sigil module
-λfib(n:Int)=>Int=fibHelper(0,1,n)
+λfib(n:Int)=>Int=fibHelper(
+  0,
+  1,
+  n
+)
 
 λfibHelper(a:Int,b:Int,n:Int)=>Int match n{
   0=>a|
-  count=>fibHelper(b,a+b,count-1)
+  count=>fibHelper(
+    b,
+    a+b,
+    count-1
+  )
 }
 ```
 
@@ -463,7 +479,7 @@ cargo test --manifest-path language/compiler/Cargo.toml
 - `docs/` = current practical/canonical usage
 - `spec/` = formal / broader design contracts
 - If implementation intentionally diverges from spec, note it explicitly instead of silently drifting examples
-- Markdown Sigil fences are checked by `projects/docsDriftAudit`
+- Markdown Sigil fences and related repo invariants are checked by `projects/repoAudit`
 - Use explicit fence kinds only:
   - `sigil program`
   - `sigil module`

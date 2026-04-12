@@ -5,6 +5,8 @@
 //! marks the project root and declares required project metadata.
 
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use sigil_diagnostics::codes;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -102,6 +104,16 @@ pub enum ProjectConfigError {
 
     #[error("invalid sigil.json at {}: {message}", path.display())]
     Invalid { path: PathBuf, message: String },
+
+    #[error(
+        "{}: project has executable source under src/ but is missing src/main.sigil",
+        codes::cli::PROJECT_MAIN_REQUIRED
+    )]
+    MissingProjectMain {
+        root: PathBuf,
+        main_path: PathBuf,
+        executable_sources: Vec<PathBuf>,
+    },
 }
 
 fn invalid_config(path: PathBuf, message: impl Into<String>) -> ProjectConfigError {
@@ -109,6 +121,85 @@ fn invalid_config(path: PathBuf, message: impl Into<String>) -> ProjectConfigErr
         path,
         message: message.into(),
     }
+}
+
+impl ProjectConfigError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            ProjectConfigError::MissingProjectMain { .. } => codes::cli::PROJECT_MAIN_REQUIRED,
+            _ => codes::cli::UNEXPECTED,
+        }
+    }
+
+    pub fn details(&self) -> Value {
+        match self {
+            ProjectConfigError::Io { path, .. } => {
+                json!({
+                    "path": path.to_string_lossy()
+                })
+            }
+            ProjectConfigError::Invalid { path, message } => {
+                json!({
+                    "path": path.to_string_lossy(),
+                    "message": message
+                })
+            }
+            ProjectConfigError::MissingProjectMain {
+                root,
+                main_path,
+                executable_sources,
+            } => {
+                json!({
+                    "projectRoot": root.to_string_lossy(),
+                    "missingPath": main_path.to_string_lossy(),
+                    "executableSources": executable_sources
+                        .iter()
+                        .map(|path| path.to_string_lossy().to_string())
+                        .collect::<Vec<_>>()
+                })
+            }
+        }
+    }
+}
+
+fn is_project_executable_source(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.ends_with(".sigil") && !name.ends_with(".lib.sigil"))
+}
+
+fn collect_project_executable_sources(
+    dir: &Path,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), ProjectConfigError> {
+    if !dir.exists() {
+        return Ok(());
+    }
+
+    let mut entries = fs::read_dir(dir)
+        .map_err(|source| ProjectConfigError::Io {
+            path: dir.to_path_buf(),
+            source,
+        })?
+        .collect::<Result<Vec<_>, std::io::Error>>()
+        .map_err(|source| ProjectConfigError::Io {
+            path: dir.to_path_buf(),
+            source,
+        })?
+        .into_iter()
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    entries.sort();
+
+    for path in entries {
+        if path.is_dir() {
+            collect_project_executable_sources(&path, files)?;
+        } else if is_project_executable_source(&path) {
+            files.push(path);
+        }
+    }
+
+    Ok(())
 }
 
 pub fn is_lower_camel_name(name: &str) -> bool {
@@ -350,15 +441,35 @@ pub fn write_project_manifest(root: &Path, manifest: &ProjectManifest) -> Result
     })
 }
 
+pub fn validate_project_default_entrypoint(
+    project: &ProjectConfig,
+) -> Result<(), ProjectConfigError> {
+    let src_dir = project.root.join(&project.layout.src);
+    let main_path = src_dir.join("main.sigil");
+    let mut executable_sources = Vec::new();
+    collect_project_executable_sources(&src_dir, &mut executable_sources)?;
+
+    if !executable_sources.is_empty() && !main_path.is_file() {
+        return Err(ProjectConfigError::MissingProjectMain {
+            root: project.root.clone(),
+            main_path,
+            executable_sources,
+        });
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         is_canonical_timestamp_version, is_lower_camel_name, npm_version_to_sigil_version,
         parse_project_config, package_version_fragment, sigil_name_to_npm_package_name,
-        sigil_version_to_npm_version, ProjectConfigError,
+        sigil_version_to_npm_version, validate_project_default_entrypoint, ProjectConfigError,
     };
+    use sigil_diagnostics::codes;
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_root(label: &str) -> PathBuf {
@@ -377,6 +488,36 @@ mod tests {
             fs::write(root.join("src/package.lib.sigil"), "λmain()=>Unit=()\n").unwrap();
         }
         parse_project_config(root.join("sigil.json"), root, source)
+    }
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "sigil-project-config-{label}-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn write_file(dir: &Path, relative: &str, source: &str) {
+        let file = dir.join(relative);
+        if let Some(parent) = file.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(file, source).unwrap();
+    }
+
+    fn parsed_project(root: &Path) -> super::ProjectConfig {
+        parse_project_config(
+            root.join("sigil.json"),
+            root.to_path_buf(),
+            r#"{"name":"demoApp","version":"2026-04-05T14-58-24Z"}"#,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -543,5 +684,53 @@ mod tests {
             package_version_fragment("2026-04-05T14-58-24Z").unwrap(),
             "v20260405_145824"
         );
+    }
+
+    #[test]
+    fn library_only_projects_can_omit_src_main() {
+        let dir = temp_dir("library-only");
+        write_file(
+            &dir,
+            "sigil.json",
+            r#"{"name":"demoApp","version":"2026-04-05T14-58-24Z"}"#,
+        );
+        write_file(&dir, "src/helper.lib.sigil", "λdouble(n:Int)=>Int=n+n\n");
+
+        let project = parsed_project(&dir);
+
+        validate_project_default_entrypoint(&project).unwrap();
+    }
+
+    #[test]
+    fn executable_projects_require_src_main() {
+        let dir = temp_dir("missing-main");
+        write_file(
+            &dir,
+            "sigil.json",
+            r#"{"name":"demoApp","version":"2026-04-05T14-58-24Z"}"#,
+        );
+        write_file(&dir, "src/demo.sigil", "λmain()=>Int=1\n");
+
+        let project = parsed_project(&dir);
+        let err = validate_project_default_entrypoint(&project).unwrap_err();
+
+        assert_eq!(err.code(), codes::cli::PROJECT_MAIN_REQUIRED);
+        assert!(err.to_string().contains("missing src/main.sigil"));
+    }
+
+    #[test]
+    fn executable_projects_with_src_main_are_valid() {
+        let dir = temp_dir("has-main");
+        write_file(
+            &dir,
+            "sigil.json",
+            r#"{"name":"demoApp","version":"2026-04-05T14-58-24Z"}"#,
+        );
+        write_file(&dir, "src/main.sigil", "λmain()=>String=\"demo\"\n");
+        write_file(&dir, "src/demo.sigil", "λmain()=>Int=1\n");
+
+        let project = parsed_project(&dir);
+
+        validate_project_default_entrypoint(&project).unwrap();
     }
 }

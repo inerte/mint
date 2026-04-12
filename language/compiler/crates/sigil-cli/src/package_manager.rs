@@ -285,32 +285,10 @@ pub fn package_publish_command(path: &Path) -> Result<(), CliError> {
         ));
     }
 
-    validate_public_package_modules(&project)?;
-
-    match run_project_tests(&project.root)? {
-        TestRunResult::Passed => {}
-        TestRunResult::Failed { output } => {
-            return Err(CliError::Validation(format!(
-                "sigil package publish requires passing project tests:\n{}",
-                output.trim()
-            )));
-        }
-    }
-
     let npm_name = npm_package_name(&project.name)?;
     let npm_version = npm_transport_version(&project.version)?;
-    let publish_dir = temp_dir("sigil-package-publish")?;
-    copy_publish_inputs(&project.root, &publish_dir)?;
-
-    let package_json = json!({
-        "name": npm_name,
-        "version": npm_version,
-        "private": false
-    });
-    fs::write(
-        publish_dir.join("package.json"),
-        format!("{}\n", serde_json::to_string_pretty(&package_json).unwrap()),
-    )?;
+    validate_publishable_package(&project, "sigil package publish")?;
+    let publish_dir = prepare_publish_dir(&project, &npm_name, &npm_version, "sigil-package-publish")?;
 
     let output = Command::new("npm")
         .current_dir(&publish_dir)
@@ -327,6 +305,38 @@ pub fn package_publish_command(path: &Path) -> Result<(), CliError> {
 
     print_package_success(
         "sigil package publish",
+        json!({
+            "project": project.name,
+            "version": project.version,
+            "npmPackage": npm_name,
+            "npmVersion": npm_version
+        }),
+    );
+    Ok(())
+}
+
+pub fn package_validate_command(path: &Path) -> Result<(), CliError> {
+    let project = require_project(path)?;
+    if !project.is_publishable_package() {
+        return Err(CliError::Validation(
+            "sigil package validate requires `publish` in sigil.json".to_string(),
+        ));
+    }
+
+    let npm_name = npm_package_name(&project.name)?;
+    let npm_version = npm_transport_version(&project.version)?;
+    validate_publishable_package(&project, "sigil package validate")?;
+
+    let publish_dir =
+        prepare_publish_dir(&project, &npm_name, &npm_version, "sigil-package-validate")?;
+    let tarball_path = pack_publish_dir(&publish_dir)?;
+    let unpack_root = project_temp_dir(&project.root, "package-validate-unpack")?;
+    unpack_package_archive(&tarball_path, &unpack_root)?;
+    let installed_root = unpack_root.join("package");
+    validate_staged_package(&installed_root)?;
+
+    print_package_success(
+        "sigil package validate",
         json!({
             "project": project.name,
             "version": project.version,
@@ -363,6 +373,21 @@ fn validate_public_package_modules(project: &ProjectConfig) -> Result<(), CliErr
         }
     }
     Ok(())
+}
+
+fn validate_publishable_package(
+    project: &ProjectConfig,
+    command_name: &str,
+) -> Result<(), CliError> {
+    validate_public_package_modules(project)?;
+
+    match run_project_tests(&project.root)? {
+        TestRunResult::Passed => Ok(()),
+        TestRunResult::Failed { output } => Err(CliError::Validation(format!(
+            "{command_name} requires passing project tests:\n{}",
+            output.trim()
+        ))),
+    }
 }
 
 fn collect_sigil_library_files(root: &Path) -> Result<Vec<PathBuf>, CliError> {
@@ -438,6 +463,97 @@ fn npm_transport_version(version: &str) -> Result<String, CliError> {
             "package version `{version}` must use canonical UTC timestamp format"
         ))
     })
+}
+
+fn prepare_publish_dir(
+    project: &ProjectConfig,
+    npm_name: &str,
+    npm_version: &str,
+    label: &str,
+) -> Result<PathBuf, CliError> {
+    let publish_dir = temp_dir(label)?;
+    copy_publish_inputs(&project.root, &publish_dir)?;
+    write_package_transport_manifest(&publish_dir, npm_name, npm_version)?;
+    Ok(publish_dir)
+}
+
+fn write_package_transport_manifest(
+    publish_dir: &Path,
+    npm_name: &str,
+    npm_version: &str,
+) -> Result<(), CliError> {
+    let package_json = json!({
+        "name": npm_name,
+        "version": npm_version,
+        "private": false
+    });
+    fs::write(
+        publish_dir.join("package.json"),
+        format!("{}\n", serde_json::to_string_pretty(&package_json).unwrap()),
+    )?;
+    Ok(())
+}
+
+fn pack_publish_dir(publish_dir: &Path) -> Result<PathBuf, CliError> {
+    let output = Command::new("npm")
+        .current_dir(publish_dir)
+        .args(["pack", "--json"])
+        .output()
+        .map_err(|error| CliError::Runtime(format!("failed to run npm pack: {error}")))?;
+    if !output.status.success() {
+        return Err(CliError::Runtime(format!(
+            "npm pack failed: {}",
+            combined_output(&output.stdout, &output.stderr)
+        )));
+    }
+
+    let entries: Vec<NpmPackEntry> = serde_json::from_slice(&output.stdout).map_err(|error| {
+        CliError::Validation(format!("npm pack returned invalid JSON: {error}"))
+    })?;
+    let entry = entries.first().ok_or_else(|| {
+        CliError::Validation("npm pack returned no archive information".to_string())
+    })?;
+    Ok(publish_dir.join(&entry.filename))
+}
+
+fn unpack_package_archive(tarball_path: &Path, unpack_root: &Path) -> Result<(), CliError> {
+    let tar_output = Command::new("tar")
+        .arg("-xzf")
+        .arg(tarball_path)
+        .arg("-C")
+        .arg(unpack_root)
+        .output()
+        .map_err(|error| CliError::Runtime(format!("failed to extract npm package: {error}")))?;
+    if !tar_output.status.success() {
+        return Err(CliError::Runtime(format!(
+            "failed to extract npm package: {}",
+            combined_output(&tar_output.stdout, &tar_output.stderr)
+        )));
+    }
+    Ok(())
+}
+
+fn validate_staged_package(root: &Path) -> Result<(), CliError> {
+    let project = require_project(root)?;
+    validate_public_package_modules(&project)?;
+    run_compile_in_project(root, "src/package.lib.sigil")?;
+    Ok(())
+}
+
+fn run_compile_in_project(root: &Path, target: &str) -> Result<(), CliError> {
+    let output = Command::new(std::env::current_exe()?)
+        .current_dir(root)
+        .args(["compile", target])
+        .output()
+        .map_err(|error| CliError::Runtime(format!("failed to compile packaged project: {error}")))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(CliError::Validation(format!(
+            "packaged project compile failed:\n{}",
+            combined_output(&output.stdout, &output.stderr).trim()
+        )))
+    }
 }
 
 fn package_key(name: &str, version: &str) -> String {
@@ -737,6 +853,18 @@ fn temp_dir(label: &str) -> Result<PathBuf, CliError> {
         .unwrap()
         .as_nanos();
     let dir = std::env::temp_dir().join(format!("sigil-{label}-{unique}"));
+    fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
+fn project_temp_dir(root: &Path, label: &str) -> Result<PathBuf, CliError> {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let dir = root
+        .join(".sigil")
+        .join(format!("sigil-{label}-{unique}"));
     fs::create_dir_all(&dir)?;
     Ok(dir)
 }

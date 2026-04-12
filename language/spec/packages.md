@@ -27,6 +27,7 @@ The package command family is:
 
 - `sigil package add <name>`
 - `sigil package install`
+- `sigil package validate`
 - `sigil package update [name]`
 - `sigil package remove <name>`
 - `sigil package list`
@@ -41,6 +42,14 @@ The package command family is:
 4. install resolved artifacts
 5. run project tests
 6. roll back on failure unless the user explicitly opts to keep the failing update
+
+`sigil package validate` must:
+
+1. require `publish` in `sigil.json`
+2. reject invalid public package imports
+3. require passing project tests before packaging
+4. produce a local npm transport archive
+5. unpack that archive and compile `src/package.lib.sigil`
 
 ## Locking and Transport
 

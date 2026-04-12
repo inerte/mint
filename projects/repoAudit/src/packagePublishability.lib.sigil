@@ -1,0 +1,178 @@
+λgitTopLevel()=>!Process Result[
+  String,
+  String
+]={
+  l result=(§process.run(§process.command([
+    "git",
+    "rev-parse",
+    "--show-toplevel"
+  ])):§process.ProcessResult);
+  match result.code=0{
+    true=>Ok((§string.trim(result.stdout):String))|
+    false=>Err("git rev-parse failed: "++result.stderr)
+  }
+}
+
+λgitTrackedFiles()=>!Process Result[
+  [String],
+  String
+]=parseTrackedFiles(§process.run(§process.command([
+  "git",
+  "ls-files",
+  "--cached",
+  "--others",
+  "--exclude-standard"
+])))
+
+λisGeneratedPath(path:String)=>Bool=§string.startsWith(
+  ".local/",
+  path
+)
+  or §string.startsWith(
+    ".sigil/",
+    path
+  )
+  or §string.contains(
+    path,
+    "/.local/"
+  )
+  or §string.contains(
+    path,
+    "/.sigil/"
+  )
+
+λisManifestPath(path:String)=>Bool=(path="sigil.json" or §string.endsWith(
+  path,
+  "/sigil.json"
+)) and ¬isGeneratedPath(path)
+
+λjsonObjectField(key:String,obj:{String↦§json.JsonValue})=>Option[{String↦§json.JsonValue}] match §json.getField(
+  key,
+  obj
+){
+  Some(value)=>§json.asObject(value)|
+  None()=>None()
+}
+
+λmanifestPaths(paths:[String])=>[String]=paths filter isManifestPath
+
+λnonEmpty(text:String)=>Bool=#text>0
+
+λpackageValidateCommand(projectDir:String,root:String)=>§process.Command=§process.withCwd(
+  §process.command([
+    §path.join(
+      root,
+      "language/compiler/target/debug/sigil"
+    ),
+    "package",
+    "validate"
+  ]),
+  §path.join(
+    root,
+    projectDir
+  )
+)
+
+λparseTrackedFiles(result:§process.ProcessResult)=>Result[
+  [String],
+  String
+] match result.code=0{
+  true=>Ok((§string.lines(result.stdout):[String]) filter nonEmpty)|
+  false=>Err("git ls-files failed: "++result.stderr)
+}
+
+λprocessOutput(result:§process.ProcessResult)=>String match #§string.trim(result.stderr)>0{
+  true=>§string.trim(result.stderr)|
+  false=>§string.trim(result.stdout)
+}
+
+λprojectDirForManifest(path:String)=>String match path="sigil.json"{
+  true=>"."|
+  false=>§path.dirname(path)
+}
+
+λpublishFieldPresent(path:String,root:String)=>!Fs Bool match §json.parse(§file.readText(§path.join(
+  root,
+  path
+))){
+  Ok(value)=>match §json.asObject(value){
+    Some(obj)=>match jsonObjectField(
+      "publish",
+      obj
+    ){
+      Some(_)=>true|
+      None()=>match §json.getField(
+        "publish",
+        obj
+      ){
+        Some(_)=>true|
+        None()=>false
+      }
+    }|
+    None()=>false
+  }|
+  Err(_)=>false
+}
+
+λpublishableProjectDirs(paths:[String],root:String)=>!Fs [String] match paths{
+  []=>[]|
+  [
+  head,
+  .tail
+]=>match publishFieldPresent(
+    head,
+    root
+  ){
+    true=>[projectDirForManifest(head)]⧺publishableProjectDirs(
+      tail,
+      root
+    )|
+    false=>publishableProjectDirs(
+      tail,
+      root
+    )
+  }
+}
+
+λrunCheck()=>!AuditIo Result[
+  [µPackagePublishabilityIssue],
+  String
+] match gitTopLevel(){
+  Ok(root)=>match gitTrackedFiles(){
+    Ok(paths)=>Ok((runChecks(
+      publishableProjectDirs(
+        manifestPaths(paths),
+        root
+      ),
+      root
+    ):[µPackagePublishabilityIssue]))|
+    Err(message)=>Err(message)
+  }|
+  Err(message)=>Err(message)
+}
+
+λrunChecks(projectDirs:[String],root:String)=>!Process [µPackagePublishabilityIssue] match projectDirs{
+  []=>[]|
+  [
+  head,
+  .tail
+]=>{
+    l result=(§process.run(packageValidateCommand(
+      head,
+      root
+    )):§process.ProcessResult);
+    match result.code=0{
+      true=>runChecks(
+        tail,
+        root
+      )|
+      false=>[{
+        message:"package validate failed: "++processOutput(result),
+        path:head
+      }]⧺runChecks(
+        tail,
+        root
+      )
+    }
+  }
+}

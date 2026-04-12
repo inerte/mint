@@ -56,6 +56,11 @@ t RepoCompileIssue={
   path:String
 }
 
+t PackagePublishabilityIssue={
+  message:String,
+  path:String
+}
+
 t ExtractResult={
   issues:[Issue],
   results:[Snippet]

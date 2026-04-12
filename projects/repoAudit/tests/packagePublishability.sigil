@@ -1,0 +1,227 @@
+λallOk(results:[Bool])=>Bool=§list.all(
+  λ(result:Bool)=>Bool=result,
+  results
+)
+
+λmain()=>Unit=()
+
+test "helper surfaces stay stable" {
+  l command=(•packagePublishability.packageValidateCommand(
+    "projects/router",
+    "/repo"
+  ):§process.Command);
+  allOk([
+    •packagePublishability.isManifestPath("sigil.json"),
+    ¬•packagePublishability.isManifestPath(".sigil/tmp/sigil.json"),
+    ¬•packagePublishability.isManifestPath("projects/router/.sigil/tmp/package/sigil.json"),
+    ¬•packagePublishability.isManifestPath(".local/tmp/sigil.json"),
+    •packagePublishability.isManifestPath("projects/router/sigil.json"),
+    ¬•packagePublishability.isManifestPath("projects/router/src/main.sigil"),
+    •packagePublishability.manifestPaths([
+      "projects/router/sigil.json",
+      "projects/router/src/package.lib.sigil"
+    ])=["projects/router/sigil.json"],
+    •packagePublishability.projectDirForManifest("sigil.json")=".",
+    •packagePublishability.projectDirForManifest("projects/router/sigil.json")="projects/router",
+    •packagePublishability.processOutput({
+      code:1,
+      stderr:" boom ",
+      stdout:"ok"
+    })="boom",
+    match command.cwd{
+      Some(cwd)=>cwd="/repo/projects/router"|
+      None()=>false
+    },
+    command.argv=[
+      §path.join(
+        "/repo",
+        "language/compiler/target/debug/sigil"
+      ),
+      "package",
+      "validate"
+    ]
+  ])
+}
+
+test "git tracked files surfaces process failure" =>!Process world {
+  c process=(†process.fixture([†process.rule(
+  [
+    "git",
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard"
+  ],
+  None(),
+  {
+    code:1,
+    stderr:"boom",
+    stdout:""
+  }
+)]):†process.ProcessEntry)
+} {
+  match •packagePublishability.gitTrackedFiles(){
+    Ok(_)=>false|
+    Err(message)=>message="git ls-files failed: boom"
+  }
+}
+
+test "run check surfaces git top level failure" =>!AuditIo world {
+  c process=(†process.fixture([†process.rule(
+  [
+    "git",
+    "rev-parse",
+    "--show-toplevel"
+  ],
+  None(),
+  {
+    code:1,
+    stderr:"boom",
+    stdout:""
+  }
+)]):†process.ProcessEntry)
+} {
+  match •packagePublishability.runCheck(){
+    Ok(_)=>false|
+    Err(message)=>message="git rev-parse failed: boom"
+  }
+}
+
+test "run check validates only publishable tracked projects" =>!AuditIo world {
+  c fs=(†fs.sandbox(".local/repoAuditPackage/success"):†fs.FsEntry)
+  c process=(†process.fixture([
+  †process.rule(
+    [
+      "git",
+      "rev-parse",
+      "--show-toplevel"
+    ],
+    None(),
+    {
+      code:0,
+      stderr:"",
+      stdout:".
+"
+    }
+  ),
+  †process.rule(
+    [
+      "git",
+      "ls-files",
+      "--cached",
+      "--others",
+      "--exclude-standard"
+    ],
+    None(),
+    {
+      code:0,
+      stderr:"",
+      stdout:"projects/router/sigil.json
+projects/demo/sigil.json
+"
+    }
+  ),
+  †process.rule(
+    (•packagePublishability.packageValidateCommand(
+      "projects/router",
+      "."
+    ).argv:[String]),
+    Some("projects/router"),
+    {
+      code:0,
+      stderr:"",
+      stdout:"{\"ok\":true}"
+    }
+  )
+]):†process.ProcessEntry)
+} {
+  l _=(§file.makeDirs("projects/router"):Unit);
+  l _=(§file.makeDirs("projects/demo"):Unit);
+  l _=(§file.writeText(
+    "{
+  \"name\": \"router\",
+  \"version\": \"2026-04-05T14-58-24Z\",
+  \"publish\": {}
+}
+",
+    "projects/router/sigil.json"
+  ):Unit);
+  l _=(§file.writeText(
+    "{
+  \"name\": \"demoApp\",
+  \"version\": \"2026-04-05T14-58-24Z\"
+}
+",
+    "projects/demo/sigil.json"
+  ):Unit);
+  match •packagePublishability.runCheck(){
+    Ok(issues)=>issues=[]|
+    Err(_)=>false
+  }
+}
+
+test "run check reports package validate failures" =>!AuditIo world {
+  c fs=(†fs.sandbox(".local/repoAuditPackage/failure"):†fs.FsEntry)
+  c process=(†process.fixture([
+  †process.rule(
+    [
+      "git",
+      "rev-parse",
+      "--show-toplevel"
+    ],
+    None(),
+    {
+      code:0,
+      stderr:"",
+      stdout:".
+"
+    }
+  ),
+  †process.rule(
+    [
+      "git",
+      "ls-files",
+      "--cached",
+      "--others",
+      "--exclude-standard"
+    ],
+    None(),
+    {
+      code:0,
+      stderr:"",
+      stdout:"projects/router/sigil.json
+"
+    }
+  ),
+  †process.rule(
+    (•packagePublishability.packageValidateCommand(
+      "projects/router",
+      "."
+    ).argv:[String]),
+    Some("projects/router"),
+    {
+      code:1,
+      stderr:"Error: Validation error: bad package",
+      stdout:""
+    }
+  )
+]):†process.ProcessEntry)
+} {
+  l _=(§file.makeDirs("projects/router"):Unit);
+  l _=(§file.writeText(
+    "{
+  \"name\": \"router\",
+  \"version\": \"2026-04-05T14-58-24Z\",
+  \"publish\": {}
+}
+",
+    "projects/router/sigil.json"
+  ):Unit);
+  match •packagePublishability.runCheck(){
+    Ok(issues)=>issues=[{
+      message:"package validate failed: Error: Validation error: bad package",
+      path:"projects/router"
+    }]|
+    Err(_)=>false
+  }
+}

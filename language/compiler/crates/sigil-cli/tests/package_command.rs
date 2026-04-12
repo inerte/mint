@@ -67,6 +67,27 @@ case "$cmd" in
     cat "$registry/$pkg/versions.json"
     ;;
   pack)
+    if [ "$#" -eq 1 ] && [ "$1" = "--json" ]; then
+      pkg_json="$PWD/package.json"
+      if [ ! -f "$pkg_json" ]; then
+        echo "missing package.json for local npm pack" >&2
+        exit 1
+      fi
+      name="$(sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$pkg_json" | head -n 1)"
+      ver="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$pkg_json" | head -n 1)"
+      if [ -z "$name" ] || [ -z "$ver" ]; then
+        echo "invalid package.json for local npm pack" >&2
+        exit 1
+      fi
+      tar_name="${name}-${ver}.tgz"
+      stage="$(mktemp -d "${TMPDIR:-/tmp}/sigil-fake-npm-pack-XXXXXX")"
+      mkdir -p "$stage/package"
+      cp -R "$PWD"/. "$stage/package/"
+      tar -czf "$PWD/$tar_name" -C "$stage" package
+      rm -rf "$stage"
+      printf '[{"filename":"%s","integrity":"sha512-fake"}]\n' "$tar_name"
+      exit 0
+    fi
     spec="$1"
     shift
     if [ "$1" != "--json" ]; then
@@ -392,4 +413,42 @@ fn package_publish_uses_derived_npm_identity() {
     .unwrap();
     assert_eq!(published_package_json["name"], "router");
     assert_eq!(published_package_json["version"], "20260405.145824.0");
+}
+
+#[test]
+fn package_validate_smoke_tests_local_publishability() {
+    let fake_npm_dir = temp_dir("validate-fake-npm");
+    let registry_dir = temp_dir("validate-registry");
+    write_fake_npm(&fake_npm_dir);
+
+    let package_dir = temp_dir("validate-package");
+    write_file(
+        &package_dir,
+        "sigil.json",
+        "{\n  \"name\": \"router\",\n  \"version\": \"2026-04-05T14-58-24Z\",\n  \"publish\": {}\n}\n",
+    );
+    write_file(
+        &package_dir,
+        "src/package.lib.sigil",
+        "λdouble(value:Int)=>Int=value*2\n",
+    );
+    write_file(
+        &package_dir,
+        "tests/main.sigil",
+        "λmain()=>Unit=()\n\ntest \"double\" {\n  •package.double(2)=4\n}\n",
+    );
+
+    let mut validate = Command::new(sigil_bin());
+    validate.current_dir(&package_dir).args(["package", "validate"]);
+    npm_env(&mut validate, &fake_npm_dir, &registry_dir);
+    let validate_output = validate.output().unwrap();
+    assert!(validate_output.status.success(), "{:?}", validate_output);
+
+    let validate_json = parse_json(&validate_output.stdout);
+    assert_eq!(validate_json["command"], "sigil package validate");
+    assert_eq!(validate_json["ok"], true);
+    assert_eq!(validate_json["phase"], "package");
+    assert_eq!(validate_json["data"]["project"], "router");
+    assert_eq!(validate_json["data"]["npmPackage"], "router");
+    assert_eq!(validate_json["data"]["npmVersion"], "20260405.145824.0");
 }

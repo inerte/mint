@@ -92,6 +92,7 @@ cargo run -q -p sigil-cli --manifest-path language/compiler/Cargo.toml -- run pr
 
 Use repeated `--check <id>` flags to run a subset such as `docs-drift`,
 `canonical-stdlib`, or `repo-compile`.
+The full repo audit also includes `package-publishability` for publishable packages.
 
 ## Module System (Typed Rooted References)
 
@@ -141,6 +142,7 @@ Examples:
 ```bash
 sigil package add router
 sigil package install
+sigil package validate
 sigil package update router
 sigil package publish
 ```

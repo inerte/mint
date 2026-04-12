@@ -65,6 +65,7 @@ Package management lives under `sigil package ...`:
 ```bash
 sigil package add router
 sigil package install
+sigil package validate
 sigil package update router
 sigil package update
 sigil package remove router
@@ -76,6 +77,13 @@ sigil package publish
 `sigil package update` rewrites `sigil.json`, rewrites `sigil.lock`, installs
 the resolved dependency tree, runs project tests, and rolls back on failure by
 default.
+
+`sigil package validate` is the local publishability check. It requires:
+
+- passing project tests before packaging
+- a valid public package surface
+- a successful local `npm pack`
+- a successful compile of the unpacked transport artifact
 
 ## npm Transport
 

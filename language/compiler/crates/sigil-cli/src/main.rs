@@ -19,7 +19,8 @@ use commands::{
 };
 use package_manager::{
     package_add_command, package_install_command, package_list_command, package_publish_command,
-    package_remove_command, package_update_command, package_why_command,
+    package_remove_command, package_update_command, package_validate_command,
+    package_why_command,
 };
 
 const SIGIL_VERSION: &str = match option_env!("SIGIL_VERSION") {
@@ -334,6 +335,9 @@ enum PackageCommand {
 
     /// Publish the current package using npm transport
     Publish,
+
+    /// Validate the current package's local publishability
+    Validate,
 }
 
 #[derive(Subcommand)]
@@ -611,6 +615,9 @@ fn main() {
                 package_why_command(&std::env::current_dir().unwrap(), &name)
             }
             PackageCommand::Publish => package_publish_command(&std::env::current_dir().unwrap()),
+            PackageCommand::Validate => {
+                package_validate_command(&std::env::current_dir().unwrap())
+            }
         },
         Command::Debug { command } => match command {
             DebugCommand::Run { command } => match command {

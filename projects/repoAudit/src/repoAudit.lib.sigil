@@ -1,7 +1,8 @@
 λallCheckIds()=>[String]=[
   "docs-drift",
   "canonical-stdlib",
-  "repo-compile"
+  "repo-compile",
+  "package-publishability"
 ]
 
 λauditIssue(check:String,code:String,line:Int,message:String,path:String)=>µAuditIssue={
@@ -108,6 +109,16 @@
 
 λmapDocsDriftIssues(issues:[µIssue])=>[µAuditIssue]=issues map mapDocsDriftIssue
 
+λmapPackagePublishabilityIssue(issue:µPackagePublishabilityIssue)=>µAuditIssue=auditIssue(
+  "package-publishability",
+  "package-publishability/validate-failed",
+  1,
+  issue.message,
+  issue.path
+)
+
+λmapPackagePublishabilityIssues(issues:[µPackagePublishabilityIssue])=>[µAuditIssue]=issues map mapPackagePublishabilityIssue
+
 λmapRepoCompileIssue(issue:µRepoCompileIssue)=>µAuditIssue=auditIssue(
   "repo-compile",
   "repo-compile/compile-failed",
@@ -185,6 +196,10 @@
   }|
   "repo-compile"=>match •repoCompile.runCheck(){
     Ok(issues)=>Ok(mapRepoCompileIssues(issues))|
+    Err(message)=>Err(message)
+  }|
+  "package-publishability"=>match •packagePublishability.runCheck(){
+    Ok(issues)=>Ok(mapPackagePublishabilityIssues(issues))|
     Err(message)=>Err(message)
   }|
   _=>Err("unknown check '"

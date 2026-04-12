@@ -106,7 +106,11 @@ fn compile_directory_reports_root_span_map_per_entry() {
 #[test]
 fn compile_rejects_project_executables_without_src_main() {
     let dir = temp_dir("missing-project-main-single");
-    write_program(&dir, "sigil.json", r#"{"name":"demo","version":"0.1.0"}"#);
+    write_program(
+        &dir,
+        "sigil.json",
+        r#"{"name":"demoApp","version":"2026-04-05T14-58-24Z"}"#,
+    );
     let file = write_program(&dir, "src/demo.sigil", "λmain()=>Int=1\n");
 
     let output = Command::new(sigil_bin())
@@ -137,7 +141,11 @@ fn compile_rejects_project_executables_without_src_main() {
 #[test]
 fn compile_directory_reports_missing_project_main_once_per_project() {
     let dir = temp_dir("missing-project-main-directory");
-    write_program(&dir, "sigil.json", r#"{"name":"demo","version":"0.1.0"}"#);
+    write_program(
+        &dir,
+        "sigil.json",
+        r#"{"name":"demoApp","version":"2026-04-05T14-58-24Z"}"#,
+    );
     write_program(&dir, "src/demo.sigil", "λmain()=>Int=1\n");
     write_program(&dir, "src/other.sigil", "λmain()=>Int=2\n");
 

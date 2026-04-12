@@ -15,6 +15,7 @@ pub use debug::{
     debug_test_start_command, DebugControlAction,
 };
 pub use inspect::{inspect_command, InspectMode};
+pub use legacy::CliError;
 pub use lex_parse::{lex_command, parse_command};
 pub use run::run_command;
 pub use test::test_command;

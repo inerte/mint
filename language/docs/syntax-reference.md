@@ -429,6 +429,7 @@ Canonical module roots include:
 - `¤...`
 - `•...`
 - `§...`
+- `☴...`
 - `※...`
 - `†...`
 
@@ -438,6 +439,16 @@ Project-defined named types and project sum constructors use:
 
 There are no selective imports, import aliases, or separate import
 declarations.
+
+Package references are direct-only:
+
+```sigil expr
+☴router.resolve("GET","/health",routes)
+```
+
+- `☴name` requires a direct exact dependency in `sigil.json`
+- transitive package imports are rejected
+- publishable packages use `src/package.lib.sigil`
 
 ## Externs
 

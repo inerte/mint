@@ -3,11 +3,12 @@
 `projects/repoAudit` keeps first-party repository invariants checked from one
 machine-readable runner.
 
-V1 owns three checks:
+V1 owns four checks:
 
 1. `docs-drift` validates tracked Markdown Sigil fences and stdlib doc coverage
 2. `canonical-stdlib` rejects local wrappers around canonical stdlib helpers
 3. `repo-compile` batch-compiles non-ignored Sigil source across the repo
+4. `package-publishability` validates each publishable package through `sigil package validate`
 
 `docs-drift` is also where `repoAudit` currently uses Sigil's named concurrent
 regions: tracked Markdown files are audited in parallel, but the merged issue
@@ -32,6 +33,7 @@ Supported v1 check ids:
 - `docs-drift`
 - `canonical-stdlib`
 - `repo-compile`
+- `package-publishability`
 
 ## Docs Drift Fence Kinds
 

@@ -746,11 +746,11 @@ pub(super) fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphO
     for module_id in &graph.topo_order {
         let module = &graph.modules[module_id];
 
-        let imported_namespaces = build_imported_namespaces(&module.ast, &compiled_modules);
-        let imported_type_regs = build_imported_type_registries(&module.ast, &type_registries);
-        let imported_label_regs = build_imported_label_registries(&module.ast, &label_registries);
-        let imported_value_schemes = build_imported_value_schemes(&module.ast, &compiled_schemes);
-        let imported_value_meta = build_imported_value_meta(&module.ast, &compiled_value_meta);
+        let imported_namespaces = build_imported_namespaces(module, &compiled_modules);
+        let imported_type_regs = build_imported_type_registries(module, &type_registries);
+        let imported_label_regs = build_imported_label_registries(module, &label_registries);
+        let imported_value_schemes = build_imported_value_schemes(module, &compiled_schemes);
+        let imported_value_meta = build_imported_value_meta(module, &compiled_value_meta);
         let imported_boundary_rules =
             build_imported_boundary_rules(&module.ast, &compiled_boundary_rules);
         let effect_catalog = load_project_effect_catalog_for(&module.file_path)?;
@@ -1234,7 +1234,7 @@ pub(super) fn runner_prelude(
 }
 
 fn build_imported_namespaces(
-    _ast: &Program,
+    module: &LoadedModule,
     compiled_modules: &HashMap<String, HashMap<String, InferenceType>>,
 ) -> HashMap<String, InferenceType> {
     let mut imported = HashMap::new();
@@ -1255,6 +1255,12 @@ fn build_imported_namespaces(
                 name: Some(module_id.clone()),
             }),
         );
+    }
+
+    for (source_module_id, resolved_module_id) in &module.source_imports {
+        if let Some(namespace) = imported.get(resolved_module_id).cloned() {
+            imported.insert(source_module_id.clone(), namespace);
+        }
     }
 
     imported
@@ -1343,34 +1349,37 @@ fn qualify_inference_type_in_context(typ: &InferenceType, module_id: &str) -> In
 }
 
 fn build_imported_type_registries(
-    _ast: &Program,
+    module: &LoadedModule,
     type_registries: &HashMap<String, HashMap<String, TypeInfo>>,
 ) -> HashMap<String, HashMap<String, TypeInfo>> {
-    type_registries.clone()
+    build_imported_registry_map(module, type_registries)
 }
 
 fn build_imported_label_registries(
-    _ast: &Program,
+    module: &LoadedModule,
     label_registries: &HashMap<String, HashMap<String, LabelInfo>>,
 ) -> HashMap<String, HashMap<String, LabelInfo>> {
-    label_registries.clone()
+    build_imported_registry_map(module, label_registries)
 }
 
 fn build_imported_value_schemes(
-    _ast: &Program,
+    module: &LoadedModule,
     compiled_schemes: &HashMap<String, HashMap<String, TypeScheme>>,
 ) -> HashMap<String, HashMap<String, TypeScheme>> {
     let mut imported = HashMap::new();
 
-    for (module_id, schemes) in compiled_schemes {
+    for (source_module_id, resolved_module_id) in &module.source_imports {
+        let Some(schemes) = compiled_schemes.get(resolved_module_id) else {
+            continue;
+        };
         imported.insert(
-            module_id.clone(),
+            source_module_id.clone(),
             schemes
                 .iter()
                 .map(|(name, scheme)| {
                     (
                         name.clone(),
-                        qualify_scheme_for_module(module_id.as_str(), scheme),
+                        qualify_scheme_for_module(resolved_module_id.as_str(), scheme),
                     )
                 })
                 .collect(),
@@ -1381,10 +1390,10 @@ fn build_imported_value_schemes(
 }
 
 fn build_imported_value_meta(
-    _ast: &Program,
+    module: &LoadedModule,
     compiled_value_meta: &HashMap<String, HashMap<String, BindingMeta>>,
 ) -> HashMap<String, HashMap<String, BindingMeta>> {
-    compiled_value_meta.clone()
+    build_imported_registry_map(module, compiled_value_meta)
 }
 
 fn build_imported_boundary_rules(
@@ -1392,6 +1401,21 @@ fn build_imported_boundary_rules(
     compiled_boundary_rules: &[BoundaryRule],
 ) -> Vec<BoundaryRule> {
     compiled_boundary_rules.to_vec()
+}
+
+fn build_imported_registry_map<T: Clone>(
+    module: &LoadedModule,
+    registries: &HashMap<String, HashMap<String, T>>,
+) -> HashMap<String, HashMap<String, T>> {
+    let mut imported = registries.clone();
+
+    for (source_module_id, resolved_module_id) in &module.source_imports {
+        if let Some(registry) = registries.get(resolved_module_id) {
+            imported.insert(source_module_id.clone(), registry.clone());
+        }
+    }
+
+    imported
 }
 
 fn qualify_inference_type_for_module(

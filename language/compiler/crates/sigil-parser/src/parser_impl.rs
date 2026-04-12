@@ -2518,6 +2518,7 @@ impl Parser {
             TokenType::ConfigRoot,
             TokenType::WorldRoot,
             TokenType::TestRoot,
+            TokenType::PackageRoot,
         ]) {
             Some(self.previous())
         } else {
@@ -2661,7 +2662,7 @@ impl Parser {
 fn is_sigil_root_name(name: &str) -> bool {
     matches!(
         name,
-        "stdlib" | "src" | "core" | "config" | "world" | "test"
+        "stdlib" | "src" | "core" | "config" | "world" | "test" | "package"
     )
 }
 
@@ -2677,6 +2678,7 @@ fn root_name_for_token(token_type: TokenType) -> Option<&'static str> {
         TokenType::ConfigRoot => Some("config"),
         TokenType::WorldRoot => Some("world"),
         TokenType::TestRoot => Some("test"),
+        TokenType::PackageRoot => Some("package"),
         _ => None,
     }
 }

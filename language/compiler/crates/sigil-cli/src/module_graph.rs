@@ -246,6 +246,10 @@ impl ModuleGraphBuilder {
                 });
             }
 
+            if resolved.module_id == module_key {
+                continue;
+            }
+
             source_imports.insert(module_id.clone(), resolved.module_id.clone());
             self.visit(
                 &resolved.file_path,
@@ -687,7 +691,9 @@ fn load_project_effect_catalog(
     Ok(Some(effect_catalog))
 }
 
-fn package_internal_root_segments(instance: &PackageInstance) -> Result<Vec<String>, ModuleGraphError> {
+fn package_internal_root_segments(
+    instance: &PackageInstance,
+) -> Result<Vec<String>, ModuleGraphError> {
     let version_fragment = package_version_fragment(&instance.version).ok_or_else(|| {
         ModuleGraphError::ProjectConfig(ProjectConfigError::Invalid {
             path: PathBuf::from("sigil.json"),
@@ -719,10 +725,12 @@ fn internal_project_module_id(
     source_module_id: &str,
 ) -> Result<String, ModuleGraphError> {
     let parts = source_module_id.split("::").collect::<Vec<_>>();
-    let (root, rest) = parts.split_first().ok_or_else(|| ModuleGraphError::ImportNotFound {
-        module_id: source_module_id.to_string(),
-        expected_path: "empty module id".to_string(),
-    })?;
+    let (root, rest) = parts
+        .split_first()
+        .ok_or_else(|| ModuleGraphError::ImportNotFound {
+            module_id: source_module_id.to_string(),
+            expected_path: "empty module id".to_string(),
+        })?;
 
     let internal_root = if *root == "config" {
         "packageConfig"
@@ -791,7 +799,10 @@ fn resolve_package_import(
     let dependency_project =
         get_project_config(&dependency_root)?.ok_or_else(|| ModuleGraphError::ImportNotFound {
             module_id: module_id.to_string(),
-            expected_path: dependency_root.join("sigil.json").to_string_lossy().to_string(),
+            expected_path: dependency_root
+                .join("sigil.json")
+                .to_string_lossy()
+                .to_string(),
         })?;
 
     if dependency_project.name != dependency_name {
@@ -950,4 +961,32 @@ fn find_language_root(start_path: &Path) -> Result<PathBuf, ModuleGraphError> {
         module_id: "stdlib".to_string(),
         expected_path: "language root not found".to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{entry_module_key, ModuleGraph};
+    use std::path::PathBuf;
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(4)
+            .unwrap()
+            .to_path_buf()
+    }
+
+    #[test]
+    fn module_graph_skips_self_qualified_project_refs() {
+        let policies = repo_root().join("projects/labelled-boundaries/src/policies.lib.sigil");
+
+        let graph =
+            ModuleGraph::build(&policies).expect("labelled-boundaries policies should load");
+        let module_key = entry_module_key(&policies).expect("entry module key");
+        let module = graph.modules.get(&module_key).expect("policies module");
+
+        assert!(!module.source_imports.contains_key("src::policies"));
+        assert!(module.source_imports.contains_key("src::topology"));
+        assert!(module.source_imports.contains_key("src::types"));
+    }
 }

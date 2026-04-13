@@ -443,7 +443,11 @@ declarations.
 Package references are direct-only:
 
 ```sigil expr
-☴router.resolve("GET","/health",routes)
+☴router.resolve(
+  "GET",
+  "/health",
+  routes
+)
 ```
 
 - `☴name` requires a direct exact dependency in `sigil.json`

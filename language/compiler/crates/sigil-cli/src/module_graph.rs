@@ -3,8 +3,8 @@
 //! Handles building a dependency graph of Sigil modules for multi-module compilation
 
 use crate::project::{
-    get_project_config, package_version_fragment, validate_project_default_entrypoint,
-    ProjectConfig, ProjectConfigError,
+    get_project_config, get_project_config_at_root, package_version_fragment,
+    validate_project_default_entrypoint, ProjectConfig, ProjectConfigError,
 };
 use sigil_diagnostics::codes;
 use sigil_ast::{
@@ -833,14 +833,15 @@ fn resolve_package_import(
         .join(dependency_name)
         .join(dependency_version);
 
-    let dependency_project =
-        get_project_config(&dependency_root)?.ok_or_else(|| ModuleGraphError::ImportNotFound {
+    let dependency_project = get_project_config_at_root(&dependency_root)?.ok_or_else(|| {
+        ModuleGraphError::ImportNotFound {
             module_id: module_id.to_string(),
             expected_path: dependency_root
                 .join("sigil.json")
                 .to_string_lossy()
                 .to_string(),
-        })?;
+        }
+    })?;
 
     if dependency_project.name != dependency_name {
         return Err(ModuleGraphError::ImportNotFound {

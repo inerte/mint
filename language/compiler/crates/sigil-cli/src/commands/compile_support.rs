@@ -2030,6 +2030,7 @@ fn qualify_scheme_for_module(module_id: &str, scheme: &TypeScheme) -> TypeScheme
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::package_manager::package_install_command;
     use sigil_typechecker::errors::format_type;
 
     fn repo_root() -> PathBuf {
@@ -2042,7 +2043,9 @@ mod tests {
 
     #[test]
     fn imported_package_value_schemes_use_public_package_type_names() {
-        let config_path = repo_root().join("projects/featureFlagStorefront/config/test.lib.sigil");
+        let project_root = repo_root().join("projects/featureFlagStorefront");
+        package_install_command(&project_root).unwrap();
+        let config_path = project_root.join("config/test.lib.sigil");
         let graph = ModuleGraph::build_with_env(&config_path, Some("test")).unwrap();
         let mut compiled_modules = HashMap::new();
         let mut compiled_schemes = HashMap::new();

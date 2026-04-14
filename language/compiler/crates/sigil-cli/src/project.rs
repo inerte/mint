@@ -416,13 +416,20 @@ pub fn get_project_config(start_path: &Path) -> Result<Option<ProjectConfig>, Pr
     let Some(root) = find_project_root(start_path) else {
         return Ok(None);
     };
+    get_project_config_at_root(&root)
+}
+
+pub fn get_project_config_at_root(root: &Path) -> Result<Option<ProjectConfig>, ProjectConfigError> {
     let config_path = root.join("sigil.json");
+    if !config_path.exists() {
+        return Ok(None);
+    }
     let source = fs::read_to_string(&config_path).map_err(|source| ProjectConfigError::Io {
         path: config_path.clone(),
         source,
     })?;
 
-    parse_project_config(config_path, root, &source).map(Some)
+    parse_project_config(config_path, root.to_path_buf(), &source).map(Some)
 }
 
 pub fn write_project_manifest(

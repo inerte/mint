@@ -1,8 +1,9 @@
 use crate::commands::CliError;
 use crate::module_graph::collect_referenced_module_ids;
 use crate::project::{
-    get_project_config, is_lower_camel_name, sigil_name_to_npm_package_name,
-    sigil_version_to_npm_version, write_project_manifest, ProjectConfig, ProjectManifest,
+    get_project_config, get_project_config_at_root, is_lower_camel_name,
+    sigil_name_to_npm_package_name, sigil_version_to_npm_version, write_project_manifest,
+    ProjectConfig, ProjectManifest,
 };
 use ignore::WalkBuilder;
 use serde::{Deserialize, Serialize};
@@ -538,7 +539,12 @@ fn unpack_package_archive(tarball_path: &Path, unpack_root: &Path) -> Result<(),
 }
 
 fn validate_staged_package(root: &Path) -> Result<(), CliError> {
-    let project = require_project(root)?;
+    let project = get_project_config_at_root(root)?.ok_or_else(|| {
+        CliError::Validation(format!(
+            "packaged project is missing {}",
+            root.join("sigil.json").display()
+        ))
+    })?;
     validate_public_package_modules(&project)?;
     for file in collect_sigil_library_files(&root.join("src"))? {
         let relative = file
@@ -819,7 +825,12 @@ fn install_archive_into_root(
     let extracted_root = unpack_dir.join("package");
     copy_dir_recursive(&extracted_root, install_root)?;
 
-    let project = require_project(install_root)?;
+    let project = get_project_config_at_root(install_root)?.ok_or_else(|| {
+        CliError::Validation(format!(
+            "installed package is missing {}",
+            install_root.join("sigil.json").display()
+        ))
+    })?;
     if project.name != dependency_name {
         return Err(CliError::Validation(format!(
             "installed package `{}` declared name `{}` instead of `{}`",

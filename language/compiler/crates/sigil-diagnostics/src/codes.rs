@@ -332,8 +332,8 @@ mod tests {
         // Keep this in sync when adding or removing diagnostic codes.
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            117,
-            "Expected 117 error codes, found {}",
+            118,
+            "Expected 118 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

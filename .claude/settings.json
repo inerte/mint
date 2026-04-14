@@ -1,19 +1,41 @@
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node tools/claude-hooks/smart-validator.mjs"
-          }
-        ]
-      }
-    ]
-  },
+  "description": "Sigil language development - auto-validates changes intelligently",
   "enabledPlugins": {
     "pr-review-toolkit@claude-plugins-official": true
   },
-  "description": "Sigil language development - auto-validates changes intelligently"
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "node tools/claude-hooks/smart-validator.mjs",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ]
+  }
 }

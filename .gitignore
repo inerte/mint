@@ -16,6 +16,8 @@ language/runtime/
 # Compiled Sigil programs and temporary files
 .local/
 **/.local/
+.sigil/
+**/.sigil/
 
 # TypeScript
 *.tsbuildinfo

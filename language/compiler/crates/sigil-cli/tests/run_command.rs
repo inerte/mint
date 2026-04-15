@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -118,6 +118,42 @@ fn run_uses_standalone_local_world_when_present() {
     assert!(output.status.success());
     assert_eq!(String::from_utf8_lossy(&output.stdout), "done\n");
     assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn run_process_wait_does_not_hang_on_wrapper_exit_with_inherited_pipes() {
+    let dir = temp_dir("process-close-fallback");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        concat!(
+            "λmain()=>!Process Int={\n",
+            "  l result=(§process.run(§process.command([\n",
+            "    \"node\",\n",
+            "    \"-e\",\n",
+            "    \"const { spawn } = require('child_process'); const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 15000)'], { detached: true, stdio: 'inherit' }); child.unref(); console.log('wrapper'); process.exit(0);\"\n",
+            "  ])):§process.ProcessResult);\n",
+            "  result.code\n",
+            "}\n",
+        ),
+    );
+
+    let started = Instant::now();
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg(&file)
+        .output()
+        .unwrap();
+    let elapsed = started.elapsed();
+
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "0\n");
+    assert!(
+        elapsed.as_secs_f64() < 12.5,
+        "expected wrapper exit to finish quickly, took {:?}",
+        elapsed
+    );
 }
 
 #[test]

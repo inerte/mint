@@ -40,10 +40,11 @@ Sigil is distributed as a native CLI binary through GitHub Releases.
 - Extract `sigil`
 - Put it on your `PATH`
 - Run `sigil --version`
+- Install Node.js if you want to use runtime-backed commands such as `sigil run`, `sigil test`, `sigil validate`, `sigil inspect world`, or `sigil debug ...`
 
 Release versions use canonical UTC timestamps in the format `YYYY-MM-DDTHH-mm-ssZ`.
 
-Homebrew packaging is generated from those release artifacts in `projects/homebrewPackaging` and mirrored through a separate tap repo when configured. The release tarballs remain the source of truth.
+Homebrew packaging is generated from those release artifacts in `projects/homebrewPackaging` and mirrored through a separate tap repo when configured. The generated formula declares `node` as a runtime dependency. The release tarballs remain the source of truth.
 
 If you are contributing to the compiler itself, build from source instead:
 

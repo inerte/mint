@@ -619,7 +619,7 @@ The current implementation uses:
 - successful `run --json --trace` output reports inline bounded trace events via `data.trace`
 - breakpoint-enabled `run --json` output may report inline snapshots via `data.breakpoints`
 - successful `run --json --record` and `run --json --replay` output may report inline replay summary data via `data.replay`
-- runtime `run` failures may include declaration-level `sigilFrame` and generated TypeScript `generatedFrame` context when an uncaught exception stack is available
+- runtime `run` failures may include declaration-level `sigilFrame` and generated runtime-module `generatedFrame` context when an uncaught exception stack is available
 - traced `run` failures may include bounded inline trace events via `error.details.trace`
 - breakpoint-enabled `run` failures may include bounded snapshot data via `error.details.breakpoints`
 - recorded or replayed `run` failures may include replay summary data via `error.details.replay`

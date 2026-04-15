@@ -3,6 +3,7 @@ class Sigil < Formula
   homepage "https://github.com/inerte/sigil"
   version "2026-03-11T14-58-24Z"
   license "MIT"
+  depends_on "node"
 
   on_macos do
     if Hardware::CPU.arm?

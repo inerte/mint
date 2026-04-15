@@ -178,6 +178,28 @@ pub(super) struct GeneratedGraphOutputs {
     pub module_outputs: HashMap<String, GeneratedModuleOutput>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum OutputFlavor {
+    TypeScript,
+    RuntimeEsm,
+}
+
+impl OutputFlavor {
+    fn output_extension(self) -> &'static str {
+        match self {
+            OutputFlavor::TypeScript => "ts",
+            OutputFlavor::RuntimeEsm => "mjs",
+        }
+    }
+
+    fn import_extension(self) -> &'static str {
+        match self {
+            OutputFlavor::TypeScript => "js",
+            OutputFlavor::RuntimeEsm => "mjs",
+        }
+    }
+}
+
 pub(super) fn project_json(project: Option<&ProjectConfig>) -> Option<serde_json::Value> {
     project.map(|project| {
         serde_json::json!({
@@ -337,7 +359,14 @@ fn compile_group(
         })
         .collect::<Result<Vec<_>, CliError>>()?;
 
-    let compiled = compile_module_graph(graph, None, false, false, false)?;
+    let compiled = compile_module_graph(
+        graph,
+        None,
+        false,
+        false,
+        false,
+        OutputFlavor::TypeScript,
+    )?;
     let entries = entry_modules
         .into_iter()
         .map(|(input, module_id, project_root)| {
@@ -445,7 +474,14 @@ fn compile_single_file_command(
         .collect::<Vec<_>>();
     let project_json = project_json(entry_module.project.as_ref());
 
-    let compiled = match compile_module_graph(graph, output, false, false, false) {
+    let compiled = match compile_module_graph(
+        graph,
+        output,
+        false,
+        false,
+        false,
+        OutputFlavor::TypeScript,
+    ) {
         Ok(compiled) => compiled,
         Err(CliError::Type(type_error)) => {
             output_json_error(
@@ -693,7 +729,7 @@ pub(super) fn validate_command(path: &Path, env: &str) -> Result<(), CliError> {
 
     let _compiled = compile_topology_module(&project_root)?;
     let prelude = build_world_runtime_prelude(&project_root, env, true)?;
-    let runner_path = project_root.join(".local/topology.validate.run.ts");
+    let runner_path = project_root.join(".local/topology.validate.run.mjs");
     if let Some(parent) = runner_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -713,8 +749,7 @@ console.log(JSON.stringify({{
     )?;
 
     let abs_runner = fs::canonicalize(&runner_path)?;
-    let output = Command::new("pnpm")
-        .args(["exec", "node", "--import", "tsx"])
+    let output = Command::new("node")
         .arg(&abs_runner)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -722,7 +757,8 @@ console.log(JSON.stringify({{
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 CliError::Runtime(
-                    "pnpm not found. Please install pnpm to validate Sigil topology.".to_string(),
+                    "node not found. Please install Node.js to validate Sigil topology."
+                        .to_string(),
                 )
             } else {
                 CliError::Runtime(format!("Failed to execute topology validation: {}", e))
@@ -875,6 +911,7 @@ pub(super) fn generate_module_graph_outputs(
     trace: bool,
     breakpoints: bool,
     expression_debug: bool,
+    output_flavor: OutputFlavor,
 ) -> Result<GeneratedGraphOutputs, CliError> {
     let analyzed = analyze_module_graph(graph)?;
     let entry_module_id = graph
@@ -896,12 +933,14 @@ pub(super) fn generate_module_graph_outputs(
         let output_path = if module_id == entry_module_id && output_override.is_some() {
             output_override.unwrap().to_path_buf()
         } else {
-            get_module_output_path(module)
+            get_module_output_path(module, output_flavor)
         };
         let codegen_options = CodegenOptions {
             module_id: Some(module_id.clone()),
             source_file: Some(module.file_path.to_string_lossy().to_string()),
             output_file: Some(output_path.to_string_lossy().to_string()),
+            import_extension: output_flavor.import_extension().to_string(),
+            lazy_extern_namespaces: output_flavor == OutputFlavor::RuntimeEsm,
             trace,
             breakpoints,
             expression_debug,
@@ -948,6 +987,7 @@ pub(super) fn compile_module_graph(
     trace: bool,
     breakpoints: bool,
     expression_debug: bool,
+    output_flavor: OutputFlavor,
 ) -> Result<CompiledGraphOutputs, CliError> {
     let generated = generate_module_graph_outputs(
         &graph,
@@ -955,6 +995,7 @@ pub(super) fn compile_module_graph(
         trace,
         breakpoints,
         expression_debug,
+        output_flavor,
     )?;
     let mut module_outputs = HashMap::new();
     let mut span_map_outputs = HashMap::new();
@@ -970,8 +1011,8 @@ pub(super) fn compile_module_graph(
         module_outputs.insert(module_id.clone(), generated_output.output_path);
         span_map_outputs.insert(module_id, generated_output.span_map_path);
     }
-    write_public_package_module_aliases(&graph, &module_outputs)?;
-    write_selected_config_aliases(&graph, &module_outputs)?;
+    write_public_package_module_aliases(&graph, &module_outputs, output_flavor)?;
+    write_selected_config_aliases(&graph, &module_outputs, output_flavor)?;
 
     Ok(CompiledGraphOutputs {
         entry_output_path: generated.entry_output_path,
@@ -985,6 +1026,7 @@ pub(super) fn compile_module_graph(
 fn write_public_package_module_aliases(
     graph: &ModuleGraph,
     module_outputs: &HashMap<String, PathBuf>,
+    output_flavor: OutputFlavor,
 ) -> Result<(), CliError> {
     for (module_id, module) in &graph.modules {
         let Some(public_module_id) = public_package_module_id(module_id) else {
@@ -1000,7 +1042,11 @@ fn write_public_package_module_aliases(
         let alias_output_path = output_project
             .root
             .join(&output_project.layout.out)
-            .join(format!("{}.ts", public_module_id.replace("::", "/")));
+            .join(format!(
+                "{}.{}",
+                public_module_id.replace("::", "/"),
+                output_flavor.output_extension()
+            ));
         let alias_parent = alias_output_path
             .parent()
             .ok_or_else(|| CliError::Codegen("package alias output had no parent directory".to_string()))?;
@@ -1016,6 +1062,7 @@ fn write_public_package_module_aliases(
 fn write_selected_config_aliases(
     graph: &ModuleGraph,
     module_outputs: &HashMap<String, PathBuf>,
+    output_flavor: OutputFlavor,
 ) -> Result<(), CliError> {
     for (module_id, module) in &graph.modules {
         if !module_id.starts_with("config::") {
@@ -1039,7 +1086,7 @@ fn write_selected_config_aliases(
         let alias_output_path = output_project
             .root
             .join(&output_project.layout.out)
-            .join("config.ts");
+            .join(format!("config.{}", output_flavor.output_extension()));
         let alias_parent = alias_output_path.parent().ok_or_else(|| {
             CliError::Codegen("config alias output had no parent directory".to_string())
         })?;
@@ -1148,7 +1195,7 @@ fn compile_topology_module(project_root: &Path) -> Result<CompiledGraphOutputs, 
     }
 
     let graph = ModuleGraph::build(&topology_source)?;
-    compile_module_graph(graph, None, false, false, false)
+    compile_module_graph(graph, None, false, false, false, OutputFlavor::RuntimeEsm)
 }
 
 fn compile_config_module(
@@ -1166,7 +1213,7 @@ fn compile_config_module(
     }
 
     let graph = ModuleGraph::build(&config_source)?;
-    compile_module_graph(graph, None, false, false, false)
+    compile_module_graph(graph, None, false, false, false, OutputFlavor::RuntimeEsm)
 }
 
 pub(super) fn build_world_runtime_prelude(
@@ -2453,7 +2500,7 @@ fn collect_module_coverage_targets(
     targets
 }
 
-fn get_module_output_path(module: &LoadedModule) -> PathBuf {
+fn get_module_output_path(module: &LoadedModule, output_flavor: OutputFlavor) -> PathBuf {
     use std::env;
     use std::fs;
 
@@ -2466,7 +2513,7 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
         return project
             .root
             .join(&project.layout.out)
-            .join(format!("{}.ts", path_str));
+            .join(format!("{}.{}", path_str, output_flavor.output_extension()));
     }
 
     let abs_source =
@@ -2485,7 +2532,11 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
     if module.id.contains("::") {
         return repo_root
             .join(".local")
-            .join(format!("{}.ts", module.id.replace("::", "/")));
+            .join(format!(
+                "{}.{}",
+                module.id.replace("::", "/"),
+                output_flavor.output_extension()
+            ));
     }
 
     let rel_source = abs_source.strip_prefix(&repo_root).unwrap_or(&abs_source);
@@ -2500,7 +2551,7 @@ fn get_module_output_path(module: &LoadedModule) -> PathBuf {
             .strip_suffix(".lib.sigil")
             .or_else(|| file_name.strip_suffix(".sigil"))
             .unwrap_or(file_name);
-        output = output.join(format!("{}.ts", stem));
+        output = output.join(format!("{}.{}", stem, output_flavor.output_extension()));
     }
 
     output

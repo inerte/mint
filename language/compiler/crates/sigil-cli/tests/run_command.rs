@@ -1,4 +1,6 @@
 use serde_json::Value;
+use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -56,6 +58,34 @@ fn line_break_selector(file: &Path, line: usize) -> String {
     format!("{}:{}", file.to_string_lossy(), line)
 }
 
+fn path_with_shadowed_pnpm(dir: &Path) -> OsString {
+    let bin_dir = dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+    let shim_path = if cfg!(windows) {
+        bin_dir.join("pnpm.cmd")
+    } else {
+        bin_dir.join("pnpm")
+    };
+    let shim_source = if cfg!(windows) {
+        "@echo off\r\necho shadowed pnpm>&2\r\nexit /b 97\r\n"
+    } else {
+        "#!/bin/sh\necho shadowed pnpm >&2\nexit 97\n"
+    };
+    fs::write(&shim_path, shim_source).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&shim_path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&shim_path, permissions).unwrap();
+    }
+
+    let current_path = env::var_os("PATH").unwrap_or_default();
+    let mut paths = vec![bin_dir];
+    paths.extend(env::split_paths(&current_path));
+    env::join_paths(paths).unwrap()
+}
+
 #[test]
 fn run_streams_raw_stdout_by_default() {
     let dir = temp_dir("raw-success");
@@ -74,6 +104,24 @@ fn run_streams_raw_stdout_by_default() {
 
     assert!(output.status.success());
     assert_eq!(String::from_utf8_lossy(&output.stdout), "raw ok\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn run_succeeds_when_pnpm_is_shadowed() {
+    let dir = temp_dir("shadowed-pnpm");
+    let file = write_program(&dir, "main.sigil", "λmain()=>Int=1\n");
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .env("PATH", path_with_shadowed_pnpm(&dir))
+        .arg("run")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
     assert!(output.stderr.is_empty());
 }
 
@@ -836,7 +884,7 @@ fn run_json_enriches_uncaught_runtime_exceptions() {
         json["error"]["details"]["exception"]["generatedFrame"]["file"]
             .as_str()
             .unwrap()
-            .ends_with(".ts")
+            .ends_with(".mjs")
     );
     assert!(
         json["error"]["details"]["exception"]["sigilFrame"]["excerpt"]["text"]
@@ -1104,7 +1152,7 @@ fn run_json_preserves_topology_codes_for_bootstrap_failures() {
         json["error"]["details"]["exception"]["generatedFrame"]["file"]
             .as_str()
             .unwrap()
-            .ends_with(".run.ts")
+            .ends_with(".run.mjs")
     );
     assert!(json["error"]["location"].is_null());
     assert!(json["error"]["details"]["exception"]["sigilFrame"].is_null());

@@ -3,7 +3,7 @@
 use super::compile_support::{
     analyze_module_graph, build_world_runtime_prelude, collect_sigil_targets, compile_module_graph,
     generate_module_graph_outputs, group_compile_targets, runner_prelude, topology_source_path,
-    AnalyzedModule, CompiledGraphOutputs, CoverageTarget, GeneratedGraphOutputs,
+    AnalyzedModule, CompiledGraphOutputs, CoverageTarget, GeneratedGraphOutputs, OutputFlavor,
 };
 use super::shared::{
     extract_error_code, format_validation_errors, output_inspect_error, output_json_error_to,
@@ -1766,7 +1766,14 @@ fn inspect_codegen_single_file_command(file: &Path, selected_env: Option<&str>) 
             return Err(CliError::Reported(1));
         }
     };
-    let generated = match generate_module_graph_outputs(&graph, None, false, false, false) {
+    let generated = match generate_module_graph_outputs(
+        &graph,
+        None,
+        false,
+        false,
+        false,
+        OutputFlavor::TypeScript,
+    ) {
         Ok(generated) => generated,
         Err(error) => {
             output_inspect_error(
@@ -1874,7 +1881,14 @@ fn inspect_codegen_directory_command(
                 return Err(CliError::Reported(1));
             }
         };
-        let generated = match generate_module_graph_outputs(&graph, None, false, false, false) {
+        let generated = match generate_module_graph_outputs(
+            &graph,
+            None,
+            false,
+            false,
+            false,
+            OutputFlavor::TypeScript,
+        ) {
             Ok(generated) => generated,
             Err(error) => {
                 let mut extra = serde_json::Map::new();
@@ -2437,7 +2451,14 @@ console.log(JSON.stringify({{
     }
 
     let graph = ModuleGraph::build(path)?;
-    let compiled = compile_module_graph(graph, None, false, false, false)?;
+    let compiled = compile_module_graph(
+        graph,
+        None,
+        false,
+        false,
+        false,
+        OutputFlavor::RuntimeEsm,
+    )?;
     let module_url = format!(
         "file://{}",
         fs::canonicalize(&compiled.entry_output_path)?.display()
@@ -2519,9 +2540,8 @@ fn run_world_inspect_runner(
     current_dir: &Path,
 ) -> Result<serde_json::Value, CliError> {
     let abs_runner = fs::canonicalize(runner_path)?;
-    let output = Command::new("pnpm")
+    let output = Command::new("node")
         .current_dir(current_dir)
-        .args(["exec", "node", "--import", "tsx"])
         .arg(&abs_runner)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -2529,7 +2549,7 @@ fn run_world_inspect_runner(
         .map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
                 CliError::Runtime(
-                    "pnpm not found. Please install pnpm to inspect Sigil runtime worlds."
+                    "node not found. Please install Node.js to inspect Sigil runtime worlds."
                         .to_string(),
                 )
             } else {
@@ -2727,7 +2747,7 @@ pub fn run_command(
                     "spanMapFile": run_target.entry_span_map_path.to_string_lossy()
                 },
                 "runtime": {
-                    "engine": "node+tsx",
+                    "engine": "node",
                     "exitCode": runtime_output.exit_code,
                     "durationMs": runtime_output.duration_ms,
                     "stdout": runtime_output.stdout,
@@ -3348,6 +3368,7 @@ fn build_run_target(
         trace_enabled,
         breakpoints_requested,
         json_output || trace_expr_enabled || breakpoints_requested,
+        OutputFlavor::RuntimeEsm,
     )?;
     let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
     let topology_prelude = if matches!(
@@ -3371,7 +3392,7 @@ fn build_run_target(
     let entry_output_path = compiled.entry_output_path;
     let entry_span_map_path = compiled.entry_span_map_path;
 
-    let runner_path = entry_output_path.with_extension("run.ts");
+    let runner_path = entry_output_path.with_extension("run.mjs");
     let runtime_error_path = unique_runtime_error_path(&entry_output_path);
     let runtime_trace_path = trace_enabled.then(|| unique_runtime_trace_path(&entry_output_path));
     let runtime_breakpoint_path = breakpoint_config
@@ -3380,12 +3401,13 @@ fn build_run_target(
     let runtime_replay_path = replay_mode
         .as_ref()
         .map(|_| unique_runtime_replay_path(&entry_output_path));
-    let module_name = entry_output_path
-        .file_stem()
+    let module_file_name = entry_output_path
+        .file_name()
         .unwrap()
         .to_string_lossy()
         .to_string();
-    let module_specifier_json = serde_json::to_string(&format!("./{}", module_name)).unwrap();
+    let module_specifier_json =
+        serde_json::to_string(&format!("./{}", module_file_name)).unwrap();
     let filename_json = serde_json::to_string(&file.to_string_lossy().to_string()).unwrap();
     let runtime_error_path_json =
         serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
@@ -3819,8 +3841,7 @@ fn execute_runner(
     let start_time = Instant::now();
     if stream_output {
         if io::stdout().is_terminal() || io::stderr().is_terminal() {
-            let status = Command::new("pnpm")
-                .args(["exec", "node", "--import", "tsx"])
+            let status = Command::new("node")
                 .arg(&abs_runner_path)
                 .args(args)
                 .stdout(Stdio::inherit())
@@ -3841,8 +3862,7 @@ fn execute_runner(
             });
         }
 
-        let mut child = Command::new("pnpm")
-            .args(["exec", "node", "--import", "tsx"])
+        let mut child = Command::new("node")
             .arg(&abs_runner_path)
             .args(args)
             .stdout(Stdio::piped())
@@ -3883,8 +3903,7 @@ fn execute_runner(
         });
     }
 
-    let output = Command::new("pnpm")
-        .args(["exec", "node", "--import", "tsx"])
+    let output = Command::new("node")
         .arg(&abs_runner_path)
         .args(args)
         .stdout(Stdio::piped())
@@ -4007,7 +4026,7 @@ fn unique_world_inspect_runner_path(project_root: &Path) -> PathBuf {
     );
     project_root
         .join(".local")
-        .join(format!("inspect-world.{unique}.run.ts"))
+        .join(format!("inspect-world.{unique}.run.mjs"))
 }
 
 fn unique_runtime_trace_path(entry_output_path: &Path) -> PathBuf {
@@ -4659,7 +4678,7 @@ fn build_runtime_failure_output(
         "spanMapFile": run_target.entry_span_map_path.to_string_lossy()
     });
     let runtime = json!({
-        "engine": "node+tsx",
+        "engine": "node",
         "exitCode": runtime_output.exit_code,
         "durationMs": runtime_output.duration_ms,
         "stdout": runtime_output.stdout,
@@ -4991,6 +5010,9 @@ fn analyze_runtime_exception(
         .expression
         .as_ref()
         .and_then(|expression| map_runtime_expression_to_sigil(expression, module_debug_outputs));
+    let expression_frame = sigil_expression
+        .as_ref()
+        .and_then(|expression| declaration_frame_for_expression(expression, module_debug_outputs));
     let frames = parse_generated_stack_frames(&capture.stack);
     for frame in &frames {
         if let Some(sigil_frame) = map_generated_frame_to_sigil(frame, module_debug_outputs) {
@@ -5005,7 +5027,7 @@ fn analyze_runtime_exception(
     RuntimeExceptionAnalysis {
         generated_frame: frames.into_iter().next(),
         sigil_expression,
-        sigil_frame: None,
+        sigil_frame: expression_frame,
     }
 }
 
@@ -5217,7 +5239,14 @@ fn prepare_debug_run_execution(
     let (entry, binding) = build_replay_binding(file, &graph, &args)?;
     validate_replay_binding(file, &args, &entry, &binding, &artifact, &artifact_file)?;
 
-    let compiled = compile_module_graph(graph, None, true, true, true)?;
+    let compiled = compile_module_graph(
+        graph,
+        None,
+        true,
+        true,
+        true,
+        OutputFlavor::RuntimeEsm,
+    )?;
     let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
     let breakpoint_config = resolve_breakpoint_config(
         file,
@@ -5245,16 +5274,17 @@ fn prepare_debug_run_execution(
         debug_step_config_json(DebugSessionTargetKind::Run, action, cursor, watches)?;
 
     let entry_output_path = compiled.entry_output_path;
-    let runner_path = entry_output_path.with_extension("debug.run.ts");
+    let runner_path = entry_output_path.with_extension("debug.run.mjs");
     let runtime_error_path = unique_runtime_error_path(&entry_output_path);
     let runtime_replay_path = unique_runtime_replay_path(&entry_output_path);
     let runtime_step_path = unique_runtime_step_path(&entry_output_path);
-    let module_name = entry_output_path
-        .file_stem()
+    let module_file_name = entry_output_path
+        .file_name()
         .unwrap()
         .to_string_lossy()
         .to_string();
-    let module_specifier_json = serde_json::to_string(&format!("./{}", module_name)).unwrap();
+    let module_specifier_json =
+        serde_json::to_string(&format!("./{}", module_file_name)).unwrap();
     let runtime_error_path_json =
         serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
     let runtime_replay_path_json =
@@ -5393,7 +5423,14 @@ fn prepare_debug_test_execution(
             })?;
     let test_file = canonicalize_existing_path(Path::new(&recorded_test.file));
     let graph = ModuleGraph::build(&test_file)?;
-    let compiled = compile_module_graph(graph, None, true, true, true)?;
+    let compiled = compile_module_graph(
+        graph,
+        None,
+        true,
+        true,
+        true,
+        OutputFlavor::RuntimeEsm,
+    )?;
     let module_debug_outputs = build_runtime_module_debug_outputs(&compiled)?;
     let breakpoint_config = resolve_breakpoint_config(
         &test_file,
@@ -5432,7 +5469,7 @@ fn prepare_debug_test_execution(
             .as_nanos()
     );
     let runner_path = test_dir.join(format!(
-        "{}.{}.debug.runner.ts",
+        "{}.{}.debug.runner.mjs",
         entry_output_path.file_stem().unwrap().to_string_lossy(),
         unique
     ));
@@ -5846,7 +5883,7 @@ mod tests {
     #[test]
     fn runtime_exception_capture_from_stderr_extracts_sigil_code() {
         let capture = runtime_exception_capture_from_stderr(
-            "Error: SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil\n    at main (/tmp/example.run.ts:12:3)",
+            "Error: SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil\n    at main (/tmp/example.run.mjs:12:3)",
         )
         .expect("expected stderr capture");
 
@@ -5859,13 +5896,13 @@ mod tests {
             capture.message,
             "SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil"
         );
-        assert!(capture.stack.contains(".run.ts"));
+        assert!(capture.stack.contains(".run.mjs"));
     }
 
     #[test]
     fn runtime_exception_capture_from_stderr_prefers_sigil_line_after_warning() {
         let capture = runtime_exception_capture_from_stderr(
-            "(node:2468) ExperimentalWarning: import assertions are deprecated\nError: SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil\n    at main (/tmp/example.run.ts:12:3)",
+            "(node:2468) ExperimentalWarning: import assertions are deprecated\nError: SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil\n    at main (/tmp/example.run.mjs:12:3)",
         )
         .expect("expected stderr capture");
 
@@ -5898,7 +5935,7 @@ mod tests {
         assert_eq!(
             recover_runtime_exception_code(
                 "environment 'staging' not declared in src/topology.lib.sigil",
-                "Error: SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil\n    at main (/tmp/example.run.ts:12:3)"
+                "Error: SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil\n    at main (/tmp/example.run.mjs:12:3)"
             )
             .as_deref(),
             Some(codes::topology::ENV_NOT_FOUND)
@@ -5910,7 +5947,7 @@ mod tests {
         let capture = RuntimeExceptionCapture {
             name: "Error".to_string(),
             message: "SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil".to_string(),
-            stack: "Error: SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil\n    at main (/tmp/example.run.ts:12:3)".to_string(),
+            stack: "Error: SIGIL-TOPO-ENV-NOT-FOUND: environment 'staging' not declared in src/topology.lib.sigil\n    at main (/tmp/example.run.mjs:12:3)".to_string(),
             sigil_code: Some(codes::runtime::UNCAUGHT_EXCEPTION.to_string()),
             expression: None,
         };
@@ -5946,6 +5983,36 @@ fn map_runtime_expression_to_sigil(
         span,
         capture: capture.clone(),
     })
+}
+
+fn declaration_frame_for_expression(
+    expression: &MappedSigilExpression,
+    module_debug_outputs: &[RuntimeModuleDebugOutput],
+) -> Option<MappedSigilFrame> {
+    let module = module_debug_outputs
+        .iter()
+        .find(|module| module.module_id == expression.capture.module_id)?;
+    let mut current = expression.span.clone();
+
+    loop {
+        if matches!(
+            current.kind,
+            DebugSpanKind::FunctionDecl | DebugSpanKind::ConstDecl | DebugSpanKind::TestDecl
+        ) {
+            return Some(MappedSigilFrame {
+                excerpt: declaration_excerpt(&current),
+                span: current,
+            });
+        }
+
+        let parent_id = current.parent_span_id.as_deref()?;
+        current = module
+            .span_map
+            .spans
+            .iter()
+            .find(|span| span.span_id == parent_id)?
+            .clone();
+    }
 }
 
 fn span_for_generated_line(span_map: &ModuleSpanMap, line: usize) -> Option<DebugSpanRecord> {
@@ -6033,7 +6100,7 @@ fn join_tee_output(
 fn map_runner_launch_error(error: io::Error) -> CliError {
     if error.kind() == io::ErrorKind::NotFound {
         CliError::Runtime(format!(
-            "{}: pnpm not found. Please install pnpm to run Sigil programs.",
+            "{}: node not found. Please install Node.js to run Sigil programs.",
             codes::runtime::ENGINE_NOT_FOUND
         ))
     } else {
@@ -7614,6 +7681,7 @@ fn compile_and_run_tests(
         debug_options.trace_enabled,
         debug_options.breakpoints_requested(),
         true,
+        OutputFlavor::RuntimeEsm,
     )?;
     let topology_prelude = if matches!(
         suite_replay_mode,
@@ -7671,7 +7739,7 @@ fn run_test_module(
             .as_millis()
     );
     let runner_file = test_dir.join(format!(
-        "{}.{}.runner.ts",
+        "{}.{}.runner.mjs",
         ts_file.file_stem().unwrap().to_string_lossy(),
         unique
     ));
@@ -8137,15 +8205,14 @@ console.log(JSON.stringify({{
 
     // Execute runner
     let abs_runner = fs::canonicalize(&runner_file)?;
-    let output = Command::new("pnpm")
-        .args(&["exec", "node", "--import", "tsx"])
+    let output = Command::new("node")
         .arg(&abs_runner)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                CliError::Runtime("pnpm not found".to_string())
+                CliError::Runtime("node not found".to_string())
             } else {
                 CliError::Runtime(format!("Failed to execute test runner: {}", e))
             }

@@ -1,4 +1,6 @@
 use serde_json::Value;
+use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -44,6 +46,34 @@ fn parse_json(text: &[u8]) -> Value {
 
 fn parse_replay_artifact(path: &Path) -> Value {
     serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
+}
+
+fn path_with_shadowed_pnpm(dir: &Path) -> OsString {
+    let bin_dir = dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+    let shim_path = if cfg!(windows) {
+        bin_dir.join("pnpm.cmd")
+    } else {
+        bin_dir.join("pnpm")
+    };
+    let shim_source = if cfg!(windows) {
+        "@echo off\r\necho shadowed pnpm>&2\r\nexit /b 97\r\n"
+    } else {
+        "#!/bin/sh\necho shadowed pnpm >&2\nexit 97\n"
+    };
+    fs::write(&shim_path, shim_source).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&shim_path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&shim_path, permissions).unwrap();
+    }
+
+    let current_path = env::var_os("PATH").unwrap_or_default();
+    let mut paths = vec![bin_dir];
+    paths.extend(env::split_paths(&current_path));
+    env::join_paths(paths).unwrap()
 }
 
 #[test]
@@ -124,6 +154,30 @@ fn test_directory_runs_inline_tests_in_standalone_files() {
     assert_eq!(json["ok"], true);
     assert_eq!(json["summary"]["files"], 2);
     assert_eq!(json["summary"]["discovered"], 1);
+    assert_eq!(json["summary"]["passed"], 1);
+}
+
+#[test]
+fn test_suite_succeeds_when_pnpm_is_shadowed() {
+    let dir = temp_dir("shadowed-pnpm");
+    let file = write_program(
+        &dir,
+        "tests/basic.sigil",
+        "λmain()=>Unit=()\n\ntest \"basic\" {\n  true\n}\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .env("PATH", path_with_shadowed_pnpm(&dir))
+        .arg("test")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
     assert_eq!(json["summary"]["passed"], 1);
 }
 
@@ -263,7 +317,7 @@ fn test_error_result_includes_exact_exception_details() {
     assert_eq!(result["exception"]["sigilFrame"]["label"], "boom");
     assert_eq!(
         result["exception"]["sigilExpression"]["kind"],
-        "expr_identifier"
+        "expr_method_call"
     );
 }
 

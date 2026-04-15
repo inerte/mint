@@ -60,6 +60,7 @@
     ++input.version
     ++"\"",
   "  license \"MIT\"",
+  "  depends_on \"node\"",
   "",
   "  on_macos do",
   "    if Hardware::CPU.arm?",

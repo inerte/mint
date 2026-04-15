@@ -464,18 +464,24 @@ sigil --version
 # Compile to TypeScript
 sigil compile src/main.sigil -o dist/main.ts
 
+# Install Node.js to run Sigil programs and tests
+# Homebrew installs this automatically for the generated formula
+
 # Compile a whole tree through one compiler process
 sigil compile . --ignore .git --ignore-from .gitignore
 
-# Run tests
+# Run programs and tests
+sigil run src/main.sigil
 sigil test
 ```
 
 GitHub Releases are the canonical installation path.
 
 - Official release versions use UTC timestamps in the format `YYYY-MM-DDTHH-mm-ssZ`
+- `sigil compile` emits TypeScript and does not require Node.js
+- `sigil run`, `sigil test`, `sigil validate`, `sigil inspect world`, and `sigil debug ...` require Node.js to execute generated runtime modules
 - Source builds are for contributors and compiler development
-- Homebrew packaging is generated from the release artifacts in this repo and can publish to a separate tap repo when configured
+- Homebrew packaging is generated from the release artifacts in this repo, installs `node`, and can publish to a separate tap repo when configured
 
 ## Documentation
 

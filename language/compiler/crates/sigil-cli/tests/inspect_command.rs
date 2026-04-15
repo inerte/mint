@@ -1,4 +1,6 @@
 use serde_json::Value;
+use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -40,6 +42,34 @@ fn write_program(dir: &Path, name: &str, source: &str) -> PathBuf {
 
 fn parse_json(text: &[u8]) -> Value {
     serde_json::from_slice(text).unwrap()
+}
+
+fn path_with_shadowed_pnpm(dir: &Path) -> OsString {
+    let bin_dir = dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+    let shim_path = if cfg!(windows) {
+        bin_dir.join("pnpm.cmd")
+    } else {
+        bin_dir.join("pnpm")
+    };
+    let shim_source = if cfg!(windows) {
+        "@echo off\r\necho shadowed pnpm>&2\r\nexit /b 97\r\n"
+    } else {
+        "#!/bin/sh\necho shadowed pnpm >&2\nexit 97\n"
+    };
+    fs::write(&shim_path, shim_source).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&shim_path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&shim_path, permissions).unwrap();
+    }
+
+    let current_path = env::var_os("PATH").unwrap_or_default();
+    let mut paths = vec![bin_dir];
+    paths.extend(env::split_paths(&current_path));
+    env::join_paths(paths).unwrap()
 }
 
 #[test]
@@ -408,6 +438,54 @@ fn inspect_validate_rejects_project_executables_without_src_main() {
     assert_eq!(json["command"], "sigilc inspect validate");
     assert_eq!(json["ok"], false);
     assert_eq!(json["error"]["code"], "SIGIL-CLI-PROJECT-MAIN-REQUIRED");
+}
+
+#[test]
+fn validate_succeeds_when_pnpm_is_shadowed() {
+    let dir = temp_dir("validate-shadowed-pnpm");
+    write_program(
+        &dir,
+        "sigil.json",
+        "{\"name\":\"validateNodeOnly\",\"version\":\"2026-04-05T14-58-24Z\"}\n",
+    );
+    write_program(
+        &dir,
+        "src/topology.lib.sigil",
+        "c local=(§topology.environment(\"local\"):§topology.Environment)\n",
+    );
+    write_program(
+        &dir,
+        "config/local.lib.sigil",
+        concat!(
+            "c world=(†runtime.world(\n",
+            "  †clock.systemClock(),\n",
+            "  †fs.real(),\n",
+            "  [],\n",
+            "  †log.stdout(),\n",
+            "  †process.real(),\n",
+            "  †random.seeded(7),\n",
+            "  [],\n",
+            "  †timer.real()\n",
+            "):†runtime.World)\n",
+        ),
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .env("PATH", path_with_shadowed_pnpm(&dir))
+        .arg("validate")
+        .arg(&dir)
+        .arg("--env")
+        .arg("local")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc validate");
+    assert_eq!(json["ok"], true);
 }
 
 #[test]
@@ -787,6 +865,48 @@ fn inspect_world_supports_standalone_single_file_worlds() {
         json["data"]["normalizedWorld"]["logSinks"]["auditLog"]["kind"],
         "capture"
     );
+}
+
+#[test]
+fn inspect_world_succeeds_when_pnpm_is_shadowed() {
+    let dir = temp_dir("world-shadowed-pnpm");
+    let file = write_program(
+        &dir,
+        "standalone.sigil",
+        concat!(
+            "c auditLog=(§topology.logSink(\"auditLog\"):§topology.LogSink)\n\n",
+            "c world=(†runtime.withLogSinks(\n",
+            "  [†log.captureSink(auditLog)],\n",
+            "  †runtime.world(\n",
+            "    †clock.systemClock(),\n",
+            "    †fs.real(),\n",
+            "    [],\n",
+            "    †log.capture(),\n",
+            "    †process.real(),\n",
+            "    †random.seeded(7),\n",
+            "    [],\n",
+            "    †timer.virtual()\n",
+            "  )\n",
+            "):†runtime.World)\n\n",
+            "λmain()=>Unit=()\n",
+        ),
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .env("PATH", path_with_shadowed_pnpm(&dir))
+        .arg("inspect")
+        .arg("world")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc inspect world");
+    assert_eq!(json["ok"], true);
 }
 
 #[test]

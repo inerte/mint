@@ -66,6 +66,10 @@ test "formula renders release version and platform checksums" {
   )
     and §string.contains(
       text,
+      "depends_on \"node\""
+    )
+    and §string.contains(
+      text,
       "sigil 2026-03-11T14-58-24Z"
     )
     and §string.contains(

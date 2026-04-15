@@ -1986,6 +1986,8 @@ pub struct CodegenOptions {
     pub module_id: Option<String>,
     pub source_file: Option<String>,
     pub output_file: Option<String>,
+    pub import_extension: String,
+    pub lazy_extern_namespaces: bool,
     pub trace: bool,
     pub breakpoints: bool,
     pub expression_debug: bool,
@@ -1997,6 +1999,8 @@ impl Default for CodegenOptions {
             module_id: None,
             source_file: None,
             output_file: None,
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -2020,6 +2024,8 @@ pub struct TypeScriptGenerator {
     span_map: Option<ModuleSpanMap>,
     source_file: Option<String>,
     output_file: Option<String>,
+    import_extension: String,
+    lazy_extern_namespaces: bool,
     test_meta_entries: Vec<String>,
     trace_enabled: bool,
     breakpoints_enabled: bool,
@@ -2039,6 +2045,8 @@ impl TypeScriptGenerator {
             span_map: None,
             source_file: options.source_file,
             output_file: options.output_file,
+            import_extension: options.import_extension,
+            lazy_extern_namespaces: options.lazy_extern_namespaces,
             test_meta_entries: Vec::new(),
             trace_enabled: debug_enabled,
             breakpoints_enabled: options.breakpoints,
@@ -2125,16 +2133,17 @@ impl TypeScriptGenerator {
         let import_path = if let Some(ref output_file) = self.output_file {
             let output_path = Path::new(output_file);
             if let Some(local_root) = find_output_root(output_path) {
-                let target_abs = local_root.join("core/prelude.js");
+                let target_abs =
+                    local_root.join(format!("core/prelude.{}", self.import_extension));
                 relative_import_path(
                     output_path.parent().unwrap_or_else(|| Path::new(".")),
                     &target_abs,
                 )
             } else {
-                "./core/prelude.js".to_string()
+                format!("./core/prelude.{}", self.import_extension)
             }
         } else {
-            "./core/prelude.js".to_string()
+            format!("./core/prelude.{}", self.import_extension)
         };
 
         self.emit(&format!(
@@ -2592,6 +2601,68 @@ impl TypeScriptGenerator {
         self.emit("function __sigil_option_value(option) {");
         self.emit("  return option && option.__tag === 'Some' ? option.__fields[0] : null;");
         self.emit("}");
+        if self.lazy_extern_namespaces {
+            self.emit("function __sigil_runtime_extern_reference_error(namespaceLabel, memberName) {");
+            self.emit("  const suffix = memberName == null ? '' : `.${String(memberName)}`;");
+            self.emit("  return new ReferenceError(`${String(namespaceLabel)}${suffix} is not defined`);");
+            self.emit("}");
+            self.emit("function __sigil_runtime_extern_global(modulePath) {");
+            self.emit("  if (modulePath.includes('/') || modulePath.includes(':')) {");
+            self.emit("    return undefined;");
+            self.emit("  }");
+            self.emit("  return Object.prototype.hasOwnProperty.call(globalThis, modulePath)");
+            self.emit("    ? globalThis[modulePath]");
+            self.emit("    : undefined;");
+            self.emit("}");
+            self.emit("function __sigil_runtime_extern_namespace(namespaceLabel, modulePath) {");
+            self.emit("  const globalModule = __sigil_runtime_extern_global(modulePath);");
+            self.emit("  if (globalModule !== undefined) {");
+            self.emit("    return globalModule;");
+            self.emit("  }");
+            self.emit("  let loadedModule = undefined;");
+            self.emit("  let loadPromise = null;");
+            self.emit("  function loadModule() {");
+            self.emit("    if (loadedModule !== undefined) {");
+            self.emit("      return Promise.resolve(loadedModule);");
+            self.emit("    }");
+            self.emit("    if (loadPromise) {");
+            self.emit("      return loadPromise;");
+            self.emit("    }");
+            self.emit("    loadPromise = import(modulePath).then(");
+            self.emit("      (resolvedModule) => {");
+            self.emit("        loadedModule = resolvedModule ?? null;");
+            self.emit("        return loadedModule;");
+            self.emit("      },");
+            self.emit("      () => {");
+            self.emit("        throw __sigil_runtime_extern_reference_error(namespaceLabel, null);");
+            self.emit("      }");
+            self.emit("    );");
+            self.emit("    return loadPromise;");
+            self.emit("  }");
+            self.emit("  return new Proxy(Object.create(null), {");
+            self.emit("    get(_target, prop) {");
+            self.emit("      if (prop === Symbol.toStringTag) {");
+            self.emit("        return 'SigilExternNamespace';");
+            self.emit("      }");
+            self.emit("      if (prop === 'then') {");
+            self.emit("        return undefined;");
+            self.emit("      }");
+            self.emit("      return function __sigil_runtime_extern_member(...args) {");
+            self.emit("        return loadModule().then((resolvedModule) => {");
+            self.emit("          const member = resolvedModule?.[prop];");
+            self.emit("          if (member === undefined) {");
+            self.emit("            throw __sigil_runtime_extern_reference_error(namespaceLabel, String(prop));");
+            self.emit("          }");
+            self.emit("          if (typeof member !== 'function') {");
+            self.emit("            throw new TypeError(`${String(namespaceLabel)}.${String(prop)} is not a function`);");
+            self.emit("          }");
+            self.emit("          return member.apply(resolvedModule, args);");
+            self.emit("        });");
+            self.emit("      };");
+            self.emit("    }");
+            self.emit("  });");
+            self.emit("}");
+        }
         self.emit_block(COVERAGE_RUNTIME_HELPERS);
         self.emit_block(REPLAY_RUNTIME_HELPERS);
         if include_world_runtime {
@@ -4493,16 +4564,24 @@ impl TypeScriptGenerator {
             if let Some(local_root) = find_output_root(output_path) {
                 let target_abs = local_root
                     .join(target_module_id.replace("::", "/"))
-                    .with_extension("js");
+                    .with_extension(&self.import_extension);
                 relative_import_path(
                     output_path.parent().unwrap_or_else(|| Path::new(".")),
                     &target_abs,
                 )
             } else {
-                format!("./{}.js", target_module_id.replace("::", "/"))
+                format!(
+                    "./{}.{}",
+                    target_module_id.replace("::", "/"),
+                    self.import_extension
+                )
             }
         } else {
-            format!("./{}.js", target_module_id.replace("::", "/"))
+            format!(
+                "./{}.{}",
+                target_module_id.replace("::", "/"),
+                self.import_extension
+            )
         };
 
         self.emit(&format!(
@@ -4514,6 +4593,19 @@ impl TypeScriptGenerator {
     }
 
     fn generate_extern(&mut self, extern_decl: &ExternDecl) -> Result<(), CodegenError> {
+        if self.lazy_extern_namespaces {
+            let namespace = sanitize_js_identifier(&extern_decl.module_path.join("_"));
+            let namespace_label_json =
+                serde_json::to_string(&extern_decl.module_path.join("::")).unwrap();
+            let module_path_json =
+                serde_json::to_string(&extern_decl.module_path.join("/")).unwrap();
+            self.emit(&format!(
+                "const {} = __sigil_runtime_extern_namespace({}, {});",
+                namespace, namespace_label_json, module_path_json
+            ));
+            return Ok(());
+        }
+
         // Extern declarations become ES module imports
         let module_path = extern_decl.module_path.join("/");
         if extern_decl
@@ -7741,6 +7833,8 @@ mod tests {
             module_id: None,
             source_file: Some("projects/algorithms/tests/rot13Encoder.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/tests/rot13Encoder.ts".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -7759,6 +7853,8 @@ mod tests {
             output_file: Some(
                 "/tmp/language/stdlib-tests/.local/tests/numericPredicates.ts".to_string(),
             ),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -7779,6 +7875,8 @@ mod tests {
             output_file: Some(
                 "/repo/.local/temp-project/.local/src/topology.ts".to_string(),
             ),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -7801,6 +7899,8 @@ mod tests {
                 "/repo/projects/app/.local/package/featureFlagStorefrontFlags/v20260412_140000/flags.ts"
                     .to_string(),
             ),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -7901,6 +8001,8 @@ mod tests {
             module_id: None,
             source_file: Some("projects/algorithms/src/topologicalSort.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/src/topologicalSort.ts".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -7920,6 +8022,8 @@ mod tests {
             module_id: None,
             source_file: Some("tests/smoke.sigil".to_string()),
             output_file: Some("/tmp/tests/smoke.ts".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -7941,6 +8045,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -7971,6 +8077,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -8005,6 +8113,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: true,
             breakpoints: false,
             expression_debug: false,
@@ -8026,6 +8136,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: true,
             breakpoints: false,
             expression_debug: false,
@@ -8045,6 +8157,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: true,
@@ -8066,6 +8180,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
             expression_debug: false,
@@ -8090,6 +8206,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
             expression_debug: false,
@@ -8111,6 +8229,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
             expression_debug: false,
@@ -8143,6 +8263,8 @@ mod tests {
             module_id: Some("src::double".to_string()),
             source_file: Some("test.lib.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,
@@ -8195,6 +8317,8 @@ mod tests {
             module_id: Some("src::main".to_string()),
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
             expression_debug: false,

@@ -17,18 +17,22 @@ test "all check ids stay canonical" {
 test "build check result counts issues" {
   •repoAudit.buildCheckResult(
     "docs-drift",
-    [{
-      check:"docs-drift",
-      code:"docs-drift/issue",
-      line:1,
-      message:"bad",
-      path:"docs/test.md",
-      severity:"error"
-    }]
+    {
+      issues:[{
+        check:"docs-drift",
+        code:"docs-drift/issue",
+        line:1,
+        message:"bad",
+        path:"docs/test.md",
+        severity:"error"
+      }],
+      repoCompileStats:(None():Option[µRepoCompileStats])
+    }
   )={
     check:"docs-drift",
     issueCount:1,
-    ok:false
+    ok:false,
+    repoCompileStats:(None():Option[µRepoCompileStats])
   }
 }
 
@@ -81,6 +85,29 @@ test "audit and mapping helpers keep stable shapes" {
       "message"↦§json.JsonString("compiler check failed: boom"),
       "path"↦§json.JsonString("docs/test.md"),
       "severity"↦§json.JsonString("error")
+    }),
+    (•repoAudit.encodeAuditCheckResult({
+      check:"repo-compile",
+      issueCount:0,
+      ok:true,
+      repoCompileStats:Some({
+        cacheHits:1,
+        cacheMisses:0,
+        compiled:0,
+        considered:1,
+        durationMs:9
+      })
+    }):§json.JsonValue)=§json.JsonObject({
+      "check"↦§json.JsonString("repo-compile"),
+      "issueCount"↦§json.JsonNumber(0.0),
+      "ok"↦§json.JsonBool(true),
+      "repoCompileStats"↦§json.JsonObject({
+        "cacheHits"↦§json.JsonNumber(1.0),
+        "cacheMisses"↦§json.JsonNumber(0.0),
+        "compiled"↦§json.JsonNumber(0.0),
+        "considered"↦§json.JsonNumber(1.0),
+        "durationMs"↦§json.JsonNumber(9.0)
+      })
     }),
     •repoAudit.mapCanonicalIssue(canonicalIssue)={
       check:"canonical-stdlib",
@@ -250,6 +277,7 @@ test "runner surfaces argument and selection errors" =>!AuditIo {
 }
 
 test "runner executes filtered checks under a controlled world" =>!AuditIo world {
+  c fs=(†fs.sandbox(".local/repoAudit/controlled-world"):†fs.FsEntry)
   c process=(†process.fixture([
   †process.rule(
     [
@@ -296,6 +324,16 @@ projects/router/sigil.json
     }
   ),
   †process.rule(
+    (•repoCompile.compilerBinaryHashCommand(".").argv:[String]),
+    Some("."),
+    {
+      code:0,
+      stderr:"",
+      stdout:"compiler-hash
+"
+    }
+  ),
+  †process.rule(
     (•packagePublishability.packageValidateCommand(
       "projects/router",
       "."
@@ -309,13 +347,32 @@ projects/router/sigil.json
   )
 ]):†process.ProcessEntry)
 } {
+  l _=(§file.removeTree(".sigil"):Unit);
+  l _=(§file.removeTree("projects"):Unit);
+  l _=(§file.makeDirs("projects/router"):Unit);
+  l _=(§file.writeText(
+    "{
+  \"name\": \"router\",
+  \"version\": \"2026-04-05T14-58-24Z\",
+  \"publish\": {}
+}
+",
+    "projects/router/sigil.json"
+  ):Unit);
   allOk([
     match •repoAudit.runCheck("repo-compile"){
-      Ok(issues)=>issues=[]|
+      Ok(outcome)=>outcome.issues=[] and (match outcome.repoCompileStats{
+        Some(stats)=>stats.cacheHits=0
+          and stats.cacheMisses=1
+          and stats.compiled=1
+          and stats.considered=1
+          and stats.durationMs≥0|
+        None()=>false
+      })|
       Err(_)=>false
     },
     match •repoAudit.runCheck("package-publishability"){
-      Ok(issues)=>issues=[]|
+      Ok(outcome)=>outcome.issues=[] and outcome.repoCompileStats=(None():Option[µRepoCompileStats])|
       Err(_)=>false
     },
     match •repoAudit.runFromArgs([
@@ -324,13 +381,60 @@ projects/router/sigil.json
     ]){
       Ok(data)=>data.summary.checks=1
         and data.summary.issueCount=0
-        and data.summary.selectedChecks=["repo-compile"]|
+        and data.summary.selectedChecks=["repo-compile"]
+        and #data.checks=1
+        and data.checks[0].check="repo-compile"
+        and data.checks[0].issueCount=0
+        and data.checks[0].ok
+        and (match data.checks[0].repoCompileStats{
+          Some(stats)=>stats.cacheHits=1
+            and stats.cacheMisses=0
+            and stats.compiled=0
+            and stats.considered=1
+            and stats.durationMs≥0|
+          None()=>false
+        })|
       Err(_)=>false
     },
     match •repoAudit.runSelection({checks:["repo-compile"]}){
       Ok(data)=>data.summary.checks=1
         and data.summary.issueCount=0
-        and data.summary.selectedChecks=["repo-compile"]|
+        and data.summary.selectedChecks=["repo-compile"]
+        and #data.checks=1
+        and data.checks[0].check="repo-compile"
+        and data.checks[0].issueCount=0
+        and data.checks[0].ok
+        and (match data.checks[0].repoCompileStats{
+          Some(stats)=>stats.cacheHits=1
+            and stats.cacheMisses=0
+            and stats.compiled=0
+            and stats.considered=1
+            and stats.durationMs≥0|
+          None()=>false
+        })|
+      Err(_)=>false
+    },
+    match •repoAudit.runSelectionInner(
+      [],
+      ["repo-compile"],
+      [],
+      ["repo-compile"]
+    ){
+      Ok(data)=>data.summary.checks=1
+        and data.summary.issueCount=0
+        and data.summary.selectedChecks=["repo-compile"]
+        and #data.checks=1
+        and data.checks[0].check="repo-compile"
+        and data.checks[0].issueCount=0
+        and data.checks[0].ok
+        and (match data.checks[0].repoCompileStats{
+          Some(stats)=>stats.cacheHits=1
+            and stats.cacheMisses=0
+            and stats.compiled=0
+            and stats.considered=1
+            and stats.durationMs≥0|
+          None()=>false
+        })|
       Err(_)=>false
     },
     match •repoAudit.runFromArgs([
@@ -355,15 +459,22 @@ test "render helpers emit the canonical envelope" {
   l error=(•repoAudit.renderError("boom"):String);
   l success=(•repoAudit.renderSuccess({
     checks:[{
-      check:"docs-drift",
+      check:"repo-compile",
       issueCount:0,
-      ok:true
+      ok:true,
+      repoCompileStats:Some({
+        cacheHits:1,
+        cacheMisses:0,
+        compiled:0,
+        considered:1,
+        durationMs:7
+      })
     }],
     issues:[],
     summary:{
       checks:1,
       issueCount:0,
-      selectedChecks:["docs-drift"]
+      selectedChecks:["repo-compile"]
     }
   }):String);
   allOk([
@@ -385,11 +496,15 @@ test "render helpers emit the canonical envelope" {
     ),
     §string.contains(
       success,
-      "\"check\":\"docs-drift\""
+      "\"check\":\"repo-compile\""
     ),
     §string.contains(
       success,
-      "\"selectedChecks\":[\"docs-drift\"]"
+      "\"selectedChecks\":[\"repo-compile\"]"
+    ),
+    §string.contains(
+      success,
+      "\"repoCompileStats\":{\"cacheHits\":1"
     ),
     §string.contains(
       success,

@@ -1,3 +1,64 @@
+λbuildRepoCompileResult(cacheHits:Int,cacheMisses:Int,compiled:Int,considered:Int,issues:[µRepoCompileIssue],startedAt:Int)=>!Clock µRepoCompileResult={
+  l finishedAt=(§time.toEpochMillis(§time.now()):Int);
+  {
+    issues:issues,
+    stats:{
+      cacheHits:cacheHits,
+      cacheMisses:cacheMisses,
+      compiled:compiled,
+      considered:considered,
+      durationMs:finishedAt-startedAt
+    }
+  }
+}
+
+λcacheEntryPath(root:String,task:µRepoCompileTask)=>String=§path.join(
+  repoCompileCacheDir(root),
+  §crypto.sha256(task.path
+    ++"
+"
+    ++optionDefault(
+      "",
+      task.env
+    ))++".json"
+)
+
+λcacheHit(entry:Option[µRepoCompileCacheEntry],fingerprint:String)=>Bool match entry{
+  Some(current)=>current.fingerprint=fingerprint|
+  None()=>false
+}
+
+λcomparePathText(left:String,right:String)=>Bool=comparePathTextInner(
+  0,
+  §string.toLower(left),
+  §string.toLower(right)
+)
+
+λcomparePathTextInner(idx:Int,left:String,right:String)=>Bool match idx≥#left{
+  true=>idx<#right|
+  false=>match idx≥#right{
+    true=>false|
+    false=>{
+      l leftRank=(sortCharRank(§string.charAt(
+        idx,
+        left
+      )):Int);
+      l rightRank=(sortCharRank(§string.charAt(
+        idx,
+        right
+      )):Int);
+      match leftRank=rightRank{
+        true=>comparePathTextInner(
+          idx+1,
+          left,
+          right
+        )|
+        false=>leftRank<rightRank
+      }
+    }
+  }
+}
+
 λcompileIssue(result:§process.ProcessResult)=>µRepoCompileIssue match parseCompileIssue(result.stdout){
   Some(issue)=>issue|
   None()=>fallbackCompileIssue(result)
@@ -18,7 +79,7 @@
   §process.command([
     §path.join(
       task.root,
-      "language/compiler/target/debug/sigil"
+      compilerBinaryPath()
     ),
     "compile",
     task.path
@@ -94,6 +155,56 @@
   }
 }
 
+λcompileTaskState(compilerHash:String,paths:[String],task:µRepoCompileTask)=>!AuditIo Result[
+  µRepoCompileTaskState,
+  String
+] match targetFingerprint(
+  compilerHash,
+  paths,
+  task
+){
+  Ok(fingerprint)=>{
+    l entry=(readRepoCompileCacheEntry(
+      task.root,
+      task
+    ):Option[µRepoCompileCacheEntry]);
+    Ok({
+      cacheHit:cacheHit(
+        entry,
+        fingerprint
+      ),
+      fingerprint:fingerprint,
+      task:task
+    })
+  }|
+  Err(message)=>Err(message)
+}
+
+λcompileTaskStates(compilerHash:String,paths:[String],tasks:[µRepoCompileTask])=>!AuditIo Result[
+  [µRepoCompileTaskState],
+  String
+] match tasks{
+  []=>Ok([])|
+  [
+  head,
+  .tail
+]=>match compileTaskState(
+    compilerHash,
+    paths,
+    head
+  ){
+    Ok(state)=>match compileTaskStates(
+      compilerHash,
+      paths,
+      tail
+    ){
+      Ok(remaining)=>Ok([state]⧺remaining)|
+      Err(message)=>Err(message)
+    }|
+    Err(message)=>Err(message)
+  }
+}
+
 λcompileTasks(root:String,targets:[µRepoCompileTarget])=>[µRepoCompileTask] match targets{
   []=>[]|
   [
@@ -108,6 +219,28 @@
     tail
   )
 }
+
+λcompilerBinaryHash(root:String)=>!Process Result[
+  String,
+  String
+]={
+  l result=(§process.run(compilerBinaryHashCommand(root)):§process.ProcessResult);
+  match result.code=0{
+    true=>Ok((§string.trim(result.stdout):String))|
+    false=>Err("compiler hash failed: "++processOutput(result))
+  }
+}
+
+λcompilerBinaryHashCommand(root:String)=>§process.Command=§process.withCwd(
+  §process.command([
+    "git",
+    "hash-object",
+    compilerBinaryPath()
+  ]),
+  root
+)
+
+λcompilerBinaryPath()=>String="language/compiler/target/debug/sigil"
 
 λcontainsString(items:[String],value:String)=>Bool=§list.any(
   λ(item:String)=>Bool=item=value,
@@ -151,9 +284,60 @@
   }
 }
 
+λencodeRepoCompileCacheEntry(entry:µRepoCompileCacheEntry)=>String=§json.stringify(§json.JsonObject({"fingerprint"↦§json.JsonString(entry.fingerprint)}))
+
 λfallbackCompileIssue(result:§process.ProcessResult)=>µRepoCompileIssue={
   message:"compile failed: "++processOutput(result),
   path:"."
+}
+
+λfileFingerprintChunk(path:String,root:String)=>!Fs String={
+  l absolute=(§path.join(
+    root,
+    path
+  ):String);
+  match §file.exists(absolute){
+    true=>path
+      ++"
+"
+      ++§file.readText(absolute)|
+    false=>path++"
+<missing>"
+  }
+}
+
+λfindPackageInputsCommand(packageDir:String,root:String)=>§process.Command=§process.withCwd(
+  §process.command([
+    "find",
+    packageDir,
+    "-type",
+    "f",
+    "(",
+    "-name",
+    "*.sigil",
+    "-o",
+    "-name",
+    "sigil.json",
+    "-o",
+    "-name",
+    "sigil.lock",
+    ")"
+  ]),
+  root
+)
+
+λfingerprintChunks(paths:[String],root:String)=>!Fs [String] match paths{
+  []=>[]|
+  [
+  head,
+  .tail
+]=>[fileFingerprintChunk(
+    head,
+    root
+  )]⧺fingerprintChunks(
+    tail,
+    root
+  )
 }
 
 λgitTopLevel()=>!Process Result[
@@ -171,11 +355,31 @@
   }
 }
 
+λinsertSortedPath(path:String,paths:[String])=>[String] match paths{
+  []=>[path]|
+  [
+  head,
+  .tail
+]=>match comparePathText(
+    path,
+    head
+  ){
+    true=>[
+      path,
+      head
+    ]⧺tail|
+    false=>[head]⧺insertSortedPath(
+      path,
+      tail
+    )
+  }
+}
+
 λinstallDependenciesCommand(projectDir:String,root:String)=>§process.Command=§process.withCwd(
   §process.command([
     §path.join(
       root,
-      "language/compiler/target/debug/sigil"
+      compilerBinaryPath()
     ),
     "package",
     "install"
@@ -185,6 +389,30 @@
     projectDir
   )
 )
+
+λisProjectTrackedInput(path:String,task:µRepoCompileTask)=>Bool=path=task.path++"/sigil.json"
+  or path=task.path++"/sigil.lock"
+  or (match §string.startsWith(
+    task.path++"/src/",
+    path
+  ){
+    true=>isTrackedSigilPath(path)|
+    false=>false
+  })
+  or (match §string.startsWith(
+    task.path++"/config/",
+    path
+  ){
+    true=>isTrackedSigilPath(path)|
+    false=>false
+  })
+  or (match §string.startsWith(
+    task.path++"/tests/",
+    path
+  ){
+    true=>isTrackedSigilPath(path)|
+    false=>false
+  })
 
 λisTestConfigPath(path:String)=>Bool=§string.startsWith(
   "projects/",
@@ -277,9 +505,80 @@
   }
 }
 
+λmergeTaskStateOutcomes(acc:[ConcurrentOutcome[
+  Unit,
+  µRepoCompileIssue
+]],missOutcomes:[ConcurrentOutcome[
+  Unit,
+  µRepoCompileIssue
+]],states:[µRepoCompileTaskState])=>[ConcurrentOutcome[
+  Unit,
+  µRepoCompileIssue
+]] match states{
+  []=>acc|
+  [
+  head,
+  .tail
+]=>match head.cacheHit{
+    true=>mergeTaskStateOutcomes(
+      acc⧺[Success(())],
+      missOutcomes,
+      tail
+    )|
+    false=>match missOutcomes{
+      []=>mergeTaskStateOutcomes(
+        acc⧺[Aborted()],
+        [],
+        tail
+      )|
+      [
+  outcome,
+  .remaining
+]=>mergeTaskStateOutcomes(
+        acc⧺[outcome],
+        remaining,
+        tail
+      )
+    }
+  }
+}
+
+λnonEmpty(text:String)=>Bool=#text>0
+
 λoptionDefault(fallback:String,value:Option[String])=>String match value{
   Some(text)=>text|
   None()=>fallback
+}
+
+λpackageInputDir(task:µRepoCompileTask)=>String=§path.join(
+  task.path,
+  ".sigil/packages"
+)
+
+λpackageInputPaths(task:µRepoCompileTask)=>!AuditIo Result[
+  [String],
+  String
+] match task.path="language"{
+  true=>Ok([])|
+  false=>{
+    l dir=(packageInputDir(task):String);
+    match §file.exists(§path.join(
+      task.root,
+      dir
+    )){
+      true=>match parsePathListResult(
+        "package input discovery failed: ",
+        (§process.run(findPackageInputsCommand(
+          dir,
+          task.root
+        )):§process.ProcessResult)
+      ){
+        Ok(paths)=>Ok(sortPaths(paths))|
+        Err(message)=>Err(message)
+      }|
+      false=>Ok([])
+    }
+  }
 }
 
 λpackageInstallIssue(projectDir:String,result:§process.ProcessResult)=>µRepoCompileIssue={
@@ -313,14 +612,49 @@
   Err(_)=>None()
 }
 
-λprocessCompileTask(task:µRepoCompileTask)=>!Process Result[
+λparsePathListResult(prefix:String,result:§process.ProcessResult)=>Result[
+  [String],
+  String
+] match result.code=0{
+  true=>Ok((§string.lines(result.stdout):[String]) filter nonEmpty)|
+  false=>Err(prefix++processOutput(result))
+}
+
+λparseRepoCompileCacheEntry(text:String)=>Option[µRepoCompileCacheEntry] match §json.parse(text){
+  Ok(value)=>match §json.asObject(value){
+    Some(obj)=>match jsonStringField(
+      "fingerprint",
+      obj
+    ){
+      Some(fingerprint)=>Some({fingerprint:fingerprint})|
+      None()=>None()
+    }|
+    None()=>None()
+  }|
+  Err(_)=>None()
+}
+
+λprocessCompileTaskState(state:µRepoCompileTaskState)=>!AuditIo Result[
   Unit,
   µRepoCompileIssue
 ]={
-  l result=(§process.run(compileTargetCommand(task)):§process.ProcessResult);
+  l result=(§process.run(compileTargetCommand(state.task)):§process.ProcessResult);
   match result.code=0{
-    true=>Ok(())|
-    false=>Err(compileIssue(result))
+    true=>{
+      l _=(writeRepoCompileCacheEntry(
+        {fingerprint:state.fingerprint},
+        state.task.root,
+        state.task
+      ):Unit);
+      Ok(())
+    }|
+    false=>{
+      l _=(removeRepoCompileCacheEntry(
+        state.task.root,
+        state.task
+      ):Unit);
+      Err(compileIssue(result))
+    }
   }
 }
 
@@ -340,47 +674,109 @@
   false=>None()
 }
 
-λrunCheck()=>!AuditIo Result[
-  [µRepoCompileIssue],
-  String
-] match gitTopLevel(){
-  Ok(root)=>match •packagePublishability.gitTrackedFiles(){
-    Ok(paths)=>{
-      l installIssues=(runDependencyInstalls(
-        dependencyProjectDirs(
-          •packagePublishability.manifestPaths(paths),
-          root
-        ),
-        root
-      ):[µRepoCompileIssue]);
-      match #installIssues=0{
-        true=>Ok(runCompileTargets(
-          root,
-          compileTargets(paths)
-        ))|
-        false=>Ok(installIssues)
-      }
-    }|
-    Err(message)=>Err(message)
-  }|
-  Err(message)=>Err(message)
+λreadRepoCompileCacheEntry(root:String,task:µRepoCompileTask)=>!Fs Option[µRepoCompileCacheEntry]={
+  l path=(cacheEntryPath(
+    root,
+    task
+  ):String);
+  match §file.exists(path){
+    true=>parseRepoCompileCacheEntry(§file.readText(path))|
+    false=>None()
+  }
 }
 
-λrunCompileTargets(root:String,targets:[µRepoCompileTarget])=>!Process [µRepoCompileIssue]={
-  l tasks=(compileTasks(
+λremoveRepoCompileCacheEntry(root:String,task:µRepoCompileTask)=>!Fs Unit={
+  l path=(cacheEntryPath(
     root,
-    targets
-  ):[µRepoCompileTask]);
-  mergeCompileTaskOutcomes(
-    [],
-    (concurrent repoCompile@3{
-      spawnEach tasks processCompileTask
-    }:[ConcurrentOutcome[
+    task
+  ):String);
+  match §file.exists(path){
+    true=>§file.remove(path)|
+    false=>()
+  }
+}
+
+λrepoCompileCacheDir(root:String)=>String=§path.join(
+  root,
+  ".sigil/cache/repoAudit/repo-compile-v1"
+)
+
+λrepoCompileCacheVersion()=>String="repo-compile-v1"
+
+λrunCheck()=>!AuditIo Result[
+  µRepoCompileResult,
+  String
+]={
+  l startedAt=(§time.toEpochMillis(§time.now()):Int);
+  match gitTopLevel(){
+    Ok(root)=>match •packagePublishability.gitTrackedFiles(){
+      Ok(paths)=>{
+        l targets=(compileTargets(paths):[µRepoCompileTarget]);
+        l installIssues=(runDependencyInstalls(
+          dependencyProjectDirs(
+            •packagePublishability.manifestPaths(paths),
+            root
+          ),
+          root
+        ):[µRepoCompileIssue]);
+        match #installIssues=0{
+          true=>match compilerBinaryHash(root){
+            Ok(hash)=>match compileTaskStates(
+              hash,
+              paths,
+              (compileTasks(
+                root,
+                targets
+              ):[µRepoCompileTask])
+            ){
+              Ok(states)=>{
+                l misses=(states filter (λ(state:µRepoCompileTaskState)=>Bool=¬state.cacheHit):[µRepoCompileTaskState]);
+                Ok((buildRepoCompileResult(
+                  §list.countIf(
+                    λ(state:µRepoCompileTaskState)=>Bool=state.cacheHit,
+                    states
+                  ),
+                  #misses,
+                  #misses,
+                  #targets,
+                  mergeCompileTaskOutcomes(
+                    [],
+                    (mergeTaskStateOutcomes(
+                      [],
+                      (concurrent repoCompile@3{
+                        spawnEach misses processCompileTaskState
+                      }:[ConcurrentOutcome[
   Unit,
   µRepoCompileIssue
 ]]),
-    tasks
-  )
+                      states
+                    ):[ConcurrentOutcome[
+  Unit,
+  µRepoCompileIssue
+]]),
+                    states map (λ(state:µRepoCompileTaskState)=>µRepoCompileTask=state.task)
+                  ),
+                  startedAt
+                ):µRepoCompileResult))
+              }|
+              Err(message)=>Err(message)
+            }|
+            Err(message)=>Err(message)
+          }|
+          false=>Ok((buildRepoCompileResult(
+            0,
+            0,
+            0,
+            #targets,
+            installIssues,
+            startedAt
+          ):µRepoCompileResult))
+        }
+      }|
+      Err(message)=>Err(message)
+    }|
+    Err(message)=>Err(message)
+  }
 }
 
 λrunDependencyInstalls(projectDirs:[String],root:String)=>!Process [µRepoCompileIssue] match projectDirs{
@@ -416,4 +812,118 @@
   .tail
 ]=>Some(second)|
   _=>None()
+}
+
+λsortCharRank(ch:String)=>Int match ch{
+  "-"=>0|
+  "."=>1|
+  "/"=>2|
+  "_"=>3|
+  "0"=>10|
+  "1"=>11|
+  "2"=>12|
+  "3"=>13|
+  "4"=>14|
+  "5"=>15|
+  "6"=>16|
+  "7"=>17|
+  "8"=>18|
+  "9"=>19|
+  "a"=>30|
+  "b"=>31|
+  "c"=>32|
+  "d"=>33|
+  "e"=>34|
+  "f"=>35|
+  "g"=>36|
+  "h"=>37|
+  "i"=>38|
+  "j"=>39|
+  "k"=>40|
+  "l"=>41|
+  "m"=>42|
+  "n"=>43|
+  "o"=>44|
+  "p"=>45|
+  "q"=>46|
+  "r"=>47|
+  "s"=>48|
+  "t"=>49|
+  "u"=>50|
+  "v"=>51|
+  "w"=>52|
+  "x"=>53|
+  "y"=>54|
+  "z"=>55|
+  _=>90
+}
+
+λsortPaths(paths:[String])=>[String] match paths{
+  []=>[]|
+  [
+  head,
+  .tail
+]=>insertSortedPath(
+    head,
+    sortPaths(tail)
+  )
+}
+
+λtargetFingerprint(compilerHash:String,paths:[String],task:µRepoCompileTask)=>!AuditIo Result[
+  String,
+  String
+] match packageInputPaths(task){
+  Ok(packagePaths)=>{
+    l chunks=(fingerprintChunks(
+      (sortPaths(targetTrackedInputPaths(
+        paths,
+        task
+      )⧺packagePaths):[String]),
+      task.root
+    ):[String]);
+    Ok(§crypto.sha256(repoCompileCacheVersion()
+      ++"
+"
+      ++compilerHash
+      ++"
+"
+      ++task.path
+      ++"
+"
+      ++optionDefault(
+        "",
+        task.env
+      )
+      ++"
+"
+      ++§string.join(
+        "
+====repo-compile-input====
+",
+        chunks
+      )))
+  }|
+  Err(message)=>Err(message)
+}
+
+λtargetTrackedInputPaths(paths:[String],task:µRepoCompileTask)=>[String]=sortPaths(match task.path="language"{
+  true=>paths filter (λ(path:String)=>Bool=§string.startsWith(
+    "language/",
+    path
+  ) and isTrackedSigilPath(path))|
+  false=>paths filter (λ(path:String)=>Bool=isProjectTrackedInput(
+    path,
+    task
+  ))
+})
+
+λwriteRepoCompileCacheEntry(entry:µRepoCompileCacheEntry,root:String,task:µRepoCompileTask)=>!Fs Unit={
+  l _=(§file.makeDirs(repoCompileCacheDir(root)):Unit);
+  §file.writeText(
+    encodeRepoCompileCacheEntry(entry),
+    cacheEntryPath(
+      root,
+      task
+    )
+  )
 }

@@ -17,6 +17,21 @@ V1 owns four checks:
 
 In both cases, the merged issue order still follows the canonical path order.
 
+`repo-compile` also keeps a repoAudit-local cache under
+`.sigil/cache/repoAudit/repo-compile-v1/`. Full runs still consider every
+tracked compile root, but unchanged roots can skip spawning `sigil compile`
+entirely. The JSON success envelope reports only compact summary stats for that
+cache:
+
+- `considered`
+- `cacheHits`
+- `cacheMisses`
+- `compiled`
+- `durationMs`
+
+This cache sits on top of the compiler-owned compile cache. repoAudit owns only
+the decision to skip the subprocess when a root fingerprint still matches.
+
 ## Running it
 
 From the repo root:

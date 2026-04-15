@@ -1,7 +1,13 @@
 t AuditCheckResult={
   check:String,
   issueCount:Int,
-  ok:Bool
+  ok:Bool,
+  repoCompileStats:Option[RepoCompileStats]
+}
+
+t AuditCheckOutcome={
+  issues:[AuditIssue],
+  repoCompileStats:Option[RepoCompileStats]
 }
 
 t AuditData={
@@ -56,6 +62,21 @@ t RepoCompileIssue={
   path:String
 }
 
+t RepoCompileCacheEntry={fingerprint:String}
+
+t RepoCompileResult={
+  issues:[RepoCompileIssue],
+  stats:RepoCompileStats
+}
+
+t RepoCompileStats={
+  cacheHits:Int,
+  cacheMisses:Int,
+  compiled:Int,
+  considered:Int,
+  durationMs:Int
+}
+
 t RepoCompileTarget={
   env:Option[String],
   path:String
@@ -65,6 +86,12 @@ t RepoCompileTask={
   env:Option[String],
   path:String,
   root:String
+}
+
+t RepoCompileTaskState={
+  cacheHit:Bool,
+  fingerprint:String,
+  task:RepoCompileTask
 }
 
 t PackagePublishabilityIssue={

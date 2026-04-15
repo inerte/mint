@@ -14,17 +14,26 @@
   severity:"error"
 }
 
-λbuildCheckResult(check:String,issues:[µAuditIssue])=>µAuditCheckResult={
+λbuildCheckResult(check:String,outcome:µAuditCheckOutcome)=>µAuditCheckResult={
   check:check,
-  issueCount:#issues,
-  ok:#issues=0
+  issueCount:#outcome.issues,
+  ok:#outcome.issues=0,
+  repoCompileStats:outcome.repoCompileStats
 }
 
-λencodeAuditCheckResult(result:µAuditCheckResult)=>§json.JsonValue=§json.JsonObject({
-  "check"↦§json.JsonString(result.check),
-  "issueCount"↦§json.JsonNumber(§float.toFloat(result.issueCount)),
-  "ok"↦§json.JsonBool(result.ok)
-})
+λencodeAuditCheckResult(result:µAuditCheckResult)=>§json.JsonValue match result.repoCompileStats{
+  Some(stats)=>§json.JsonObject({
+    "check"↦§json.JsonString(result.check),
+    "issueCount"↦§json.JsonNumber(§float.toFloat(result.issueCount)),
+    "ok"↦§json.JsonBool(result.ok),
+    "repoCompileStats"↦encodeRepoCompileStats(stats)
+  })|
+  None()=>§json.JsonObject({
+    "check"↦§json.JsonString(result.check),
+    "issueCount"↦§json.JsonNumber(§float.toFloat(result.issueCount)),
+    "ok"↦§json.JsonBool(result.ok)
+  })
+}
 
 λencodeAuditData(data:µAuditData)=>§json.JsonValue=§json.JsonObject({
   "checks"↦§json.JsonArray(data.checks map encodeAuditCheckResult),
@@ -48,6 +57,14 @@
 })
 
 λencodeError(message:String)=>§json.JsonValue=§json.JsonObject({"message"↦§json.JsonString(message)})
+
+λencodeRepoCompileStats(stats:µRepoCompileStats)=>§json.JsonValue=§json.JsonObject({
+  "cacheHits"↦§json.JsonNumber(§float.toFloat(stats.cacheHits)),
+  "cacheMisses"↦§json.JsonNumber(§float.toFloat(stats.cacheMisses)),
+  "compiled"↦§json.JsonNumber(§float.toFloat(stats.compiled)),
+  "considered"↦§json.JsonNumber(§float.toFloat(stats.considered)),
+  "durationMs"↦§json.JsonNumber(§float.toFloat(stats.durationMs))
+})
 
 λinsertUnique(item:String,items:[String])=>[String] match §list.contains(
   item,
@@ -182,24 +199,38 @@
   "phase"↦§json.JsonString("audit")
 }))
 
+λrepoCompileOutcome(result:µRepoCompileResult)=>µAuditCheckOutcome={
+  issues:mapRepoCompileIssues(result.issues),
+  repoCompileStats:Some(result.stats)
+}
+
 λrunCheck(checkId:String)=>!AuditIo Result[
-  [µAuditIssue],
+  µAuditCheckOutcome,
   String
 ] match checkId{
   "canonical-stdlib"=>match •canonicalStdlibUsage.runCheck(){
-    Ok(issues)=>Ok(mapCanonicalIssues(issues))|
+    Ok(issues)=>Ok({
+      issues:mapCanonicalIssues(issues),
+      repoCompileStats:None()
+    })|
     Err(message)=>Err(message)
   }|
   "docs-drift"=>match •docsDrift.runRepoCheck(){
-    Ok(issues)=>Ok(mapDocsDriftIssues(issues))|
+    Ok(issues)=>Ok({
+      issues:mapDocsDriftIssues(issues),
+      repoCompileStats:None()
+    })|
     Err(message)=>Err(message)
   }|
   "repo-compile"=>match •repoCompile.runCheck(){
-    Ok(issues)=>Ok(mapRepoCompileIssues(issues))|
+    Ok(result)=>Ok(repoCompileOutcome(result))|
     Err(message)=>Err(message)
   }|
   "package-publishability"=>match •packagePublishability.runCheck(){
-    Ok(issues)=>Ok(mapPackagePublishabilityIssues(issues))|
+    Ok(issues)=>Ok({
+      issues:mapPackagePublishabilityIssues(issues),
+      repoCompileStats:None()
+    })|
     Err(message)=>Err(message)
   }|
   _=>Err("unknown check '"
@@ -242,12 +273,12 @@
   checkId,
   .tail
 ]=>match runCheck(checkId){
-    Ok(currentIssues)=>runSelectionInner(
-      issues⧺currentIssues,
+    Ok(current)=>runSelectionInner(
+      issues⧺current.issues,
       tail,
       reports⧺[buildCheckResult(
         checkId,
-        currentIssues
+        current
       )],
       selectedChecks
     )|

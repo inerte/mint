@@ -15,6 +15,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ String predicates (prefix/suffix checking) - `stdlib/string`
 - ✅ File system operations - `stdlib/file`
 - ✅ Process execution for harnesses and tooling - `stdlib/process`
+- ✅ PTY-backed interactive sessions - `stdlib/pty`
 - ✅ Random number generation and collection helpers - `stdlib/random`
 - ✅ Regular-expression compile/test/search with all-matches support - `stdlib/regex`
 - ✅ Float arithmetic and math functions - `stdlib/float`
@@ -152,7 +153,7 @@ Current `§featureFlags.get` precedence is:
 `Entry[C]` and `Set[C]` let one config snapshot hold multiple flag value types
 while keeping the context type explicit.
 
-## File, Path, Process, Stream, Random, JSON, Time, and URL
+## File, Path, Process, Pty, Stream, Random, JSON, Time, and URL
 
 `§file` exposes canonical UTF-8 filesystem helpers:
 
@@ -231,6 +232,29 @@ The canonical process surface is:
 
 Commands are argv-based only. Non-zero exit status is returned in
 `ProcessResult.code`; it is not a separate failure channel.
+
+`§pty` exposes canonical interactive PTY sessions backed by `§stream`:
+
+```sigil decl §pty
+t Event=Output(String)|Exit(Int)
+t Session={pid:Int}
+t Spawn={argv:[String],cols:Int,cwd:Option[String],env:{String↦String},rows:Int}
+
+λclose(session:Session)=>!Pty Unit
+λevents(session:Session)=>!Pty §stream.Source[Event]
+λresize(cols:Int,rows:Int,session:Session)=>!Pty Unit
+λspawn(request:Spawn)=>!Pty Session
+λspawnAt(handle:§topology.PtyHandle,request:Spawn)=>!Pty Session
+λwait(session:Session)=>!Pty Int
+λwrite(input:String,session:Session)=>!Pty Unit
+```
+
+PTY rules:
+- `events` exposes one combined terminal stream
+- `Output(text)` carries terminal chunks in arrival order
+- `Exit(code)` is emitted once when the session terminates
+- `wait` resolves to the same exit code reported by the session
+- `spawnAt` is the named-boundary variant for topology-aware projects and takes a `§topology.PtyHandle`
 
 `§stream` exposes canonical pull-based runtime event sources:
 

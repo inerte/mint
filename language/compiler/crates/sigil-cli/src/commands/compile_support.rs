@@ -287,6 +287,56 @@ fn compiler_binary_hash() -> Result<String, CliError> {
         .map_err(CliError::Codegen)
 }
 
+fn resolve_pty_runtime_helper_path() -> Result<PathBuf, CliError> {
+    let executable = std::env::current_exe().map_err(|error| {
+        CliError::Codegen(format!("failed to resolve compiler executable path: {error}"))
+    })?;
+    let executable_dir = executable.parent().ok_or_else(|| {
+        CliError::Codegen(format!(
+            "failed to resolve compiler executable directory for '{}'",
+            executable.display()
+        ))
+    })?;
+
+    let mut candidates = vec![
+        executable_dir.join("runtime").join("node").join("pty-runtime.mjs"),
+        executable_dir
+            .parent()
+            .map(|root| root.join("share").join("sigil").join("runtime").join("node").join("pty-runtime.mjs"))
+            .unwrap_or_else(|| PathBuf::from("__missing__")),
+    ];
+
+    for ancestor in executable_dir.ancestors() {
+        candidates.push(
+            ancestor
+                .join("language")
+                .join("runtime")
+                .join("node")
+                .join("pty-runtime.mjs"),
+        );
+    }
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return fs::canonicalize(candidate).map_err(|error| {
+                CliError::Codegen(format!("failed to canonicalize PTY runtime helper path: {error}"))
+            });
+        }
+    }
+
+    Err(CliError::Codegen(format!(
+        "failed to locate bundled PTY runtime helper next to '{}'",
+        executable.display()
+    )))
+}
+
+fn pty_runtime_import_specifier() -> Result<String, CliError> {
+    Ok(format!(
+        "file://{}",
+        resolve_pty_runtime_helper_path()?.display()
+    ))
+}
+
 fn output_flavor_tag(output_flavor: OutputFlavor) -> &'static str {
     match output_flavor {
         OutputFlavor::TypeScript => "ts",
@@ -1329,6 +1379,7 @@ pub(super) fn generate_module_graph_outputs(
             source_file: Some(module.file_path.to_string_lossy().to_string()),
             output_file: Some(output_path.to_string_lossy().to_string()),
             import_extension: output_flavor.import_extension().to_string(),
+            pty_runtime_import_specifier: pty_runtime_import_specifier().ok(),
             lazy_extern_namespaces: output_flavor == OutputFlavor::RuntimeEsm,
             trace,
             breakpoints,
@@ -1680,17 +1731,20 @@ function __sigil_runtime_fail(code, message) {{
 function __sigil_runtime_collect_topology(moduleExports) {{
   const envs = new Set();
   const http = new Set();
+  const ptyHandles = new Set();
   const tcp = new Set();
   for (const value of Object.values(moduleExports ?? {{}})) {{
     if (value?.__tag === 'Environment') {{
       envs.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'HttpServiceDependency') {{
       http.add(String(value.__fields?.[0] ?? ''));
+    }} else if (value?.__tag === 'PtyHandle') {{
+      ptyHandles.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'TcpServiceDependency') {{
       tcp.add(String(value.__fields?.[0] ?? ''));
     }}
   }}
-  return {{ envs, http, tcp }};
+  return {{ envs, http, ptyHandles, tcp }};
 }}
 
 function __sigil_runtime_collect_world_dependency_names(entries, expectedTag) {{
@@ -1721,7 +1775,7 @@ function __sigil_runtime_read_world(configExports) {{
   if (!world || typeof world !== 'object') {{
     __sigil_runtime_fail("{invalid_config}", "config module must export a 'world' value");
   }}
-  for (const field of ['clock', 'fs', 'http', 'log', 'process', 'random', 'stream', 'tcp', 'timer']) {{
+  for (const field of ['clock', 'fs', 'http', 'log', 'pty', 'process', 'random', 'stream', 'tcp', 'timer']) {{
     if (!(field in world)) {{
       __sigil_runtime_fail("{invalid_config}", `world is missing '${{field}}'`);
     }}
@@ -1803,6 +1857,7 @@ function __sigil_runtime_collect_local_topology(moduleExports) {{
   const http = new Set();
   const logSinks = new Set();
   const processHandles = new Set();
+  const ptyHandles = new Set();
   const tcp = new Set();
   for (const value of Object.values(moduleExports ?? {{}})) {{
     if (value?.__tag === 'Environment') {{
@@ -1815,11 +1870,13 @@ function __sigil_runtime_collect_local_topology(moduleExports) {{
       logSinks.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'ProcessHandle') {{
       processHandles.add(String(value.__fields?.[0] ?? ''));
+    }} else if (value?.__tag === 'PtyHandle') {{
+      ptyHandles.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'TcpServiceDependency') {{
       tcp.add(String(value.__fields?.[0] ?? ''));
     }}
   }}
-  return {{ envs, fsRoots, http, logSinks, processHandles, tcp }};
+  return {{ envs, fsRoots, http, logSinks, processHandles, ptyHandles, tcp }};
 }}
 
 function __sigil_runtime_local_topology_declared(topology) {{
@@ -1827,6 +1884,7 @@ function __sigil_runtime_local_topology_declared(topology) {{
     topology.fsRoots.size > 0 ||
     topology.http.size > 0 ||
     topology.logSinks.size > 0 ||
+    topology.ptyHandles.size > 0 ||
     topology.processHandles.size > 0 ||
     topology.tcp.size > 0;
 }}

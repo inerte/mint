@@ -5,6 +5,7 @@
   "description": "Sigil - A machine-first programming language optimized for AI code generation",
   "private": true,
   "workspaces": [
+    "language/runtime/node",
     "projects/todo-app",
     "projects/minesweep",
     "projects/game-2048",

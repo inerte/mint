@@ -235,6 +235,7 @@ Current primitive effects are:
 - `Http`
 - `Log`
 - `Process`
+- `Pty`
 - `Random`
 - `Stream`
 - `Tcp`

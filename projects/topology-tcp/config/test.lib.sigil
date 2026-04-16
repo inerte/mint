@@ -6,6 +6,7 @@ c world=(†runtime.world(
   [],
   †log.capture(),
   †process.real(),
+  †pty.real(),
   †random.seeded(1337),
   †stream.live(),
   [†tcp.proxy(

@@ -1,0 +1,111 @@
+c assistantShell=(§topology.ptyHandle("assistantShell"):§topology.PtyHandle)
+
+c world=(†runtime.withPtyHandles(
+  [†pty.realHandle(assistantShell)],
+  †runtime.world(
+    †clock.systemClock(),
+    †fs.real(),
+    [],
+    †log.capture(),
+    †process.real(),
+    †pty.real(),
+    †random.seeded(1337),
+    †stream.live(),
+    [],
+    †timer.virtual()
+  )
+):†runtime.World)
+
+λmain()=>Unit=()
+
+test "pty fixture streams scripted output and exit" =>!Pty!Stream world {
+  c pty=(†pty.fixture([†pty.rule(
+  [
+    §pty.Output("ready
+"),
+    §pty.Exit(0)
+  ],
+  {
+    argv:["codex"],
+    cols:120,
+    cwd:Some("/tmp/syntarch"),
+    env:({↦}:{String↦String}),
+    rows:40
+  },
+  ["help
+"]
+)]):†pty.PtyEntry)
+} {
+  l session=(§pty.spawn({
+    argv:["codex"],
+    cols:120,
+    cwd:Some("/tmp/syntarch"),
+    env:({↦}:{String↦String}),
+    rows:40
+  }):§pty.Session);
+  l _=(§pty.write(
+    "help
+",
+    session
+  ):Unit);
+  l events=(§pty.events(session):§stream.Source[§pty.Event]);
+  l first=(§stream.next(events):§stream.Next[§pty.Event]);
+  l second=(§stream.next(events):§stream.Next[§pty.Event]);
+  (match first{
+    §stream.Item(§pty.Output(text))=>text="ready
+"|
+    _=>false
+  })
+    and (match second{
+      §stream.Item(§pty.Exit(code))=>code=0|
+      _=>false
+    })
+    and (§pty.wait(session):Int)=0
+    and ※check::pty.spawnedOnce()
+    and ※check::pty.wrote("help
+")
+}
+
+test "pty handle fixtures capture resizes and closes" =>!Pty!Stream world {
+  c ptyHandle=(†pty.fixtureHandle(
+  assistantShell,
+  [†pty.rule(
+    [§pty.Exit(0)],
+    {
+      argv:["claude"],
+      cols:100,
+      cwd:Some("/tmp/syntarch"),
+      env:({↦}:{String↦String}),
+      rows:30
+    },
+    []
+  )]
+):†pty.PtyHandleEntry)
+} {
+  l session=(§pty.spawnAt(
+    assistantShell,
+    {
+      argv:["claude"],
+      cols:100,
+      cwd:Some("/tmp/syntarch"),
+      env:({↦}:{String↦String}),
+      rows:30
+    }
+  ):§pty.Session);
+  l _=(§pty.resize(
+    132,
+    48,
+    session
+  ):Unit);
+  l _=(§pty.close(session):Unit);
+  match §stream.next((§pty.events(session):§stream.Source[§pty.Event])){
+    §stream.Done()=>※check::pty.closedAt(assistantShell)
+      and ※check::pty.resizedToAt(
+        132,
+        assistantShell,
+        48
+      )
+      and ※check::pty.spawnedOnceAt(assistantShell)|
+    §stream.Item(_)=>false
+  }
+}

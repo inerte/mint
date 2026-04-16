@@ -1,0 +1,31 @@
+λclosed()=>Bool=※observe::pty.closeCount()>0
+
+λclosedAt(handle:§topology.PtyHandle)=>Bool=※observe::pty.closeCountAt(handle)>0
+
+λresizedTo(cols:Int,rows:Int)=>Bool=§list.any(
+  λ(entry:※observe::pty.Resize)=>Bool=entry.cols=cols and entry.rows=rows,
+  ※observe::pty.resizes()
+)
+
+λresizedToAt(cols:Int,handle:§topology.PtyHandle,rows:Int)=>Bool=§list.any(
+  λ(entry:※observe::pty.Resize)=>Bool=entry.cols=cols and entry.rows=rows,
+  ※observe::pty.resizesAt(handle)
+)
+
+λspawned()=>Bool=※observe::pty.spawnCount()>0
+
+λspawnedAt(handle:§topology.PtyHandle)=>Bool=※observe::pty.spawnCountAt(handle)>0
+
+λspawnedOnce()=>Bool=※observe::pty.spawnCount()=1
+
+λspawnedOnceAt(handle:§topology.PtyHandle)=>Bool=※observe::pty.spawnCountAt(handle)=1
+
+λwrote(text:String)=>Bool=§list.any(
+  λ(entry:String)=>Bool=entry=text,
+  ※observe::pty.writes()
+)
+
+λwroteAt(handle:§topology.PtyHandle,text:String)=>Bool=§list.any(
+  λ(entry:String)=>Bool=entry=text,
+  ※observe::pty.writesAt(handle)
+)

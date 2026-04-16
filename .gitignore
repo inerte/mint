@@ -12,6 +12,13 @@ dist/
 # Generated runtime/stdlib
 language/compiler/stdlib/
 language/runtime/
+!language/runtime/
+language/runtime/*
+!language/runtime/node/
+language/runtime/node/*
+!language/runtime/node/package.json
+!language/runtime/node/package-lock.json
+!language/runtime/node/pty-runtime.mjs
 
 # Compiled Sigil programs and temporary files
 .local/

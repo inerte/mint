@@ -28,6 +28,7 @@ class Sigil < Formula
   def install
     bin.install "sigil"
     pkgshare.install "README.txt"
+    pkgshare.install "runtime"
   end
 
   test do

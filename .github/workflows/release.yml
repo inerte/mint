@@ -96,6 +96,10 @@ jobs:
           /usr/bin/xcodebuild -version
           /usr/bin/clang++ --version | head -n 1
 
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.94.1
@@ -189,6 +193,12 @@ jobs:
           fi
           test "$version" = "sigil ${SIGIL_VERSION}"
 
+      - name: Install bundled PTY runtime
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          npm install --prefix language/runtime/node --registry=https://registry.npmjs.org
+
       - name: Package unix archive
         if: runner.os != 'Windows'
         env:
@@ -199,6 +209,8 @@ jobs:
           stage_dir="dist/${base}"
           mkdir -p "${stage_dir}"
           cp "language/compiler/target/${{ matrix.target }}/dist/sigil" "${stage_dir}/sigil"
+          mkdir -p "${stage_dir}/runtime"
+          cp -R "language/runtime/node" "${stage_dir}/runtime/node"
           cp LICENSE "${stage_dir}/LICENSE"
           printf "Sigil %s\n\nRun ./sigil --help\n" "${SIGIL_VERSION}" > "${stage_dir}/README.txt"
           tar -C dist -czf "dist/${base}.tar.gz" "${base}"

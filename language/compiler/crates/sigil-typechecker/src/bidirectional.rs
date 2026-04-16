@@ -5011,6 +5011,10 @@ fn is_log_sink_type(typ: &InferenceType) -> bool {
     matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".LogSink") || tcons.name == "LogSink")
 }
 
+fn is_pty_handle_type(typ: &InferenceType) -> bool {
+    matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".PtyHandle") || tcons.name == "PtyHandle")
+}
+
 fn is_process_handle_type(typ: &InferenceType) -> bool {
     matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".ProcessHandle") || tcons.name == "ProcessHandle")
 }
@@ -5023,6 +5027,7 @@ fn is_named_topology_boundary_type(typ: &InferenceType) -> bool {
     is_http_dependency_type(typ)
         || is_fs_root_type(typ)
         || is_log_sink_type(typ)
+        || is_pty_handle_type(typ)
         || is_process_handle_type(typ)
         || is_tcp_dependency_type(typ)
 }
@@ -5057,7 +5062,13 @@ fn validate_topology_application(
     if module_id == "stdlib::topology" {
         let restricted = matches!(
             member,
-            "environment" | "fsRoot" | "httpService" | "logSink" | "processHandle" | "tcpService"
+            "environment"
+                | "fsRoot"
+                | "httpService"
+                | "logSink"
+                | "ptyHandle"
+                | "processHandle"
+                | "tcpService"
         );
 
         if restricted && is_project_mode_source(env) && !is_canonical_topology_source(env) {
@@ -5123,12 +5134,18 @@ fn validate_topology_application(
         } else {
             None
         };
+    let pty_handle_arg_index = if module_id == "stdlib::pty" && matches!(member, "spawnAt") {
+        Some(0)
+    } else {
+        None
+    };
 
     if http_handle_arg_index.is_none()
         && tcp_handle_arg_index.is_none()
         && fs_handle_arg_index.is_none()
         && log_handle_arg_index.is_none()
         && process_handle_arg_index.is_none()
+        && pty_handle_arg_index.is_none()
     {
         return Ok(());
     }
@@ -5138,6 +5155,7 @@ fn validate_topology_application(
         .or(fs_handle_arg_index)
         .or(log_handle_arg_index)
         .or(process_handle_arg_index)
+        .or(pty_handle_arg_index)
         .unwrap();
     let Some(handle_arg) = app.args.get(handle_index) else {
         return Ok(());
@@ -5212,6 +5230,12 @@ fn validate_topology_application(
     if process_handle_arg_index.is_some() && !is_process_handle_type(&handle_type) {
         return Err(TypeError::new(
             "stdlib::process.runAt/startAt requires a named ProcessHandle".to_string(),
+            Some(app.location),
+        ));
+    }
+    if pty_handle_arg_index.is_some() && !is_pty_handle_type(&handle_type) {
+        return Err(TypeError::new(
+            "stdlib::pty.spawnAt requires a named PtyHandle".to_string(),
             Some(app.location),
         ));
     }

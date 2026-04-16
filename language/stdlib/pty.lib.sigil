@@ -1,0 +1,25 @@
+t Event=Output(String)|Exit(Int)
+
+t Session={pid:Int}
+
+t Spawn={
+  argv:[String],
+  cols:Int,
+  cwd:Option[String],
+  env:{String↦String},
+  rows:Int
+}
+
+λclose(session:Session)=>!Pty Unit=()
+
+λevents(session:Session)=>!Pty §stream.Source[Event]=(§stream.StreamSource(0):§stream.Source[Event])
+
+λresize(cols:Int,rows:Int,session:Session)=>!Pty Unit=()
+
+λspawn(request:Spawn)=>!Pty Session={pid:-1}
+
+λspawnAt(handle:§topology.PtyHandle,request:Spawn)=>!Pty Session={pid:-1}
+
+λwait(session:Session)=>!Pty Int=-1
+
+λwrite(input:String,session:Session)=>!Pty Unit=()

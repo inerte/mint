@@ -154,10 +154,7 @@ impl Parser {
 
     fn function_declaration(&mut self) -> Result<Declaration, ParseError> {
         let start = self.previous();
-        let name = self
-            .consume(TokenType::IDENTIFIER, "Expected function name")?
-            .value
-            .clone();
+        let name = self.consume_name_like("Expected function name")?.value;
 
         // Optional generic type parameters: λfunc[T,U](...)
         let mut type_params = Vec::new();
@@ -485,10 +482,8 @@ impl Parser {
             let start = root.location.start;
             let module_path = self.rooted_module_path(&root)?;
             self.consume(TokenType::DOT, "Expected \".\" after namespace path")?;
-            let member = if self.match_token(TokenType::IDENTIFIER)
-                || self.match_token(TokenType::UpperIdentifier)
-            {
-                self.previous().value.clone()
+            let member = if let Some(token) = self.match_member_name() {
+                token.value
             } else {
                 return Err(self.error("Expected member name"));
             };
@@ -1650,10 +1645,8 @@ impl Parser {
                     self.rooted_module_path(&start)?
                 };
             self.consume(TokenType::DOT, "Expected \".\" after namespace path")?;
-            let member = if self.match_token(TokenType::IDENTIFIER)
-                || self.match_token(TokenType::UpperIdentifier)
-            {
-                self.previous().value.clone()
+            let member = if let Some(token) = self.match_member_name() {
+                token.value
             } else {
                 return Err(self.error("Expected member name"));
             };
@@ -1701,10 +1694,8 @@ impl Parser {
                 }
 
                 self.consume(TokenType::DOT, "Expected \".\" after namespace path")?;
-                let member = if self.match_token(TokenType::IDENTIFIER)
-                    || self.match_token(TokenType::UpperIdentifier)
-                {
-                    self.previous().value.clone()
+                let member = if let Some(token) = self.match_member_name() {
+                    token.value
                 } else {
                     return Err(self.error("Expected member name"));
                 };
@@ -2598,6 +2589,23 @@ impl Parser {
             let tok = self.peek();
             tok.token_type == TokenType::IDENTIFIER && tok.value == value
         }
+    }
+
+    fn match_member_name(&mut self) -> Option<Token> {
+        if self.is_at_end() {
+            return None;
+        }
+
+        let token = self.peek();
+        let first = token.value.chars().next()?;
+        if !first.is_alphabetic() {
+            return None;
+        }
+        Some(self.advance())
+    }
+
+    fn consume_name_like(&mut self, message: &str) -> Result<Token, ParseError> {
+        self.match_member_name().ok_or_else(|| self.error(message))
     }
 
     fn match_identifier(&mut self, value: &str) -> bool {

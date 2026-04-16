@@ -1,0 +1,9 @@
+{
+  "name": "@sigil/runtime-node",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "dependencies": {
+    "node-pty": "1.1.0"
+  }
+}

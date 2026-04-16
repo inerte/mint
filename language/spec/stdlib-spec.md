@@ -298,6 +298,29 @@ Process rules:
 - `runAt` and `startAt` are the named-boundary variants for topology-aware projects
 - `kill` is a normal termination request, not a timeout/escalation protocol
 
+### Implemented `§pty` Types and Functions
+
+```sigil decl §pty
+t Event=Output(String)|Exit(Int)
+t Session={pid:Int}
+t Spawn={argv:[String],cols:Int,cwd:Option[String],env:{String↦String},rows:Int}
+
+λclose(session:Session)=>!Pty Unit
+λevents(session:Session)=>!Pty §stream.Source[Event]
+λresize(cols:Int,rows:Int,session:Session)=>!Pty Unit
+λspawn(request:Spawn)=>!Pty Session
+λspawnAt(handle:§topology.PtyHandle,request:Spawn)=>!Pty Session
+λwait(session:Session)=>!Pty Int
+λwrite(input:String,session:Session)=>!Pty Unit
+```
+
+PTY rules:
+- PTY sessions expose one combined terminal stream rather than split stdout/stderr
+- `events` yields `Output(text)` chunks and then one `Exit(code)` when the session terminates normally
+- `wait` resolves to the final exit code for that session
+- `close` is a normal session shutdown request
+- `spawnAt` is the topology-aware named-boundary variant and requires `§topology.PtyHandle`
+
 ### Implemented `§stream` Types and Functions
 
 ```sigil decl §stream

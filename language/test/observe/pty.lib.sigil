@@ -1,0 +1,24 @@
+t Resize={
+  cols:Int,
+  rows:Int
+}
+
+λcloseCount()=>Int=0
+
+λcloseCountAt(handle:§topology.PtyHandle)=>Int=0
+
+λresizes()=>[Resize]=[]
+
+λresizesAt(handle:§topology.PtyHandle)=>[Resize]=[]
+
+λspawnCount()=>Int=0
+
+λspawnCountAt(handle:§topology.PtyHandle)=>Int=0
+
+λspawns()=>[§pty.Spawn]=[]
+
+λspawnsAt(handle:§topology.PtyHandle)=>[§pty.Spawn]=[]
+
+λwrites()=>[String]=[]
+
+λwritesAt(handle:§topology.PtyHandle)=>[String]=[]

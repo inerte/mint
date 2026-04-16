@@ -312,6 +312,8 @@ function __sigil_world_host_template() {
     http: Object.create(null),
     log: { kind: 'stdout' },
     logSinks: Object.create(null),
+    pty: { kind: 'real' },
+    ptyHandles: Object.create(null),
     process: { kind: 'real' },
     processHandles: Object.create(null),
     random: { kind: 'real' },
@@ -325,10 +327,11 @@ function __sigil_world_collect_topology(topologyExports) {
   const fsRoots = new Set();
   const http = new Set();
   const logSinks = new Set();
+  const ptyHandles = new Set();
   const processHandles = new Set();
   const tcp = new Set();
   if (!topologyExports || typeof topologyExports !== 'object') {
-    return { envs, fsRoots, http, logSinks, processHandles, tcp };
+    return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, tcp };
   }
   for (const value of Object.values(topologyExports)) {
     if (value?.__tag === 'Environment') {
@@ -339,13 +342,15 @@ function __sigil_world_collect_topology(topologyExports) {
       http.add(String(value.__fields?.[0] ?? ''));
     } else if (value?.__tag === 'LogSink') {
       logSinks.add(String(value.__fields?.[0] ?? ''));
+    } else if (value?.__tag === 'PtyHandle') {
+      ptyHandles.add(String(value.__fields?.[0] ?? ''));
     } else if (value?.__tag === 'ProcessHandle') {
       processHandles.add(String(value.__fields?.[0] ?? ''));
     } else if (value?.__tag === 'TcpServiceDependency') {
       tcp.add(String(value.__fields?.[0] ?? ''));
     }
   }
-  return { envs, fsRoots, http, logSinks, processHandles, tcp };
+  return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, tcp };
 }
 function __sigil_world_parse_clock(value) {
   if (value?.__tag === 'SystemClock') {
@@ -377,6 +382,21 @@ function __sigil_world_parse_log(value) {
   if (value?.__tag === 'CaptureLog') return { kind: 'capture' };
   if (value?.__tag === 'StdoutLog') return { kind: 'stdout' };
   __sigil_world_error('world.log must be world::log.LogEntry');
+}
+function __sigil_world_parse_pty(value) {
+  if (value?.__tag === 'DenyPty') return { kind: 'deny' };
+  if (value?.__tag === 'FixturePty') {
+    return {
+      kind: 'fixture',
+      rules: (value.__fields?.[0] ?? []).map((rule) => ({
+        events: Array.isArray(rule?.events) ? rule.events.slice() : [],
+        request: rule?.request ?? null,
+        writes: Array.isArray(rule?.writes) ? rule.writes.map((item) => String(item)) : []
+      }))
+    };
+  }
+  if (value?.__tag === 'RealPty') return { kind: 'real' };
+  __sigil_world_error('world.pty must be world::pty.PtyEntry');
 }
 function __sigil_world_parse_process(value) {
   if (value?.__tag === 'DenyProcess') return { kind: 'deny' };
@@ -423,6 +443,20 @@ function __sigil_world_parse_log_sink_entry(value) {
   return {
     sinkName,
     ...__sigil_world_parse_log(payload?.mode ?? null)
+  };
+}
+function __sigil_world_parse_pty_handle_entry(value) {
+  if (value?.__tag !== 'PtyHandleEntry') {
+    __sigil_world_error('Pty handle overrides must be world::pty.PtyHandleEntry');
+  }
+  const payload = value.__fields?.[0] ?? {};
+  const handleName = String(payload?.handleName ?? '');
+  if (!handleName) {
+    __sigil_world_error('world::pty.PtyHandleEntry handleName must be a non-empty string');
+  }
+  return {
+    handleName,
+    ...__sigil_world_parse_pty(payload?.mode ?? null)
   };
 }
 function __sigil_world_parse_process_handle_entry(value) {
@@ -610,6 +644,12 @@ function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
     const entry = __sigil_world_parse_log_sink_entry(value);
     template.logSinks[entry.sinkName] = entry;
   }
+  template.pty = __sigil_world_parse_pty(worldValue.pty);
+  template.ptyHandles = Object.create(null);
+  for (const value of worldValue.ptyHandles ?? []) {
+    const entry = __sigil_world_parse_pty_handle_entry(value);
+    template.ptyHandles[entry.handleName] = entry;
+  }
   template.process = __sigil_world_parse_process(worldValue.process);
   template.processHandles = Object.create(null);
   for (const value of worldValue.processHandles ?? []) {
@@ -665,6 +705,18 @@ function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
       }
     }
   }
+  if (topology.ptyHandles.size > 0) {
+    for (const name of topology.ptyHandles) {
+      if (!(name in template.ptyHandles)) {
+        __sigil_world_error(`missing pty handle world entry for '${name}' in environment '${envName ?? '<unknown>'}'`);
+      }
+    }
+    for (const name of Object.keys(template.ptyHandles)) {
+      if (!topology.ptyHandles.has(name)) {
+        __sigil_world_error(`pty handle world entry references undeclared boundary '${name}'`);
+      }
+    }
+  }
   if (topology.processHandles.size > 0) {
     for (const name of topology.processHandles) {
       if (!(name in template.processHandles)) {
@@ -717,9 +769,12 @@ function __sigil_world_base_template() {
 }
 function __sigil_world_fresh(template) {
   const world = __sigil_world_clone(template);
+  world.ptyNextId = 1;
+  world.ptySessions = new Map();
   world.traces = {
     http: Object.create(null),
     log: [],
+    pty: [],
     process: [],
     tcp: Object.create(null),
     timer: { sleeps: [] }
@@ -763,6 +818,16 @@ function __sigil_world_apply_overrides(world, overrides) {
       case 'LogSinkEntry': {
         const entry = __sigil_world_parse_log_sink_entry(value);
         world.logSinks[entry.sinkName] = entry;
+        break;
+      }
+      case 'DenyPty':
+      case 'FixturePty':
+      case 'RealPty':
+        world.pty = __sigil_world_parse_pty(value);
+        break;
+      case 'PtyHandleEntry': {
+        const entry = __sigil_world_parse_pty_handle_entry(value);
+        world.ptyHandles[entry.handleName] = entry;
         break;
       }
       case 'DenyProcess':
@@ -920,6 +985,172 @@ async function __sigil_world_stream_close(source) {
   }
   return null;
 }
+async function __sigil_world_pty_source(events) {
+  const source = __sigil_world_stream_open();
+  for (const event of Array.isArray(events) ? events : []) {
+    __sigil_world_stream_push(source, event);
+  }
+  __sigil_world_stream_finish(source);
+  return source;
+}
+function __sigil_world_pty_exit_code(events) {
+  let exitCode = -1;
+  for (const event of Array.isArray(events) ? events : []) {
+    if (event?.__tag === 'Exit') {
+      exitCode = Number(event.__fields?.[0] ?? -1);
+    }
+  }
+  return exitCode;
+}
+function __sigil_world_pty_session_from_state(pid) {
+  return { pid: Number(pid) };
+}
+function __sigil_world_pty_track_session(world, handleName, command, source, state) {
+  const pid = Number(state?.pid ?? -1);
+  world.ptySessions.set(pid, {
+    ...state,
+    command: __sigil_world_clone(command),
+    handleName: handleName == null ? null : String(handleName),
+    source
+  });
+  __sigil_world_pty_trace(world, 'spawn', handleName, {
+    spawn: command
+  });
+  return __sigil_world_pty_session_from_state(pid);
+}
+function __sigil_world_pty_session_state(session) {
+  const world = __sigil_current_world();
+  const pid = Number(session?.pid ?? -1);
+  const state = world.ptySessions?.get(pid) ?? null;
+  if (!state) {
+    __sigil_world_error(`unknown pty session '${pid}' in current world`);
+  }
+  return state;
+}
+async function __sigil_world_pty_spawn_from_entry(entry, handleName, command) {
+  const world = __sigil_current_world();
+  if (entry.kind === 'deny') {
+    __sigil_world_error('Pty is denied by the current world');
+  }
+  if (entry.kind === 'fixture') {
+    const rule = __sigil_world_pty_fixture_rule(entry, command);
+    const source = await __sigil_world_pty_source(rule.events ?? []);
+    const exitCode = __sigil_world_pty_exit_code(rule.events ?? []);
+    const pid = -Math.max(1, Number(world.ptyNextId ?? 1));
+    world.ptyNextId = Math.abs(pid) + 1;
+    return __sigil_world_pty_track_session(world, handleName, command, source, {
+      done: Promise.resolve(exitCode),
+      exitCode,
+      expectedWrites: Array.isArray(rule.writes) ? rule.writes.slice() : [],
+      fixture: true,
+      pid
+    });
+  }
+  if (!globalThis.__sigil_pty_runtime || typeof globalThis.__sigil_pty_runtime.spawnPty !== 'function') {
+    __sigil_world_error('§pty runtime helper is unavailable');
+  }
+  const source = __sigil_world_stream_open();
+  const pty = await globalThis.__sigil_pty_runtime.spawnPty(command);
+  let pid = Number(pty?.pid ?? Math.floor(Math.random() * 2147483647));
+  if (!Number.isInteger(pid) || pid === 0 || world.ptySessions.has(pid)) {
+    pid = Math.max(1, Number(world.ptyNextId ?? 1));
+  }
+  world.ptyNextId = Math.max(Number(world.ptyNextId ?? 1), Math.abs(pid) + 1);
+  const state = {
+    closed: false,
+    done: null,
+    exitCode: null,
+    fixture: false,
+    pid,
+    pty
+  };
+  state.done = new Promise((resolve) => {
+    let settled = false;
+    const finish = (code) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      state.exitCode = Number(code);
+      __sigil_world_stream_push(source, { __tag: 'Exit', __fields: [state.exitCode] });
+      __sigil_world_stream_finish(source);
+      resolve(state.exitCode);
+    };
+    pty.onData?.((chunk) => {
+      __sigil_world_stream_push(source, { __tag: 'Output', __fields: [String(chunk)] });
+    });
+    pty.onExit?.((event) => {
+      finish(Number(event?.exitCode ?? -1));
+    });
+  });
+  return __sigil_world_pty_track_session(world, handleName, command, source, state);
+}
+async function __sigil_world_pty_spawn(command) {
+  return await __sigil_world_pty_spawn_from_entry(__sigil_current_world().pty, null, command);
+}
+async function __sigil_world_pty_spawn_at(handleName, command) {
+  return await __sigil_world_pty_spawn_from_entry(
+    __sigil_world_named_pty_handle(handleName),
+    handleName,
+    command
+  );
+}
+async function __sigil_world_pty_events(session) {
+  return __sigil_world_pty_session_state(session).source;
+}
+async function __sigil_world_pty_write(session, input) {
+  const world = __sigil_current_world();
+  const state = __sigil_world_pty_session_state(session);
+  const text = String(input ?? '');
+  __sigil_world_pty_trace(world, 'write', state.handleName, {
+    input: text
+  });
+  if (state.fixture) {
+    const expected = Array.isArray(state.expectedWrites) ? state.expectedWrites.shift() : undefined;
+    if (expected !== text) {
+      __sigil_world_error(`pty fixture write mismatch: expected '${String(expected ?? '')}' but received '${text}'`);
+    }
+    return null;
+  }
+  if (!state.closed) {
+    state.pty?.write?.(text);
+  }
+  return null;
+}
+async function __sigil_world_pty_resize(session, cols, rows) {
+  const world = __sigil_current_world();
+  const state = __sigil_world_pty_session_state(session);
+  const width = Math.max(1, Math.trunc(Number(cols)));
+  const height = Math.max(1, Math.trunc(Number(rows)));
+  __sigil_world_pty_trace(world, 'resize', state.handleName, {
+    cols: width,
+    rows: height
+  });
+  if (!state.fixture && !state.closed) {
+    state.pty?.resize?.(width, height);
+  }
+  return null;
+}
+async function __sigil_world_pty_close(session) {
+  const world = __sigil_current_world();
+  const state = __sigil_world_pty_session_state(session);
+  if (state.closed) {
+    return null;
+  }
+  state.closed = true;
+  __sigil_world_pty_trace(world, 'close', state.handleName, {});
+  await __sigil_world_stream_close(state.source);
+  if (!state.fixture) {
+    try {
+      state.pty?.kill?.();
+    } catch (_) {}
+  }
+  return null;
+}
+async function __sigil_world_pty_wait(session) {
+  const state = __sigil_world_pty_session_state(session);
+  return Number(await state.done);
+}
 function __sigil_world_now_ms(world) {
   if (world.clock.kind === 'fixed') {
     return Number(world.clock.millis);
@@ -1014,11 +1245,50 @@ function __sigil_world_log_trace(world, sinkName, message) {
     sinkName: sinkName == null ? null : String(sinkName)
   });
 }
+function __sigil_world_pty_trace(world, kind, handleName, payload) {
+  world.traces.pty.push({
+    handleName: handleName == null ? null : String(handleName),
+    kind: String(kind),
+    ...__sigil_world_clone(payload ?? {})
+  });
+}
 function __sigil_world_process_trace(world, handleName, command) {
   world.traces.process.push({
     command,
     handleName: handleName == null ? null : String(handleName)
   });
+}
+function __sigil_world_pty_matches(rule, command) {
+  const expected = rule?.request ?? null;
+  const expectedArgv = Array.isArray(expected?.argv) ? expected.argv.map((item) => String(item)) : [];
+  const argv = Array.isArray(command?.argv) ? command.argv.map((item) => String(item)) : [];
+  if (argv.length !== expectedArgv.length) {
+    return false;
+  }
+  for (let index = 0; index < argv.length; index += 1) {
+    if (argv[index] !== expectedArgv[index]) {
+      return false;
+    }
+  }
+  const expectedCwd = expected?.cwd?.__tag === 'Some' ? String(expected.cwd.__fields?.[0] ?? '') : null;
+  const cwd = command?.cwd?.__tag === 'Some' ? String(command.cwd.__fields?.[0] ?? '') : null;
+  if (cwd !== expectedCwd) {
+    return false;
+  }
+  const expectedCols = Math.trunc(Number(expected?.cols ?? NaN));
+  const expectedRows = Math.trunc(Number(expected?.rows ?? NaN));
+  const cols = Math.trunc(Number(command?.cols ?? NaN));
+  const rows = Math.trunc(Number(command?.rows ?? NaN));
+  return cols === expectedCols && rows === expectedRows;
+}
+function __sigil_world_pty_fixture_rule(entry, command) {
+  for (const rule of entry?.rules ?? []) {
+    if (__sigil_world_pty_matches(rule, command)) {
+      return __sigil_world_clone(rule);
+    }
+  }
+  const argv = Array.isArray(command?.argv) ? command.argv.map((item) => String(item)) : [];
+  __sigil_world_error(`no pty fixture matched spawn '${argv.join(" ")}'`);
 }
 function __sigil_world_process_matches(rule, command) {
   const argv = Array.isArray(command?.argv) ? command.argv.map((item) => String(item)) : [];
@@ -1062,6 +1332,14 @@ function __sigil_world_named_log_sink(sinkName) {
   const entry = world.logSinks?.[String(sinkName)] ?? null;
   if (!entry) {
     __sigil_world_error(`LogSink '${String(sinkName)}' is not configured in the current world`);
+  }
+  return entry;
+}
+function __sigil_world_named_pty_handle(handleName) {
+  const world = __sigil_current_world();
+  const entry = world.ptyHandles?.[String(handleName)] ?? null;
+  if (!entry) {
+    __sigil_world_error(`PtyHandle '${String(handleName)}' is not configured in the current world`);
   }
   return entry;
 }
@@ -2020,6 +2298,52 @@ function __sigil_test_log_entries_at(sinkName) {
     .filter((entry) => entry.sinkName === String(sinkName))
     .map((entry) => entry.message);
 }
+function __sigil_test_pty_spawns() {
+  return __sigil_current_world().traces.pty
+    .filter((entry) => entry.kind === 'spawn')
+    .map((entry) => entry.spawn);
+}
+function __sigil_test_pty_spawns_at(handleName) {
+  return __sigil_current_world().traces.pty
+    .filter((entry) => entry.kind === 'spawn' && entry.handleName === String(handleName))
+    .map((entry) => entry.spawn);
+}
+function __sigil_test_pty_spawn_count() {
+  return __sigil_test_pty_spawns().length;
+}
+function __sigil_test_pty_spawn_count_at(handleName) {
+  return __sigil_test_pty_spawns_at(handleName).length;
+}
+function __sigil_test_pty_writes() {
+  return __sigil_current_world().traces.pty
+    .filter((entry) => entry.kind === 'write')
+    .map((entry) => String(entry.input ?? ''));
+}
+function __sigil_test_pty_writes_at(handleName) {
+  return __sigil_current_world().traces.pty
+    .filter((entry) => entry.kind === 'write' && entry.handleName === String(handleName))
+    .map((entry) => String(entry.input ?? ''));
+}
+function __sigil_test_pty_resizes() {
+  return __sigil_current_world().traces.pty
+    .filter((entry) => entry.kind === 'resize')
+    .map((entry) => ({ cols: Number(entry.cols ?? 0), rows: Number(entry.rows ?? 0) }));
+}
+function __sigil_test_pty_resizes_at(handleName) {
+  return __sigil_current_world().traces.pty
+    .filter((entry) => entry.kind === 'resize' && entry.handleName === String(handleName))
+    .map((entry) => ({ cols: Number(entry.cols ?? 0), rows: Number(entry.rows ?? 0) }));
+}
+function __sigil_test_pty_close_count() {
+  return __sigil_current_world().traces.pty
+    .filter((entry) => entry.kind === 'close')
+    .length;
+}
+function __sigil_test_pty_close_count_at(handleName) {
+  return __sigil_current_world().traces.pty
+    .filter((entry) => entry.kind === 'close' && entry.handleName === String(handleName))
+    .length;
+}
 function __sigil_test_process_call_count() {
   return __sigil_current_world().traces.process.length;
 }
@@ -2095,6 +2419,7 @@ pub struct CodegenOptions {
     pub source_file: Option<String>,
     pub output_file: Option<String>,
     pub import_extension: String,
+    pub pty_runtime_import_specifier: Option<String>,
     pub lazy_extern_namespaces: bool,
     pub trace: bool,
     pub breakpoints: bool,
@@ -2108,6 +2433,7 @@ impl Default for CodegenOptions {
             source_file: None,
             output_file: None,
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -2133,6 +2459,7 @@ pub struct TypeScriptGenerator {
     source_file: Option<String>,
     output_file: Option<String>,
     import_extension: String,
+    pty_runtime_import_specifier: Option<String>,
     lazy_extern_namespaces: bool,
     test_meta_entries: Vec<String>,
     trace_enabled: bool,
@@ -2154,6 +2481,7 @@ impl TypeScriptGenerator {
             source_file: options.source_file,
             output_file: options.output_file,
             import_extension: options.import_extension,
+            pty_runtime_import_specifier: options.pty_runtime_import_specifier,
             lazy_extern_namespaces: options.lazy_extern_namespaces,
             test_meta_entries: Vec::new(),
             trace_enabled: debug_enabled,
@@ -2354,6 +2682,11 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/process.lib.sigil")
     }
 
+    fn requires_pty_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
+        runtime_modules.contains("stdlib::pty")
+            || self.source_file_is("language/stdlib/pty.lib.sigil")
+    }
+
     fn requires_http_server_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
         runtime_modules.contains("stdlib::httpServer")
             || self.source_file_is("language/stdlib/httpServer.lib.sigil")
@@ -2371,6 +2704,7 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/io.lib.sigil")
             || self.source_file_is("language/stdlib/log.lib.sigil")
             || self.source_file_is("language/stdlib/process.lib.sigil")
+            || self.source_file_is("language/stdlib/pty.lib.sigil")
             || self.source_file_is("language/stdlib/random.lib.sigil")
             || self.source_file_is("language/stdlib/stream.lib.sigil")
             || self.source_file_is("language/stdlib/tcpClient.lib.sigil")
@@ -2378,6 +2712,10 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/terminal.lib.sigil")
             || self.source_file_is("language/stdlib/time.lib.sigil")
             || self.source_file_is_test_observe_module()
+            || self
+                .source_file
+                .as_deref()
+                .is_some_and(|path| path.ends_with("language/test/check/pty.lib.sigil"))
     }
 
     fn json_string_literal(&self, value: &str) -> Result<String, CodegenError> {
@@ -2691,6 +3029,7 @@ impl TypeScriptGenerator {
         include_world_runtime: bool,
     ) {
         let include_process_runtime = self.requires_process_runtime(runtime_modules);
+        let include_pty_runtime = self.requires_pty_runtime(runtime_modules);
         let include_http_server_runtime = self.requires_http_server_runtime(runtime_modules);
         let include_tcp_server_runtime = self.requires_tcp_server_runtime(runtime_modules);
         self.emit("function __sigil_ready(value) {");
@@ -2781,6 +3120,25 @@ impl TypeScriptGenerator {
         self.emit_block(REPLAY_RUNTIME_HELPERS);
         if include_world_runtime {
             self.emit_block(WORLD_RUNTIME_HELPERS);
+        }
+        if include_pty_runtime {
+            match self.pty_runtime_import_specifier.as_deref() {
+                Some(specifier) => {
+                    let specifier = self
+                        .json_string_literal(specifier)
+                        .unwrap_or_else(|_| "\"\"".to_string());
+                    self.emit(&format!(
+                        "globalThis.__sigil_pty_runtime = await import({specifier});"
+                    ));
+                }
+                None => {
+                    self.emit("globalThis.__sigil_pty_runtime = {");
+                    self.emit("  async spawnPty() {");
+                    self.emit("    throw new Error('§pty runtime helper is unavailable');");
+                    self.emit("  }");
+                    self.emit("};");
+                }
+            }
         }
         self.emit("async function __sigil_map_list(items, fn) {");
         self.emit("  const results = [];");
@@ -5102,6 +5460,9 @@ impl TypeScriptGenerator {
                 if module == "stdlib/process" {
                     return self.generate_process_intrinsic(call_expr, member, args);
                 }
+                if module == "stdlib/pty" {
+                    return self.generate_pty_intrinsic(call_expr, member, args);
+                }
                 if module == "stdlib/random" {
                     return self.generate_random_intrinsic(call_expr, member, args);
                 }
@@ -5203,6 +5564,13 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/process.lib.sigil"))
                 {
                     return self.generate_process_intrinsic(call_expr, &name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/pty.lib.sigil"))
+                {
+                    return self.generate_pty_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
@@ -5947,6 +6315,41 @@ impl TypeScriptGenerator {
                 "{}.then((__sink) => __sigil_test_log_entries_at(__sink?.__fields?.[0] ?? ''))",
                 generated_args[0]
             ))),
+            ("test/observe/pty", "closeCount", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_pty_close_count())".to_string(),
+            )),
+            ("test/observe/pty", "closeCountAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_pty_close_count_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
+            ("test/observe/pty", "resizes", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_pty_resizes())".to_string(),
+            )),
+            ("test/observe/pty", "resizesAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_pty_resizes_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
+            ("test/observe/pty", "spawnCount", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_pty_spawn_count())".to_string(),
+            )),
+            ("test/observe/pty", "spawnCountAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_pty_spawn_count_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
+            ("test/observe/pty", "spawns", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_pty_spawns())".to_string(),
+            )),
+            ("test/observe/pty", "spawnsAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_pty_spawns_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
+            ("test/observe/pty", "writes", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_pty_writes())".to_string(),
+            )),
+            ("test/observe/pty", "writesAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_pty_writes_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
             ("test/observe/process", "callCount", 0) => Ok(Some(
                 "__sigil_ready(__sigil_test_process_call_count())".to_string(),
             )),
@@ -6223,6 +6626,107 @@ impl TypeScriptGenerator {
                     "wait",
                     "[__process]",
                     "__sigil_world_process_wait(__process)",
+                    None
+                )?
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn generate_pty_intrinsic(
+        &mut self,
+        call_expr: &TypedExpr,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
+
+        match member {
+            "close" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__session) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "close",
+                    "[__session]",
+                    "__sigil_world_pty_close(__session)",
+                    None
+                )?
+            ))),
+            "events" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__session) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "events",
+                    "[__session]",
+                    "__sigil_world_pty_events(__session)",
+                    None
+                )?
+            ))),
+            "resize" if generated_args.len() == 3 => Ok(Some(format!(
+                "{}.then(([__cols, __rows, __session]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "resize",
+                    "[__cols, __rows, __session]",
+                    "__sigil_world_pty_resize(__session, __cols, __rows)",
+                    None
+                )?
+            ))),
+            "spawn" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__spawn) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "spawn",
+                    "[__spawn]",
+                    "__sigil_world_pty_spawn(__spawn)",
+                    None
+                )?
+            ))),
+            "spawnAt" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __spawn]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "spawnAt",
+                    "[__handle, __spawn]",
+                    "__sigil_world_pty_spawn_at(__handle?.__fields?.[0] ?? '', __spawn)",
+                    None
+                )?
+            ))),
+            "wait" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__session) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "wait",
+                    "[__session]",
+                    "__sigil_world_pty_wait(__session)",
+                    None
+                )?
+            ))),
+            "write" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__input, __session]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "write",
+                    "[__input, __session]",
+                    "__sigil_world_pty_write(__session, __input)",
                     None
                 )?
             ))),
@@ -6785,6 +7289,12 @@ impl TypeScriptGenerator {
         if call.namespace.join("/") == "stdlib/process" {
             if let Some(intrinsic) =
                 self.generate_process_intrinsic(expr, &call.member, &call.args)?
+            {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/") == "stdlib/pty" {
+            if let Some(intrinsic) = self.generate_pty_intrinsic(expr, &call.member, &call.args)?
             {
                 return Ok(intrinsic);
             }
@@ -7926,6 +8436,7 @@ fn requires_world_runtime_module(module_id: &str) -> bool {
                 | "stdlib::io"
                 | "stdlib::log"
                 | "stdlib::process"
+                | "stdlib::pty"
                 | "stdlib::random"
                 | "stdlib::stream"
                 | "stdlib::tcpClient"
@@ -8032,6 +8543,7 @@ mod tests {
             source_file: Some("projects/algorithms/tests/rot13Encoder.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/tests/rot13Encoder.ts".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8052,6 +8564,7 @@ mod tests {
                 "/tmp/language/stdlib-tests/.local/tests/numericPredicates.ts".to_string(),
             ),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8070,6 +8583,7 @@ mod tests {
             source_file: Some("/repo/.local/temp-project/src/topology.lib.sigil".to_string()),
             output_file: Some("/repo/.local/temp-project/.local/src/topology.ts".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8094,6 +8608,7 @@ mod tests {
                     .to_string(),
             ),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8194,6 +8709,7 @@ mod tests {
             source_file: Some("projects/algorithms/src/topologicalSort.sigil".to_string()),
             output_file: Some("/tmp/projects/algorithms/.local/src/topologicalSort.ts".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8215,6 +8731,7 @@ mod tests {
             source_file: Some("tests/smoke.sigil".to_string()),
             output_file: Some("/tmp/tests/smoke.ts".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8238,6 +8755,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8270,6 +8788,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8306,6 +8825,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: true,
             breakpoints: false,
@@ -8329,6 +8849,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: true,
             breakpoints: false,
@@ -8350,6 +8871,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8373,6 +8895,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
@@ -8399,6 +8922,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
@@ -8422,6 +8946,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
@@ -8456,6 +8981,7 @@ mod tests {
             source_file: Some("test.lib.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8510,6 +9036,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8572,6 +9099,7 @@ mod tests {
             source_file: Some("test.sigil".to_string()),
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
+            pty_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,

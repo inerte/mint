@@ -7,6 +7,8 @@ t World={
   logSinks:[†log.LogSinkEntry],
   process:†process.ProcessEntry,
   processHandles:[†process.ProcessHandleEntry],
+  pty:†pty.PtyEntry,
+  ptyHandles:[†pty.PtyHandleEntry],
   random:†random.RandomEntry,
   stream:†stream.StreamEntry,
   tcp:[†tcp.TcpEntry],
@@ -22,6 +24,8 @@ t World={
   logSinks:world.logSinks,
   process:world.process,
   processHandles:world.processHandles,
+  pty:world.pty,
+  ptyHandles:world.ptyHandles,
   random:world.random,
   stream:world.stream,
   tcp:world.tcp,
@@ -37,6 +41,8 @@ t World={
   logSinks:logSinks,
   process:world.process,
   processHandles:world.processHandles,
+  pty:world.pty,
+  ptyHandles:world.ptyHandles,
   random:world.random,
   stream:world.stream,
   tcp:world.tcp,
@@ -52,13 +58,32 @@ t World={
   logSinks:world.logSinks,
   process:world.process,
   processHandles:processHandles,
+  pty:world.pty,
+  ptyHandles:world.ptyHandles,
   random:world.random,
   stream:world.stream,
   tcp:world.tcp,
   timer:world.timer
 }
 
-λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World={
+λwithPtyHandles(ptyHandles:[†pty.PtyHandleEntry],world:World)=>World={
+  clock:world.clock,
+  fs:world.fs,
+  fsRoots:world.fsRoots,
+  http:world.http,
+  log:world.log,
+  logSinks:world.logSinks,
+  process:world.process,
+  processHandles:world.processHandles,
+  pty:world.pty,
+  ptyHandles:ptyHandles,
+  random:world.random,
+  stream:world.stream,
+  tcp:world.tcp,
+  timer:world.timer
+}
+
+λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,pty:†pty.PtyEntry,random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World={
   clock:clock,
   fs:fs,
   fsRoots:[],
@@ -67,6 +92,8 @@ t World={
   logSinks:[],
   process:process,
   processHandles:[],
+  pty:pty,
+  ptyHandles:[],
   random:random,
   stream:stream,
   tcp:tcp,

@@ -1,0 +1,47 @@
+t PtyEntry=DenyPty()|FixturePty([PtyRule])|RealPty()
+
+t PtyHandleEntry=PtyHandleEntry(PtyHandleEntryValue)
+
+t PtyHandleEntryValue={
+  handleName:String,
+  mode:PtyEntry
+}
+
+t PtyRule={
+  events:[§pty.Event],
+  request:§pty.Spawn,
+  writes:[String]
+}
+
+λdeny()=>PtyEntry=DenyPty()
+
+λdenyHandle(handle:§topology.PtyHandle)=>PtyHandleEntry match handle{
+  §topology.PtyHandle(handleName)=>PtyHandleEntry({
+    handleName:handleName,
+    mode:DenyPty()
+  })
+}
+
+λfixture(rules:[PtyRule])=>PtyEntry=FixturePty(rules)
+
+λfixtureHandle(handle:§topology.PtyHandle,rules:[PtyRule])=>PtyHandleEntry match handle{
+  §topology.PtyHandle(handleName)=>PtyHandleEntry({
+    handleName:handleName,
+    mode:FixturePty(rules)
+  })
+}
+
+λreal()=>PtyEntry=RealPty()
+
+λrealHandle(handle:§topology.PtyHandle)=>PtyHandleEntry match handle{
+  §topology.PtyHandle(handleName)=>PtyHandleEntry({
+    handleName:handleName,
+    mode:RealPty()
+  })
+}
+
+λrule(events:[§pty.Event],request:§pty.Spawn,writes:[String])=>PtyRule={
+  events:events,
+  request:request,
+  writes:writes
+}

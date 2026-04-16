@@ -120,6 +120,7 @@ fn test_directory_runs_inline_tests_in_standalone_files() {
             "    [],\n",
             "    †log.capture(),\n",
             "    †process.real(),\n",
+            "    †pty.real(),\n",
             "    †random.seeded(1337),\n",
             "    †stream.live(),\n",
             "    [],\n",
@@ -180,6 +181,24 @@ fn test_suite_succeeds_when_pnpm_is_shadowed() {
 
     let json = parse_json(&output.stdout);
     assert_eq!(json["summary"]["passed"], 1);
+}
+
+#[test]
+fn test_pty_example_fixture_suite_passes() {
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("test")
+        .arg(repo_root().join("language/examples/ptyBasics.sigil"))
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc test");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["summary"]["passed"], 2);
 }
 
 #[test]

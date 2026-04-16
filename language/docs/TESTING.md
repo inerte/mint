@@ -121,7 +121,7 @@ Instead:
   `flags`, available to app code as `•config.flags`
 - each `test` may derive that world locally with `world { ... }`
 - standalone files may instead provide a local top-level `c world=(...:†runtime.World)` with no `--env`
-- `†...` builds world entries for `Clock`, `Fs`, `Http`, `Log`, `Process`, `Random`, `Tcp`, and `Timer`
+- `†...` builds world entries for `Clock`, `Fs`, `Http`, `Log`, `Process`, `Pty`, `Random`, `Stream`, `Tcp`, and `Timer`
 - `※observe::...` exposes raw traces from the active test world
 - `※check::...` exposes Bool-returning helpers over those traces
 
@@ -153,10 +153,14 @@ Canonical named-boundary helpers include:
 
 - `※observe::file.readTextAt`
 - `※observe::log.entriesAt`
+- `※observe::pty.spawnsAt`
+- `※observe::pty.writesAt`
 - `※observe::process.commandsAt`
 - `※check::file.existsAt`
 - `※check::file.textEqualsAt`
 - `※check::log.containsAt`
+- `※check::pty.closedAt`
+- `※check::pty.spawnedOnceAt`
 - `※check::process.calledOnceAt`
 
 For topology-aware labelled-boundary projects, these helpers are the canonical

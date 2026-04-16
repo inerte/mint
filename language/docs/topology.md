@@ -61,6 +61,8 @@ Environment names are flexible, but the file path is canonical:
 ```sigil module projects/topology-http/src/topology.lib.sigil
 c auditLog=(§topology.logSink("auditLog"):§topology.LogSink)
 
+c assistantShell=(§topology.ptyHandle("assistantShell"):§topology.PtyHandle)
+
 c exportsDir=(§topology.fsRoot("exportsDir"):§topology.FsRoot)
 
 c local=(§topology.environment("local"):§topology.Environment)
@@ -98,6 +100,7 @@ c world=(†runtime.world(
   )],
   †log.capture(),
   †process.real(),
+  †pty.real(),
   †random.seeded(1337),
   †stream.live(),
   [],
@@ -126,6 +129,7 @@ c world=(†runtime.world(
   )],
   †log.stdout(),
   †process.real(),
+  †pty.real(),
   †random.real(),
   †stream.live(),
   [],
@@ -170,6 +174,21 @@ Canonical TCP usage:
 }
 ```
 
+Canonical PTY usage:
+
+```sigil program language/examples/ptyBasics.sigil
+λmain()=>!Pty §pty.Session=§pty.spawnAt(
+  •topology.assistantShell,
+  {
+    argv:["codex"],
+    cols:120,
+    cwd:Some("."),
+    env:{↦},
+    rows:40
+  }
+)
+```
+
 Forbidden patterns:
 
 ```text
@@ -178,11 +197,12 @@ Forbidden patterns:
 process.env.mailerApiUrl
 §file.writeText("raw","/tmp/out.txt")
 §process.run(§process.command(["mailer"]))
+§pty.spawn({argv:["codex"],cols:120,cwd:Some("."),env:{↦},rows:40})
 ```
 
 For labelled boundary handling, projects use the handle-based `§file.*At`,
-`§log.write`, and `§process.runAt` / `§process.startAt` surfaces so policy
-rules can target exact `•topology...` boundaries.
+`§log.write`, `§process.runAt` / `§process.startAt`, and `§pty.spawnAt`
+surfaces so policy rules can target exact `•topology...` boundaries.
 
 Example:
 
@@ -235,7 +255,7 @@ Compile-time:
 - in project mode, world named-boundary entry constructors only in `config/*.lib.sigil` and test-local `world { ... }`
 - in standalone mode, the same constructors may appear directly in the file
 - topology-aware HTTP/TCP APIs require dependency handles
-- label-aware filesystem, log, and process crossings use named `FsRoot`, `LogSink`, and `ProcessHandle` handles
+- label-aware filesystem, log, process, and PTY crossings use named `FsRoot`, `LogSink`, `ProcessHandle`, and `PtyHandle` handles
 - raw endpoint usage is rejected
 - in project mode, `process.env` is only allowed in `config/*.lib.sigil`
 - standalone files may read `process.env` directly because there is no separate config module

@@ -2419,6 +2419,7 @@ console.log(JSON.stringify({{
     "clockKind": String(__sigil_inspect_world.clock?.kind ?? ""),
     "fsKind": String(__sigil_inspect_world.fs?.kind ?? ""),
     "logKind": String(__sigil_inspect_world.log?.kind ?? ""),
+    "ptyKind": String(__sigil_inspect_world.pty?.kind ?? ""),
     "processKind": String(__sigil_inspect_world.process?.kind ?? ""),
     "randomKind": String(__sigil_inspect_world.random?.kind ?? ""),
     "streamKind": String(__sigil_inspect_world.stream?.kind ?? ""),
@@ -2498,6 +2499,7 @@ const __sigil_has_topology =
   __sigil_inspect_topology.fsRoots.size > 0 ||
   __sigil_inspect_topology.http.size > 0 ||
   __sigil_inspect_topology.logSinks.size > 0 ||
+  __sigil_inspect_topology.ptyHandles.size > 0 ||
   __sigil_inspect_topology.processHandles.size > 0 ||
   __sigil_inspect_topology.tcp.size > 0;
 if (!__sigil_has_world && __sigil_has_topology) {{
@@ -2519,6 +2521,7 @@ console.log(JSON.stringify({{
     "clockKind": String(__sigil_inspect_world.clock?.kind ?? ""),
     "fsKind": String(__sigil_inspect_world.fs?.kind ?? ""),
     "logKind": String(__sigil_inspect_world.log?.kind ?? ""),
+    "ptyKind": String(__sigil_inspect_world.pty?.kind ?? ""),
     "processKind": String(__sigil_inspect_world.process?.kind ?? ""),
     "randomKind": String(__sigil_inspect_world.random?.kind ?? ""),
     "streamKind": String(__sigil_inspect_world.stream?.kind ?? ""),

@@ -114,12 +114,16 @@ Canonical example helpers include:
 - `※observe::file.readTextAt`
 - `※observe::log.entries`
 - `※observe::log.entriesAt`
+- `※observe::pty.spawnsAt`
+- `※observe::pty.writesAt`
 - `※observe::process.commandsAt`
 - `※check::http.calledOnce`
 - `※check::file.existsAt`
 - `※check::file.textEqualsAt`
 - `※check::log.contains`
 - `※check::log.containsAt`
+- `※check::pty.closedAt`
+- `※check::pty.spawnedOnceAt`
 - `※check::process.calledOnceAt`
 
 For topology-aware labelled-boundary projects, these helpers are the canonical

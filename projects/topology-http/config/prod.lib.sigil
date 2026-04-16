@@ -9,6 +9,7 @@ c world=(†runtime.world(
   )],
   †log.stdout(),
   †process.real(),
+  †pty.real(),
   †random.real(),
   †stream.live(),
   [],

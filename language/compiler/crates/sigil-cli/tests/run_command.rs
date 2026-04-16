@@ -97,6 +97,7 @@ fn write_topology_project(root: &Path) -> PathBuf {
             "  [],\n",
             "  †log.capture(),\n",
             "  †process.real(),\n",
+            "  †pty.real(),\n",
             "  †random.seeded(7),\n",
             "  †stream.live(),\n",
             "  [],\n",
@@ -196,6 +197,58 @@ fn run_succeeds_when_pnpm_is_shadowed() {
 }
 
 #[test]
+fn run_real_pty_smoke_succeeds_when_runtime_bridge_is_available() {
+    if !repo_root()
+        .join("language/runtime/node/node_modules/node-pty")
+        .exists()
+    {
+        return;
+    }
+
+    let dir = temp_dir("pty-smoke");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        concat!(
+            "λmain()=>!Pty!Stream Bool={\n",
+            "  l session=(§pty.spawn({\n",
+            "    argv:[\n",
+            "      \"/bin/sh\",\n",
+            "      \"-lc\",\n",
+            "      \"printf ready\"\n",
+            "    ],\n",
+            "    cols:80,\n",
+            "    cwd:None(),\n",
+            "    env:({↦}:{String↦String}),\n",
+            "    rows:24\n",
+            "  }):§pty.Session);\n",
+            "  l events=(§pty.events(session):§stream.Source[§pty.Event]);\n",
+            "  l first=(§stream.next(events):§stream.Next[§pty.Event]);\n",
+            "  l exitCode=(§pty.wait(session):Int);\n",
+            "  match first{\n",
+            "    §stream.Item(§pty.Output(text))=>§string.contains(\n",
+            "      text,\n",
+            "      \"ready\"\n",
+            "    ) and exitCode=0|\n",
+            "    _=>false\n",
+            "  }\n",
+            "}\n",
+        ),
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "true\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
 fn run_uses_standalone_local_world_when_present() {
     let dir = temp_dir("standalone-world");
     let file = write_program(
@@ -211,6 +264,7 @@ fn run_uses_standalone_local_world_when_present() {
             "    [],\n",
             "    †log.capture(),\n",
             "    †process.real(),\n",
+            "    †pty.real(),\n",
             "    †random.seeded(7),\n",
             "    †stream.live(),\n",
             "    [],\n",
@@ -1240,6 +1294,7 @@ fn run_json_preserves_topology_codes_for_bootstrap_failures() {
             "  [],\n",
             "  †log.capture(),\n",
             "  †process.real(),\n",
+            "  †pty.real(),\n",
             "  †random.seeded(1337),\n",
             "  †stream.live(),\n",
             "  [],\n",

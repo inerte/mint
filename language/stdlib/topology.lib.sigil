@@ -8,6 +8,8 @@ t LogSink=LogSink(String)
 
 t ProcessHandle=ProcessHandle(String)
 
+t PtyHandle=PtyHandle(String)
+
 t TcpServiceDependency=TcpServiceDependency(String)
 
 λenvironment(name:String)=>Environment=Environment(name)
@@ -19,5 +21,7 @@ t TcpServiceDependency=TcpServiceDependency(String)
 λlogSink(name:String)=>LogSink=LogSink(name)
 
 λprocessHandle(name:String)=>ProcessHandle=ProcessHandle(name)
+
+λptyHandle(name:String)=>PtyHandle=PtyHandle(name)
 
 λtcpService(name:String)=>TcpServiceDependency=TcpServiceDependency(name)

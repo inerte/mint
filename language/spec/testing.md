@@ -101,7 +101,7 @@ Test-local derivation:
 
 - `test ... world { ... } { ... }` overlays entries onto the selected env world
 - singleton entries such as `†clock.*`, `†log.*`, or `†random.*` replace that kind
-- topology-indexed `†http.*` and `†tcp.*` replace by dependency handle
+- topology-indexed entries such as `†http.*`, `†process.*Handle`, `†pty.*Handle`, `†tcp.*`, and `†websocket.*Handle` replace by named boundary handle
 
 Observation surface:
 
@@ -117,6 +117,8 @@ Canonical example helpers include:
 - `※observe::pty.spawnsAt`
 - `※observe::pty.writesAt`
 - `※observe::process.commandsAt`
+- `※observe::websocket.receivedAt`
+- `※observe::websocket.sentAt`
 - `※check::http.calledOnce`
 - `※check::file.existsAt`
 - `※check::file.textEqualsAt`
@@ -125,6 +127,8 @@ Canonical example helpers include:
 - `※check::pty.closedAt`
 - `※check::pty.spawnedOnceAt`
 - `※check::process.calledOnceAt`
+- `※check::websocket.connectedOnceAt`
+- `※check::websocket.sentAt`
 
 For topology-aware labelled-boundary projects, these helpers are the canonical
 testing surface. They assert the effect observed at the exact named boundary

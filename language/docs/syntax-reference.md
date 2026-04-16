@@ -146,6 +146,7 @@ The built-in primitive effects are:
 - `Tcp`
 - `Terminal`
 - `Timer`
+- `WebSocket`
 
 Projects may define reusable multi-effect aliases only in `src/effects.lib.sigil`:
 

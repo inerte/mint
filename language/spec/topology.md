@@ -44,6 +44,7 @@ t LogSink=LogSink(String)
 t ProcessHandle=ProcessHandle(String)
 t PtyHandle=PtyHandle(String)
 t TcpServiceDependency=TcpServiceDependency(String)
+t WebSocketHandle=WebSocketHandle(String)
 
 λenvironment(name:String)=>Environment
 λfsRoot(name:String)=>FsRoot
@@ -52,18 +53,20 @@ t TcpServiceDependency=TcpServiceDependency(String)
 λprocessHandle(name:String)=>ProcessHandle
 λptyHandle(name:String)=>PtyHandle
 λtcpService(name:String)=>TcpServiceDependency
+λwebsocketHandle(name:String)=>WebSocketHandle
 ```
 
 `†runtime` and world entry roots define the canonical env surface:
 
 ```sigil decl †runtime
-t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,fsRoots:[†fs.FsRootEntry],http:[†http.HttpEntry],log:†log.LogEntry,logSinks:[†log.LogSinkEntry],process:†process.ProcessEntry,processHandles:[†process.ProcessHandleEntry],pty:†pty.PtyEntry,ptyHandles:[†pty.PtyHandleEntry],random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
+ t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,fsRoots:[†fs.FsRootEntry],http:[†http.HttpEntry],log:†log.LogEntry,logSinks:[†log.LogSinkEntry],process:†process.ProcessEntry,processHandles:[†process.ProcessHandleEntry],pty:†pty.PtyEntry,ptyHandles:[†pty.PtyHandleEntry],random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry,websocket:†websocket.WebSocketEntry,websocketHandles:[†websocket.WebSocketHandleEntry]}
 
-λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,pty:†pty.PtyEntry,random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World
+λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,pty:†pty.PtyEntry,random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry,websocket:†websocket.WebSocketEntry)=>World
 λwithFsRoots(fsRoots:[†fs.FsRootEntry],world:World)=>World
 λwithLogSinks(logSinks:[†log.LogSinkEntry],world:World)=>World
 λwithProcessHandles(processHandles:[†process.ProcessHandleEntry],world:World)=>World
 λwithPtyHandles(ptyHandles:[†pty.PtyHandleEntry],world:World)=>World
+λwithWebSocketHandles(websocketHandles:[†websocket.WebSocketHandleEntry],world:World)=>World
 ```
 
 ## Compile-Time Rules
@@ -78,11 +81,12 @@ In project mode, calls to these constructors are only valid in
 - `§topology.processHandle`
 - `§topology.ptyHandle`
 - `§topology.tcpService`
+- `§topology.websocketHandle`
 - `§topology.environment`
 
 ### World entry location
 
-In project mode, calls to `†http.*`, `†fs.*Root`, `†log.*Sink`, `†process.*`, and `†pty.*` world-entry constructors are only valid in:
+In project mode, calls to `†http.*`, `†fs.*Root`, `†log.*Sink`, `†process.*`, `†pty.*`, and `†websocket.*` world-entry constructors are only valid in:
 
 - `config/*.lib.sigil`
 - test-local `world { ... }` clauses
@@ -116,6 +120,7 @@ Label-aware boundary rules operate on exact named boundaries:
 - `§log.write` requires `LogSink`
 - `§process.runAt` / `§process.startAt` require `ProcessHandle`
 - `§pty.spawnAt` requires `PtyHandle`
+- `§websocket.route` / `§websocket.connections` require `WebSocketHandle`
 
 ## Validate-Time Rules
 
@@ -158,6 +163,8 @@ test world. Canonical examples include:
 - `※observe::process.commandsAt(•topology.govBrCli)`
 - `※observe::pty.writesAt(•topology.assistantShell)`
 - `※check::pty.spawnedOnceAt(•topology.assistantShell)`
+- `※observe::websocket.receivedAt(•topology.liveUpdates)`
+- `※check::websocket.connectedOnceAt(•topology.liveUpdates)`
 
 ## Diagnostics
 

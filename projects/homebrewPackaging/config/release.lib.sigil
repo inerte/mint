@@ -10,7 +10,8 @@ c world=(†runtime.world(
   †random.real(),
   †stream.live(),
   [],
-  †timer.real()
+  †timer.real(),
+  †websocket.real()
 ):†runtime.World)
 
 λoutputPath()=>String=outputPathFromProperty(process.env.hasOwnProperty("sigilHomebrewOutputPath"))

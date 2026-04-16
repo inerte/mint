@@ -353,11 +353,13 @@ effects:
 - `Http`
 - `Log`
 - `Process`
+- `Pty`
 - `Random`
 - `Stream`
 - `Tcp`
 - `Terminal`
 - `Timer`
+- `WebSocket`
 
 Projects may define reusable multi-effect aliases only in `src/effects.lib.sigil`.
 Aliases must expand to at least two primitive effects.

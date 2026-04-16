@@ -12,6 +12,8 @@ t PtyHandle=PtyHandle(String)
 
 t TcpServiceDependency=TcpServiceDependency(String)
 
+t WebSocketHandle=WebSocketHandle(String)
+
 λenvironment(name:String)=>Environment=Environment(name)
 
 λfsRoot(name:String)=>FsRoot=FsRoot(name)
@@ -25,3 +27,5 @@ t TcpServiceDependency=TcpServiceDependency(String)
 λptyHandle(name:String)=>PtyHandle=PtyHandle(name)
 
 λtcpService(name:String)=>TcpServiceDependency=TcpServiceDependency(name)
+
+λwebsocketHandle(name:String)=>WebSocketHandle=WebSocketHandle(name)

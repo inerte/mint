@@ -13,7 +13,8 @@ c world=(†runtime.world(
   †random.real(),
   †stream.live(),
   [],
-  †timer.real()
+  †timer.real(),
+  †websocket.real()
 ):†runtime.World)
 
 λmailerApiBaseUrl()=>String=mailerApiBaseUrlFromProperty(process.env.hasOwnProperty("mailerApiUrl"))

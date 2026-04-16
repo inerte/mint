@@ -1,0 +1,15 @@
+λcloseCount()=>Int=0
+
+λcloseCountAt(handle:§topology.WebSocketHandle)=>Int=0
+
+λconnectionCount()=>Int=0
+
+λconnectionCountAt(handle:§topology.WebSocketHandle)=>Int=0
+
+λreceived()=>[String]=[]
+
+λreceivedAt(handle:§topology.WebSocketHandle)=>[String]=[]
+
+λsent()=>[String]=[]
+
+λsentAt(handle:§topology.WebSocketHandle)=>[String]=[]

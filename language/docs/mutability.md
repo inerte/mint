@@ -241,6 +241,7 @@ Current primitive effects are:
 - `Tcp`
 - `Terminal`
 - `Timer`
+- `WebSocket`
 
 Examples:
 

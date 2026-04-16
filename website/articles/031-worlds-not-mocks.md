@@ -78,7 +78,8 @@ c world=(†runtime.world(
   †process.real(),
   †random.real(),
   [],
-  †timer.real()
+  †timer.real(),
+  †websocket.real()
 ):†runtime.World)
 ```
 

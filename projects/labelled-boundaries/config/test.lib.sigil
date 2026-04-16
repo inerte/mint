@@ -30,7 +30,8 @@ c world=(†runtime.withProcessHandles(
         †random.seeded(1337),
         †stream.live(),
         [],
-        †timer.virtual()
+        †timer.virtual(),
+        †websocket.real()
       )
     )
   )

@@ -13,5 +13,6 @@ c world=(†runtime.world(
   †random.seeded(1337),
   †stream.live(),
   [],
-  †timer.virtual()
+  †timer.virtual(),
+  †websocket.real()
 ):†runtime.World)

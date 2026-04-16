@@ -1,0 +1,27 @@
+t Client={id:String}
+
+t Route={
+  handle:§topology.WebSocketHandle,
+  path:String
+}
+
+t Server={port:Int}
+
+λclose(client:Client)=>!WebSocket Unit=()
+
+λconnections(handle:§topology.WebSocketHandle,server:Server)=>!WebSocket §stream.Source[Client]=(§stream.StreamSource(0):§stream.Source[Client])
+
+λlisten(port:Int,routes:[Route])=>!WebSocket Server={port:port}
+
+λmessages(client:Client)=>!WebSocket §stream.Source[String]=(§stream.StreamSource(0):§stream.Source[String])
+
+λport(server:Server)=>Int=server.port
+
+λroute(handle:§topology.WebSocketHandle,path:String)=>Route={
+  handle:handle,
+  path:path
+}
+
+λsend(client:Client,text:String)=>!WebSocket Unit=()
+
+λwait(server:Server)=>!WebSocket Unit=()

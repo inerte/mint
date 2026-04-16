@@ -2424,6 +2424,7 @@ console.log(JSON.stringify({{
     "randomKind": String(__sigil_inspect_world.random?.kind ?? ""),
     "streamKind": String(__sigil_inspect_world.stream?.kind ?? ""),
     "timerKind": String(__sigil_inspect_world.timer?.kind ?? ""),
+    "websocketKind": String(__sigil_inspect_world.websocket?.kind ?? ""),
     "httpBindings": Object.keys(__sigil_inspect_world.http ?? {{}}).length,
     "tcpBindings": Object.keys(__sigil_inspect_world.tcp ?? {{}}).length
   }},
@@ -2501,7 +2502,8 @@ const __sigil_has_topology =
   __sigil_inspect_topology.logSinks.size > 0 ||
   __sigil_inspect_topology.ptyHandles.size > 0 ||
   __sigil_inspect_topology.processHandles.size > 0 ||
-  __sigil_inspect_topology.tcp.size > 0;
+  __sigil_inspect_topology.tcp.size > 0 ||
+  __sigil_inspect_topology.websocketHandles.size > 0;
 if (!__sigil_has_world && __sigil_has_topology) {{
   const error = new Error("{local_world_required}: standalone topology programs must export c world");
   error.sigilCode = "{local_world_required}";
@@ -2526,6 +2528,7 @@ console.log(JSON.stringify({{
     "randomKind": String(__sigil_inspect_world.random?.kind ?? ""),
     "streamKind": String(__sigil_inspect_world.stream?.kind ?? ""),
     "timerKind": String(__sigil_inspect_world.timer?.kind ?? ""),
+    "websocketKind": String(__sigil_inspect_world.websocket?.kind ?? ""),
     "httpBindings": Object.keys(__sigil_inspect_world.http ?? {{}}).length,
     "tcpBindings": Object.keys(__sigil_inspect_world.tcp ?? {{}}).length
   }},

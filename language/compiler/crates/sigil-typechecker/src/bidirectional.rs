@@ -5023,6 +5023,10 @@ fn is_tcp_dependency_type(typ: &InferenceType) -> bool {
     matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".TcpServiceDependency") || tcons.name == "TcpServiceDependency")
 }
 
+fn is_websocket_handle_type(typ: &InferenceType) -> bool {
+    matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".WebSocketHandle") || tcons.name == "WebSocketHandle")
+}
+
 fn is_named_topology_boundary_type(typ: &InferenceType) -> bool {
     is_http_dependency_type(typ)
         || is_fs_root_type(typ)
@@ -5030,6 +5034,7 @@ fn is_named_topology_boundary_type(typ: &InferenceType) -> bool {
         || is_pty_handle_type(typ)
         || is_process_handle_type(typ)
         || is_tcp_dependency_type(typ)
+        || is_websocket_handle_type(typ)
 }
 
 fn member_ref_targets_named_topology_boundary(
@@ -5069,6 +5074,7 @@ fn validate_topology_application(
                 | "ptyHandle"
                 | "processHandle"
                 | "tcpService"
+                | "websocketHandle"
         );
 
         if restricted && is_project_mode_source(env) && !is_canonical_topology_source(env) {
@@ -5139,6 +5145,13 @@ fn validate_topology_application(
     } else {
         None
     };
+    let websocket_handle_arg_index = if module_id == "stdlib::websocket"
+        && matches!(member, "connections" | "route")
+    {
+        Some(0)
+    } else {
+        None
+    };
 
     if http_handle_arg_index.is_none()
         && tcp_handle_arg_index.is_none()
@@ -5146,6 +5159,7 @@ fn validate_topology_application(
         && log_handle_arg_index.is_none()
         && process_handle_arg_index.is_none()
         && pty_handle_arg_index.is_none()
+        && websocket_handle_arg_index.is_none()
     {
         return Ok(());
     }
@@ -5156,6 +5170,7 @@ fn validate_topology_application(
         .or(log_handle_arg_index)
         .or(process_handle_arg_index)
         .or(pty_handle_arg_index)
+        .or(websocket_handle_arg_index)
         .unwrap();
     let Some(handle_arg) = app.args.get(handle_index) else {
         return Ok(());
@@ -5236,6 +5251,12 @@ fn validate_topology_application(
     if pty_handle_arg_index.is_some() && !is_pty_handle_type(&handle_type) {
         return Err(TypeError::new(
             "stdlib::pty.spawnAt requires a named PtyHandle".to_string(),
+            Some(app.location),
+        ));
+    }
+    if websocket_handle_arg_index.is_some() && !is_websocket_handle_type(&handle_type) {
+        return Err(TypeError::new(
+            "stdlib::websocket.connections/route requires a named WebSocketHandle".to_string(),
             Some(app.location),
         ));
     }

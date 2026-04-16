@@ -12,5 +12,6 @@ c world=(†runtime.world(
     "127.0.0.1",
     45120
   )],
-  †timer.real()
+  †timer.real(),
+  †websocket.real()
 ):†runtime.World)

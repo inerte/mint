@@ -467,7 +467,8 @@ fn validate_succeeds_when_pnpm_is_shadowed() {
             "  †random.seeded(7),\n",
             "  †stream.live(),\n",
             "  [],\n",
-            "  †timer.real()\n",
+            "  †timer.real(),\n",
+            "  †websocket.real()\n",
             "):†runtime.World)\n",
         ),
     );
@@ -645,7 +646,8 @@ fn inspect_world_reports_normalized_runtime_world_for_topology_project() {
             "  †random.seeded(1337),\n",
             "  †stream.live(),\n",
             "  [],\n",
-            "  †timer.virtual()\n",
+            "  †timer.virtual(),\n",
+            "  †websocket.real()\n",
             "):†runtime.World)\n",
         ),
     );
@@ -709,7 +711,8 @@ fn inspect_world_supports_config_only_projects_without_topology() {
             "  †random.seeded(7),\n",
             "  †stream.live(),\n",
             "  [],\n",
-            "  †timer.real()\n",
+            "  †timer.real(),\n",
+            "  †websocket.real()\n",
             "):†runtime.World)\n",
         ),
     );
@@ -770,7 +773,8 @@ fn inspect_world_emits_json_error_when_env_is_undeclared() {
             "  †random.real(),\n",
             "  †stream.live(),\n",
             "  [],\n",
-            "  †timer.real()\n",
+            "  †timer.real(),\n",
+            "  †websocket.real()\n",
             "):†runtime.World)\n",
         ),
     );
@@ -849,7 +853,8 @@ fn inspect_world_supports_standalone_single_file_worlds() {
             "    †random.seeded(7),\n",
             "    †stream.live(),\n",
             "    [],\n",
-            "    †timer.virtual()\n",
+            "    †timer.virtual(),\n",
+            "    †websocket.real()\n",
             "  )\n",
             "):†runtime.World)\n\n",
             "λmain()=>Unit=()\n",
@@ -875,6 +880,7 @@ fn inspect_world_supports_standalone_single_file_worlds() {
     assert_eq!(json["data"]["summary"]["logKind"], "capture");
     assert_eq!(json["data"]["summary"]["ptyKind"], "real");
     assert_eq!(json["data"]["summary"]["streamKind"], "live");
+    assert_eq!(json["data"]["summary"]["websocketKind"], "real");
     assert_eq!(
         json["data"]["normalizedWorld"]["logSinks"]["auditLog"]["kind"],
         "capture"
@@ -901,7 +907,8 @@ fn inspect_world_succeeds_when_pnpm_is_shadowed() {
             "    †random.seeded(7),\n",
             "    †stream.live(),\n",
             "    [],\n",
-            "    †timer.virtual()\n",
+            "    †timer.virtual(),\n",
+            "    †websocket.real()\n",
             "  )\n",
             "):†runtime.World)\n\n",
             "λmain()=>Unit=()\n",
@@ -924,6 +931,7 @@ fn inspect_world_succeeds_when_pnpm_is_shadowed() {
     assert_eq!(json["command"], "sigilc inspect world");
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["summary"]["ptyKind"], "real");
+    assert_eq!(json["data"]["summary"]["websocketKind"], "real");
 }
 
 #[test]

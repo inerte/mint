@@ -104,7 +104,8 @@ c world=(†runtime.world(
   †random.seeded(1337),
   †stream.live(),
   [],
-  †timer.virtual()
+  †timer.virtual(),
+  †websocket.real()
 ):†runtime.World)
 
 λmailerApiBaseUrl()=>String=mailerApiBaseUrlFromProperty(process.env.hasOwnProperty("sigilHttpTestBaseUrl"))
@@ -133,7 +134,8 @@ c world=(†runtime.world(
   †random.real(),
   †stream.live(),
   [],
-  †timer.real()
+  †timer.real(),
+  †websocket.real()
 ):†runtime.World)
 ```
 
@@ -186,6 +188,20 @@ Canonical PTY usage:
     env:{↦},
     rows:40
   }
+)
+```
+
+Canonical WebSocket usage:
+
+```sigil program language/examples/websocketBasics.sigil
+c liveUpdates=(§topology.websocketHandle("liveUpdates"):§topology.WebSocketHandle)
+
+λmain()=>!WebSocket §websocket.Server=§websocket.listen(
+  8080,
+  [§websocket.route(
+    •topology.liveUpdates,
+    "/sessions"
+  )]
 )
 ```
 
@@ -256,6 +272,7 @@ Compile-time:
 - in standalone mode, the same constructors may appear directly in the file
 - topology-aware HTTP/TCP APIs require dependency handles
 - label-aware filesystem, log, process, and PTY crossings use named `FsRoot`, `LogSink`, `ProcessHandle`, and `PtyHandle` handles
+- `§websocket.route` and `§websocket.connections` use named `WebSocketHandle` handles
 - raw endpoint usage is rejected
 - in project mode, `process.env` is only allowed in `config/*.lib.sigil`
 - standalone files may read `process.env` directly because there is no separate config module

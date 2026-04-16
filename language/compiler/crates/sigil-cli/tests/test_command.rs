@@ -124,7 +124,8 @@ fn test_directory_runs_inline_tests_in_standalone_files() {
             "    †random.seeded(1337),\n",
             "    †stream.live(),\n",
             "    [],\n",
-            "    †timer.virtual()\n",
+            "    †timer.virtual(),\n",
+            "    †websocket.real()\n",
             "  )\n",
             "):†runtime.World)\n\n",
             "λmain()=>Unit=()\n\n",
@@ -199,6 +200,24 @@ fn test_pty_example_fixture_suite_passes() {
     assert_eq!(json["command"], "sigilc test");
     assert_eq!(json["ok"], true);
     assert_eq!(json["summary"]["passed"], 2);
+}
+
+#[test]
+fn test_websocket_example_fixture_suite_passes() {
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("test")
+        .arg(repo_root().join("language/examples/websocketBasics.sigil"))
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc test");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["summary"]["passed"], 1);
 }
 
 #[test]

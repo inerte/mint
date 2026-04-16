@@ -1,0 +1,31 @@
+λclosed()=>Bool=※observe::websocket.closeCount()>0
+
+λclosedAt(handle:§topology.WebSocketHandle)=>Bool=※observe::websocket.closeCountAt(handle)>0
+
+λconnected()=>Bool=※observe::websocket.connectionCount()>0
+
+λconnectedAt(handle:§topology.WebSocketHandle)=>Bool=※observe::websocket.connectionCountAt(handle)>0
+
+λconnectedOnce()=>Bool=※observe::websocket.connectionCount()=1
+
+λconnectedOnceAt(handle:§topology.WebSocketHandle)=>Bool=※observe::websocket.connectionCountAt(handle)=1
+
+λreceived(text:String)=>Bool=§list.any(
+  λ(entry:String)=>Bool=entry=text,
+  ※observe::websocket.received()
+)
+
+λreceivedAt(handle:§topology.WebSocketHandle,text:String)=>Bool=§list.any(
+  λ(entry:String)=>Bool=entry=text,
+  ※observe::websocket.receivedAt(handle)
+)
+
+λsent(text:String)=>Bool=§list.any(
+  λ(entry:String)=>Bool=entry=text,
+  ※observe::websocket.sent()
+)
+
+λsentAt(handle:§topology.WebSocketHandle,text:String)=>Bool=§list.any(
+  λ(entry:String)=>Bool=entry=text,
+  ※observe::websocket.sentAt(handle)
+)

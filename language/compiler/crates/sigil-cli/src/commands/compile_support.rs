@@ -337,6 +337,67 @@ fn pty_runtime_import_specifier() -> Result<String, CliError> {
     ))
 }
 
+fn resolve_websocket_runtime_helper_path() -> Result<PathBuf, CliError> {
+    let executable = std::env::current_exe().map_err(|error| {
+        CliError::Codegen(format!("failed to resolve compiler executable path: {error}"))
+    })?;
+    let executable_dir = executable.parent().ok_or_else(|| {
+        CliError::Codegen(format!(
+            "failed to resolve compiler executable directory for '{}'",
+            executable.display()
+        ))
+    })?;
+
+    let mut candidates = vec![
+        executable_dir
+            .join("runtime")
+            .join("node")
+            .join("websocket-runtime.mjs"),
+        executable_dir
+            .parent()
+            .map(|root| {
+                root.join("share")
+                    .join("sigil")
+                    .join("runtime")
+                    .join("node")
+                    .join("websocket-runtime.mjs")
+            })
+            .unwrap_or_else(|| PathBuf::from("__missing__")),
+    ];
+
+    for ancestor in executable_dir.ancestors() {
+        candidates.push(
+            ancestor
+                .join("language")
+                .join("runtime")
+                .join("node")
+                .join("websocket-runtime.mjs"),
+        );
+    }
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return fs::canonicalize(candidate).map_err(|error| {
+                CliError::Codegen(format!(
+                    "failed to canonicalize websocket runtime helper path: {error}"
+                ))
+            });
+        }
+    }
+
+    Err(CliError::Codegen(format!(
+        "failed to locate bundled websocket runtime helper next to '{}'",
+        executable.display()
+    )))
+}
+
+fn websocket_runtime_import_specifier() -> Result<String, CliError> {
+    Ok(format!(
+        "file://{}",
+        resolve_websocket_runtime_helper_path()?.display()
+    ))
+}
+
 fn output_flavor_tag(output_flavor: OutputFlavor) -> &'static str {
     match output_flavor {
         OutputFlavor::TypeScript => "ts",
@@ -1380,6 +1441,7 @@ pub(super) fn generate_module_graph_outputs(
             output_file: Some(output_path.to_string_lossy().to_string()),
             import_extension: output_flavor.import_extension().to_string(),
             pty_runtime_import_specifier: pty_runtime_import_specifier().ok(),
+            websocket_runtime_import_specifier: websocket_runtime_import_specifier().ok(),
             lazy_extern_namespaces: output_flavor == OutputFlavor::RuntimeEsm,
             trace,
             breakpoints,
@@ -1733,6 +1795,7 @@ function __sigil_runtime_collect_topology(moduleExports) {{
   const http = new Set();
   const ptyHandles = new Set();
   const tcp = new Set();
+  const websocketHandles = new Set();
   for (const value of Object.values(moduleExports ?? {{}})) {{
     if (value?.__tag === 'Environment') {{
       envs.add(String(value.__fields?.[0] ?? ''));
@@ -1742,9 +1805,11 @@ function __sigil_runtime_collect_topology(moduleExports) {{
       ptyHandles.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'TcpServiceDependency') {{
       tcp.add(String(value.__fields?.[0] ?? ''));
+    }} else if (value?.__tag === 'WebSocketHandle') {{
+      websocketHandles.add(String(value.__fields?.[0] ?? ''));
     }}
   }}
-  return {{ envs, http, ptyHandles, tcp }};
+  return {{ envs, http, ptyHandles, tcp, websocketHandles }};
 }}
 
 function __sigil_runtime_collect_world_dependency_names(entries, expectedTag) {{
@@ -1775,7 +1840,7 @@ function __sigil_runtime_read_world(configExports) {{
   if (!world || typeof world !== 'object') {{
     __sigil_runtime_fail("{invalid_config}", "config module must export a 'world' value");
   }}
-  for (const field of ['clock', 'fs', 'http', 'log', 'pty', 'process', 'random', 'stream', 'tcp', 'timer']) {{
+  for (const field of ['clock', 'fs', 'http', 'log', 'pty', 'process', 'random', 'stream', 'tcp', 'timer', 'websocket']) {{
     if (!(field in world)) {{
       __sigil_runtime_fail("{invalid_config}", `world is missing '${{field}}'`);
     }}
@@ -1859,6 +1924,7 @@ function __sigil_runtime_collect_local_topology(moduleExports) {{
   const processHandles = new Set();
   const ptyHandles = new Set();
   const tcp = new Set();
+  const websocketHandles = new Set();
   for (const value of Object.values(moduleExports ?? {{}})) {{
     if (value?.__tag === 'Environment') {{
       envs.add(String(value.__fields?.[0] ?? ''));
@@ -1874,9 +1940,11 @@ function __sigil_runtime_collect_local_topology(moduleExports) {{
       ptyHandles.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'TcpServiceDependency') {{
       tcp.add(String(value.__fields?.[0] ?? ''));
+    }} else if (value?.__tag === 'WebSocketHandle') {{
+      websocketHandles.add(String(value.__fields?.[0] ?? ''));
     }}
   }}
-  return {{ envs, fsRoots, http, logSinks, processHandles, ptyHandles, tcp }};
+  return {{ envs, fsRoots, http, logSinks, processHandles, ptyHandles, tcp, websocketHandles }};
 }}
 
 function __sigil_runtime_local_topology_declared(topology) {{
@@ -1886,7 +1954,8 @@ function __sigil_runtime_local_topology_declared(topology) {{
     topology.logSinks.size > 0 ||
     topology.ptyHandles.size > 0 ||
     topology.processHandles.size > 0 ||
-    topology.tcp.size > 0;
+    topology.tcp.size > 0 ||
+    topology.websocketHandles.size > 0;
 }}
 
 globalThis.__sigil_runtime_apply_program_world = async (moduleExports) => {{

@@ -1,0 +1,88 @@
+c liveUpdates=(§topology.websocketHandle("liveUpdates"):§topology.WebSocketHandle)
+
+c metrics=(§topology.websocketHandle("metrics"):§topology.WebSocketHandle)
+
+c world=(†runtime.withWebSocketHandles(
+  [
+    †websocket.realHandle(liveUpdates),
+    †websocket.realHandle(metrics)
+  ],
+  †runtime.world(
+    †clock.systemClock(),
+    †fs.real(),
+    [],
+    †log.capture(),
+    †process.real(),
+    †pty.real(),
+    †random.seeded(1337),
+    †stream.live(),
+    [],
+    †timer.virtual(),
+    †websocket.real()
+  )
+):†runtime.World)
+
+λmain()=>Unit=()
+
+test "websocket fixture streams route-scoped clients and messages" =>!Stream!WebSocket world {
+  c metricsHandle=(†websocket.fixtureHandle(
+  metrics,
+  []
+):†websocket.WebSocketHandleEntry)
+  c websocketHandle=(†websocket.fixtureHandle(
+  liveUpdates,
+  [†websocket.rule([
+    "ping",
+    "status"
+  ])]
+):†websocket.WebSocketHandleEntry)
+} {
+  l server=(§websocket.listen(
+    8080,
+    [
+      §websocket.route(
+        liveUpdates,
+        "/sessions"
+      ),
+      §websocket.route(
+        metrics,
+        "/metrics"
+      )
+    ]
+  ):§websocket.Server);
+  l clients=(§websocket.connections(
+    liveUpdates,
+    server
+  ):§stream.Source[§websocket.Client]);
+  match §stream.next(clients){
+    §stream.Item(client)=>{
+      l messages=(§websocket.messages(client):§stream.Source[String]);
+      l first=(§stream.next(messages):§stream.Next[String]);
+      l second=(§stream.next(messages):§stream.Next[String]);
+      l _=(§websocket.send(
+        client,
+        "{\"kind\":\"ready\"}"
+      ):Unit);
+      l _=(§websocket.close(client):Unit);
+      (match first{
+        §stream.Item(text)=>text="ping"|
+        §stream.Done()=>false
+      })
+        and (match second{
+          §stream.Item(text)=>text="status"|
+          §stream.Done()=>false
+        })
+        and ※check::websocket.connectedOnceAt(liveUpdates)
+        and ※check::websocket.receivedAt(
+          liveUpdates,
+          "ping"
+        )
+        and ※check::websocket.sentAt(
+          liveUpdates,
+          "{\"kind\":\"ready\"}"
+        )
+        and ※check::websocket.closedAt(liveUpdates)
+    }|
+    §stream.Done()=>false
+  }
+}

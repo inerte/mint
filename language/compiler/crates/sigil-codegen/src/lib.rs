@@ -319,7 +319,9 @@ function __sigil_world_host_template() {
     random: { kind: 'real' },
     stream: { kind: 'live' },
     tcp: Object.create(null),
-    timer: { kind: 'real' }
+    timer: { kind: 'real' },
+    websocket: { kind: 'real' },
+    websocketHandles: Object.create(null)
   };
 }
 function __sigil_world_collect_topology(topologyExports) {
@@ -330,8 +332,9 @@ function __sigil_world_collect_topology(topologyExports) {
   const ptyHandles = new Set();
   const processHandles = new Set();
   const tcp = new Set();
+  const websocketHandles = new Set();
   if (!topologyExports || typeof topologyExports !== 'object') {
-    return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, tcp };
+    return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, tcp, websocketHandles };
   }
   for (const value of Object.values(topologyExports)) {
     if (value?.__tag === 'Environment') {
@@ -348,9 +351,11 @@ function __sigil_world_collect_topology(topologyExports) {
       processHandles.add(String(value.__fields?.[0] ?? ''));
     } else if (value?.__tag === 'TcpServiceDependency') {
       tcp.add(String(value.__fields?.[0] ?? ''));
+    } else if (value?.__tag === 'WebSocketHandle') {
+      websocketHandles.add(String(value.__fields?.[0] ?? ''));
     }
   }
-  return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, tcp };
+  return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, tcp, websocketHandles };
 }
 function __sigil_world_parse_clock(value) {
   if (value?.__tag === 'SystemClock') {
@@ -397,6 +402,19 @@ function __sigil_world_parse_pty(value) {
   }
   if (value?.__tag === 'RealPty') return { kind: 'real' };
   __sigil_world_error('world.pty must be world::pty.PtyEntry');
+}
+function __sigil_world_parse_websocket(value) {
+  if (value?.__tag === 'DenyWebSocket') return { kind: 'deny', rules: [] };
+  if (value?.__tag === 'FixtureWebSocket') {
+    return {
+      kind: 'fixture',
+      rules: (value.__fields?.[0] ?? []).map((rule) => ({
+        messages: Array.isArray(rule?.messages) ? rule.messages.map((item) => String(item)) : []
+      }))
+    };
+  }
+  if (value?.__tag === 'RealWebSocket') return { kind: 'real', rules: [] };
+  __sigil_world_error('world.websocket must be world::websocket.WebSocketEntry');
 }
 function __sigil_world_parse_process(value) {
   if (value?.__tag === 'DenyProcess') return { kind: 'deny' };
@@ -457,6 +475,20 @@ function __sigil_world_parse_pty_handle_entry(value) {
   return {
     handleName,
     ...__sigil_world_parse_pty(payload?.mode ?? null)
+  };
+}
+function __sigil_world_parse_websocket_handle_entry(value) {
+  if (value?.__tag !== 'WebSocketHandleEntry') {
+    __sigil_world_error('WebSocket handle overrides must be world::websocket.WebSocketHandleEntry');
+  }
+  const payload = value.__fields?.[0] ?? {};
+  const handleName = String(payload?.handleName ?? '');
+  if (!handleName) {
+    __sigil_world_error('world::websocket.WebSocketHandleEntry handleName must be a non-empty string');
+  }
+  return {
+    handleName,
+    ...__sigil_world_parse_websocket(payload?.mode ?? null)
   };
 }
 function __sigil_world_parse_process_handle_entry(value) {
@@ -659,6 +691,12 @@ function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
   template.random = __sigil_world_parse_random(worldValue.random);
   template.stream = __sigil_world_parse_stream(worldValue.stream);
   template.timer = __sigil_world_parse_timer(worldValue.timer);
+  template.websocket = __sigil_world_parse_websocket(worldValue.websocket);
+  template.websocketHandles = Object.create(null);
+  for (const value of worldValue.websocketHandles ?? []) {
+    const entry = __sigil_world_parse_websocket_handle_entry(value);
+    template.websocketHandles[entry.handleName] = entry;
+  }
   template.http = Object.create(null);
   for (const value of worldValue.http ?? []) {
     const entry = __sigil_world_parse_http_entry(value);
@@ -741,6 +779,18 @@ function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
       }
     }
   }
+  if (topology.websocketHandles.size > 0) {
+    for (const name of topology.websocketHandles) {
+      if (!(name in template.websocketHandles)) {
+        __sigil_world_error(`missing websocket handle world entry for '${name}' in environment '${envName ?? '<unknown>'}'`);
+      }
+    }
+    for (const name of Object.keys(template.websocketHandles)) {
+      if (!topology.websocketHandles.has(name)) {
+        __sigil_world_error(`websocket handle world entry references undeclared boundary '${name}'`);
+      }
+    }
+  }
   return template;
 }
 function __sigil_world_base_template() {
@@ -771,13 +821,18 @@ function __sigil_world_fresh(template) {
   const world = __sigil_world_clone(template);
   world.ptyNextId = 1;
   world.ptySessions = new Map();
+  world.websocketNextClientId = 1;
+  world.websocketNextServerId = 1;
+  world.websocketClients = new Map();
+  world.websocketServers = new Map();
   world.traces = {
     http: Object.create(null),
     log: [],
     pty: [],
     process: [],
     tcp: Object.create(null),
-    timer: { sleeps: [] }
+    timer: { sleeps: [] },
+    websocket: []
   };
   if (world.stream.kind === 'live') {
     world.stream.nextId = 1;
@@ -855,6 +910,16 @@ function __sigil_world_apply_overrides(world, overrides) {
           world.timer.nowMs = world.clock.kind === 'fixed' ? world.clock.millis : Date.now();
         }
         break;
+      case 'DenyWebSocket':
+      case 'FixtureWebSocket':
+      case 'RealWebSocket':
+        world.websocket = __sigil_world_parse_websocket(value);
+        break;
+      case 'WebSocketHandleEntry': {
+        const entry = __sigil_world_parse_websocket_handle_entry(value);
+        world.websocketHandles[entry.handleName] = entry;
+        break;
+      }
       case 'HttpEntry': {
         const entry = __sigil_world_parse_http_entry(value);
         world.http[entry.dependencyName] = entry;
@@ -1151,6 +1216,274 @@ async function __sigil_world_pty_wait(session) {
   const state = __sigil_world_pty_session_state(session);
   return Number(await state.done);
 }
+function __sigil_world_websocket_client_from_state(clientId) {
+  return {
+    __sigil_websocket_client_id: String(clientId),
+    id: String(clientId)
+  };
+}
+function __sigil_world_websocket_client_state(client) {
+  const world = __sigil_current_world();
+  const clientId = String(client?.__sigil_websocket_client_id ?? client?.id ?? '');
+  const state = world.websocketClients?.get(clientId) ?? null;
+  if (!state) {
+    __sigil_world_error(`unknown websocket client '${clientId}' in current world`);
+  }
+  return state;
+}
+function __sigil_world_websocket_entry_for_handle(world, handleName) {
+  return world.websocketHandles?.[String(handleName)] ?? world.websocket;
+}
+function __sigil_world_websocket_message_text(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value).toString('utf8');
+  }
+  if (Array.isArray(value)) {
+    return Buffer.concat(value.map((item) => Buffer.from(item))).toString('utf8');
+  }
+  return String(value ?? '');
+}
+function __sigil_world_websocket_normalize_port(port) {
+  const normalized = Math.trunc(Number(port ?? NaN));
+  if (!Number.isInteger(normalized) || normalized < 0 || normalized > 65535) {
+    __sigil_world_error(`invalid websocket listen port '${String(port ?? '')}'`);
+  }
+  return normalized;
+}
+function __sigil_world_websocket_normalize_routes(routes) {
+  if (!Array.isArray(routes)) {
+    __sigil_world_error('§websocket.listen requires a list of websocket routes');
+  }
+  const normalized = [];
+  const paths = new Set();
+  const handles = new Set();
+  for (const route of routes) {
+    const handleName = String(route?.handle?.__fields?.[0] ?? '');
+    const path = String(route?.path ?? '');
+    if (!handleName) {
+      __sigil_world_error('websocket routes must use named WebSocketHandle values');
+    }
+    if (!path || !path.startsWith('/')) {
+      __sigil_world_error(`websocket route '${handleName}' must use an exact path that starts with '/'`);
+    }
+    if (paths.has(path)) {
+      __sigil_world_error(`duplicate websocket route path '${path}'`);
+    }
+    if (handles.has(handleName)) {
+      __sigil_world_error(`duplicate websocket route handle '${handleName}'`);
+    }
+    paths.add(path);
+    handles.add(handleName);
+    normalized.push({ handleName, path });
+  }
+  return normalized;
+}
+function __sigil_world_websocket_register_client(world, handleName, source, state) {
+  const clientId = `ws-${String(world.websocketNextClientId ?? 1)}`;
+  world.websocketNextClientId = Number(world.websocketNextClientId ?? 1) + 1;
+  world.websocketClients.set(clientId, {
+    ...state,
+    clientId,
+    handleName: String(handleName),
+    source
+  });
+  __sigil_world_websocket_trace(world, 'connect', handleName, {
+    clientId
+  });
+  return __sigil_world_websocket_client_from_state(clientId);
+}
+function __sigil_world_websocket_route_state(serverState, handleName) {
+  const state = serverState?.routeStates?.[String(handleName)] ?? null;
+  if (!state) {
+    __sigil_world_error(`websocket server does not expose route handle '${String(handleName)}'`);
+  }
+  return state;
+}
+function __sigil_world_websocket_server_from_state(port, serverId) {
+  return {
+    __sigil_websocket_server_id: Number(serverId),
+    port: Number(port)
+  };
+}
+function __sigil_world_websocket_server_state(server) {
+  const world = __sigil_current_world();
+  const serverId = Number(server?.__sigil_websocket_server_id ?? NaN);
+  const state = world.websocketServers?.get(serverId) ?? null;
+  if (!state) {
+    __sigil_world_error(`unknown websocket server '${String(serverId)}' in current world`);
+  }
+  return state;
+}
+function __sigil_world_websocket_finish_routes(serverState) {
+  for (const routeState of Object.values(serverState?.routeStates ?? {})) {
+    __sigil_world_stream_finish(routeState.source);
+  }
+}
+async function __sigil_world_websocket_fixture_messages(world, handleName, messages) {
+  const source = __sigil_world_stream_open();
+  for (const message of Array.isArray(messages) ? messages : []) {
+    const text = String(message ?? '');
+    __sigil_world_websocket_trace(world, 'received', handleName, {
+      text
+    });
+    __sigil_world_stream_push(source, text);
+  }
+  __sigil_world_stream_finish(source);
+  return source;
+}
+async function __sigil_world_websocket_listen(port, routes) {
+  const world = __sigil_current_world();
+  const normalizedPort = __sigil_world_websocket_normalize_port(port);
+  const normalizedRoutes = __sigil_world_websocket_normalize_routes(routes);
+  const routeStates = Object.create(null);
+  const realRoutes = [];
+  for (const route of normalizedRoutes) {
+    const entry = __sigil_world_websocket_entry_for_handle(world, route.handleName);
+    if (entry.kind === 'deny') {
+      __sigil_world_error(`WebSocketHandle '${route.handleName}' is denied by the current world`);
+    }
+    routeStates[route.handleName] = {
+      handleName: route.handleName,
+      path: route.path,
+      source: __sigil_world_stream_open()
+    };
+    if (entry.kind === 'fixture') {
+      for (const rule of entry.rules ?? []) {
+        const source = await __sigil_world_websocket_fixture_messages(
+          world,
+          route.handleName,
+          rule.messages ?? []
+        );
+        const client = __sigil_world_websocket_register_client(world, route.handleName, source, {
+          closed: false,
+          fixture: true,
+          socket: null
+        });
+        __sigil_world_stream_push(routeStates[route.handleName].source, client);
+      }
+      __sigil_world_stream_finish(routeStates[route.handleName].source);
+    } else {
+      realRoutes.push(route);
+    }
+  }
+  const serverId = Number(world.websocketNextServerId ?? 1);
+  world.websocketNextServerId = serverId + 1;
+  const serverState = {
+    done: Promise.resolve(null),
+    id: serverId,
+    port: normalizedPort,
+    routeStates,
+    runtime: null
+  };
+  world.websocketServers.set(serverId, serverState);
+  if (realRoutes.length > 0) {
+    if (
+      !globalThis.__sigil_websocket_runtime ||
+      typeof globalThis.__sigil_websocket_runtime.listenServer !== 'function'
+    ) {
+      __sigil_world_error('§websocket runtime helper is unavailable');
+    }
+    const runtime = await globalThis.__sigil_websocket_runtime.listenServer(
+      normalizedPort,
+      realRoutes,
+      (handleName, socket) => {
+        const routeState = __sigil_world_websocket_route_state(serverState, handleName);
+        const source = __sigil_world_stream_open();
+        const client = __sigil_world_websocket_register_client(world, handleName, source, {
+          closed: false,
+          fixture: false,
+          socket
+        });
+        socket.on?.('message', (value) => {
+          const text = __sigil_world_websocket_message_text(value);
+          __sigil_world_websocket_trace(world, 'received', handleName, {
+            clientId: client.id,
+            text
+          });
+          __sigil_world_stream_push(source, text);
+        });
+        const finish = () => {
+          const state = world.websocketClients?.get(client.id) ?? null;
+          if (state) {
+            state.closed = true;
+          }
+          __sigil_world_stream_finish(source);
+        };
+        socket.once?.('close', finish);
+        socket.once?.('error', finish);
+        __sigil_world_stream_push(routeState.source, client);
+      }
+    );
+    serverState.port = Number(runtime?.port ?? normalizedPort);
+    serverState.runtime = runtime;
+    serverState.done = Promise.resolve(runtime?.wait?.()).then(() => {
+      __sigil_world_websocket_finish_routes(serverState);
+      return null;
+    });
+  }
+  return __sigil_world_websocket_server_from_state(serverState.port, serverId);
+}
+async function __sigil_world_websocket_connections(handleName, server) {
+  const serverState = __sigil_world_websocket_server_state(server);
+  return __sigil_world_websocket_route_state(serverState, handleName).source;
+}
+async function __sigil_world_websocket_messages(client) {
+  return __sigil_world_websocket_client_state(client).source;
+}
+async function __sigil_world_websocket_send(client, text) {
+  const world = __sigil_current_world();
+  const state = __sigil_world_websocket_client_state(client);
+  const message = String(text ?? '');
+  if (state.closed) {
+    if (state.fixture) {
+      __sigil_world_error(`websocket fixture client '${state.clientId}' is already closed`);
+    }
+    throw new Error(`websocket client '${state.clientId}' is already closed`);
+  }
+  __sigil_world_websocket_trace(world, 'sent', state.handleName, {
+    clientId: state.clientId,
+    text: message
+  });
+  if (state.fixture) {
+    return null;
+  }
+  await new Promise((resolve, reject) => {
+    state.socket?.send?.(message, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(undefined);
+    });
+  });
+  return null;
+}
+async function __sigil_world_websocket_close(client) {
+  const world = __sigil_current_world();
+  const state = __sigil_world_websocket_client_state(client);
+  if (state.closed) {
+    return null;
+  }
+  state.closed = true;
+  __sigil_world_websocket_trace(world, 'close', state.handleName, {
+    clientId: state.clientId
+  });
+  await __sigil_world_stream_close(state.source);
+  if (!state.fixture) {
+    try {
+      state.socket?.close?.();
+    } catch (_) {}
+  }
+  return null;
+}
+async function __sigil_world_websocket_wait(server) {
+  const state = __sigil_world_websocket_server_state(server);
+  await Promise.resolve(state.done);
+  return null;
+}
 function __sigil_world_now_ms(world) {
   if (world.clock.kind === 'fixed') {
     return Number(world.clock.millis);
@@ -1252,6 +1585,13 @@ function __sigil_world_pty_trace(world, kind, handleName, payload) {
     ...__sigil_world_clone(payload ?? {})
   });
 }
+function __sigil_world_websocket_trace(world, kind, handleName, payload) {
+  world.traces.websocket.push({
+    handleName: handleName == null ? null : String(handleName),
+    kind: String(kind),
+    ...__sigil_world_clone(payload ?? {})
+  });
+}
 function __sigil_world_process_trace(world, handleName, command) {
   world.traces.process.push({
     command,
@@ -1340,6 +1680,14 @@ function __sigil_world_named_pty_handle(handleName) {
   const entry = world.ptyHandles?.[String(handleName)] ?? null;
   if (!entry) {
     __sigil_world_error(`PtyHandle '${String(handleName)}' is not configured in the current world`);
+  }
+  return entry;
+}
+function __sigil_world_named_websocket_handle(handleName) {
+  const world = __sigil_current_world();
+  const entry = world.websocketHandles?.[String(handleName)] ?? null;
+  if (!entry) {
+    __sigil_world_error(`WebSocketHandle '${String(handleName)}' is not configured in the current world`);
   }
   return entry;
 }
@@ -2344,6 +2692,46 @@ function __sigil_test_pty_close_count_at(handleName) {
     .filter((entry) => entry.kind === 'close' && entry.handleName === String(handleName))
     .length;
 }
+function __sigil_test_websocket_connection_count() {
+  return __sigil_current_world().traces.websocket
+    .filter((entry) => entry.kind === 'connect')
+    .length;
+}
+function __sigil_test_websocket_connection_count_at(handleName) {
+  return __sigil_current_world().traces.websocket
+    .filter((entry) => entry.kind === 'connect' && entry.handleName === String(handleName))
+    .length;
+}
+function __sigil_test_websocket_received() {
+  return __sigil_current_world().traces.websocket
+    .filter((entry) => entry.kind === 'received')
+    .map((entry) => String(entry.text ?? ''));
+}
+function __sigil_test_websocket_received_at(handleName) {
+  return __sigil_current_world().traces.websocket
+    .filter((entry) => entry.kind === 'received' && entry.handleName === String(handleName))
+    .map((entry) => String(entry.text ?? ''));
+}
+function __sigil_test_websocket_sent() {
+  return __sigil_current_world().traces.websocket
+    .filter((entry) => entry.kind === 'sent')
+    .map((entry) => String(entry.text ?? ''));
+}
+function __sigil_test_websocket_sent_at(handleName) {
+  return __sigil_current_world().traces.websocket
+    .filter((entry) => entry.kind === 'sent' && entry.handleName === String(handleName))
+    .map((entry) => String(entry.text ?? ''));
+}
+function __sigil_test_websocket_close_count() {
+  return __sigil_current_world().traces.websocket
+    .filter((entry) => entry.kind === 'close')
+    .length;
+}
+function __sigil_test_websocket_close_count_at(handleName) {
+  return __sigil_current_world().traces.websocket
+    .filter((entry) => entry.kind === 'close' && entry.handleName === String(handleName))
+    .length;
+}
 function __sigil_test_process_call_count() {
   return __sigil_current_world().traces.process.length;
 }
@@ -2420,6 +2808,7 @@ pub struct CodegenOptions {
     pub output_file: Option<String>,
     pub import_extension: String,
     pub pty_runtime_import_specifier: Option<String>,
+    pub websocket_runtime_import_specifier: Option<String>,
     pub lazy_extern_namespaces: bool,
     pub trace: bool,
     pub breakpoints: bool,
@@ -2434,6 +2823,7 @@ impl Default for CodegenOptions {
             output_file: None,
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -2460,6 +2850,7 @@ pub struct TypeScriptGenerator {
     output_file: Option<String>,
     import_extension: String,
     pty_runtime_import_specifier: Option<String>,
+    websocket_runtime_import_specifier: Option<String>,
     lazy_extern_namespaces: bool,
     test_meta_entries: Vec<String>,
     trace_enabled: bool,
@@ -2482,6 +2873,7 @@ impl TypeScriptGenerator {
             output_file: options.output_file,
             import_extension: options.import_extension,
             pty_runtime_import_specifier: options.pty_runtime_import_specifier,
+            websocket_runtime_import_specifier: options.websocket_runtime_import_specifier,
             lazy_extern_namespaces: options.lazy_extern_namespaces,
             test_meta_entries: Vec::new(),
             trace_enabled: debug_enabled,
@@ -2687,6 +3079,11 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/pty.lib.sigil")
     }
 
+    fn requires_websocket_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
+        runtime_modules.contains("stdlib::websocket")
+            || self.source_file_is("language/stdlib/websocket.lib.sigil")
+    }
+
     fn requires_http_server_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
         runtime_modules.contains("stdlib::httpServer")
             || self.source_file_is("language/stdlib/httpServer.lib.sigil")
@@ -2711,11 +3108,15 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/tcpServer.lib.sigil")
             || self.source_file_is("language/stdlib/terminal.lib.sigil")
             || self.source_file_is("language/stdlib/time.lib.sigil")
+            || self.source_file_is("language/stdlib/websocket.lib.sigil")
             || self.source_file_is_test_observe_module()
             || self
                 .source_file
                 .as_deref()
-                .is_some_and(|path| path.ends_with("language/test/check/pty.lib.sigil"))
+                .is_some_and(|path| {
+                    path.ends_with("language/test/check/pty.lib.sigil")
+                        || path.ends_with("language/test/check/websocket.lib.sigil")
+                })
     }
 
     fn json_string_literal(&self, value: &str) -> Result<String, CodegenError> {
@@ -3030,6 +3431,7 @@ impl TypeScriptGenerator {
     ) {
         let include_process_runtime = self.requires_process_runtime(runtime_modules);
         let include_pty_runtime = self.requires_pty_runtime(runtime_modules);
+        let include_websocket_runtime = self.requires_websocket_runtime(runtime_modules);
         let include_http_server_runtime = self.requires_http_server_runtime(runtime_modules);
         let include_tcp_server_runtime = self.requires_tcp_server_runtime(runtime_modules);
         self.emit("function __sigil_ready(value) {");
@@ -3135,6 +3537,25 @@ impl TypeScriptGenerator {
                     self.emit("globalThis.__sigil_pty_runtime = {");
                     self.emit("  async spawnPty() {");
                     self.emit("    throw new Error('§pty runtime helper is unavailable');");
+                    self.emit("  }");
+                    self.emit("};");
+                }
+            }
+        }
+        if include_websocket_runtime {
+            match self.websocket_runtime_import_specifier.as_deref() {
+                Some(specifier) => {
+                    let specifier = self
+                        .json_string_literal(specifier)
+                        .unwrap_or_else(|_| "\"\"".to_string());
+                    self.emit(&format!(
+                        "globalThis.__sigil_websocket_runtime = await import({specifier});"
+                    ));
+                }
+                None => {
+                    self.emit("globalThis.__sigil_websocket_runtime = {");
+                    self.emit("  async listenServer() {");
+                    self.emit("    throw new Error('§websocket runtime helper is unavailable');");
                     self.emit("  }");
                     self.emit("};");
                 }
@@ -5463,6 +5884,9 @@ impl TypeScriptGenerator {
                 if module == "stdlib/pty" {
                     return self.generate_pty_intrinsic(call_expr, member, args);
                 }
+                if module == "stdlib/websocket" {
+                    return self.generate_websocket_intrinsic(call_expr, member, args);
+                }
                 if module == "stdlib/random" {
                     return self.generate_random_intrinsic(call_expr, member, args);
                 }
@@ -5571,6 +5995,13 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/pty.lib.sigil"))
                 {
                     return self.generate_pty_intrinsic(call_expr, &name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/websocket.lib.sigil"))
+                {
+                    return self.generate_websocket_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
@@ -6350,6 +6781,34 @@ impl TypeScriptGenerator {
                 "{}.then((__handle) => __sigil_test_pty_writes_at(__handle?.__fields?.[0] ?? ''))",
                 generated_args[0]
             ))),
+            ("test/observe/websocket", "closeCount", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_websocket_close_count())".to_string(),
+            )),
+            ("test/observe/websocket", "closeCountAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_websocket_close_count_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
+            ("test/observe/websocket", "connectionCount", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_websocket_connection_count())".to_string(),
+            )),
+            ("test/observe/websocket", "connectionCountAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_websocket_connection_count_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
+            ("test/observe/websocket", "received", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_websocket_received())".to_string(),
+            )),
+            ("test/observe/websocket", "receivedAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_websocket_received_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
+            ("test/observe/websocket", "sent", 0) => Ok(Some(
+                "__sigil_ready(__sigil_test_websocket_sent())".to_string(),
+            )),
+            ("test/observe/websocket", "sentAt", 1) => Ok(Some(format!(
+                "{}.then((__handle) => __sigil_test_websocket_sent_at(__handle?.__fields?.[0] ?? ''))",
+                generated_args[0]
+            ))),
             ("test/observe/process", "callCount", 0) => Ok(Some(
                 "__sigil_ready(__sigil_test_process_call_count())".to_string(),
             )),
@@ -6727,6 +7186,103 @@ impl TypeScriptGenerator {
                     "write",
                     "[__input, __session]",
                     "__sigil_world_pty_write(__session, __input)",
+                    None
+                )?
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn generate_websocket_intrinsic(
+        &mut self,
+        call_expr: &TypedExpr,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
+
+        match member {
+            "close" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__client) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "websocket",
+                    "close",
+                    "[__client]",
+                    "__sigil_world_websocket_close(__client)",
+                    None
+                )?
+            ))),
+            "connections" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __server]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "websocket",
+                    "connections",
+                    "[__handle, __server]",
+                    "__sigil_world_websocket_connections(__handle?.__fields?.[0] ?? '', __server)",
+                    None
+                )?
+            ))),
+            "listen" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__port, __routes]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "websocket",
+                    "listen",
+                    "[__port, __routes]",
+                    "__sigil_world_websocket_listen(__port, __routes)",
+                    None
+                )?
+            ))),
+            "messages" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__client) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "websocket",
+                    "messages",
+                    "[__client]",
+                    "__sigil_world_websocket_messages(__client)",
+                    None
+                )?
+            ))),
+            "port" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__server) => Number(__server?.port ?? 0))",
+                generated_args[0]
+            ))),
+            "route" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __path]) => ({{ handle: __handle, path: String(__path ?? '') }}))",
+                self.js_all(&generated_args)
+            ))),
+            "send" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__client, __text]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "websocket",
+                    "send",
+                    "[__client, __text]",
+                    "__sigil_world_websocket_send(__client, __text)",
+                    None
+                )?
+            ))),
+            "wait" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__server) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "websocket",
+                    "wait",
+                    "[__server]",
+                    "__sigil_world_websocket_wait(__server)",
                     None
                 )?
             ))),
@@ -7295,6 +7851,13 @@ impl TypeScriptGenerator {
         }
         if call.namespace.join("/") == "stdlib/pty" {
             if let Some(intrinsic) = self.generate_pty_intrinsic(expr, &call.member, &call.args)?
+            {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/") == "stdlib/websocket" {
+            if let Some(intrinsic) =
+                self.generate_websocket_intrinsic(expr, &call.member, &call.args)?
             {
                 return Ok(intrinsic);
             }
@@ -8443,6 +9006,7 @@ fn requires_world_runtime_module(module_id: &str) -> bool {
                 | "stdlib::tcpServer"
                 | "stdlib::terminal"
                 | "stdlib::time"
+                | "stdlib::websocket"
         )
 }
 
@@ -8544,6 +9108,7 @@ mod tests {
             output_file: Some("/tmp/projects/algorithms/.local/tests/rot13Encoder.ts".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8565,6 +9130,7 @@ mod tests {
             ),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8584,6 +9150,7 @@ mod tests {
             output_file: Some("/repo/.local/temp-project/.local/src/topology.ts".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8609,6 +9176,7 @@ mod tests {
             ),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8710,6 +9278,7 @@ mod tests {
             output_file: Some("/tmp/projects/algorithms/.local/src/topologicalSort.ts".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8732,6 +9301,7 @@ mod tests {
             output_file: Some("/tmp/tests/smoke.ts".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8756,6 +9326,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8789,6 +9360,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8826,6 +9398,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: true,
             breakpoints: false,
@@ -8850,6 +9423,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: true,
             breakpoints: false,
@@ -8872,6 +9446,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -8896,6 +9471,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
@@ -8923,6 +9499,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
@@ -8947,6 +9524,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: true,
@@ -8982,6 +9560,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -9037,6 +9616,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,
@@ -9100,6 +9680,7 @@ mod tests {
             output_file: Some("/tmp/test.js".to_string()),
             import_extension: "js".to_string(),
             pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
             breakpoints: false,

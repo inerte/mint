@@ -339,6 +339,33 @@ Stream rules:
 - generic stream failure is not modeled in `§stream`; producer APIs own their error events
 - `§stream` intentionally omits public constructors and combinators in v1
 
+### Implemented `§websocket` Types and Functions
+
+```sigil decl §websocket
+t Client={id:String}
+t Route={handle:§topology.WebSocketHandle,path:String}
+t Server={port:Int}
+
+λclose(client:Client)=>!WebSocket Unit
+λconnections(handle:§topology.WebSocketHandle,server:Server)=>!WebSocket §stream.Source[Client]
+λlisten(port:Int,routes:[Route])=>!WebSocket Server
+λmessages(client:Client)=>!WebSocket §stream.Source[String]
+λport(server:Server)=>Int
+λroute(handle:§topology.WebSocketHandle,path:String)=>Route
+λsend(client:Client,text:String)=>!WebSocket Unit
+λwait(server:Server)=>!WebSocket Unit
+```
+
+WebSocket rules:
+- `listen` binds one port plus an exact-path route list
+- route paths must be unique within one server
+- route handles must be unique within one server
+- `connections` yields accepted clients scoped to one exact `§topology.WebSocketHandle`
+- `messages` yields text frames for one client
+- `send` writes one text frame to one client
+- `close` closes one client connection
+- v1 is server-only and does not expose binary frames, subprotocol negotiation, or a broadcast helper
+
 ### Implemented `§terminal` Types and Functions
 
 ```sigil decl §terminal
@@ -835,11 +862,13 @@ Effects are tracked at type level:
 - `!Http`
 - `!Log`
 - `!Process`
+- `!Pty`
 - `!Random`
 - `!Stream`
 - `!Tcp`
 - `!Terminal`
 - `!Timer`
+- `!WebSocket`
 - Pure functions have no effect annotation
 
 Projects may define reusable multi-effect aliases in `src/effects.lib.sigil`.

@@ -14,7 +14,8 @@ c world=(†runtime.world(
     eventStreamHost(),
     eventStreamPort()
   )],
-  †timer.virtual()
+  †timer.virtual(),
+  †websocket.real()
 ):†runtime.World)
 
 λeventStreamHost()=>String=eventStreamHostFromProperty(process.env.hasOwnProperty("sigilTcpTestHost"))

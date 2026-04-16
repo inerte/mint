@@ -1,0 +1,39 @@
+t WebSocketEntry=DenyWebSocket()|FixtureWebSocket([WebSocketRule])|RealWebSocket()
+
+t WebSocketHandleEntry=WebSocketHandleEntry(WebSocketHandleEntryValue)
+
+t WebSocketHandleEntryValue={
+  handleName:String,
+  mode:WebSocketEntry
+}
+
+t WebSocketRule={messages:[String]}
+
+λdeny()=>WebSocketEntry=DenyWebSocket()
+
+λdenyHandle(handle:§topology.WebSocketHandle)=>WebSocketHandleEntry match handle{
+  §topology.WebSocketHandle(handleName)=>WebSocketHandleEntry({
+    handleName:handleName,
+    mode:DenyWebSocket()
+  })
+}
+
+λfixture(rules:[WebSocketRule])=>WebSocketEntry=FixtureWebSocket(rules)
+
+λfixtureHandle(handle:§topology.WebSocketHandle,rules:[WebSocketRule])=>WebSocketHandleEntry match handle{
+  §topology.WebSocketHandle(handleName)=>WebSocketHandleEntry({
+    handleName:handleName,
+    mode:FixtureWebSocket(rules)
+  })
+}
+
+λreal()=>WebSocketEntry=RealWebSocket()
+
+λrealHandle(handle:§topology.WebSocketHandle)=>WebSocketHandleEntry match handle{
+  §topology.WebSocketHandle(handleName)=>WebSocketHandleEntry({
+    handleName:handleName,
+    mode:RealWebSocket()
+  })
+}
+
+λrule(messages:[String])=>WebSocketRule={messages:messages}

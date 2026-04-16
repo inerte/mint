@@ -19,6 +19,7 @@ language/runtime/node/*
 !language/runtime/node/package.json
 !language/runtime/node/package-lock.json
 !language/runtime/node/pty-runtime.mjs
+!language/runtime/node/websocket-runtime.mjs
 
 # Compiled Sigil programs and temporary files
 .local/

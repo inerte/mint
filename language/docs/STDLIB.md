@@ -21,6 +21,7 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ Float arithmetic and math functions - `stdlib/float`
 - ✅ Cryptographic hashing and encoding - `stdlib/crypto`
 - ✅ HTTP and TCP clients and servers - `stdlib/httpClient`, `stdlib/httpServer`, `stdlib/tcpClient`, `stdlib/tcpServer`
+- ✅ WebSocket servers and route-scoped text streams - `stdlib/websocket`
 - ✅ Runtime dependency topology - `stdlib/topology`
 - ✅ Runtime dependency config helpers - `stdlib/config`
 - ✅ JSON parsing/serialization - `stdlib/json`
@@ -153,7 +154,7 @@ Current `§featureFlags.get` precedence is:
 `Entry[C]` and `Set[C]` let one config snapshot hold multiple flag value types
 while keeping the context type explicit.
 
-## File, Path, Process, Pty, Stream, Random, JSON, Time, and URL
+## File, Path, Process, Pty, Stream, WebSocket, Random, JSON, Time, and URL
 
 `§file` exposes canonical UTF-8 filesystem helpers:
 
@@ -273,6 +274,34 @@ Stream rules:
 - after `close`, subsequent `next` calls return `Done()`
 - generic stream failure is not modeled in `§stream`; producer APIs own their error events
 - `§stream` is intentionally small and does not expose public constructors or combinators
+
+`§websocket` exposes canonical server-first WebSocket handling backed by
+`§stream`:
+
+```sigil decl §websocket
+t Client={id:String}
+t Route={handle:§topology.WebSocketHandle,path:String}
+t Server={port:Int}
+
+λclose(client:Client)=>!WebSocket Unit
+λconnections(handle:§topology.WebSocketHandle,server:Server)=>!WebSocket §stream.Source[Client]
+λlisten(port:Int,routes:[Route])=>!WebSocket Server
+λmessages(client:Client)=>!WebSocket §stream.Source[String]
+λport(server:Server)=>Int
+λroute(handle:§topology.WebSocketHandle,path:String)=>Route
+λsend(client:Client,text:String)=>!WebSocket Unit
+λwait(server:Server)=>!WebSocket Unit
+```
+
+WebSocket rules:
+- `listen` binds one port plus an exact-path route list
+- route paths must be unique within one server
+- route handles must be unique within one server
+- `connections` yields accepted clients for one exact `§topology.WebSocketHandle`
+- `messages` yields text frames for one client
+- `send` writes one text frame to one client
+- `close` closes one client connection
+- v1 is server-only; there is no WebSocket client API, binary-frame surface, or broadcast helper
 
 `runAt` and `startAt` are the named-boundary variants for topology-aware
 projects. They take a `Command` plus a `§topology.ProcessHandle`.

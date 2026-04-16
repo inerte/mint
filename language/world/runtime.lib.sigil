@@ -12,7 +12,9 @@ t World={
   random:†random.RandomEntry,
   stream:†stream.StreamEntry,
   tcp:[†tcp.TcpEntry],
-  timer:†timer.TimerEntry
+  timer:†timer.TimerEntry,
+  websocket:†websocket.WebSocketEntry,
+  websocketHandles:[†websocket.WebSocketHandleEntry]
 }
 
 λwithFsRoots(fsRoots:[†fs.FsRootEntry],world:World)=>World={
@@ -29,7 +31,9 @@ t World={
   random:world.random,
   stream:world.stream,
   tcp:world.tcp,
-  timer:world.timer
+  timer:world.timer,
+  websocket:world.websocket,
+  websocketHandles:world.websocketHandles
 }
 
 λwithLogSinks(logSinks:[†log.LogSinkEntry],world:World)=>World={
@@ -46,7 +50,9 @@ t World={
   random:world.random,
   stream:world.stream,
   tcp:world.tcp,
-  timer:world.timer
+  timer:world.timer,
+  websocket:world.websocket,
+  websocketHandles:world.websocketHandles
 }
 
 λwithProcessHandles(processHandles:[†process.ProcessHandleEntry],world:World)=>World={
@@ -63,7 +69,9 @@ t World={
   random:world.random,
   stream:world.stream,
   tcp:world.tcp,
-  timer:world.timer
+  timer:world.timer,
+  websocket:world.websocket,
+  websocketHandles:world.websocketHandles
 }
 
 λwithPtyHandles(ptyHandles:[†pty.PtyHandleEntry],world:World)=>World={
@@ -80,10 +88,31 @@ t World={
   random:world.random,
   stream:world.stream,
   tcp:world.tcp,
-  timer:world.timer
+  timer:world.timer,
+  websocket:world.websocket,
+  websocketHandles:world.websocketHandles
 }
 
-λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,pty:†pty.PtyEntry,random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World={
+λwithWebSocketHandles(websocketHandles:[†websocket.WebSocketHandleEntry],world:World)=>World={
+  clock:world.clock,
+  fs:world.fs,
+  fsRoots:world.fsRoots,
+  http:world.http,
+  log:world.log,
+  logSinks:world.logSinks,
+  process:world.process,
+  processHandles:world.processHandles,
+  pty:world.pty,
+  ptyHandles:world.ptyHandles,
+  random:world.random,
+  stream:world.stream,
+  tcp:world.tcp,
+  timer:world.timer,
+  websocket:world.websocket,
+  websocketHandles:websocketHandles
+}
+
+λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,pty:†pty.PtyEntry,random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry,websocket:†websocket.WebSocketEntry)=>World={
   clock:clock,
   fs:fs,
   fsRoots:[],
@@ -97,5 +126,7 @@ t World={
   random:random,
   stream:stream,
   tcp:tcp,
-  timer:timer
+  timer:timer,
+  websocket:websocket,
+  websocketHandles:[]
 }

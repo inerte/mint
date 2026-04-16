@@ -152,11 +152,12 @@ fn init_rejects_invalid_target_name() {
 }
 
 #[test]
-fn init_rejects_non_empty_target_directory() {
-    let workspace = temp_dir("non-empty");
+fn init_allows_non_empty_target_directory_with_unrelated_files() {
+    let workspace = temp_dir("non-empty-allowed");
     let target = workspace.join("existing-project");
     fs::create_dir_all(&target).unwrap();
     fs::write(target.join("README.md"), "existing\n").unwrap();
+    fs::create_dir_all(target.join(".git")).unwrap();
 
     let output = Command::new(sigil_bin())
         .current_dir(&workspace)
@@ -165,17 +166,20 @@ fn init_rejects_non_empty_target_directory() {
         .output()
         .unwrap();
 
-    assert!(!output.status.success());
+    assert!(output.status.success(), "{:?}", output);
 
     let json = parse_json(&output.stdout);
-    assert_eq!(json["ok"], false);
-    assert_eq!(json["error"]["code"], "SIGIL-CLI-PROJECT-INIT-CONFLICT");
-    assert_eq!(json["error"]["details"]["existingEntries"][0], "README.md");
-    assert!(json["error"]["message"]
-        .as_str()
-        .unwrap()
-        .contains("must be empty"));
-    assert!(!target.join("sigil.json").exists());
+    assert_eq!(json["ok"], true);
+    assert_eq!(
+        json["data"]["created"],
+        serde_json::json!(["src", "tests", ".local", "sigil.json"])
+    );
+    assert!(target.join("README.md").is_file());
+    assert!(target.join(".git").is_dir());
+    assert!(target.join("sigil.json").is_file());
+    assert!(target.join("src").is_dir());
+    assert!(target.join("tests").is_dir());
+    assert!(target.join(".local").is_dir());
 }
 
 #[test]
@@ -205,4 +209,53 @@ fn init_rejects_target_with_existing_manifest() {
         .unwrap()
         .contains("sigil.json"));
     assert_eq!(json["error"]["details"]["existingEntries"][0], "sigil.json");
+}
+
+#[test]
+fn init_rejects_target_with_scaffold_file_conflict() {
+    let workspace = temp_dir("scaffold-file-conflict");
+    let target = workspace.join("existing-project");
+    fs::create_dir_all(&target).unwrap();
+    fs::write(target.join("src"), "not-a-directory\n").unwrap();
+
+    let output = Command::new(sigil_bin())
+        .current_dir(&workspace)
+        .arg("init")
+        .arg("existing-project")
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["error"]["code"], "SIGIL-CLI-PROJECT-INIT-CONFLICT");
+    assert!(json["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("non-directory scaffold path `src`"));
+    assert_eq!(json["error"]["details"]["existingEntries"][0], "src");
+}
+
+#[test]
+fn init_reuses_existing_scaffold_directories() {
+    let workspace = temp_dir("reuse-scaffold-dirs");
+    let target = workspace.join("existing-project");
+    fs::create_dir_all(target.join("src")).unwrap();
+    fs::create_dir_all(target.join("tests")).unwrap();
+    fs::create_dir_all(target.join(".local")).unwrap();
+    fs::write(target.join("README.md"), "existing\n").unwrap();
+
+    let output = Command::new(sigil_bin())
+        .current_dir(&workspace)
+        .arg("init")
+        .arg("existing-project")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{:?}", output);
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["data"]["created"], serde_json::json!(["sigil.json"]));
+    assert!(target.join("sigil.json").is_file());
 }

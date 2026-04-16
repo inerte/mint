@@ -447,9 +447,9 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **How to fix:** Rename the target directory so it derives to a lowerCamel ASCII name
 
 ### SIGIL-CLI-PROJECT-INIT-CONFLICT
-**Description:** Init target already contains files or directories and is not safe to scaffold.
-**Message:** "target directory must be empty before initialization"
-**How to fix:** Use an empty directory or a new target path
+**Description:** Init target already contains Sigil project metadata or incompatible scaffold paths.
+**Message:** "target already contains sigil.json" or "target already contains non-directory scaffold path `src`"
+**How to fix:** Do not overwrite an existing `sigil.json`, and ensure `src`, `tests`, and `.local` are directories if they already exist
 
 ## Runtime Errors (SIGIL-RUNTIME-*, SIGIL-RUN-*)
 

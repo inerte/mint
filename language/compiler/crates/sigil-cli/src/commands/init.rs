@@ -39,6 +39,7 @@ struct InitSuccess {
     root: PathBuf,
     manifest: ProjectManifest,
     layout: ProjectLayout,
+    created: Vec<String>,
 }
 
 pub fn init_command(path: Option<&Path>) -> Result<(), CliError> {
@@ -54,12 +55,7 @@ pub fn init_command(path: Option<&Path>) -> Result<(), CliError> {
                         "root": result.root.to_string_lossy(),
                         "manifest": result.manifest,
                         "layout": result.layout,
-                        "created": [
-                            "sigil.json",
-                            "src",
-                            "tests",
-                            ".local"
-                        ]
+                        "created": result.created
                     }
                 }),
                 false,
@@ -89,18 +85,24 @@ fn init_project(path: Option<&Path>) -> Result<InitSuccess, InitError> {
     })?;
 
     ensure_target_is_safe(&target_root)?;
+    let mut created = Vec::new();
 
-    fs::create_dir_all(&target_root).map_err(|source| InitError::Io {
-        path: target_root.clone(),
-        source,
-    })?;
+    if !target_root.exists() {
+        fs::create_dir_all(&target_root).map_err(|source| InitError::Io {
+            path: target_root.clone(),
+            source,
+        })?;
+    }
 
     for relative in ["src", "tests", ".local"] {
         let path = target_root.join(relative);
-        fs::create_dir(&path).map_err(|source| InitError::Io {
-            path: path.clone(),
-            source,
-        })?;
+        if !path.exists() {
+            fs::create_dir_all(&path).map_err(|source| InitError::Io {
+                path: path.clone(),
+                source,
+            })?;
+            created.push(relative.to_string());
+        }
     }
 
     let manifest = ProjectManifest {
@@ -110,6 +112,7 @@ fn init_project(path: Option<&Path>) -> Result<InitSuccess, InitError> {
         publish: None,
     };
     write_project_manifest(&target_root, &manifest)?;
+    created.push("sigil.json".to_string());
 
     let canonical_root = fs::canonicalize(&target_root).map_err(|source| InitError::Io {
         path: target_root.clone(),
@@ -120,6 +123,7 @@ fn init_project(path: Option<&Path>) -> Result<InitSuccess, InitError> {
         root: canonical_root,
         manifest,
         layout: ProjectLayout::default(),
+        created,
     })
 }
 
@@ -193,56 +197,35 @@ fn ensure_target_is_safe(target_root: &Path) -> Result<(), InitError> {
         });
     }
 
-    let entries = fs::read_dir(target_root)
-        .map_err(|source| InitError::Io {
-            path: target_root.to_path_buf(),
-            source,
-        })?
-        .collect::<Result<Vec<_>, std::io::Error>>()
-        .map_err(|source| InitError::Io {
-            path: target_root.to_path_buf(),
-            source,
-        })?
-        .into_iter()
-        .map(|entry| {
-            (
-                entry.path(),
-                entry.file_name().to_string_lossy().to_string(),
-            )
-        })
-        .collect::<Vec<_>>();
+    let manifest_path = target_root.join("sigil.json");
+    if manifest_path.exists() {
+        return Err(InitError::Conflict {
+            target_root: target_root.to_path_buf(),
+            reason: "target already contains sigil.json".to_string(),
+            existing_entries: vec!["sigil.json".to_string()],
+        });
+    }
 
-    let mut ignored_internal_entries = Vec::new();
-    let mut blocking_entries = Vec::new();
-
-    for (path, name) in entries {
-        if name == ".z3-trace" && path.is_file() {
-            ignored_internal_entries.push(path);
-        } else {
-            blocking_entries.push(name);
+    for relative in ["src", "tests", ".local"] {
+        let path = target_root.join(relative);
+        if path.exists() {
+            let metadata = fs::metadata(&path).map_err(|source| InitError::Io {
+                path: path.clone(),
+                source,
+            })?;
+            if !metadata.is_dir() {
+                return Err(InitError::Conflict {
+                    target_root: target_root.to_path_buf(),
+                    reason: format!(
+                        "target already contains non-directory scaffold path `{relative}`"
+                    ),
+                    existing_entries: vec![relative.to_string()],
+                });
+            }
         }
     }
 
-    blocking_entries.sort();
-
-    if blocking_entries.is_empty() {
-        for path in ignored_internal_entries {
-            fs::remove_file(&path).map_err(|source| InitError::Io { path, source })?;
-        }
-        return Ok(());
-    }
-
-    let reason = if blocking_entries.iter().any(|entry| entry == "sigil.json") {
-        "target already contains sigil.json".to_string()
-    } else {
-        "target directory must be empty before initialization".to_string()
-    };
-
-    Err(InitError::Conflict {
-        target_root: target_root.to_path_buf(),
-        reason,
-        existing_entries: blocking_entries,
-    })
+    Ok(())
 }
 
 fn current_utc_timestamp() -> String {

@@ -159,7 +159,7 @@ while keeping the context type explicit.
 `§file` exposes canonical UTF-8 filesystem helpers:
 
 ```sigil program
-λmain()=>!Fs Unit={
+λmain()=>!Fs String={
   l out=(§path.join(
     "/tmp",
     "sigil.txt"
@@ -168,8 +168,7 @@ while keeping the context type explicit.
     "hello",
     out
   ):Unit);
-  l _=(§file.readText(out):String);
-  ()
+  §file.readText(out)
 }
 ```
 
@@ -196,14 +195,13 @@ filesystem roots.
 `§path` exposes canonical filesystem path operations:
 
 ```sigil program
-λmain()=>Unit={
-  l _=(§path.basename("website/articles/hello.md"):String);
-  l _=(§path.join(
+λmain()=>[String]=[
+  §path.basename("website/articles/hello.md"),
+  §path.join(
     "website",
     "articles"
-  ):String);
-  ()
-}
+  )
+]
 ```
 
 `§process` exposes canonical argv-based child-process execution:
@@ -283,7 +281,7 @@ and `†random.fixture(draws)`.
 `§regex` exposes a small JavaScript-backed regular-expression surface:
 
 ```sigil program
-λmain()=>Unit match §regex.compile(
+λmain()=>String match §regex.compile(
   "i",
   "^(sigil)-(.*)$"
 ){
@@ -291,13 +289,10 @@ and `†random.fixture(draws)`.
     "Sigil-lang",
     regex
   ){
-    Some(found)=>{
-      l _=(found.full:String);
-      ()
-    }|
-    None()=>()
+    Some(found)=>found.full|
+    None()=>""
   }|
-  Err(_)=>()
+  Err(_)=>""
 }
 ```
 
@@ -379,12 +374,9 @@ field. Sigil does not use open or partial records for this.
 `§time` exposes strict ISO parsing, instant comparison, and harness sleep:
 
 ```sigil program
-λmain()=>Unit match §time.parseIso("2026-03-03"){
-  Ok(instant)=>{
-    l _=(§time.toEpochMillis(instant):Int);
-    ()
-  }|
-  Err(_)=>()
+λmain()=>Int match §time.parseIso("2026-03-03"){
+  Ok(instant)=>§time.toEpochMillis(instant)|
+  Err(_)=>0
 }
 ```
 
@@ -422,13 +414,12 @@ The canonical terminal surface is:
 `§url` exposes strict parse results and typed URL fields for both absolute and relative targets:
 
 ```sigil program
-λmain()=>Unit match §url.parse("../language/spec/cli-json.md?view=raw#schema"){
-  Ok(url)=>{
-    l _=(url.path:String);
-    l _=(§url.suffix(url):String);
-    ()
-  }|
-  Err(_)=>()
+λmain()=>[String] match §url.parse("../language/spec/cli-json.md?view=raw#schema"){
+  Ok(url)=>[
+    url.path,
+    §url.suffix(url)
+  ]|
+  Err(_)=>[]
 }
 ```
 
@@ -440,19 +431,13 @@ For topology-aware projects, the canonical surface is handle-based rather than
 raw-URL based:
 
 ```sigil program projects/topology-http/src/getClient.sigil
-λmain()=>!Http Unit match §httpClient.get(
+λmain()=>!Http String match §httpClient.get(
   •topology.mailerApi,
   §httpClient.emptyHeaders(),
   "/health"
 ){
-  Ok(response)=>{
-    l _=(response.body:String);
-    ()
-  }|
-  Err(error)=>{
-    l _=(error.message:String);
-    ()
-  }
+  Ok(response)=>response.body|
+  Err(error)=>error.message
 }
 ```
 
@@ -500,18 +485,12 @@ Passing `0` to `listen` or `serve` asks the OS for any free ephemeral port. Use
 For topology-aware projects, the canonical surface is handle-based:
 
 ```sigil program projects/topology-tcp/src/pingClient.sigil
-λmain()=>!Tcp Unit match §tcpClient.send(
+λmain()=>!Tcp String match §tcpClient.send(
   •topology.eventStream,
   "ping"
 ){
-  Ok(response)=>{
-    l _=(response.message:String);
-    ()
-  }|
-  Err(error)=>{
-    l _=(error.message:String);
-    ()
-  }
+  Ok(response)=>response.message|
+  Err(error)=>error.message
 }
 ```
 

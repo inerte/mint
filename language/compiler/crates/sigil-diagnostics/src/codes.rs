@@ -96,6 +96,7 @@ pub mod canonical {
     // Local bindings
     pub const LET_UNTYPED: &str = "SIGIL-CANON-LET-UNTYPED";
     pub const SINGLE_USE_PURE_BINDING: &str = "SIGIL-CANON-SINGLE-USE-PURE-BINDING";
+    pub const DEAD_PURE_DISCARD: &str = "SIGIL-CANON-DEAD-PURE-DISCARD";
     pub const UNUSED_IMPORT: &str = "SIGIL-CANON-UNUSED-IMPORT";
     pub const UNUSED_EXTERN: &str = "SIGIL-CANON-UNUSED-EXTERN";
     pub const UNUSED_BINDING: &str = "SIGIL-CANON-UNUSED-BINDING";
@@ -250,6 +251,7 @@ pub const ALL_ERROR_CODES: &[&str] = &[
     canonical::NO_SHADOWING,
     canonical::LET_UNTYPED,
     canonical::SINGLE_USE_PURE_BINDING,
+    canonical::DEAD_PURE_DISCARD,
     canonical::UNUSED_IMPORT,
     canonical::UNUSED_EXTERN,
     canonical::UNUSED_BINDING,
@@ -342,8 +344,8 @@ mod tests {
         // Keep this in sync when adding or removing diagnostic codes.
         assert_eq!(
             ALL_ERROR_CODES.len(),
-            123,
-            "Expected 123 error codes, found {}",
+            124,
+            "Expected 124 error codes, found {}",
             ALL_ERROR_CODES.len()
         );
     }

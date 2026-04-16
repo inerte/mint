@@ -411,7 +411,7 @@ Canonical validation happens in two stages:
 
 1. after parsing, for syntax- and structure-level canonical rules
 2. after typechecking, for typed canonical rules such as dead-binding rejection
-   and single-use pure bindings
+   dead-pure-discard rejection, and single-use pure bindings
 
 The overall pipeline is:
 

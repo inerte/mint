@@ -208,6 +208,8 @@ Canonical note:
 - source-level canonical validation may reject some pure single-use locals
   earlier and require the already-inlined form
 - use `l _=(...)` when the binding exists only to sequence effects
+- source-level typed canonical validation rejects `l _=(...)` when the
+  discarded expression is pure
 
 ## Pattern Matching
 

@@ -276,6 +276,34 @@ fn compile_selected_config_rejects_legacy_feature_flag_fields() {
 }
 
 #[test]
+fn compile_rejects_dead_pure_wildcard_discard() {
+    let dir = temp_dir("dead-pure-discard");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        "λmain()=>Unit={\n  l _=(1+2:Int);\n  ()\n}\n",
+    );
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("compile")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["ok"], false);
+    assert_eq!(json["error"]["code"], "SIGIL-CANON-DEAD-PURE-DISCARD");
+    let message = json["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("Wildcard sequencing must not discard pure expressions"),
+        "{}",
+        message
+    );
+}
+
+#[test]
 fn compile_project_reuses_cached_outputs_when_inputs_are_unchanged() {
     let dir = temp_dir("project-cache-hit");
     let main = write_feature_flag_project(&dir);

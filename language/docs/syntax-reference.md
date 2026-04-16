@@ -555,6 +555,8 @@ When a binding exists only to sequence effects, use the wildcard pattern:
 }
 ```
 
+Discarding a pure expression with `l _=(...)` is non-canonical and rejected.
+
 ## Pattern Matching
 
 Sigil uses `match` for value-based branching:

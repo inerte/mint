@@ -337,6 +337,12 @@ SIGIL-LEX-TAB test.sigil:5:10 tab characters not allowed (use spaces for indenta
 **Example:** `l x=5` => should be `l x=(5:Int)`
 **How to fix:** Use type ascription: l name=(value:Type)
 
+### SIGIL-CANON-DEAD-PURE-DISCARD
+**Description:** Wildcard sequencing discards a pure expression.
+**Message:** "Wildcard sequencing must not discard pure expressions"
+**Example:** `l _=((1+2):Int)` => should be deleted or rewritten to use the value
+**How to fix:** Use the value, inline it into a real use, or delete it. `l _=(...)` is reserved for sequencing observable effects.
+
 ### SIGIL-CANON-DECL-CATEGORY-ORDER
 **Description:** Declarations out of category order.
 **Message:** "Declarations out of category order"

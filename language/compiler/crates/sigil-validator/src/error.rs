@@ -371,6 +371,9 @@ pub enum ValidationError {
         location: SourceLocation,
     },
 
+    #[error("SIGIL-CANON-DEAD-PURE-DISCARD: Wildcard sequencing must not discard pure expressions\n\nSigil reserves 'l _=(...)' for sequencing observable effects.\nThis expression is pure, so discarding it contributes nothing.\nUse the value, inline it into a real use, or delete it.")]
+    DeadPureDiscard { location: SourceLocation },
+
     #[error("SIGIL-CANON-UNUSED-EXTERN: Extern '{extern_path}' is never used\n\nSigil rejects dead extern declarations.\nRemove the extern or use it.")]
     UnusedExtern {
         extern_path: String,
@@ -557,6 +560,7 @@ impl ValidationError {
             ValidationError::ExternMemberOrder { location, .. } => *location,
             ValidationError::LetUntyped { location, .. } => *location,
             ValidationError::SingleUsePureBinding { location, .. } => *location,
+            ValidationError::DeadPureDiscard { location } => *location,
             ValidationError::UnusedExtern { location, .. } => *location,
             ValidationError::UnusedBinding { location, .. } => *location,
             ValidationError::UnusedDeclaration { location, .. } => *location,
@@ -625,6 +629,17 @@ impl From<ValidationError> for Diagnostic {
                     "Bindings exist for reuse, effects, destructuring, or syntax-required staging.",
                 )
             }
+
+            ValidationError::DeadPureDiscard { location } => Diagnostic::new(
+                codes::canonical::DEAD_PURE_DISCARD,
+                SigilPhase::Canonical,
+                "Wildcard sequencing must not discard pure expressions".to_string(),
+            )
+            .with_location(source_location_to_span(get_file(), location))
+            .with_details(
+                "guidance",
+                "Use the value, inline it into a real use, or delete it. `l _=(...)` is reserved for sequencing effects.",
+            ),
 
             ValidationError::UnusedExtern {
                 extern_path,

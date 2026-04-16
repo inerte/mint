@@ -1,22 +1,19 @@
-λmain()=>Unit match §json.parse("{\"profile\":{\"name\":\"sigil\"}}"){
+λmain()=>Option[§json.JsonValue] match §json.parse("{\"profile\":{\"name\":\"sigil\"}}"){
   Ok(value)=>match §json.asObject(value){
     Some(root)=>match §json.getField(
       "profile",
       root
     ){
       Some(profileValue)=>match §json.asObject(profileValue){
-        Some(profile)=>{
-          l _=(§json.getField(
-            "name",
-            profile
-          ):Option[§json.JsonValue]);
-          ()
-        }|
-        None()=>()
+        Some(profile)=>§json.getField(
+          "name",
+          profile
+        )|
+        None()=>None()
       }|
-      None()=>()
+      None()=>None()
     }|
-    None()=>()
+    None()=>None()
   }|
-  Err(_)=>()
+  Err(_)=>None()
 }

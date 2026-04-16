@@ -1,7 +1,4 @@
-λmain()=>Unit match §json.parse("{\"name\":\"sigil\",\"stable\":true}"){
-  Ok(value)=>{
-    l _=(§json.stringify(value):String);
-    ()
-  }|
-  Err(_)=>()
+λmain()=>String match §json.parse("{\"name\":\"sigil\",\"stable\":true}"){
+  Ok(value)=>§json.stringify(value)|
+  Err(_)=>""
 }

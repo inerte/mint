@@ -1038,14 +1038,17 @@ pub fn validate_typed_canonical_form(
             TypedDeclaration::Function(function) => {
                 collect_unused_named_bindings(&function.body, &mut errors);
                 collect_single_use_pure_bindings(&function.body, &mut errors);
+                collect_dead_pure_discards(&function.body, &mut errors);
             }
             TypedDeclaration::Const(const_decl) => {
                 collect_unused_named_bindings(&const_decl.value, &mut errors);
                 collect_single_use_pure_bindings(&const_decl.value, &mut errors);
+                collect_dead_pure_discards(&const_decl.value, &mut errors);
             }
             TypedDeclaration::Test(test_decl) => {
                 collect_unused_named_bindings(&test_decl.body, &mut errors);
                 collect_single_use_pure_bindings(&test_decl.body, &mut errors);
+                collect_dead_pure_discards(&test_decl.body, &mut errors);
             }
             TypedDeclaration::Type(_) | TypedDeclaration::Extern(_) => {}
         }
@@ -1321,6 +1324,142 @@ fn collect_single_use_pure_bindings(expr: &TypedExpr, errors: &mut Vec<Validatio
                     TypedConcurrentStep::SpawnEach(spawn_each) => {
                         collect_single_use_pure_bindings(&spawn_each.list, errors);
                         collect_single_use_pure_bindings(&spawn_each.func, errors);
+                    }
+                }
+            }
+        }
+        TypedExprKind::Literal(_)
+        | TypedExprKind::Identifier(_)
+        | TypedExprKind::NamespaceMember { .. } => {}
+    }
+}
+
+fn collect_dead_pure_discards(expr: &TypedExpr, errors: &mut Vec<ValidationError>) {
+    match &expr.kind {
+        TypedExprKind::Let(let_expr) => {
+            if matches!(&let_expr.pattern, Pattern::Wildcard(_))
+                && let_expr.value.purity == PurityClass::Pure
+            {
+                errors.push(ValidationError::DeadPureDiscard {
+                    location: expr.location,
+                });
+            }
+
+            collect_dead_pure_discards(&let_expr.value, errors);
+            collect_dead_pure_discards(&let_expr.body, errors);
+        }
+        TypedExprKind::Lambda(lambda) => {
+            collect_dead_pure_discards(&lambda.body, errors);
+        }
+        TypedExprKind::Call(call) => {
+            collect_dead_pure_discards(&call.func, errors);
+            for arg in &call.args {
+                collect_dead_pure_discards(arg, errors);
+            }
+        }
+        TypedExprKind::ConstructorCall(call) => {
+            for arg in &call.args {
+                collect_dead_pure_discards(arg, errors);
+            }
+        }
+        TypedExprKind::ExternCall(call) => {
+            for arg in &call.args {
+                collect_dead_pure_discards(arg, errors);
+            }
+        }
+        TypedExprKind::MethodCall(call) => {
+            collect_dead_pure_discards(&call.receiver, errors);
+            for arg in &call.args {
+                collect_dead_pure_discards(arg, errors);
+            }
+        }
+        TypedExprKind::Binary(binary) => {
+            collect_dead_pure_discards(&binary.left, errors);
+            collect_dead_pure_discards(&binary.right, errors);
+        }
+        TypedExprKind::Unary(unary) => {
+            collect_dead_pure_discards(&unary.operand, errors);
+        }
+        TypedExprKind::Match(match_expr) => {
+            collect_dead_pure_discards(&match_expr.scrutinee, errors);
+            for arm in &match_expr.arms {
+                if let Some(guard) = &arm.guard {
+                    collect_dead_pure_discards(guard, errors);
+                }
+                collect_dead_pure_discards(&arm.body, errors);
+            }
+        }
+        TypedExprKind::If(if_expr) => {
+            collect_dead_pure_discards(&if_expr.condition, errors);
+            collect_dead_pure_discards(&if_expr.then_branch, errors);
+            if let Some(else_branch) = &if_expr.else_branch {
+                collect_dead_pure_discards(else_branch, errors);
+            }
+        }
+        TypedExprKind::List(list_expr) => {
+            for element in &list_expr.elements {
+                collect_dead_pure_discards(element, errors);
+            }
+        }
+        TypedExprKind::Tuple(tuple_expr) => {
+            for element in &tuple_expr.elements {
+                collect_dead_pure_discards(element, errors);
+            }
+        }
+        TypedExprKind::Record(record) => {
+            for field in &record.fields {
+                collect_dead_pure_discards(&field.value, errors);
+            }
+        }
+        TypedExprKind::MapLiteral(map) => {
+            for entry in &map.entries {
+                collect_dead_pure_discards(&entry.key, errors);
+                collect_dead_pure_discards(&entry.value, errors);
+            }
+        }
+        TypedExprKind::FieldAccess(access) => {
+            collect_dead_pure_discards(&access.object, errors);
+        }
+        TypedExprKind::Index(index) => {
+            collect_dead_pure_discards(&index.object, errors);
+            collect_dead_pure_discards(&index.index, errors);
+        }
+        TypedExprKind::Map(map_expr) => {
+            collect_dead_pure_discards(&map_expr.list, errors);
+            collect_dead_pure_discards(&map_expr.func, errors);
+        }
+        TypedExprKind::Filter(filter) => {
+            collect_dead_pure_discards(&filter.list, errors);
+            collect_dead_pure_discards(&filter.predicate, errors);
+        }
+        TypedExprKind::Fold(fold) => {
+            collect_dead_pure_discards(&fold.list, errors);
+            collect_dead_pure_discards(&fold.func, errors);
+            collect_dead_pure_discards(&fold.init, errors);
+        }
+        TypedExprKind::Pipeline(pipeline) => {
+            collect_dead_pure_discards(&pipeline.left, errors);
+            collect_dead_pure_discards(&pipeline.right, errors);
+        }
+        TypedExprKind::Concurrent(concurrent) => {
+            collect_dead_pure_discards(&concurrent.config.width, errors);
+            if let Some(jitter_ms) = &concurrent.config.jitter_ms {
+                collect_dead_pure_discards(jitter_ms, errors);
+            }
+            if let Some(stop_on) = &concurrent.config.stop_on {
+                collect_dead_pure_discards(stop_on, errors);
+            }
+            if let Some(window_ms) = &concurrent.config.window_ms {
+                collect_dead_pure_discards(window_ms, errors);
+            }
+            for spawn in &concurrent.steps {
+                match spawn {
+                    TypedConcurrentStep::Spawn(spawn) => {
+                        collect_dead_pure_discards(&spawn.expr, errors);
+                    }
+                    TypedConcurrentStep::SpawnEach(spawn_each) => {
+                        collect_dead_pure_discards(&spawn_each.list, errors);
+                        collect_dead_pure_discards(&spawn_each.func, errors);
                     }
                 }
             }
@@ -6479,6 +6618,48 @@ mod tests {
         let typed = type_check(&program, source, None).unwrap();
 
         assert!(validate_typed_canonical_form(&typed.typed_program, Some("test.sigil")).is_ok());
+    }
+
+    #[test]
+    fn test_dead_pure_discard_rejected() {
+        let source = r#"λmain()=>Unit={
+  l _=(releaseCount():Int);
+  ()
+}
+
+λreleaseCount()=>Int=2
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+        let typed = type_check(&program, source, None).unwrap();
+
+        let result = validate_typed_canonical_form(&typed.typed_program, Some("test.sigil"));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|error| matches!(error, ValidationError::DeadPureDiscard { .. })));
+    }
+
+    #[test]
+    fn test_dead_pure_unit_discard_rejected() {
+        let source = r#"λmain()=>Unit={
+  l _=(touch():Unit);
+  ()
+}
+
+λtouch()=>Unit=()
+"#;
+        let tokens = tokenize(source).unwrap();
+        let program = parse(tokens, "test.sigil").unwrap();
+        let typed = type_check(&program, source, None).unwrap();
+
+        let result = validate_typed_canonical_form(&typed.typed_program, Some("test.sigil"));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|error| matches!(error, ValidationError::DeadPureDiscard { .. })));
     }
 
     #[test]

@@ -405,6 +405,7 @@ Some canonical rules depend on type information.
 Current important example:
 
 - a pure local binding used exactly once is rejected and must be inlined
+- a wildcard sequencing binding must not discard a pure expression
 
 This happens after type checking as part of typed canonical validation.
 

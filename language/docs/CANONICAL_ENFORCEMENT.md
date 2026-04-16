@@ -81,6 +81,7 @@ Current important examples:
 
 - named local bindings used zero times are rejected
 - pure single-use local bindings must be inlined
+- wildcard sequencing must not discard pure expressions
 - unprovable promotions into constrained types are rejected
 
 Executable note:

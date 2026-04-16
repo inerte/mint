@@ -388,6 +388,7 @@ Some canonical rules depend on typing information.
 Current important example:
 
 - a pure local binding used exactly once is rejected and must be inlined
+- a wildcard sequencing binding must not discard a pure expression
 
 This rule is applied after type checking by the canonical validator.
 

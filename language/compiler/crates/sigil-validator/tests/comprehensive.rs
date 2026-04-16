@@ -228,9 +228,10 @@ fn test_feature_flags_must_live_in_src_flags() {
         Some(source),
     );
     assert!(result.is_err());
-    assert!(result.unwrap_err().iter().any(
-        |error| matches!(error, ValidationError::FeatureFlagDeclaration { .. })
-    ));
+    assert!(result
+        .unwrap_err()
+        .iter()
+        .any(|error| matches!(error, ValidationError::FeatureFlagDeclaration { .. })));
 }
 
 #[test]

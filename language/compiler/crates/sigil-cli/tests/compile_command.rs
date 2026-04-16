@@ -3,8 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -239,7 +239,11 @@ fn compile_selected_config_with_env_succeeds() {
         .output()
         .unwrap();
 
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stdout));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
     let json = parse_json(&output.stdout);
     assert_eq!(json["ok"], true);
     assert_eq!(json["phase"], "codegen");
@@ -317,7 +321,11 @@ fn compile_project_reuses_cached_outputs_when_inputs_are_unchanged() {
         .output()
         .unwrap();
 
-    assert!(first.status.success(), "{}", String::from_utf8_lossy(&first.stdout));
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stdout)
+    );
     let first_json = parse_json(&first.stdout);
     let root_ts = PathBuf::from(first_json["data"]["outputs"]["rootTs"].as_str().unwrap());
     let cache_dir = dir.join(".sigil/cache/compiler/compile-v1");
@@ -357,7 +365,11 @@ fn compile_project_cache_misses_after_source_changes() {
         .output()
         .unwrap();
 
-    assert!(first.status.success(), "{}", String::from_utf8_lossy(&first.stdout));
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stdout)
+    );
     let first_json = parse_json(&first.stdout);
     let root_ts = PathBuf::from(first_json["data"]["outputs"]["rootTs"].as_str().unwrap());
     let first_mtime = modified_time(&root_ts);

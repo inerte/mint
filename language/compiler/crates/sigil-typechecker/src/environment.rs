@@ -377,22 +377,38 @@ impl TypeEnvironment {
         let module_id = module_path.join("::");
         let remapped_path = self
             .remap_package_local_module_id(&module_id)
-            .map(|module_id| module_id.split("::").map(ToString::to_string).collect::<Vec<_>>());
+            .map(|module_id| {
+                module_id
+                    .split("::")
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            });
         let effective_path = remapped_path.as_deref().unwrap_or(module_path);
 
         if let Some(registry) = self.imported_type_registries.get(&module_id) {
-            let matches = lookup_constructor_in_registry(registry, effective_path, constructor_name);
+            let matches =
+                lookup_constructor_in_registry(registry, effective_path, constructor_name);
             if !matches.is_empty() {
-                return (matches.len() == 1).then(|| matches.into_iter().next()).flatten();
+                return (matches.len() == 1)
+                    .then(|| matches.into_iter().next())
+                    .flatten();
             }
         }
 
         if let Some(remapped_module_id) = remapped_path.map(|path| path.join("::")) {
             if let Some(registry) = self.imported_type_registries.get(&remapped_module_id) {
-                let matches =
-                    lookup_constructor_in_registry(registry, &remapped_module_id.split("::").map(ToString::to_string).collect::<Vec<_>>(), constructor_name);
+                let matches = lookup_constructor_in_registry(
+                    registry,
+                    &remapped_module_id
+                        .split("::")
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>(),
+                    constructor_name,
+                );
                 if !matches.is_empty() {
-                    return (matches.len() == 1).then(|| matches.into_iter().next()).flatten();
+                    return (matches.len() == 1)
+                        .then(|| matches.into_iter().next())
+                        .flatten();
                 }
             }
         }
@@ -444,7 +460,10 @@ impl TypeEnvironment {
                             package_name.to_string(),
                             package_version.to_string(),
                         ],
-                        parts[2..].iter().map(|segment| (*segment).to_string()).collect(),
+                        parts[2..]
+                            .iter()
+                            .map(|segment| (*segment).to_string())
+                            .collect(),
                     ]
                     .concat()
                 } else {
@@ -454,7 +473,10 @@ impl TypeEnvironment {
                             package_name.to_string(),
                             package_version.to_string(),
                         ],
-                        parts[1..].iter().map(|segment| (*segment).to_string()).collect(),
+                        parts[1..]
+                            .iter()
+                            .map(|segment| (*segment).to_string())
+                            .collect(),
                     ]
                     .concat()
                 }
@@ -465,7 +487,10 @@ impl TypeEnvironment {
                     package_name.to_string(),
                     package_version.to_string(),
                 ],
-                parts[1..].iter().map(|segment| (*segment).to_string()).collect(),
+                parts[1..]
+                    .iter()
+                    .map(|segment| (*segment).to_string())
+                    .collect(),
             ]
             .concat(),
             _ => return None,

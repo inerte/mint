@@ -15,10 +15,10 @@ mod project;
 
 use commands::{
     compile_command, debug_run_session_command, debug_run_start_command,
-    debug_test_session_command, debug_test_start_command, docs_context_command,
-    docs_list_command, docs_search_command, docs_show_command, feature_flag_audit_command,
-    init_command, inspect_command, lex_command, parse_command, run_command, test_command,
-    validate_command, DebugControlAction,
+    debug_test_session_command, debug_test_start_command, docs_context_command, docs_list_command,
+    docs_search_command, docs_show_command, feature_flag_audit_command, init_command,
+    inspect_command, lex_command, parse_command, run_command, test_command, validate_command,
+    DebugControlAction,
 };
 use package_manager::{
     package_add_command, package_install_command, package_list_command, package_publish_command,

@@ -110,13 +110,9 @@ pub struct TransformDecl {
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum RuleAction {
     #[cfg_attr(feature = "serde", serde(rename = "AllowRuleAction"))]
-    Allow {
-        location: SourceLocation,
-    },
+    Allow { location: SourceLocation },
     #[cfg_attr(feature = "serde", serde(rename = "BlockRuleAction"))]
-    Block {
-        location: SourceLocation,
-    },
+    Block { location: SourceLocation },
     #[cfg_attr(feature = "serde", serde(rename = "ThroughRuleAction"))]
     Through {
         transform: MemberRef,

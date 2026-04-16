@@ -1,7 +1,9 @@
 #[path = "src/docs_support.rs"]
 mod docs_support;
 
-use docs_support::{collect_corpus_sources, derive_doc_id, extract_description, extract_title, DocKind};
+use docs_support::{
+    collect_corpus_sources, derive_doc_id, extract_description, extract_title, DocKind,
+};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,19 +24,21 @@ fn main() {
     generated.push_str("static EMBEDDED_DOC_SPECS: &[EmbeddedDocSpec] = &[\n");
 
     for source in sources {
-        let contents = fs::read_to_string(&source.absolute_path)
-            .unwrap_or_else(|error| panic!("failed to read {}: {error}", source.absolute_path.display()));
-        let doc_id = derive_doc_id(source.kind, &source.relative_path)
-            .unwrap_or_else(|error| panic!("failed to derive doc id for {}: {error}", source.relative_path));
+        let contents = fs::read_to_string(&source.absolute_path).unwrap_or_else(|error| {
+            panic!("failed to read {}: {error}", source.absolute_path.display())
+        });
+        let doc_id = derive_doc_id(source.kind, &source.relative_path).unwrap_or_else(|error| {
+            panic!(
+                "failed to derive doc id for {}: {error}",
+                source.relative_path
+            )
+        });
         let title = extract_title(source.kind, &source.relative_path, &contents);
         let description = extract_description(source.kind, &contents, &title);
 
         generated.push_str("    EmbeddedDocSpec {\n");
         generated.push_str(&format!("        doc_id: {},\n", rust_string(&doc_id)));
-        generated.push_str(&format!(
-            "        kind: {},\n",
-            generated_kind(source.kind)
-        ));
+        generated.push_str(&format!("        kind: {},\n", generated_kind(source.kind)));
         generated.push_str(&format!("        title: {},\n", rust_string(&title)));
         generated.push_str(&format!(
             "        path: {},\n",
@@ -64,7 +68,10 @@ fn emit_rerun_markers(repo_root: &Path) {
         "language/spec",
         "website/articles",
     ] {
-        println!("cargo:rerun-if-changed={}", repo_root.join(relative).display());
+        println!(
+            "cargo:rerun-if-changed={}",
+            repo_root.join(relative).display()
+        );
     }
 
     for source in collect_corpus_sources(repo_root).expect("rerun corpus sources") {

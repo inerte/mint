@@ -27,10 +27,6 @@ use crate::types::{
     InferenceType, TConstructor, TFunction, TMap, TPrimitive, TRecord,
 };
 use crate::TypeCheckOptions;
-use sigil_solver::{
-    formula_and, formula_or, prove_formula, Atom, ComparisonOp, Formula, LinearExpr,
-    SolverOutcome, SymbolPath, SymbolPathStep,
-};
 use sigil_ast::{
     BinaryOperator, Declaration, Expr, FeatureFlagDecl, FunctionDecl, LabelRef, LiteralExpr,
     LiteralType, LiteralValue, MemberRef, PrimitiveName, Program, QualifiedType, RecordExpr,
@@ -38,6 +34,10 @@ use sigil_ast::{
     UnaryOperator,
 };
 use sigil_diagnostics::codes;
+use sigil_solver::{
+    formula_and, formula_or, prove_formula, Atom, ComparisonOp, Formula, LinearExpr, SolverOutcome,
+    SymbolPath, SymbolPathStep,
+};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -278,7 +278,9 @@ pub fn type_check(
                     types.insert(func_decl.name.clone(), binding_type);
                 }
 
-                Declaration::Transform(TransformDecl { function: func_decl }) => {
+                Declaration::Transform(TransformDecl {
+                    function: func_decl,
+                }) => {
                     let type_param_env = make_type_param_env(&func_decl.type_params);
                     let params: Vec<InferenceType> = func_decl
                         .params
@@ -378,8 +380,11 @@ pub fn type_check(
                 }
 
                 Declaration::FeatureFlag(feature_flag_decl) => {
-                    let flag_value_type =
-                        ast_type_to_inference_type_resolved(&env, None, &feature_flag_decl.flag_type)?;
+                    let flag_value_type = ast_type_to_inference_type_resolved(
+                        &env,
+                        None,
+                        &feature_flag_decl.flag_type,
+                    )?;
                     validate_feature_flag_value_type(
                         &env,
                         &feature_flag_decl.name,
@@ -459,7 +464,10 @@ pub fn type_check(
                         ast_type_to_inference_type_resolved(&env, None, annotation)?;
                     check(&env, &const_decl.value, &expected_type).map_err(|error| {
                         TypeError::new(
-                            format!("Constant '{}' type mismatch: {}", const_decl.name, error.message),
+                            format!(
+                                "Constant '{}' type mismatch: {}",
+                                const_decl.name, error.message
+                            ),
                             error.location.or(Some(const_decl.location)),
                         )
                     })?;
@@ -468,9 +476,10 @@ pub fn type_check(
                     &env, const_decl,
                 )?));
             } else if let Declaration::FeatureFlag(feature_flag_decl) = decl {
-                typed_declarations.push(TypedDeclaration::Const(
-                    build_typed_feature_flag_decl(&env, feature_flag_decl)?,
-                ));
+                typed_declarations.push(TypedDeclaration::Const(build_typed_feature_flag_decl(
+                    &env,
+                    feature_flag_decl,
+                )?));
             } else if let Declaration::Type(type_decl) = decl {
                 typed_declarations.push(TypedDeclaration::Type(TypedTypeDecl {
                     ast: type_decl.clone(),
@@ -536,11 +545,10 @@ fn resolve_label_ref(env: &TypeEnvironment, label_ref: &LabelRef) -> Result<Stri
                 Some(label_ref.location),
             )
         })?;
-        return Ok(
-            env.module_id()
-                .map(|module_id| format!("{}.{}", module_id, label_ref.name))
-                .unwrap_or_else(|| label_ref.name.clone()),
-        );
+        return Ok(env
+            .module_id()
+            .map(|module_id| format!("{}.{}", module_id, label_ref.name))
+            .unwrap_or_else(|| label_ref.name.clone()));
     }
 
     env.lookup_qualified_label(&label_ref.module_path, &label_ref.name)
@@ -599,7 +607,11 @@ fn label_closure(env: &TypeEnvironment, direct: &BTreeSet<String>) -> BTreeSet<S
             if active.contains(&label_name) {
                 continue;
             }
-            if info.combines.iter().any(|component| active.contains(component)) {
+            if info
+                .combines
+                .iter()
+                .any(|component| active.contains(component))
+            {
                 active.insert(label_name);
                 changed = true;
             }
@@ -690,20 +702,24 @@ fn ensure_label_subset(
     ))
 }
 
-fn resolve_member_ref(
-    env: &TypeEnvironment,
-    member_ref: &MemberRef,
-) -> String {
+fn resolve_member_ref(env: &TypeEnvironment, member_ref: &MemberRef) -> String {
     if member_ref.module_path.is_empty() {
         return env
             .module_id()
             .map(|module_id| format!("{}.{}", module_id, member_ref.member))
             .unwrap_or_else(|| member_ref.member.clone());
     }
-    format!("{}.{}", member_ref.module_path.join("::"), member_ref.member)
+    format!(
+        "{}.{}",
+        member_ref.module_path.join("::"),
+        member_ref.member
+    )
 }
 
-fn resolve_boundary_rule(env: &TypeEnvironment, rule_decl: &RuleDecl) -> Result<BoundaryRule, TypeError> {
+fn resolve_boundary_rule(
+    env: &TypeEnvironment,
+    rule_decl: &RuleDecl,
+) -> Result<BoundaryRule, TypeError> {
     if !member_ref_targets_named_topology_boundary(env, &rule_decl.boundary) {
         return Err(TypeError::new(
             "Boundary rules must target named topology boundaries".to_string(),
@@ -1439,7 +1455,8 @@ fn collect_identifier_assumption(
         return Ok(());
     };
 
-    let Some(constrained) = resolve_constrained_type(env, &binding_type).map_err(|err| err.message)?
+    let Some(constrained) =
+        resolve_constrained_type(env, &binding_type).map_err(|err| err.message)?
     else {
         return Ok(());
     };
@@ -1475,7 +1492,9 @@ fn symbolic_value_from_expr(
             LiteralValue::String(ref value) => Ok(SymbolicValue::Collection(
                 SymbolicCollection::KnownLength(LinearExpr::int(value.chars().count() as i64)),
             )),
-            _ => Err("only Int, Bool, and String literals participate in refinement proofs".to_string()),
+            _ => Err(
+                "only Int, Bool, and String literals participate in refinement proofs".to_string(),
+            ),
         },
         Expr::Identifier(identifier) => {
             if identifier.name == "value" {
@@ -1484,7 +1503,8 @@ fn symbolic_value_from_expr(
                 }
             }
 
-            if let Some(symbolic_binding) = proof_context.lookup_symbolic_binding(&identifier.name) {
+            if let Some(symbolic_binding) = proof_context.lookup_symbolic_binding(&identifier.name)
+            {
                 return Ok(symbolic_binding);
             }
 
@@ -1612,8 +1632,13 @@ fn symbolic_value_from_expr(
             let return_type = synthesize_application(env, app).map_err(|error| error.message)?;
             let result_symbolic =
                 symbolic_value_for_type_path(env, &return_type, &SymbolPath::root("$call_result"))?;
-            let assumptions =
-                call_ensure_assumptions(env, proof_context, &contract, &app.args, result_symbolic.clone())?;
+            let assumptions = call_ensure_assumptions(
+                env,
+                proof_context,
+                &contract,
+                &app.args,
+                result_symbolic.clone(),
+            )?;
             collector.assumptions.extend(assumptions);
             Ok(result_symbolic)
         }
@@ -1709,7 +1734,9 @@ fn symbolic_equality_formula(
             };
             Ok(SymbolicValue::Bool(formula))
         }
-        _ => Err("equality in refinement proofs requires matching Int or Bool operands".to_string()),
+        _ => {
+            Err("equality in refinement proofs requires matching Int or Bool operands".to_string())
+        }
     }
 }
 
@@ -1905,8 +1932,12 @@ fn prove_expr_satisfies_constraint(
             let then_context = proof_context
                 .with_assumptions(condition_assumptions.clone())
                 .with_assumption(condition_formula.clone());
-            let then_ok =
-                prove_expr_satisfies_constraint(env, &then_context, &if_expr.then_branch, constraint)?;
+            let then_ok = prove_expr_satisfies_constraint(
+                env,
+                &then_context,
+                &if_expr.then_branch,
+                constraint,
+            )?;
             if !then_ok.proved() {
                 return Ok(then_ok);
             }
@@ -1930,25 +1961,26 @@ fn prove_expr_satisfies_constraint(
                 bindings.insert(id_pattern.name.clone(), value_type.clone());
             }
             let body_env = env.extend(Some(bindings));
-            let body_context =
-                let_proof_context(env, proof_context, &let_expr.pattern, &let_expr.value, &value_type);
+            let body_context = let_proof_context(
+                env,
+                proof_context,
+                &let_expr.pattern,
+                &let_expr.value,
+                &value_type,
+            );
             prove_expr_satisfies_constraint(&body_env, &body_context, &let_expr.body, constraint)
         }
-        Expr::Match(match_expr) => prove_match_expr_satisfies_constraint(
-            env,
-            proof_context,
-            match_expr,
-            constraint,
-        ),
+        Expr::Match(match_expr) => {
+            prove_match_expr_satisfies_constraint(env, proof_context, match_expr, constraint)
+        }
         Expr::TypeAscription(type_asc) => {
             prove_expr_satisfies_constraint(env, proof_context, &type_asc.expr, constraint)
         }
         _ => {
-            let (actual, actual_assumptions) = lower_symbolic_value(env, proof_context, expr, None)?;
-            let goal_context = proof_context.with_symbolic_bindings([(
-                "result".to_string(),
-                actual.clone(),
-            )]);
+            let (actual, actual_assumptions) =
+                lower_symbolic_value(env, proof_context, expr, None)?;
+            let goal_context =
+                proof_context.with_symbolic_bindings([("result".to_string(), actual.clone())]);
             let (goal, goal_assumptions) =
                 lower_symbolic_formula(env, &goal_context, constraint, Some(&actual))?;
             let assumptions = proof_context
@@ -2032,10 +2064,7 @@ fn let_proof_context(
     match lower_symbolic_formula(env, proof_context, value, None) {
         Ok((formula, assumptions)) => proof_context
             .with_assumptions(assumptions)
-            .with_symbolic_bindings([(
-                id_pattern.name.clone(),
-                SymbolicValue::Bool(formula),
-            )]),
+            .with_symbolic_bindings([(id_pattern.name.clone(), SymbolicValue::Bool(formula))]),
         Err(_) => proof_context.clone(),
     }
 }
@@ -2190,8 +2219,7 @@ fn pattern_refinement_formula(
                 &constructor_pattern.name,
             )
             .ok()
-            .flatten()
-            else {
+            .flatten() else {
                 return None;
             };
             let InferenceType::Function(ctor_fn) = constructor_type else {
@@ -2324,7 +2352,8 @@ fn collect_pattern_symbolic_bindings(
                 env,
                 &constructor_pattern.module_path,
                 &constructor_pattern.name,
-            )? else {
+            )?
+            else {
                 return Ok(());
             };
 
@@ -2406,7 +2435,8 @@ fn match_arm_refinement(
     scrutinee_type: &InferenceType,
     arm: &sigil_ast::MatchArm,
 ) -> Result<MatchArmRefinement, TypeError> {
-    let scrutinee_symbolic = scrutinee_symbolic_value(env, proof_context, scrutinee, scrutinee_type);
+    let scrutinee_symbolic =
+        scrutinee_symbolic_value(env, proof_context, scrutinee, scrutinee_type);
     let mut symbolic_bindings = HashMap::new();
     collect_pattern_symbolic_bindings(
         env,
@@ -2485,8 +2515,12 @@ fn prove_match_expr_satisfies_constraint(
         )
         .map_err(|error| error.message)?;
 
-        let arm_proof =
-            prove_expr_satisfies_constraint(&arm_env, &arm_refinement.body_context, &arm.body, constraint)?;
+        let arm_proof = prove_expr_satisfies_constraint(
+            &arm_env,
+            &arm_refinement.body_context,
+            &arm.body,
+            constraint,
+        )?;
         if !arm_proof.proved() {
             return Ok(arm_proof);
         }
@@ -2525,7 +2559,12 @@ fn try_refinement_compatibility(
     location: sigil_lexer::SourceLocation,
 ) -> Result<bool, TypeError> {
     if let Some(expected_refinement) = resolve_constrained_type(env, expected_type)? {
-        check_with_context(env, proof_context, expr, &expected_refinement.underlying_type)?;
+        check_with_context(
+            env,
+            proof_context,
+            expr,
+            &expected_refinement.underlying_type,
+        )?;
         let proof_result = prove_expr_satisfies_constraint(
             env,
             proof_context,
@@ -2536,8 +2575,7 @@ fn try_refinement_compatibility(
             TypeError::new(
                 format!(
                     "Constraint for '{}' could not be proven here: {}",
-                    expected_refinement.name,
-                    reason,
+                    expected_refinement.name, reason,
                 ),
                 Some(location),
             )
@@ -2641,11 +2679,9 @@ fn validate_declaration_surface_types(decl: &Declaration) -> Result<(), TypeErro
             validate_surface_type(&feature_flag_decl.flag_type)?;
             validate_expr_surface_types(&feature_flag_decl.default)
         }
-        Declaration::Transform(transform_decl) => {
-            validate_declaration_surface_types(&Declaration::Function(
-                transform_decl.function.clone(),
-            ))
-        }
+        Declaration::Transform(transform_decl) => validate_declaration_surface_types(
+            &Declaration::Function(transform_decl.function.clone()),
+        ),
         Declaration::Function(func_decl) => {
             for param in &func_decl.params {
                 if let Some(param_type) = &param.type_annotation {
@@ -2983,10 +3019,7 @@ fn prove_contract_clause(
     }
 }
 
-fn lookup_contract_for_call(
-    env: &TypeEnvironment,
-    func: &Expr,
-) -> Option<FunctionContract> {
+fn lookup_contract_for_call(env: &TypeEnvironment, func: &Expr) -> Option<FunctionContract> {
     match func {
         Expr::Identifier(identifier) => env.lookup_function_contract(&identifier.name),
         _ => None,
@@ -3023,28 +3056,29 @@ fn enforce_call_requires(
         return Ok(());
     };
 
-    let call_context = contract_context_for_call(env, proof_context, contract, args).map_err(
-        |reason| {
+    let call_context =
+        contract_context_for_call(env, proof_context, contract, args).map_err(|reason| {
             TypeError::new(
                 format!("Call requires unsupported proof inputs: {}", reason),
                 Some(location),
             )
-        },
-    )?;
-    let proof =
-        prove_contract_clause(env, &call_context, requires).map_err(|reason| {
-            TypeError::new(
-                format!("Call requires unsupported proof syntax: {}", reason),
-                Some(location),
-            )
         })?;
+    let proof = prove_contract_clause(env, &call_context, requires).map_err(|reason| {
+        TypeError::new(
+            format!("Call requires unsupported proof syntax: {}", reason),
+            Some(location),
+        )
+    })?;
 
     if proof.proved() {
         return Ok(());
     }
 
-    let mut error = TypeError::new("Call does not satisfy requires clause".to_string(), Some(location))
-        .with_detail("proofKind", "requires");
+    let mut error = TypeError::new(
+        "Call does not satisfy requires clause".to_string(),
+        Some(location),
+    )
+    .with_detail("proofKind", "requires");
     if let Some(check) = proof.failed_check() {
         error = error
             .with_detail("proof", check)
@@ -3136,22 +3170,31 @@ fn check_function_decl(env: &TypeEnvironment, func_decl: &FunctionDecl) -> Resul
         ProofContext::default()
     };
 
-    check_with_context(&func_env, &body_context, &func_decl.body, &expected_return_type)?;
+    check_with_context(
+        &func_env,
+        &body_context,
+        &func_decl.body,
+        &expected_return_type,
+    )?;
 
     if let Some(ensures) = &func_decl.ensures {
-        let proof = prove_expr_satisfies_constraint(&func_env, &body_context, &func_decl.body, ensures)
-            .map_err(|reason| {
-                TypeError::new(
-                    format!(
-                        "Function '{}' ensures clause could not be proven: {}",
-                        func_decl.name, reason
-                    ),
-                    Some(expr_location(ensures)),
-                )
-            })?;
+        let proof =
+            prove_expr_satisfies_constraint(&func_env, &body_context, &func_decl.body, ensures)
+                .map_err(|reason| {
+                    TypeError::new(
+                        format!(
+                            "Function '{}' ensures clause could not be proven: {}",
+                            func_decl.name, reason
+                        ),
+                        Some(expr_location(ensures)),
+                    )
+                })?;
         if !proof.proved() {
             let mut error = TypeError::new(
-                format!("Function '{}' ensures clause could not be proven", func_decl.name),
+                format!(
+                    "Function '{}' ensures clause could not be proven",
+                    func_decl.name
+                ),
                 Some(expr_location(ensures)),
             );
             if let Some(check) = proof.failed_check() {
@@ -3440,10 +3483,7 @@ fn build_typed_function_decl(
             } else {
                 param_type
             };
-            lambda_env_bindings.insert(
-                param.name.clone(),
-                body_param_type,
-            );
+            lambda_env_bindings.insert(param.name.clone(), body_param_type);
         }
     }
     let function_env = env.extend(Some(lambda_env_bindings));
@@ -3619,8 +3659,9 @@ fn feature_flag_sum_type_name(env: &TypeEnvironment, typ: &InferenceType) -> Opt
             .and_then(|info| matches!(info.definition, TypeDef::Sum(_)).then_some(type_name));
     }
 
-    env.lookup_type(&constructor.name)
-        .and_then(|info| matches!(info.definition, TypeDef::Sum(_)).then_some(constructor.name.clone()))
+    env.lookup_type(&constructor.name).and_then(|info| {
+        matches!(info.definition, TypeDef::Sum(_)).then_some(constructor.name.clone())
+    })
 }
 
 fn feature_flag_split_qualified_type_name(name: &str) -> Option<(Vec<String>, String)> {
@@ -3629,7 +3670,10 @@ fn feature_flag_split_qualified_type_name(name: &str) -> Option<(Vec<String>, St
         return None;
     }
     Some((
-        module_id.split("::").map(|segment| segment.to_string()).collect(),
+        module_id
+            .split("::")
+            .map(|segment| segment.to_string())
+            .collect(),
         type_name.to_string(),
     ))
 }
@@ -4397,9 +4441,7 @@ fn synthesize_binary(
         name: PrimitiveName::String,
     });
 
-    let is_float = |t: &InferenceType| {
-        matches!(t, InferenceType::Primitive(p) if p.name == PrimitiveName::Float)
-    };
+    let is_float = |t: &InferenceType| matches!(t, InferenceType::Primitive(p) if p.name == PrimitiveName::Float);
 
     match bin.operator {
         // Arithmetic operators: Int => Int => Int, or Float => Float => Float
@@ -4528,7 +4570,8 @@ fn synthesize_unary(
     match un.operator {
         sigil_ast::UnaryOperator::Negate => {
             let operand_type = synthesize(env, &un.operand)?;
-            if matches!(operand_type, InferenceType::Primitive(ref p) if p.name == PrimitiveName::Float) {
+            if matches!(operand_type, InferenceType::Primitive(ref p) if p.name == PrimitiveName::Float)
+            {
                 check(env, &un.operand, &float_type)?;
                 Ok(float_type)
             } else {
@@ -4702,7 +4745,9 @@ fn boundary_payload_arg_indices(module_id: &str, member: &str, arg_len: usize) -
             _ => Vec::new(),
         },
         "stdlib::file" => match file_handle_arg_index(member) {
-            Some(handle_index) => (0..arg_len).filter(|index| *index != handle_index).collect(),
+            Some(handle_index) => (0..arg_len)
+                .filter(|index| *index != handle_index)
+                .collect(),
             None => Vec::new(),
         },
         "stdlib::log" if member == "write" => (0..arg_len.min(1)).collect(),
@@ -4716,14 +4761,8 @@ fn boundary_payload_arg_indices(module_id: &str, member: &str, arg_len: usize) -
 fn file_handle_arg_index(member: &str) -> Option<usize> {
     match member {
         "appendTextAt" | "writeTextAt" => Some(2),
-        "existsAt"
-        | "listDirAt"
-        | "makeDirAt"
-        | "makeDirsAt"
-        | "makeTempDirAt"
-        | "readTextAt"
-        | "removeAt"
-        | "removeTreeAt" => Some(1),
+        "existsAt" | "listDirAt" | "makeDirAt" | "makeDirsAt" | "makeTempDirAt" | "readTextAt"
+        | "removeAt" | "removeTreeAt" => Some(1),
         _ => None,
     }
 }
@@ -4917,18 +4956,17 @@ fn enforce_boundary_payload(
             Some(location),
         )),
         (BoundaryPayload::Direct { .. }, BoundaryRuleKind::Allow) => Ok(()),
-        (
-            BoundaryPayload::Direct { .. },
-            BoundaryRuleKind::Through(expected_transform),
-        ) => Err(TypeError::new(
-            format!(
-                "Boundary '{}' requires transform '{}' for labels {}",
-                boundary_name,
-                expected_transform,
-                format_label_set(&active_labels)
-            ),
-            Some(location),
-        )),
+        (BoundaryPayload::Direct { .. }, BoundaryRuleKind::Through(expected_transform)) => {
+            Err(TypeError::new(
+                format!(
+                    "Boundary '{}' requires transform '{}' for labels {}",
+                    boundary_name,
+                    expected_transform,
+                    format_label_set(&active_labels)
+                ),
+                Some(location),
+            ))
+        }
         (BoundaryPayload::Through { .. }, BoundaryRuleKind::Allow) => Ok(()),
         (
             BoundaryPayload::Through {
@@ -5019,12 +5057,7 @@ fn validate_topology_application(
     if module_id == "stdlib::topology" {
         let restricted = matches!(
             member,
-            "environment"
-                | "fsRoot"
-                | "httpService"
-                | "logSink"
-                | "processHandle"
-                | "tcpService"
+            "environment" | "fsRoot" | "httpService" | "logSink" | "processHandle" | "tcpService"
         );
 
         if restricted && is_project_mode_source(env) && !is_canonical_topology_source(env) {
@@ -5373,8 +5406,8 @@ fn synthesize_match(
                     "Pattern guard must have type Bool, got {}",
                     format_type(&normalized_guard)
                 ),
-        Some(match_expr.location),
-                ));
+                Some(match_expr.location),
+            ));
         }
     }
 
@@ -6420,10 +6453,7 @@ fn check_pattern(
                     .find(|field| field.name == field_name)
                 else {
                     return Err(TypeError::new(
-                        format!(
-                            "Exact record pattern is missing field '{}'",
-                            field_name
-                        ),
+                        format!("Exact record pattern is missing field '{}'", field_name),
                         Some(record_pattern.location),
                     ));
                 };
@@ -6738,7 +6768,8 @@ fn analyze_match_coverage(
     let mut remaining = scrutinee_space.clone();
     let mut previous_facts: Vec<serde_json::Value> = Vec::new();
     let mut unsupported_facts = Vec::new();
-    let mut fallthrough_context = scrutinee_proof_context(env, proof_context, &match_expr.scrutinee);
+    let mut fallthrough_context =
+        scrutinee_proof_context(env, proof_context, &match_expr.scrutinee);
 
     for (index, arm) in match_expr.arms.iter().enumerate() {
         let arm_proof = arm_proof(
@@ -6862,8 +6893,7 @@ fn arm_proof(
         &mut visiting,
     )?;
     let scrutinee_roots = coverage_scrutinee_roots(env, proof_context, scrutinee, scrutinee_type);
-    let arm_refinement =
-        match_arm_refinement(env, proof_context, scrutinee, scrutinee_type, arm)?;
+    let arm_refinement = match_arm_refinement(env, proof_context, scrutinee, scrutinee_type, arm)?;
     let mut facts = vec![pattern_summary(&arm.pattern)];
     if let Some(guard) = &arm.guard {
         facts.push(expr_summary(guard));
@@ -6900,7 +6930,8 @@ fn coverage_scrutinee_roots(
     scrutinee: &Expr,
     scrutinee_type: &InferenceType,
 ) -> Vec<SymbolPath> {
-    let Some(symbolic) = scrutinee_symbolic_value(env, proof_context, scrutinee, scrutinee_type) else {
+    let Some(symbolic) = scrutinee_symbolic_value(env, proof_context, scrutinee, scrutinee_type)
+    else {
         return vec![];
     };
 
@@ -6918,7 +6949,10 @@ fn coverage_scrutinee_roots(
     }
 }
 
-fn symbol_path_to_value_path(path: &SymbolPath, scrutinee_roots: &[SymbolPath]) -> Option<ValuePath> {
+fn symbol_path_to_value_path(
+    path: &SymbolPath,
+    scrutinee_roots: &[SymbolPath],
+) -> Option<ValuePath> {
     let mut parts = path.0.iter();
     let first = parts.next()?;
     match first {
@@ -6927,13 +6961,17 @@ fn symbol_path_to_value_path(path: &SymbolPath, scrutinee_roots: &[SymbolPath]) 
             let matched_root = scrutinee_roots
                 .iter()
                 .find(|candidate| candidate.0.first() == Some(first))?;
-            if path.0.len() < matched_root.0.len() || path.0[..matched_root.0.len()] != matched_root.0[..] {
+            if path.0.len() < matched_root.0.len()
+                || path.0[..matched_root.0.len()] != matched_root.0[..]
+            {
                 return None;
             }
             let mut value_path = Vec::new();
             for step in &path.0[matched_root.0.len()..] {
                 match step {
-                    SymbolPathStep::Field(name) => value_path.push(ValuePathStep::Field(name.clone())),
+                    SymbolPathStep::Field(name) => {
+                        value_path.push(ValuePathStep::Field(name.clone()))
+                    }
                     SymbolPathStep::VariantField(index) => {
                         value_path.push(ValuePathStep::VariantField(*index))
                     }
@@ -6954,13 +6992,13 @@ fn symbol_path_to_value_path(path: &SymbolPath, scrutinee_roots: &[SymbolPath]) 
     for step in parts {
         match step {
             SymbolPathStep::Field(name) => value_path.push(ValuePathStep::Field(name.clone())),
-            SymbolPathStep::VariantField(index) => value_path.push(ValuePathStep::VariantField(*index)),
+            SymbolPathStep::VariantField(index) => {
+                value_path.push(ValuePathStep::VariantField(*index))
+            }
             SymbolPathStep::TupleIndex(index) => value_path.push(ValuePathStep::TupleIndex(*index)),
             SymbolPathStep::ListHead => value_path.push(ValuePathStep::ListHead),
             SymbolPathStep::ListTail => value_path.push(ValuePathStep::ListTail),
-            SymbolPathStep::Binding(_) | SymbolPathStep::Length => {
-                return None
-            }
+            SymbolPathStep::Binding(_) | SymbolPathStep::Length => return None,
         }
     }
 
@@ -7016,14 +7054,16 @@ fn atom_to_space_subset(
         }
         Atom::IntCmp { form, op, rhs } => {
             if form.terms.is_empty() {
-                return Some(if matches!(
-                    prove_formula(&[], &Formula::Atom(atom.clone())).outcome,
-                    SolverOutcome::Proved
-                ) {
-                    base_space.clone()
-                } else {
-                    MatchSpace::Empty
-                });
+                return Some(
+                    if matches!(
+                        prove_formula(&[], &Formula::Atom(atom.clone())).outcome,
+                        SolverOutcome::Proved
+                    ) {
+                        base_space.clone()
+                    } else {
+                        MatchSpace::Empty
+                    },
+                );
             }
 
             let (path, coeff) = form.single_term()?;
@@ -7136,7 +7176,8 @@ fn total_space_for_type_inner(
             fields: sorted_record_field_types(&record)
                 .into_iter()
                 .map(|(name, field_type)| {
-                    total_space_for_type_inner(env, &field_type, visiting).map(|space| (name, space))
+                    total_space_for_type_inner(env, &field_type, visiting)
+                        .map(|space| (name, space))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         })),
@@ -7430,14 +7471,7 @@ fn pattern_to_space(
                 let mut field_path = path.clone();
                 field_path.push(ValuePathStep::Field(field_name.clone()));
                 let field_space = if let Some(pattern) = &field_pattern.pattern {
-                    pattern_to_space(
-                        env,
-                        &field_type,
-                        pattern,
-                        bindings,
-                        &field_path,
-                        visiting,
-                    )?
+                    pattern_to_space(env, &field_type, pattern, bindings, &field_path, visiting)?
                 } else {
                     bindings.insert(field_name.clone(), field_path);
                     total_space_for_type_inner(env, &field_type, visiting)?
@@ -8079,13 +8113,11 @@ fn space_subset_of(left: &MatchSpace, right: &MatchSpace) -> bool {
         }
         (MatchSpace::Record(left), MatchSpace::Record(right)) => {
             left.fields.len() == right.fields.len()
-                && left
-                    .fields
-                    .iter()
-                    .zip(right.fields.iter())
-                    .all(|((left_name, left), (right_name, right))| {
+                && left.fields.iter().zip(right.fields.iter()).all(
+                    |((left_name, left), (right_name, right))| {
                         left_name == right_name && space_subset_of(left, right)
-                    })
+                    },
+                )
         }
         (MatchSpace::Tuple(left), MatchSpace::Tuple(right)) => {
             left.len() == right.len()
@@ -8828,7 +8860,9 @@ fn check_application(
     }
 
     let boundary_payload_indices = topology_call_member(&app.func)
-        .map(|(namespace, member)| boundary_payload_arg_indices(&namespace.join("::"), member, app.args.len()))
+        .map(|(namespace, member)| {
+            boundary_payload_arg_indices(&namespace.join("::"), member, app.args.len())
+        })
         .unwrap_or_default();
 
     let mut subst = HashMap::new();
@@ -8885,8 +8919,13 @@ fn check_application(
     }
 
     let actual_return = apply_subst(&subst, &tfunc.return_type);
-    let result_context =
-        call_result_proof_context(env, proof_context, call_contract.as_ref(), &app.args, &actual_return)?;
+    let result_context = call_result_proof_context(
+        env,
+        proof_context,
+        call_contract.as_ref(),
+        &app.args,
+        &actual_return,
+    )?;
     ensure_expr_matches_expected(
         env,
         &result_context,
@@ -8973,8 +9012,13 @@ fn check_let(
     }
 
     let body_env = env.extend(Some(bindings));
-    let body_context =
-        let_proof_context(env, proof_context, &let_expr.pattern, &let_expr.value, &value_type);
+    let body_context = let_proof_context(
+        env,
+        proof_context,
+        &let_expr.pattern,
+        &let_expr.value,
+        &value_type,
+    );
     check_with_context(&body_env, &body_context, &let_expr.body, expected_type)
 }
 
@@ -9677,8 +9721,7 @@ mod tests {
 
     #[test]
     fn test_constrained_alias_direct_literal_promotion_typechecks() {
-        let source =
-            "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=1988";
+        let source = "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=1988";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "src/types.lib.sigil").unwrap();
 
@@ -9688,8 +9731,7 @@ mod tests {
 
     #[test]
     fn test_constrained_alias_rejects_unprovable_literal_contradiction() {
-        let source =
-            "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=1700";
+        let source = "t BirthYear=Int where value>1800 and value<10000\nλmain()=>BirthYear=1700";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "src/types.lib.sigil").unwrap();
 
@@ -9830,14 +9872,20 @@ mod tests {
 
     #[test]
     fn test_call_requires_clause_rejects_unproven_call_site() {
-        let source = "λpositiveOnly(value:Int)=>Int\nrequires value>0\n=value\nλmain()=>Int=positiveOnly(0)";
+        let source =
+            "λpositiveOnly(value:Int)=>Int\nrequires value>0\n=value\nλmain()=>Int=positiveOnly(0)";
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
 
         let error = type_check(&program, source, TypeCheckOptions::default()).unwrap_err();
-        assert!(error.message.contains("Call does not satisfy requires clause"));
+        assert!(error
+            .message
+            .contains("Call does not satisfy requires clause"));
         let details = error.details.unwrap();
-        assert_eq!(details.get("proofKind").unwrap(), &serde_json::json!("requires"));
+        assert_eq!(
+            details.get("proofKind").unwrap(),
+            &serde_json::json!("requires")
+        );
     }
 
     #[test]
@@ -9861,7 +9909,10 @@ mod tests {
             .message
             .contains("Function 'bad' ensures clause could not be proven"));
         let details = error.details.unwrap();
-        assert_eq!(details.get("proofKind").unwrap(), &serde_json::json!("ensures"));
+        assert_eq!(
+            details.get("proofKind").unwrap(),
+            &serde_json::json!("ensures")
+        );
     }
 
     #[test]

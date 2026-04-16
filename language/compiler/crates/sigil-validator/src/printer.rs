@@ -330,7 +330,10 @@ impl Printer {
     }
 
     fn label_refs_text(&self, refs: &[LabelRef]) -> String {
-        let mut items: Vec<String> = refs.iter().map(|label| self.label_ref_text(label)).collect();
+        let mut items: Vec<String> = refs
+            .iter()
+            .map(|label| self.label_ref_text(label))
+            .collect();
         items.sort();
         match items.as_slice() {
             [] => "[]".to_string(),
@@ -350,7 +353,11 @@ impl Printer {
         if reference.module_path.is_empty() {
             return reference.member.clone();
         }
-        format!("{}.{}", module_path_text(&reference.module_path), reference.member)
+        format!(
+            "{}.{}",
+            module_path_text(&reference.module_path),
+            reference.member
+        )
     }
 
     fn rule_action_text(&self, action: &RuleAction) -> String {
@@ -428,16 +435,22 @@ impl Printer {
                     format!(
                         "{}{}",
                         constructor.name,
-                        self.delimited_items("[", "]", &constructor.type_args, indent, |ty, child_indent| {
-                            self.type_text_at(ty, child_indent)
-                        })
+                        self.delimited_items(
+                            "[",
+                            "]",
+                            &constructor.type_args,
+                            indent,
+                            |ty, child_indent| { self.type_text_at(ty, child_indent) }
+                        )
                     )
                 }
             }
             Type::Variable(variable) => variable.name.clone(),
-            Type::Tuple(tuple) => self.delimited_items("(", ")", &tuple.types, indent, |ty, child_indent| {
-                self.type_text_at(ty, child_indent)
-            }),
+            Type::Tuple(tuple) => {
+                self.delimited_items("(", ")", &tuple.types, indent, |ty, child_indent| {
+                    self.type_text_at(ty, child_indent)
+                })
+            }
             Type::Qualified(qualified) => {
                 let args = if qualified.type_args.is_empty() {
                     String::new()
@@ -480,17 +493,27 @@ impl Printer {
                         format!(
                             "{}{}",
                             variant.name,
-                            self.delimited_items("(", ")", &variant.types, indent, |ty, child_indent| {
-                                self.type_text_at(ty, child_indent)
-                            })
+                            self.delimited_items(
+                                "(",
+                                ")",
+                                &variant.types,
+                                indent,
+                                |ty, child_indent| { self.type_text_at(ty, child_indent) }
+                            )
                         )
                     }
                 })
                 .collect::<Vec<_>>()
                 .join("|"),
-            TypeDef::Product(product) => self.delimited_items("{", "}", &product.fields, indent, |field, child_indent| {
-                format!("{}:{}", field.name, self.type_text_at(&field.field_type, child_indent))
-            }),
+            TypeDef::Product(product) => {
+                self.delimited_items("{", "}", &product.fields, indent, |field, child_indent| {
+                    format!(
+                        "{}:{}",
+                        field.name,
+                        self.type_text_at(&field.field_type, child_indent)
+                    )
+                })
+            }
             TypeDef::Alias(alias) => self.type_text_at(&alias.aliased_type, indent),
         }
     }
@@ -552,23 +575,27 @@ impl Printer {
                 format!(
                     "{}{}",
                     func,
-                    self.delimited_items("(", ")", &application.args, indent, |arg, child_indent| {
-                        self.expr(arg, child_indent, 0)
-                    })
+                    self.delimited_items(
+                        "(",
+                        ")",
+                        &application.args,
+                        indent,
+                        |arg, child_indent| { self.expr(arg, child_indent, 0) }
+                    )
                 )
             }
             Expr::Binary(binary) => match self.binary_chain_text(binary, indent) {
                 Some(text) => text,
                 None => {
-                let op_prec = precedence(expr);
-                let left = self.wrap_expr(&binary.left, indent, op_prec);
-                let right = self.wrap_expr(&binary.right, indent, op_prec.saturating_add(1));
-                match binary.operator {
-                    BinaryOperator::And | BinaryOperator::Or => {
-                        format!("{} {} {}", left, binary.operator, right)
+                    let op_prec = precedence(expr);
+                    let left = self.wrap_expr(&binary.left, indent, op_prec);
+                    let right = self.wrap_expr(&binary.right, indent, op_prec.saturating_add(1));
+                    match binary.operator {
+                        BinaryOperator::And | BinaryOperator::Or => {
+                            format!("{} {} {}", left, binary.operator, right)
+                        }
+                        _ => format!("{}{}{}", left, binary.operator, right),
                     }
-                    _ => format!("{}{}{}", left, binary.operator, right),
-                }
                 }
             },
             Expr::Unary(unary) => format!(
@@ -591,9 +618,11 @@ impl Printer {
                     else_branch
                 )
             }
-            Expr::List(list) => self.delimited_items("[", "]", &list.elements, indent, |element, child_indent| {
-                self.expr(element, child_indent, 0)
-            }),
+            Expr::List(list) => {
+                self.delimited_items("[", "]", &list.elements, indent, |element, child_indent| {
+                    self.expr(element, child_indent, 0)
+                })
+            }
             Expr::Record(record) => self.record_text(record, indent),
             Expr::MapLiteral(map) => {
                 if map.entries.is_empty() {
@@ -608,9 +637,13 @@ impl Printer {
                     })
                 }
             }
-            Expr::Tuple(tuple) => self.delimited_items("(", ")", &tuple.elements, indent, |element, child_indent| {
-                self.expr(element, child_indent, 0)
-            }),
+            Expr::Tuple(tuple) => self.delimited_items(
+                "(",
+                ")",
+                &tuple.elements,
+                indent,
+                |element, child_indent| self.expr(element, child_indent, 0),
+            ),
             Expr::FieldAccess(access) => {
                 format!(
                     "{}.{}",
@@ -710,7 +743,11 @@ impl Printer {
             .map(|effect| format!("!{}", effect))
             .collect::<String>();
         let head = if effects.is_empty() {
-            format!("λ({})=>{}", params, self.type_text_at(&lambda.return_type, indent))
+            format!(
+                "λ({})=>{}",
+                params,
+                self.type_text_at(&lambda.return_type, indent)
+            )
         } else {
             format!(
                 "λ({})=>{} {}",
@@ -892,7 +929,11 @@ impl Printer {
 
     fn record_text(&self, record: &RecordExpr, indent: usize) -> String {
         self.delimited_items("{", "}", &record.fields, indent, |field, child_indent| {
-            format!("{}:{}", field.name, self.expr(&field.value, child_indent, 0))
+            format!(
+                "{}:{}",
+                field.name,
+                self.expr(&field.value, child_indent, 0)
+            )
         })
     }
 
@@ -920,9 +961,17 @@ impl Printer {
                 if constructor.patterns.is_empty() {
                     format!("{}()", prefix)
                 } else {
-                    format!("{}{}", prefix, self.delimited_items("(", ")", &constructor.patterns, indent, |pattern, child_indent| {
-                        self.pattern_text_at(pattern, child_indent)
-                    }))
+                    format!(
+                        "{}{}",
+                        prefix,
+                        self.delimited_items(
+                            "(",
+                            ")",
+                            &constructor.patterns,
+                            indent,
+                            |pattern, child_indent| { self.pattern_text_at(pattern, child_indent) }
+                        )
+                    )
                 }
             }
             Pattern::List(list) => {
@@ -936,19 +985,35 @@ impl Printer {
                 }
                 self.delimited_rendered("[", "]", &parts, indent)
             }
-            Pattern::Record(record) => self.delimited_items("{", "}", &record.fields, indent, |field, child_indent| {
-                match &field.pattern {
-                    Some(pattern) => format!("{}:{}", field.name, self.pattern_text_at(pattern, child_indent)),
-                    None => field.name.clone(),
-                }
-            }),
-            Pattern::Tuple(tuple) => self.delimited_items("(", ")", &tuple.patterns, indent, |pattern, child_indent| {
-                self.pattern_text_at(pattern, child_indent)
-            }),
+            Pattern::Record(record) => {
+                self.delimited_items("{", "}", &record.fields, indent, |field, child_indent| {
+                    match &field.pattern {
+                        Some(pattern) => format!(
+                            "{}:{}",
+                            field.name,
+                            self.pattern_text_at(pattern, child_indent)
+                        ),
+                        None => field.name.clone(),
+                    }
+                })
+            }
+            Pattern::Tuple(tuple) => self.delimited_items(
+                "(",
+                ")",
+                &tuple.patterns,
+                indent,
+                |pattern, child_indent| self.pattern_text_at(pattern, child_indent),
+            ),
         }
     }
 
-    fn delimited_rendered(&self, open: &str, close: &str, items: &[String], indent: usize) -> String {
+    fn delimited_rendered(
+        &self,
+        open: &str,
+        close: &str,
+        items: &[String],
+        indent: usize,
+    ) -> String {
         match items.len() {
             0 => format!("{}{}", open, close),
             1 => format!("{}{}{}", open, items[0], close),
@@ -1061,7 +1126,11 @@ fn flatten_lets<'a>(let_expr: &'a LetExpr) -> (Vec<LetBindingRef<'a>>, &'a Expr)
     }
 }
 
-fn flatten_binary_chain<'a>(expr: &'a Expr, operator: BinaryOperator, operands: &mut Vec<&'a Expr>) {
+fn flatten_binary_chain<'a>(
+    expr: &'a Expr,
+    operator: BinaryOperator,
+    operands: &mut Vec<&'a Expr>,
+) {
     match expr {
         Expr::Binary(binary) if binary.operator == operator => {
             flatten_binary_chain(&binary.left, operator, operands);

@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum SymbolPathStep {
     Binding(String),
     Field(String),
@@ -11,7 +13,9 @@ pub enum SymbolPathStep {
     Length,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct SymbolPath(pub Vec<SymbolPathStep>);
 
 impl SymbolPath {
@@ -283,7 +287,10 @@ pub fn prove_formula(assumptions: &[Formula], goal: &Formula) -> ProofCheck {
     for assumption in assumptions {
         solver.assert(lower_formula(assumption, &registry));
     }
-    solver.assert(lower_formula(&Formula::Not(Box::new(goal.clone())), &registry));
+    solver.assert(lower_formula(
+        &Formula::Not(Box::new(goal.clone())),
+        &registry,
+    ));
 
     let outcome = match solver.check() {
         z3::SatResult::Unsat => SolverOutcome::Proved,

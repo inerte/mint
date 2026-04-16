@@ -413,10 +413,11 @@ fn context_json(id: &str) -> Result<serde_json::Value, DocsError> {
         .included_docs
         .iter()
         .map(|doc_id| {
-            let document = document_by_id(doc_id).map_err(|_| DocsError::InvalidContextReference {
-                context_id: context.id,
-                doc_id,
-            })?;
+            let document =
+                document_by_id(doc_id).map_err(|_| DocsError::InvalidContextReference {
+                    context_id: context.id,
+                    doc_id,
+                })?;
             Ok(json!({
                 "docId": document.doc_id,
                 "kind": document.kind.as_str(),
@@ -541,9 +542,7 @@ fn output_docs_error(command: &str, error: &DocsError) {
             command,
             "cli",
             codes::cli::UNEXPECTED,
-            &format!(
-                "embedded docs context `{context_id}` references missing doc `{doc_id}`"
-            ),
+            &format!("embedded docs context `{context_id}` references missing doc `{doc_id}`"),
             json!({
                 "contextId": context_id,
                 "docId": doc_id,

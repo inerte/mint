@@ -78,8 +78,14 @@ fn docs_show_returns_numbered_lines_and_respects_ranges() {
 
     assert!(full_output.status.success(), "{full_output:?}");
     let full_json = parse_json(&full_output.stdout);
-    assert_eq!(full_json["data"]["document"]["docId"], "docs/syntax-reference");
-    assert_eq!(full_json["data"]["document"]["title"], "Sigil Syntax Reference");
+    assert_eq!(
+        full_json["data"]["document"]["docId"],
+        "docs/syntax-reference"
+    );
+    assert_eq!(
+        full_json["data"]["document"]["title"],
+        "Sigil Syntax Reference"
+    );
     assert_eq!(
         full_json["data"]["document"]["path"],
         "language/docs/syntax-reference.md"
@@ -127,7 +133,9 @@ fn docs_search_returns_context_windows_and_ranks_guides_first() {
     assert_eq!(results[0]["docId"], "guide/language-readme");
     assert_eq!(results[0]["kind"], "guide");
     assert_eq!(results[0]["isExactPhrase"], true);
-    assert!(results.iter().any(|result| result["docId"] == "docs/syntax-reference"));
+    assert!(results
+        .iter()
+        .any(|result| result["docId"] == "docs/syntax-reference"));
 
     let windowed_output = Command::new(sigil_bin())
         .arg("docs")
@@ -182,9 +190,9 @@ fn docs_context_lists_and_shows_curated_bundles() {
     assert!(included_docs
         .iter()
         .any(|document| document["docId"] == "spec/packages"));
-    assert!(included_docs.iter().any(|document| {
-        document["docId"] == "article/packages-use-npm-as-transport"
-    }));
+    assert!(included_docs
+        .iter()
+        .any(|document| { document["docId"] == "article/packages-use-npm-as-transport" }));
 }
 
 #[test]

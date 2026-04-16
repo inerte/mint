@@ -419,7 +419,9 @@ pub fn get_project_config(start_path: &Path) -> Result<Option<ProjectConfig>, Pr
     get_project_config_at_root(&root)
 }
 
-pub fn get_project_config_at_root(root: &Path) -> Result<Option<ProjectConfig>, ProjectConfigError> {
+pub fn get_project_config_at_root(
+    root: &Path,
+) -> Result<Option<ProjectConfig>, ProjectConfigError> {
     let config_path = root.join("sigil.json");
     if !config_path.exists() {
         return Ok(None);

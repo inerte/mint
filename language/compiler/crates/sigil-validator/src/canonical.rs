@@ -209,16 +209,15 @@ fn comment_normalized_lines(source: &str) -> Vec<CommentNormalizedLine> {
     let mut line_had_comment = false;
     let mut state = CommentScanState::Code;
 
-    let push_line = |lines: &mut Vec<CommentNormalizedLine>,
-                     current: &mut String,
-                     line_had_comment: bool| {
-        lines.push(CommentNormalizedLine {
-            had_comment: line_had_comment,
-            has_newline: true,
-            text: current.clone(),
-        });
-        current.clear();
-    };
+    let push_line =
+        |lines: &mut Vec<CommentNormalizedLine>, current: &mut String, line_had_comment: bool| {
+            lines.push(CommentNormalizedLine {
+                had_comment: line_had_comment,
+                has_newline: true,
+                text: current.clone(),
+            });
+            current.clear();
+        };
 
     for ch in source.chars() {
         match state {
@@ -2661,8 +2660,9 @@ fn validate_project_policy_declaration_placement(
             Declaration::Rule(rule_decl) => {
                 if !is_policies_file {
                     errors.push(ValidationError::PolicyDeclarationPlacement {
-                        message: "Project-defined boundary rules must live in src/policies.lib.sigil"
-                            .to_string(),
+                        message:
+                            "Project-defined boundary rules must live in src/policies.lib.sigil"
+                                .to_string(),
                         location: rule_decl.location,
                     });
                 }
@@ -2716,9 +2716,8 @@ fn validate_project_feature_flag_declaration_placement(
             Declaration::FeatureFlag(feature_flag_decl) => {
                 if !is_flags_file {
                     errors.push(ValidationError::FeatureFlagDeclaration {
-                        message:
-                            "Project-defined feature flags must live in src/flags.lib.sigil"
-                                .to_string(),
+                        message: "Project-defined feature flags must live in src/flags.lib.sigil"
+                            .to_string(),
                         location: feature_flag_decl.location,
                     });
                 } else if !is_canonical_timestamp(feature_flag_decl.created_at.as_str()) {
@@ -2734,9 +2733,8 @@ fn validate_project_feature_flag_declaration_placement(
             _ => {
                 if is_flags_file {
                     errors.push(ValidationError::FeatureFlagDeclaration {
-                        message:
-                            "src/flags.lib.sigil may only contain featureFlag declarations"
-                                .to_string(),
+                        message: "src/flags.lib.sigil may only contain featureFlag declarations"
+                            .to_string(),
                         location: *get_declaration_location(decl),
                     });
                 }
@@ -3679,7 +3677,9 @@ fn collect_rule_usage_summary(
         collect_label_ref_usage(label_ref, &mut summary, top_level_types);
     }
     if !rule_decl.boundary.module_path.is_empty() {
-        summary.imports.insert(rule_decl.boundary.module_path.join("::"));
+        summary
+            .imports
+            .insert(rule_decl.boundary.module_path.join("::"));
     }
     if let RuleAction::Through { transform, .. } = &rule_decl.action {
         collect_member_ref_usage(transform, &mut summary, top_level_values);
@@ -4991,7 +4991,10 @@ fn validate_identifier_forms_in_label_ref(label_ref: &LabelRef, errors: &mut Vec
     }
 }
 
-fn validate_identifier_forms_in_member_ref(member_ref: &MemberRef, errors: &mut Vec<ValidationError>) {
+fn validate_identifier_forms_in_member_ref(
+    member_ref: &MemberRef,
+    errors: &mut Vec<ValidationError>,
+) {
     for segment in &member_ref.module_path {
         if !is_lower_camel_case(segment) {
             errors.push(ValidationError::ModulePathForm {
@@ -5356,7 +5359,11 @@ fn detect_direct_stdlib_wrapper(func: &FunctionDecl) -> Option<CanonicalHelperWr
         return None;
     }
 
-    let param_names: Vec<&str> = func.params.iter().map(|param| param.name.as_str()).collect();
+    let param_names: Vec<&str> = func
+        .params
+        .iter()
+        .map(|param| param.name.as_str())
+        .collect();
     if !application
         .args
         .iter()
@@ -5419,7 +5426,11 @@ fn operator_wrapper(
         return None;
     }
 
-    let param_names: HashSet<&str> = func.params.iter().map(|param| param.name.as_str()).collect();
+    let param_names: HashSet<&str> = func
+        .params
+        .iter()
+        .map(|param| param.name.as_str())
+        .collect();
     let wrapper_names: HashSet<&str> = names.iter().copied().collect();
     if param_names.len() != func.params.len()
         || wrapper_names.len() != names.len()
@@ -7196,19 +7207,17 @@ mod tests {
         let program = parse(tokens, "test.lib.sigil").unwrap();
         let result = validate_canonical_form(&program, Some("test.lib.sigil"), Some(source));
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(
-            |error| matches!(
-                error,
-                ValidationError::HelperDirectWrapper {
-                    canonical_helper,
-                    canonical_surface,
-                    function_name,
-                    ..
-                } if canonical_helper == "§list.sum"
-                    && canonical_surface == "§list.sum(xs)"
-                    && function_name == "sum1"
-            )
-        ));
+        assert!(result.unwrap_err().iter().any(|error| matches!(
+            error,
+            ValidationError::HelperDirectWrapper {
+                canonical_helper,
+                canonical_surface,
+                function_name,
+                ..
+            } if canonical_helper == "§list.sum"
+                && canonical_surface == "§list.sum(xs)"
+                && function_name == "sum1"
+        )));
     }
 
     #[test]
@@ -7218,19 +7227,17 @@ mod tests {
         let program = parse(tokens, "test.lib.sigil").unwrap();
         let result = validate_canonical_form(&program, Some("test.lib.sigil"), Some(source));
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(
-            |error| matches!(
-                error,
-                ValidationError::HelperDirectWrapper {
-                    canonical_helper,
-                    canonical_surface,
-                    function_name,
-                    ..
-                } if canonical_helper == "map"
-                    && canonical_surface == "xs map fn"
-                    && function_name == "project"
-            )
-        ));
+        assert!(result.unwrap_err().iter().any(|error| matches!(
+            error,
+            ValidationError::HelperDirectWrapper {
+                canonical_helper,
+                canonical_surface,
+                function_name,
+                ..
+            } if canonical_helper == "map"
+                && canonical_surface == "xs map fn"
+                && function_name == "project"
+        )));
     }
 
     #[test]

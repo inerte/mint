@@ -547,9 +547,9 @@ fn validate_staged_package(root: &Path) -> Result<(), CliError> {
     })?;
     validate_public_package_modules(&project)?;
     for file in collect_sigil_library_files(&root.join("src"))? {
-        let relative = file
-            .strip_prefix(root)
-            .map_err(|error| CliError::Validation(format!("invalid packaged module path: {error}")))?;
+        let relative = file.strip_prefix(root).map_err(|error| {
+            CliError::Validation(format!("invalid packaged module path: {error}"))
+        })?;
         run_compile_in_project(root, relative.to_string_lossy().as_ref())?;
     }
     Ok(())
@@ -720,8 +720,12 @@ fn install_dependency_tree(
     }
     fs::create_dir_all(install_root.parent().unwrap())?;
 
-    let installed_package =
-        fetch_and_unpack_package(parent_root, dependency_name, dependency_version, &install_root)?;
+    let installed_package = fetch_and_unpack_package(
+        parent_root,
+        dependency_name,
+        dependency_version,
+        &install_root,
+    )?;
     stack.push(cycle_key.clone());
     for (child_name, child_version) in &installed_package.project.dependencies {
         install_dependency_tree(&install_root, child_name, child_version, lockfile, stack)?;
@@ -797,8 +801,12 @@ fn fetch_and_unpack_package(
     })?;
 
     let tarball_path = pack_dir.join(&entry.filename);
-    let project =
-        install_archive_into_root(&tarball_path, install_root, dependency_name, dependency_version)?;
+    let project = install_archive_into_root(
+        &tarball_path,
+        install_root,
+        dependency_name,
+        dependency_version,
+    )?;
 
     let integrity = match &entry.integrity {
         Some(integrity) => integrity.clone(),
@@ -880,7 +888,10 @@ fn find_local_publishable_package(
                 )));
             }
         };
-        if entry.file_type().is_none_or(|file_type| !file_type.is_file()) {
+        if entry
+            .file_type()
+            .is_none_or(|file_type| !file_type.is_file())
+        {
             continue;
         }
         if entry.file_name() != "sigil.json" {
@@ -922,7 +933,10 @@ fn find_local_publishable_package(
 fn should_skip_local_package_candidate(path: &Path) -> bool {
     path.components().any(|component| {
         let segment = component.as_os_str().to_string_lossy();
-        matches!(segment.as_ref(), ".git" | ".local" | ".sigil" | "node_modules" | "target")
+        matches!(
+            segment.as_ref(),
+            ".git" | ".local" | ".sigil" | "node_modules" | "target"
+        )
     })
 }
 

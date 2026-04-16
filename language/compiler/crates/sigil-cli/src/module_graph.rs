@@ -6,11 +6,11 @@ use crate::project::{
     get_project_config, get_project_config_at_root, package_version_fragment,
     validate_project_default_entrypoint, ProjectConfig, ProjectConfigError,
 };
-use sigil_diagnostics::codes;
 use sigil_ast::{
     ConcurrentStep, Declaration, Expr, LabelRef, MemberRef, Pattern, Program, RecordPatternField,
     RuleAction, Type, TypeDef,
 };
+use sigil_diagnostics::codes;
 use sigil_lexer::Lexer;
 use sigil_parser::Parser;
 use sigil_typechecker::EffectCatalog;

@@ -21,13 +21,8 @@ struct FeatureFlagRecord {
     type_source: String,
 }
 
-pub fn feature_flag_audit_command(
-    path: &Path,
-    older_than: Option<&str>,
-) -> Result<(), CliError> {
-    let threshold_days = older_than
-        .map(parse_older_than_days)
-        .transpose()?;
+pub fn feature_flag_audit_command(path: &Path, older_than: Option<&str>) -> Result<(), CliError> {
+    let threshold_days = older_than.map(parse_older_than_days).transpose()?;
     let files = collect_sigil_targets("featureFlag audit", path, &[], None)?;
     let mut flags = Vec::new();
 
@@ -106,10 +101,14 @@ fn feature_flags_in_file(file: &Path) -> Result<Vec<FeatureFlagRecord>, CliError
 
 fn parse_older_than_days(raw: &str) -> Result<i64, CliError> {
     let number = raw.strip_suffix('d').ok_or_else(|| {
-        CliError::Validation("sigil featureFlag audit --older-than expects Nd, for example 180d".to_string())
+        CliError::Validation(
+            "sigil featureFlag audit --older-than expects Nd, for example 180d".to_string(),
+        )
     })?;
     let days = number.parse::<i64>().map_err(|_| {
-        CliError::Validation("sigil featureFlag audit --older-than expects Nd, for example 180d".to_string())
+        CliError::Validation(
+            "sigil featureFlag audit --older-than expects Nd, for example 180d".to_string(),
+        )
     })?;
     if days <= 0 {
         return Err(CliError::Validation(

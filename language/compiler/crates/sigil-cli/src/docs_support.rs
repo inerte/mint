@@ -203,10 +203,17 @@ pub fn split_lines_with_sections(kind: DocKind, contents: &str) -> Vec<Processed
     lines
 }
 
-fn source_for(repo_root: &Path, kind: DocKind, relative_path: &str) -> Result<CorpusSource, String> {
+fn source_for(
+    repo_root: &Path,
+    kind: DocKind,
+    relative_path: &str,
+) -> Result<CorpusSource, String> {
     let absolute_path = repo_root.join(relative_path);
     if !absolute_path.exists() {
-        return Err(format!("missing corpus source `{}`", absolute_path.display()));
+        return Err(format!(
+            "missing corpus source `{}`",
+            absolute_path.display()
+        ));
     }
     Ok(CorpusSource {
         kind,
@@ -258,7 +265,10 @@ fn stem_for(path: &str) -> Result<&str, String> {
 
 fn strip_numeric_prefix(stem: &str) -> &str {
     let bytes = stem.as_bytes();
-    let digits = bytes.iter().take_while(|byte| byte.is_ascii_digit()).count();
+    let digits = bytes
+        .iter()
+        .take_while(|byte| byte.is_ascii_digit())
+        .count();
     if digits > 0 && bytes.get(digits) == Some(&b'-') {
         &stem[(digits + 1)..]
     } else {
@@ -530,24 +540,27 @@ date: 2026-04-05
         let sources = collect_corpus_sources(&repo_root).unwrap();
         assert_eq!(sources[0].relative_path, "README.md");
         assert_eq!(sources[1].relative_path, "language/README.md");
-        assert!(sources
-            .iter()
-            .position(|source| source.relative_path == "language/docs/syntax-reference.md")
-            .unwrap()
-            < sources
+        assert!(
+            sources
                 .iter()
-                .position(|source| source.relative_path == "language/spec/cli-json.md")
-                .unwrap());
-        assert!(sources
-            .iter()
-            .position(|source| source.relative_path == "language/spec/grammar.ebnf")
-            .unwrap()
-            < sources
+                .position(|source| source.relative_path == "language/docs/syntax-reference.md")
+                .unwrap()
+                < sources
+                    .iter()
+                    .position(|source| source.relative_path == "language/spec/cli-json.md")
+                    .unwrap()
+        );
+        assert!(
+            sources
                 .iter()
-                .position(|source| {
-                    source.relative_path
-                        == "website/articles/001-canonical-length-operator.md"
-                })
-                .unwrap());
+                .position(|source| source.relative_path == "language/spec/grammar.ebnf")
+                .unwrap()
+                < sources
+                    .iter()
+                    .position(|source| {
+                        source.relative_path == "website/articles/001-canonical-length-operator.md"
+                    })
+                    .unwrap()
+        );
     }
 }

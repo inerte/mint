@@ -243,10 +243,7 @@ impl Parser {
 
     fn contract_clause_expression(&mut self, clause_name: &str) -> Result<Expr, ParseError> {
         if self.is_at_end() {
-            return Err(self.error(&format!(
-                "Expected expression after {} clause",
-                clause_name
-            )));
+            return Err(self.error(&format!("Expected expression after {} clause", clause_name)));
         }
 
         let start_index = self.current;
@@ -261,10 +258,7 @@ impl Parser {
         }
 
         if end_index == start_index {
-            return Err(self.error(&format!(
-                "Expected expression after {} clause",
-                clause_name
-            )));
+            return Err(self.error(&format!("Expected expression after {} clause", clause_name)));
         }
 
         let mut clause_tokens = self.tokens[start_index..end_index].to_vec();
@@ -446,7 +440,10 @@ impl Parser {
     fn label_ref(&mut self) -> Result<LabelRef, ParseError> {
         if let Some(root) = self.match_project_type_root() {
             let start = root.location.start;
-            self.consume(TokenType::DOT, "Expected \".\" after \"µ\" in label reference")?;
+            self.consume(
+                TokenType::DOT,
+                "Expected \".\" after \"µ\" in label reference",
+            )?;
             let name = self
                 .consume(TokenType::UpperIdentifier, "Expected label name")?
                 .value
@@ -483,11 +480,7 @@ impl Parser {
         })
     }
 
-    fn member_ref(
-        &mut self,
-        require_rooted: bool,
-        message: &str,
-    ) -> Result<MemberRef, ParseError> {
+    fn member_ref(&mut self, require_rooted: bool, message: &str) -> Result<MemberRef, ParseError> {
         if let Some(root) = self.match_root_token() {
             let start = root.location.start;
             let module_path = self.rooted_module_path(&root)?;
@@ -547,7 +540,8 @@ impl Parser {
         if self.check(TokenType::UpperIdentifier) && self.peek().value == "Through" {
             let start = self.advance();
             self.consume(TokenType::LPAREN, "Expected \"(\" after Through")?;
-            let transform = self.member_ref(false, "Expected transform reference inside Through(...)")?;
+            let transform =
+                self.member_ref(false, "Expected transform reference inside Through(...)")?;
             self.consume(TokenType::RPAREN, "Expected \")\" after Through(...)")?;
             let end = self.previous();
             return Ok(RuleAction::Through {
@@ -1643,19 +1637,18 @@ impl Parser {
         // Root-qualified namespace member
         if let Some(root) = self.match_root_token() {
             let start = root;
-            let namespace = if start.token_type == TokenType::SrcRoot
-                && self.check_identifier("config")
-            {
-                self.advance();
-                if self.check(TokenType::DOT) {
-                    vec!["config".to_string()]
+            let namespace =
+                if start.token_type == TokenType::SrcRoot && self.check_identifier("config") {
+                    self.advance();
+                    if self.check(TokenType::DOT) {
+                        vec!["config".to_string()]
+                    } else {
+                        self.current = self.current.saturating_sub(1);
+                        self.rooted_module_path(&start)?
+                    }
                 } else {
-                    self.current = self.current.saturating_sub(1);
                     self.rooted_module_path(&start)?
-                }
-            } else {
-                self.rooted_module_path(&start)?
-            };
+                };
             self.consume(TokenType::DOT, "Expected \".\" after namespace path")?;
             let member = if self.match_token(TokenType::IDENTIFIER)
                 || self.match_token(TokenType::UpperIdentifier)

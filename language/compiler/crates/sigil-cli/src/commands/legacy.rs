@@ -3,8 +3,8 @@
 use super::compile_support::{
     analyze_module_graph, build_world_runtime_prelude, collect_sigil_targets,
     compile_entry_files_with_cache, generate_module_graph_outputs, group_compile_targets,
-    runner_prelude, topology_source_path, AnalyzedModule,
-    CompiledGraphOutputs, CoverageTarget, GeneratedGraphOutputs, OutputFlavor,
+    runner_prelude, topology_source_path, AnalyzedModule, CompiledGraphOutputs, CoverageTarget,
+    GeneratedGraphOutputs, OutputFlavor,
 };
 use super::shared::{
     extract_error_code, format_validation_errors, output_inspect_error, output_json_error_to,
@@ -1344,7 +1344,10 @@ fn inspect_proof_command(
     }
 }
 
-fn inspect_proof_single_file_command(file: &Path, selected_env: Option<&str>) -> Result<(), CliError> {
+fn inspect_proof_single_file_command(
+    file: &Path,
+    selected_env: Option<&str>,
+) -> Result<(), CliError> {
     let graph = match ModuleGraph::build_with_env(file, selected_env) {
         Ok(graph) => graph,
         Err(error) => {
@@ -1742,7 +1745,10 @@ fn inspect_codegen_command(
     }
 }
 
-fn inspect_codegen_single_file_command(file: &Path, selected_env: Option<&str>) -> Result<(), CliError> {
+fn inspect_codegen_single_file_command(
+    file: &Path,
+    selected_env: Option<&str>,
+) -> Result<(), CliError> {
     let graph = match ModuleGraph::build_with_env(file, selected_env) {
         Ok(graph) => graph,
         Err(error) => {
@@ -2002,7 +2008,10 @@ fn inspect_types_command(
     }
 }
 
-fn inspect_types_single_file_command(file: &Path, selected_env: Option<&str>) -> Result<(), CliError> {
+fn inspect_types_single_file_command(
+    file: &Path,
+    selected_env: Option<&str>,
+) -> Result<(), CliError> {
     let graph = match ModuleGraph::build_with_env(file, selected_env) {
         Ok(graph) => graph,
         Err(error) => {
@@ -2412,6 +2421,7 @@ console.log(JSON.stringify({{
     "logKind": String(__sigil_inspect_world.log?.kind ?? ""),
     "processKind": String(__sigil_inspect_world.process?.kind ?? ""),
     "randomKind": String(__sigil_inspect_world.random?.kind ?? ""),
+    "streamKind": String(__sigil_inspect_world.stream?.kind ?? ""),
     "timerKind": String(__sigil_inspect_world.timer?.kind ?? ""),
     "httpBindings": Object.keys(__sigil_inspect_world.http ?? {{}}).length,
     "tcpBindings": Object.keys(__sigil_inspect_world.tcp ?? {{}}).length
@@ -2465,7 +2475,8 @@ console.log(JSON.stringify({{
         "file://{}",
         fs::canonicalize(&compiled.entry_output_path)?.display()
     );
-    let runner_path = unique_world_inspect_runner_path(path.parent().unwrap_or_else(|| Path::new(".")));
+    let runner_path =
+        unique_world_inspect_runner_path(path.parent().unwrap_or_else(|| Path::new(".")));
     if let Some(parent) = runner_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -2510,6 +2521,7 @@ console.log(JSON.stringify({{
     "logKind": String(__sigil_inspect_world.log?.kind ?? ""),
     "processKind": String(__sigil_inspect_world.process?.kind ?? ""),
     "randomKind": String(__sigil_inspect_world.random?.kind ?? ""),
+    "streamKind": String(__sigil_inspect_world.stream?.kind ?? ""),
     "timerKind": String(__sigil_inspect_world.timer?.kind ?? ""),
     "httpBindings": Object.keys(__sigil_inspect_world.http ?? {{}}).length,
     "tcpBindings": Object.keys(__sigil_inspect_world.tcp ?? {{}}).length
@@ -3381,8 +3393,7 @@ fn build_run_target(
     ) {
         String::new()
     } else {
-        runner_prelude(file, selected_env, &compiled.entry_output_path)?
-            .unwrap_or_default()
+        runner_prelude(file, selected_env, &compiled.entry_output_path)?.unwrap_or_default()
     };
     let breakpoint_config = resolve_breakpoint_config(
         file,
@@ -3410,8 +3421,7 @@ fn build_run_target(
         .unwrap()
         .to_string_lossy()
         .to_string();
-    let module_specifier_json =
-        serde_json::to_string(&format!("./{}", module_file_name)).unwrap();
+    let module_specifier_json = serde_json::to_string(&format!("./{}", module_file_name)).unwrap();
     let filename_json = serde_json::to_string(&file.to_string_lossy().to_string()).unwrap();
     let runtime_error_path_json =
         serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
@@ -5289,8 +5299,7 @@ fn prepare_debug_run_execution(
         .unwrap()
         .to_string_lossy()
         .to_string();
-    let module_specifier_json =
-        serde_json::to_string(&format!("./{}", module_file_name)).unwrap();
+    let module_specifier_json = serde_json::to_string(&format!("./{}", module_file_name)).unwrap();
     let runtime_error_path_json =
         serde_json::to_string(&runtime_error_path.to_string_lossy().to_string()).unwrap();
     let runtime_replay_path_json =
@@ -5390,8 +5399,12 @@ fn prepare_debug_test_execution(
     let artifact_file = resolve_run_artifact_path(replay_path, false)?;
     let artifact = read_test_replay_artifact(&artifact_file)?;
     let test_files = collect_sigil_files(path)?;
-    let (request, binding) =
-        build_test_replay_binding(path, &test_files, artifact.request.match_filter.as_deref(), None)?;
+    let (request, binding) = build_test_replay_binding(
+        path,
+        &test_files,
+        artifact.request.match_filter.as_deref(),
+        None,
+    )?;
     validate_test_replay_binding(path, &request, &binding, &artifact, &artifact_file)?;
     if !artifact.selected_test_ids.iter().any(|id| id == test_id) {
         return Err(CliError::Breakpoint {
@@ -6525,21 +6538,20 @@ pub fn test_command(
 
     // Collect all .sigil files in test directory
     let test_files = collect_sigil_files(path)?;
-    let suite_replay_mode =
-        match prepare_test_replay_mode(
-            path,
-            &test_files,
-            match_filter,
-            selected_env,
-            record_path,
-            replay_path,
-        ) {
-            Ok(mode) => mode,
-            Err(error) => {
-                output_test_error(path, &error);
-                return Err(CliError::Reported(1));
-            }
-        };
+    let suite_replay_mode = match prepare_test_replay_mode(
+        path,
+        &test_files,
+        match_filter,
+        selected_env,
+        record_path,
+        replay_path,
+    ) {
+        Ok(mode) => mode,
+        Err(error) => {
+            output_test_error(path, &error);
+            return Err(CliError::Reported(1));
+        }
+    };
     let enforce_project_coverage = match_filter.is_none()
         && !path.is_file()
         && !(debug_options.breakpoints_requested() && breakpoint_mode == BreakpointMode::Stop);

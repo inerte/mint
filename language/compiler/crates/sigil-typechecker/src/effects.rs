@@ -1,17 +1,19 @@
 use sigil_ast::{Declaration, EffectDecl, Program};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-pub const PRIMITIVE_EFFECTS: [&str; 9] = [
-    "Clock",
-    "Fs",
-    "Http",
-    "Log",
-    "Process",
-    "Random",
-    "Tcp",
-    "Terminal",
-    "Timer",
+pub const PRIMITIVE_EFFECTS: [&str; 10] = [
+    "Clock", "Fs", "Http", "Log", "Process", "Random", "Stream", "Tcp", "Terminal", "Timer",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::EffectCatalog;
+
+    #[test]
+    fn stream_is_a_primitive_effect() {
+        assert!(EffectCatalog::is_primitive("Stream"));
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectAlias {

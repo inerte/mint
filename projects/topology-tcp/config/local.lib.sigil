@@ -5,6 +5,7 @@ c world=(†runtime.world(
   †log.stdout(),
   †process.real(),
   †random.real(),
+  †stream.live(),
   [†tcp.proxy(
     •topology.eventStream,
     "127.0.0.1",

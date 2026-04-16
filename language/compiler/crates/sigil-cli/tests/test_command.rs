@@ -121,6 +121,7 @@ fn test_directory_runs_inline_tests_in_standalone_files() {
             "    †log.capture(),\n",
             "    †process.real(),\n",
             "    †random.seeded(1337),\n",
+            "    †stream.live(),\n",
             "    [],\n",
             "    †timer.virtual()\n",
             "  )\n",

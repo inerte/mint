@@ -1,0 +1,7 @@
+t Next[T]=Done()|Item(T)
+
+t Source[T]=StreamSource(Int)
+
+λclose[T](source:Source[T])=>!Stream Unit=()
+
+λnext[T](source:Source[T])=>!Stream Next[T]=Done()

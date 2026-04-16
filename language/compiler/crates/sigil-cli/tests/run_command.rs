@@ -5,8 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use std::time::Duration;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -57,7 +57,10 @@ fn collect_cached_module_outputs(dir: &Path, files: &mut Vec<PathBuf>) {
         if path.extension().and_then(|ext| ext.to_str()) != Some("mjs") {
             continue;
         }
-        let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+        let file_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("");
         if file_name.ends_with(".run.mjs") {
             continue;
         }
@@ -95,6 +98,7 @@ fn write_topology_project(root: &Path) -> PathBuf {
             "  †log.capture(),\n",
             "  †process.real(),\n",
             "  †random.seeded(7),\n",
+            "  †stream.live(),\n",
             "  [],\n",
             "  †timer.virtual()\n",
             "):†runtime.World)\n",
@@ -208,6 +212,7 @@ fn run_uses_standalone_local_world_when_present() {
             "    †log.capture(),\n",
             "    †process.real(),\n",
             "    †random.seeded(7),\n",
+            "    †stream.live(),\n",
             "    [],\n",
             "    †timer.virtual()\n",
             "  )\n",
@@ -284,7 +289,11 @@ fn run_project_reuses_cached_compile_outputs_when_inputs_are_unchanged() {
         .output()
         .unwrap();
 
-    assert!(first.status.success(), "{}", String::from_utf8_lossy(&first.stdout));
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stdout)
+    );
     assert_eq!(String::from_utf8_lossy(&first.stdout), "cache ok\n");
 
     let cached_outputs = topology_cached_outputs(&dir);
@@ -313,7 +322,12 @@ fn run_project_reuses_cached_compile_outputs_when_inputs_are_unchanged() {
     assert_eq!(String::from_utf8_lossy(&second.stdout), "cache ok\n");
 
     for (path, first_time) in first_times {
-        assert_eq!(modified_time(&path), first_time, "cached output changed: {}", path.display());
+        assert_eq!(
+            modified_time(&path),
+            first_time,
+            "cached output changed: {}",
+            path.display()
+        );
     }
 }
 
@@ -1227,6 +1241,7 @@ fn run_json_preserves_topology_codes_for_bootstrap_failures() {
             "  †log.capture(),\n",
             "  †process.real(),\n",
             "  †random.seeded(1337),\n",
+            "  †stream.live(),\n",
             "  [],\n",
             "  †timer.virtual()\n",
             "):†runtime.World)\n",

@@ -298,6 +298,24 @@ Process rules:
 - `runAt` and `startAt` are the named-boundary variants for topology-aware projects
 - `kill` is a normal termination request, not a timeout/escalation protocol
 
+### Implemented `§stream` Types and Functions
+
+```sigil decl §stream
+t Next[T]=Done()|Item(T)
+t Source[T]=StreamSource(Int)
+
+λclose[T](source:Source[T])=>!Stream Unit
+λnext[T](source:Source[T])=>!Stream Next[T]
+```
+
+Stream rules:
+- `Source[T]` is the canonical handle returned by stream-backed runtime APIs
+- `next` yields `Item(value)` while values remain and `Done()` when the source is exhausted
+- `close` is idempotent
+- after `close`, subsequent `next` calls return `Done()`
+- generic stream failure is not modeled in `§stream`; producer APIs own their error events
+- `§stream` intentionally omits public constructors and combinators in v1
+
 ### Implemented `§terminal` Types and Functions
 
 ```sigil decl §terminal
@@ -795,7 +813,9 @@ Effects are tracked at type level:
 - `!Log`
 - `!Process`
 - `!Random`
+- `!Stream`
 - `!Tcp`
+- `!Terminal`
 - `!Timer`
 - Pure functions have no effect annotation
 
@@ -805,7 +825,6 @@ Projects may define reusable multi-effect aliases in `src/effects.lib.sigil`.
 
 Planned for future stdlib versions:
 
-- **§stream** - Streaming I/O
 - **§concurrency** - Threads and channels
 
 ## See Also

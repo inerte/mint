@@ -236,7 +236,9 @@ Current primitive effects are:
 - `Log`
 - `Process`
 - `Random`
+- `Stream`
 - `Tcp`
+- `Terminal`
 - `Timer`
 
 Examples:

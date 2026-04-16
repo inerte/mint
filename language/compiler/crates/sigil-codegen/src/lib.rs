@@ -315,6 +315,7 @@ function __sigil_world_host_template() {
     process: { kind: 'real' },
     processHandles: Object.create(null),
     random: { kind: 'real' },
+    stream: { kind: 'live' },
     tcp: Object.create(null),
     timer: { kind: 'real' }
   };
@@ -474,6 +475,12 @@ function __sigil_world_parse_random(value) {
   }
   __sigil_world_error('world.random must be world::random.RandomEntry');
 }
+function __sigil_world_parse_stream(value) {
+  if (value?.__tag === 'LiveStream') {
+    return { kind: 'live' };
+  }
+  __sigil_world_error('world.stream must be world::stream.StreamEntry');
+}
 function __sigil_world_parse_timer(value) {
   if (value?.__tag === 'RealTimer') return { kind: 'real', nowMs: null };
   if (value?.__tag === 'VirtualTimer') return { kind: 'virtual', nowMs: null };
@@ -610,6 +617,7 @@ function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
     template.processHandles[entry.handleName] = entry;
   }
   template.random = __sigil_world_parse_random(worldValue.random);
+  template.stream = __sigil_world_parse_stream(worldValue.stream);
   template.timer = __sigil_world_parse_timer(worldValue.timer);
   template.http = Object.create(null);
   for (const value of worldValue.http ?? []) {
@@ -716,6 +724,10 @@ function __sigil_world_fresh(template) {
     tcp: Object.create(null),
     timer: { sleeps: [] }
   };
+  if (world.stream.kind === 'live') {
+    world.stream.nextId = 1;
+    world.stream.sources = Object.create(null);
+  }
   if (world.timer.kind === 'virtual') {
     world.timer.nowMs = world.clock.kind === 'fixed' ? world.clock.millis : Date.now();
   }
@@ -768,6 +780,9 @@ function __sigil_world_apply_overrides(world, overrides) {
       case 'SeededRandom':
         world.random = __sigil_world_parse_random(value);
         break;
+      case 'LiveStream':
+        world.stream = __sigil_world_parse_stream(value);
+        break;
       case 'RealTimer':
       case 'VirtualTimer':
         world.timer = __sigil_world_parse_timer(value);
@@ -811,6 +826,99 @@ async function __sigil_run_test_world(overrides, body) {
   __sigil_world_apply_overrides(world, overrides);
   globalThis.__sigil_last_test_world = __sigil_world_clone(world);
   return await __sigil_with_world(world, body);
+}
+function __sigil_world_stream_done() {
+  return { __tag: 'Done', __fields: [] };
+}
+function __sigil_world_stream_item(value) {
+  return { __tag: 'Item', __fields: [value] };
+}
+function __sigil_world_stream_resolve_state(source) {
+  const world = __sigil_current_world();
+  if (world.stream.kind !== 'live') {
+    __sigil_world_error('world.stream must be live to use §stream');
+  }
+  const sourceId = Number(source?.__fields?.[0] ?? Number.NaN);
+  if (source?.__tag !== 'StreamSource' || !Number.isInteger(sourceId) || sourceId <= 0) {
+    __sigil_world_error('stream source must be a valid §stream.Source');
+  }
+  const state = world.stream.sources?.[String(sourceId)] ?? null;
+  if (!state) {
+    __sigil_world_error(`unknown stream source '${sourceId}' in current world`);
+  }
+  return state;
+}
+function __sigil_world_stream_open() {
+  const world = __sigil_current_world();
+  if (world.stream.kind !== 'live') {
+    __sigil_world_error('world.stream must be live to create sources');
+  }
+  const sourceId = Number(world.stream.nextId ?? 1);
+  world.stream.nextId = sourceId + 1;
+  world.stream.sources[String(sourceId)] = {
+    closed: false,
+    queue: [],
+    waiters: []
+  };
+  return { __tag: 'StreamSource', __fields: [sourceId] };
+}
+function __sigil_world_stream_push(source, value) {
+  const state = __sigil_world_stream_resolve_state(source);
+  if (state.closed) {
+    return;
+  }
+  if (state.waiters.length > 0) {
+    const resolve = state.waiters.shift();
+    resolve(__sigil_world_stream_item(value));
+    return;
+  }
+  state.queue.push(value);
+}
+function __sigil_world_stream_finish(source) {
+  const state = __sigil_world_stream_resolve_state(source);
+  if (state.closed) {
+    return;
+  }
+  state.closed = true;
+  if (state.queue.length === 0) {
+    while (state.waiters.length > 0) {
+      const resolve = state.waiters.shift();
+      resolve(__sigil_world_stream_done());
+    }
+  }
+}
+function __sigil_world_stream_test_source(items) {
+  const source = __sigil_world_stream_open();
+  for (const item of Array.isArray(items) ? items : []) {
+    __sigil_world_stream_push(source, item);
+  }
+  __sigil_world_stream_finish(source);
+  return source;
+}
+async function __sigil_world_stream_next(source) {
+  const state = __sigil_world_stream_resolve_state(source);
+  if (state.queue.length > 0) {
+    const nextValue = state.queue.shift();
+    return __sigil_world_stream_item(nextValue);
+  }
+  if (state.closed) {
+    return __sigil_world_stream_done();
+  }
+  return await new Promise((resolve) => {
+    state.waiters.push(resolve);
+  });
+}
+async function __sigil_world_stream_close(source) {
+  const state = __sigil_world_stream_resolve_state(source);
+  state.queue = [];
+  if (!state.closed) {
+    state.closed = true;
+    while (state.waiters.length > 0) {
+      const resolve = state.waiters.shift();
+      resolve(__sigil_world_stream_done());
+    }
+  }
+  return null;
 }
 function __sigil_world_now_ms(world) {
   if (world.clock.kind === 'fixed') {
@@ -2082,8 +2190,8 @@ impl TypeScriptGenerator {
         self.test_meta_entries.clear();
         let runtime_modules = collect_runtime_module_ids(program);
         // Emit runtime helpers first
-        let include_world_runtime =
-            requires_world_runtime(program, &runtime_modules) || self.requires_world_runtime_for_source();
+        let include_world_runtime = requires_world_runtime(program, &runtime_modules)
+            || self.requires_world_runtime_for_source();
         self.emit_runtime_helpers(&runtime_modules, include_world_runtime);
 
         // Implicit core prelude constructors are available unqualified in every
@@ -2133,8 +2241,7 @@ impl TypeScriptGenerator {
         let import_path = if let Some(ref output_file) = self.output_file {
             let output_path = Path::new(output_file);
             if let Some(local_root) = find_output_root(output_path) {
-                let target_abs =
-                    local_root.join(format!("core/prelude.{}", self.import_extension));
+                let target_abs = local_root.join(format!("core/prelude.{}", self.import_extension));
                 relative_import_path(
                     output_path.parent().unwrap_or_else(|| Path::new(".")),
                     &target_abs,
@@ -2265,6 +2372,7 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/log.lib.sigil")
             || self.source_file_is("language/stdlib/process.lib.sigil")
             || self.source_file_is("language/stdlib/random.lib.sigil")
+            || self.source_file_is("language/stdlib/stream.lib.sigil")
             || self.source_file_is("language/stdlib/tcpClient.lib.sigil")
             || self.source_file_is("language/stdlib/tcpServer.lib.sigil")
             || self.source_file_is("language/stdlib/terminal.lib.sigil")
@@ -2602,9 +2710,13 @@ impl TypeScriptGenerator {
         self.emit("  return option && option.__tag === 'Some' ? option.__fields[0] : null;");
         self.emit("}");
         if self.lazy_extern_namespaces {
-            self.emit("function __sigil_runtime_extern_reference_error(namespaceLabel, memberName) {");
+            self.emit(
+                "function __sigil_runtime_extern_reference_error(namespaceLabel, memberName) {",
+            );
             self.emit("  const suffix = memberName == null ? '' : `.${String(memberName)}`;");
-            self.emit("  return new ReferenceError(`${String(namespaceLabel)}${suffix} is not defined`);");
+            self.emit(
+                "  return new ReferenceError(`${String(namespaceLabel)}${suffix} is not defined`);",
+            );
             self.emit("}");
             self.emit("function __sigil_runtime_extern_global(modulePath) {");
             self.emit("  if (modulePath.includes('/') || modulePath.includes(':')) {");
@@ -2634,7 +2746,9 @@ impl TypeScriptGenerator {
             self.emit("        return loadedModule;");
             self.emit("      },");
             self.emit("      () => {");
-            self.emit("        throw __sigil_runtime_extern_reference_error(namespaceLabel, null);");
+            self.emit(
+                "        throw __sigil_runtime_extern_reference_error(namespaceLabel, null);",
+            );
             self.emit("      }");
             self.emit("    );");
             self.emit("    return loadPromise;");
@@ -2818,7 +2932,9 @@ impl TypeScriptGenerator {
         self.emit("}");
         self.emit("function __sigil_feature_flag_validate_rollout(rollout) {");
         self.emit("  if (!rollout || typeof rollout !== 'object') {");
-        self.emit("    __sigil_feature_flag_error('rollout action must carry a rollout plan record');");
+        self.emit(
+            "    __sigil_feature_flag_error('rollout action must carry a rollout plan record');",
+        );
         self.emit("  }");
         self.emit("  const percentage = Math.trunc(Number(rollout.percentage ?? NaN));");
         self.emit("  if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {");
@@ -2971,7 +3087,9 @@ impl TypeScriptGenerator {
             self.emit("  if (argv.length === 0) { return { pid: -1 }; }");
             self.emit("  const child = spawn(argv[0], argv.slice(1), {");
             self.emit("    cwd: __sigil_process_command_cwd(command),");
-            self.emit("    env: { ...process.env, ...__sigil_process_env_to_object(command?.env) },");
+            self.emit(
+                "    env: { ...process.env, ...__sigil_process_env_to_object(command?.env) },",
+            );
             self.emit("    stdio: ['ignore', 'pipe', 'pipe'],");
             self.emit("  });");
             self.emit("  const pid = typeof child.pid === 'number' ? child.pid : Math.floor(Math.random() * 2147483647);");
@@ -3089,7 +3207,9 @@ impl TypeScriptGenerator {
         self.emit("    while ((match = compiled.exec(source)) !== null) {");
         self.emit("      results.push({ captures: match.slice(1).map((v) => v ?? ''), end: match.index + match[0].length, full: match[0], start: match.index });");
         self.emit("      if (match[0].length === 0) {");
-        self.emit("        const cp = isUnicode ? (source.codePointAt(compiled.lastIndex) ?? -1) : -1;");
+        self.emit(
+            "        const cp = isUnicode ? (source.codePointAt(compiled.lastIndex) ?? -1) : -1;",
+        );
         self.emit("        compiled.lastIndex += (cp > 0xFFFF) ? 2 : 1;");
         self.emit("      }");
         self.emit("    }");
@@ -3113,9 +3233,13 @@ impl TypeScriptGenerator {
         self.emit("  try {");
         self.emit("    const s = String(input ?? '');");
         self.emit("    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4}|)$/.test(s)) {");
-        self.emit("      return { __tag: \"Err\", __fields: [{ message: \"invalid base64 input\" }] };");
+        self.emit(
+            "      return { __tag: \"Err\", __fields: [{ message: \"invalid base64 input\" }] };",
+        );
         self.emit("    }");
-        self.emit("    return { __tag: \"Ok\", __fields: [Buffer.from(s, 'base64').toString('utf8')] };");
+        self.emit(
+            "    return { __tag: \"Ok\", __fields: [Buffer.from(s, 'base64').toString('utf8')] };",
+        );
         self.emit("  } catch (error) {");
         self.emit("    return { __tag: \"Err\", __fields: [{ message: error instanceof Error ? error.message : String(error) }] };");
         self.emit("  }");
@@ -3128,7 +3252,9 @@ impl TypeScriptGenerator {
         self.emit("    const s = String(input ?? '');");
         self.emit("    if (s.length % 2 !== 0) { return { __tag: \"Err\", __fields: [{ message: \"invalid hex: odd length\" }] }; }");
         self.emit("    if (s.length > 0 && !/^[0-9A-Fa-f]+$/.test(s)) { return { __tag: \"Err\", __fields: [{ message: \"invalid hex: non-hex digits\" }] }; }");
-        self.emit("    return { __tag: \"Ok\", __fields: [Buffer.from(s, 'hex').toString('utf8')] };");
+        self.emit(
+            "    return { __tag: \"Ok\", __fields: [Buffer.from(s, 'hex').toString('utf8')] };",
+        );
         self.emit("  } catch (error) {");
         self.emit("    return { __tag: \"Err\", __fields: [{ message: error instanceof Error ? error.message : String(error) }] };");
         self.emit("  }");
@@ -3229,7 +3355,9 @@ impl TypeScriptGenerator {
         self.emit("}");
         if include_http_server_runtime {
             self.emit("function __sigil_http_listen_result(server, port, done) {");
-            self.emit("  return { __sigil_server: server, __sigil_done: done, port: Number(port) };");
+            self.emit(
+                "  return { __sigil_server: server, __sigil_done: done, port: Number(port) };",
+            );
             self.emit("}");
             self.emit("async function __sigil_http_listen(handler, port) {");
             self.emit("  const { createServer } = await import('node:http');");
@@ -3249,7 +3377,9 @@ impl TypeScriptGenerator {
             );
             self.emit("      res.end(String(response.body));");
             self.emit("    } catch (error) {");
-            self.emit("      const message = error instanceof Error ? error.message : String(error);");
+            self.emit(
+                "      const message = error instanceof Error ? error.message : String(error);",
+            );
             self.emit("      res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });");
             self.emit("      res.end(message);");
             self.emit("    }");
@@ -3266,7 +3396,9 @@ impl TypeScriptGenerator {
             self.emit("  if (address && typeof address === 'object' && 'port' in address) {");
             self.emit("    assignedPort = Number(address.port ?? assignedPort);");
             self.emit("  }");
-            self.emit("  console.log(`Server running at http://localhost:${String(assignedPort)}`);");
+            self.emit(
+                "  console.log(`Server running at http://localhost:${String(assignedPort)}`);",
+            );
             self.emit("  return __sigil_http_listen_result(server, assignedPort, done);");
             self.emit("}");
             self.emit("async function __sigil_http_wait(serverHandle) {");
@@ -3293,7 +3425,9 @@ impl TypeScriptGenerator {
         self.emit("}");
         if include_tcp_server_runtime {
             self.emit("function __sigil_tcp_listen_result(server, port, done) {");
-            self.emit("  return { __sigil_done: done, __sigil_server: server, port: Number(port) };");
+            self.emit(
+                "  return { __sigil_done: done, __sigil_server: server, port: Number(port) };",
+            );
             self.emit("}");
             self.emit("async function __sigil_tcp_listen(handler, port) {");
             self.emit("  const { createServer } = await import('node:net');");
@@ -3315,7 +3449,9 @@ impl TypeScriptGenerator {
             self.emit("          port: assignedPort");
             self.emit("        };");
             self.emit("        const response = await Promise.resolve(handler(request));");
-            self.emit("        socket.write(`${String(response.message)}\\n`, () => socket.end());");
+            self.emit(
+                "        socket.write(`${String(response.message)}\\n`, () => socket.end());",
+            );
             self.emit("      } catch (error) {");
             self.emit(
                 "        const message = error instanceof Error ? error.message : String(error);",
@@ -4554,11 +4690,9 @@ impl TypeScriptGenerator {
     fn emit_module_import(&mut self, module_id: &str) -> Result<(), CodegenError> {
         let module_path = module_id.split("::").collect::<Vec<_>>();
         let namespace = sanitize_js_identifier(&module_path.join("_"));
-        let target_module_id = remap_package_local_runtime_module_id(
-            self.module_id.as_deref(),
-            module_id,
-        )
-        .unwrap_or_else(|| module_id.to_string());
+        let target_module_id =
+            remap_package_local_runtime_module_id(self.module_id.as_deref(), module_id)
+                .unwrap_or_else(|| module_id.to_string());
         let import_path = if let Some(ref output_file) = self.output_file {
             let output_path = Path::new(output_file);
             if let Some(local_root) = find_output_root(output_path) {
@@ -4971,6 +5105,9 @@ impl TypeScriptGenerator {
                 if module == "stdlib/random" {
                     return self.generate_random_intrinsic(call_expr, member, args);
                 }
+                if module == "stdlib/stream" {
+                    return self.generate_stream_intrinsic(call_expr, member, args);
+                }
                 if module == "stdlib/featureFlags" {
                     return self.generate_feature_flags_intrinsic(call_expr, member, args);
                 }
@@ -5073,6 +5210,13 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/random.lib.sigil"))
                 {
                     return self.generate_random_intrinsic(call_expr, &name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/stream.lib.sigil"))
+                {
+                    return self.generate_stream_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
@@ -6139,6 +6283,47 @@ impl TypeScriptGenerator {
         }
     }
 
+    fn generate_stream_intrinsic(
+        &mut self,
+        call_expr: &TypedExpr,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
+
+        match member {
+            "close" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__source) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "stream",
+                    "close",
+                    "[__source]",
+                    "__sigil_world_stream_close(__source)",
+                    None
+                )?
+            ))),
+            "next" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__source) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "stream",
+                    "next",
+                    "[__source]",
+                    "__sigil_world_stream_next(__source)",
+                    None
+                )?
+            ))),
+            _ => Ok(None),
+        }
+    }
+
     fn generate_http_client_intrinsic(
         &mut self,
         call_expr: &TypedExpr,
@@ -6607,6 +6792,13 @@ impl TypeScriptGenerator {
         if call.namespace.join("/") == "stdlib/random" {
             if let Some(intrinsic) =
                 self.generate_random_intrinsic(expr, &call.member, &call.args)?
+            {
+                return Ok(intrinsic);
+            }
+        }
+        if call.namespace.join("/") == "stdlib/stream" {
+            if let Some(intrinsic) =
+                self.generate_stream_intrinsic(expr, &call.member, &call.args)?
             {
                 return Ok(intrinsic);
             }
@@ -7508,7 +7700,9 @@ fn remap_package_local_runtime_module_id(
     }
 
     if let Some(rest) = imported_module_id.strip_prefix("config::") {
-        return Some(format!("packageConfig::{package_name}::{package_version}::{rest}"));
+        return Some(format!(
+            "packageConfig::{package_name}::{package_version}::{rest}"
+        ));
     }
 
     let Some(rest) = imported_module_id.strip_prefix("src::") else {
@@ -7529,7 +7723,9 @@ fn remap_package_local_runtime_module_id(
         ));
     }
 
-    Some(format!("package::{package_name}::{package_version}::{rest}"))
+    Some(format!(
+        "package::{package_name}::{package_version}::{rest}"
+    ))
 }
 
 fn collect_runtime_module_ids(program: &TypedProgram) -> BTreeSet<String> {
@@ -7731,6 +7927,7 @@ fn requires_world_runtime_module(module_id: &str) -> bool {
                 | "stdlib::log"
                 | "stdlib::process"
                 | "stdlib::random"
+                | "stdlib::stream"
                 | "stdlib::tcpClient"
                 | "stdlib::tcpServer"
                 | "stdlib::terminal"
@@ -7747,6 +7944,7 @@ mod tests {
     use sigil_typechecker::typed_ir::{PurityClass, StrictnessClass};
     use sigil_typechecker::types::{InferenceType, TList};
     use std::collections::HashSet;
+    use std::process::Command;
 
     fn typed_program_for(source: &str, path: &str) -> TypedProgram {
         let tokens = tokenize(source).unwrap();
@@ -7869,12 +8067,8 @@ mod tests {
     fn test_generate_import_prefers_deepest_local_root() {
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
             module_id: None,
-            source_file: Some(
-                "/repo/.local/temp-project/src/topology.lib.sigil".to_string(),
-            ),
-            output_file: Some(
-                "/repo/.local/temp-project/.local/src/topology.ts".to_string(),
-            ),
+            source_file: Some("/repo/.local/temp-project/src/topology.lib.sigil".to_string()),
+            output_file: Some("/repo/.local/temp-project/.local/src/topology.ts".to_string()),
             import_extension: "js".to_string(),
             lazy_extern_namespaces: false,
             trace: false,
@@ -7908,9 +8102,7 @@ mod tests {
         gen.emit_module_import("src::types").unwrap();
         let result = gen.output.join("");
 
-        assert!(result.contains(
-            "import * as src_types from './types.js';"
-        ));
+        assert!(result.contains("import * as src_types from './types.js';"));
     }
 
     #[test]
@@ -8327,6 +8519,105 @@ mod tests {
 
         assert!(result.contains("function __sigil_world_error(message)"));
         assert!(result.contains("__sigil_world_process_argv()"));
+    }
+
+    #[test]
+    fn test_stream_stdlib_codegen_keeps_world_runtime_helpers() {
+        let program = TypedProgram {
+            declarations: vec![TypedDeclaration::Function(TypedFunctionDecl {
+                name: "main".to_string(),
+                type_params: vec![],
+                params: vec![],
+                return_type: InferenceType::Any,
+                effects: None,
+                requires: None,
+                ensures: None,
+                body: TypedExpr {
+                    kind: TypedExprKind::Call(TypedCallExpr {
+                        func: Box::new(TypedExpr {
+                            kind: TypedExprKind::NamespaceMember {
+                                namespace: vec!["stdlib".to_string(), "stream".to_string()],
+                                member: "next".to_string(),
+                            },
+                            typ: InferenceType::Any,
+                            effects: HashSet::new(),
+                            purity: PurityClass::Effectful,
+                            strictness: StrictnessClass::Deferred,
+                            location: test_location(),
+                        }),
+                        args: vec![TypedExpr {
+                            kind: TypedExprKind::Identifier(sigil_ast::IdentifierExpr {
+                                name: "source".to_string(),
+                                location: test_location(),
+                            }),
+                            typ: InferenceType::Any,
+                            effects: HashSet::new(),
+                            purity: PurityClass::Pure,
+                            strictness: StrictnessClass::Deferred,
+                            location: test_location(),
+                        }],
+                    }),
+                    typ: InferenceType::Any,
+                    effects: HashSet::new(),
+                    purity: PurityClass::Effectful,
+                    strictness: StrictnessClass::Deferred,
+                    location: test_location(),
+                },
+                location: test_location(),
+            })],
+        };
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: Some("src::main".to_string()),
+            source_file: Some("test.sigil".to_string()),
+            output_file: Some("/tmp/test.js".to_string()),
+            import_extension: "js".to_string(),
+            lazy_extern_namespaces: false,
+            trace: false,
+            breakpoints: false,
+            expression_debug: false,
+        });
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("function __sigil_world_error(message)"));
+        assert!(result.contains("__sigil_world_stream_next(__source)"));
+    }
+
+    #[test]
+    fn test_stream_runtime_helpers_yield_items_then_done_and_close_is_terminal() {
+        let script = format!(
+            r#"{}
+const __sigil_world = __sigil_world_fresh(__sigil_world_host_template());
+const __sigil_result = await __sigil_with_world(__sigil_world, async () => {{
+  const source = __sigil_world_stream_test_source([1, 2]);
+  const first = await __sigil_world_stream_next(source);
+  const second = await __sigil_world_stream_next(source);
+  const third = await __sigil_world_stream_next(source);
+  const closable = __sigil_world_stream_test_source([3, 4]);
+  await __sigil_world_stream_close(closable);
+  const closed = await __sigil_world_stream_next(closable);
+  return {{ first, second, third, closed }};
+}});
+console.log(JSON.stringify(__sigil_result));
+"#,
+            world_runtime_helpers_source()
+        );
+
+        let output = Command::new("node")
+            .arg("--input-type=module")
+            .arg("-e")
+            .arg(script)
+            .output()
+            .unwrap();
+
+        assert!(output.status.success(), "{:?}", output);
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["first"]["__tag"], "Item");
+        assert_eq!(json["first"]["__fields"][0], 1);
+        assert_eq!(json["second"]["__tag"], "Item");
+        assert_eq!(json["second"]["__fields"][0], 2);
+        assert_eq!(json["third"]["__tag"], "Done");
+        assert_eq!(json["closed"]["__tag"], "Done");
     }
 
     #[test]

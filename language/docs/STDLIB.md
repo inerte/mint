@@ -24,15 +24,13 @@ The Sigil standard library provides core utility functions and predicates for co
 - ✅ Runtime dependency config helpers - `stdlib/config`
 - ✅ JSON parsing/serialization - `stdlib/json`
 - ✅ Path manipulation - `stdlib/path`
+- ✅ Pull-based event sources - `stdlib/stream`
 - ✅ Time parsing/comparison/clock - `stdlib/time`
 - ✅ Terminal raw-mode input and cursor control - `stdlib/terminal`
 - ✅ URL parsing/query helpers - `stdlib/url`
 - ✅ Deterministic feature-flag evaluation - `stdlib/featureFlags`
 - ✅ Core prelude vocabulary (Option, Result) - `core/prelude` (implicit)
 - ✅ Length operator (`#`) - works on strings, lists, and maps
-
-**Not yet implemented:**
-- ⏳ Stream utilities
 
 ## Rooted Module Syntax
 
@@ -154,7 +152,7 @@ Current `§featureFlags.get` precedence is:
 `Entry[C]` and `Set[C]` let one config snapshot hold multiple flag value types
 while keeping the context type explicit.
 
-## File, Path, Process, Random, JSON, Time, and URL
+## File, Path, Process, Stream, Random, JSON, Time, and URL
 
 `§file` exposes canonical UTF-8 filesystem helpers:
 
@@ -233,6 +231,24 @@ The canonical process surface is:
 
 Commands are argv-based only. Non-zero exit status is returned in
 `ProcessResult.code`; it is not a separate failure channel.
+
+`§stream` exposes canonical pull-based runtime event sources:
+
+```sigil decl §stream
+t Next[T]=Done()|Item(T)
+t Source[T]=StreamSource(Int)
+
+λclose[T](source:Source[T])=>!Stream Unit
+λnext[T](source:Source[T])=>!Stream Next[T]
+```
+
+Stream rules:
+- `Source[T]` is the canonical handle returned by stream-backed runtime APIs
+- `next` yields `Item(value)` while values remain and `Done()` when the source is exhausted
+- `close` is idempotent
+- after `close`, subsequent `next` calls return `Done()`
+- generic stream failure is not modeled in `§stream`; producer APIs own their error events
+- `§stream` is intentionally small and does not expose public constructors or combinators
 
 `runAt` and `startAt` are the named-boundary variants for topology-aware
 projects. They take a `Command` plus a `§topology.ProcessHandle`.

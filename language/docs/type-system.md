@@ -354,7 +354,9 @@ effects:
 - `Log`
 - `Process`
 - `Random`
+- `Stream`
 - `Tcp`
+- `Terminal`
 - `Timer`
 
 Projects may define reusable multi-effect aliases only in `src/effects.lib.sigil`.

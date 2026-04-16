@@ -55,9 +55,9 @@ t TcpServiceDependency=TcpServiceDependency(String)
 `†runtime` and world entry roots define the canonical env surface:
 
 ```sigil decl †runtime
-t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,fsRoots:[†fs.FsRootEntry],http:[†http.HttpEntry],log:†log.LogEntry,logSinks:[†log.LogSinkEntry],process:†process.ProcessEntry,processHandles:[†process.ProcessHandleEntry],random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
+t World={clock:†clock.ClockEntry,fs:†fs.FsEntry,fsRoots:[†fs.FsRootEntry],http:[†http.HttpEntry],log:†log.LogEntry,logSinks:[†log.LogSinkEntry],process:†process.ProcessEntry,processHandles:[†process.ProcessHandleEntry],random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry}
 
-λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World
+λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World
 λwithFsRoots(fsRoots:[†fs.FsRootEntry],world:World)=>World
 λwithLogSinks(logSinks:[†log.LogSinkEntry],world:World)=>World
 λwithProcessHandles(processHandles:[†process.ProcessHandleEntry],world:World)=>World

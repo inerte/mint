@@ -8,6 +8,7 @@ c world=(†runtime.world(
   †log.stdout(),
   †process.real(),
   †random.real(),
+  †stream.live(),
   [],
   †timer.real()
 ):†runtime.World)

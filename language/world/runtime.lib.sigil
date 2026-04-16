@@ -8,6 +8,7 @@ t World={
   process:†process.ProcessEntry,
   processHandles:[†process.ProcessHandleEntry],
   random:†random.RandomEntry,
+  stream:†stream.StreamEntry,
   tcp:[†tcp.TcpEntry],
   timer:†timer.TimerEntry
 }
@@ -22,6 +23,7 @@ t World={
   process:world.process,
   processHandles:world.processHandles,
   random:world.random,
+  stream:world.stream,
   tcp:world.tcp,
   timer:world.timer
 }
@@ -36,6 +38,7 @@ t World={
   process:world.process,
   processHandles:world.processHandles,
   random:world.random,
+  stream:world.stream,
   tcp:world.tcp,
   timer:world.timer
 }
@@ -50,11 +53,12 @@ t World={
   process:world.process,
   processHandles:processHandles,
   random:world.random,
+  stream:world.stream,
   tcp:world.tcp,
   timer:world.timer
 }
 
-λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World={
+λworld(clock:†clock.ClockEntry,fs:†fs.FsEntry,http:[†http.HttpEntry],log:†log.LogEntry,process:†process.ProcessEntry,random:†random.RandomEntry,stream:†stream.StreamEntry,tcp:[†tcp.TcpEntry],timer:†timer.TimerEntry)=>World={
   clock:clock,
   fs:fs,
   fsRoots:[],
@@ -64,6 +68,7 @@ t World={
   process:process,
   processHandles:[],
   random:random,
+  stream:stream,
   tcp:tcp,
   timer:timer
 }

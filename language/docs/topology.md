@@ -99,6 +99,7 @@ c world=(†runtime.world(
   †log.capture(),
   †process.real(),
   †random.seeded(1337),
+  †stream.live(),
   [],
   †timer.virtual()
 ):†runtime.World)
@@ -126,6 +127,7 @@ c world=(†runtime.world(
   †log.stdout(),
   †process.real(),
   †random.real(),
+  †stream.live(),
   [],
   †timer.real()
 ):†runtime.World)

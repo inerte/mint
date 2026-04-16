@@ -10,6 +10,7 @@ c world=(†runtime.world(
   †log.capture(),
   †process.real(),
   †random.seeded(1337),
+  †stream.live(),
   [],
   †timer.virtual()
 ):†runtime.World)

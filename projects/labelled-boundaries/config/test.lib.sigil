@@ -27,6 +27,7 @@ c world=(†runtime.withProcessHandles(
         †log.capture(),
         †process.deny(),
         †random.seeded(1337),
+        †stream.live(),
         [],
         †timer.virtual()
       )

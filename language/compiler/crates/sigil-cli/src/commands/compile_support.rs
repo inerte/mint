@@ -408,7 +408,10 @@ fn collect_compile_fingerprint_files(
 
 fn project_compile_fingerprint_files(project_root: &Path) -> Result<Vec<PathBuf>, CliError> {
     let mut files = Vec::new();
-    for path in [project_root.join("sigil.json"), project_root.join("sigil.lock")] {
+    for path in [
+        project_root.join("sigil.json"),
+        project_root.join("sigil.lock"),
+    ] {
         if path.exists() {
             files.push(fs::canonicalize(&path).unwrap_or(path));
         }
@@ -445,15 +448,13 @@ fn fingerprint_file_set(base: &Path, files: &[PathBuf]) -> Result<String, CliErr
             .replace('\\', "/");
         hasher.update(relative.as_bytes());
         hasher.update([0]);
-        hasher.update(
-            fs::read(&canonical).map_err(|error| {
-                CliError::Codegen(format!(
-                    "failed to read compile cache input '{}': {}",
-                    canonical.display(),
-                    error
-                ))
-            })?,
-        );
+        hasher.update(fs::read(&canonical).map_err(|error| {
+            CliError::Codegen(format!(
+                "failed to read compile cache input '{}': {}",
+                canonical.display(),
+                error
+            ))
+        })?);
         hasher.update([0]);
     }
     Ok(format!("{:x}", hasher.finalize()))
@@ -545,7 +546,8 @@ fn load_compile_cache_entry(
         Ok(entry) => entry,
         Err(_) => return Ok(None),
     };
-    if entry.schema_version != COMPILE_CACHE_SCHEMA_VERSION || entry.cache_key != context.cache_key {
+    if entry.schema_version != COMPILE_CACHE_SCHEMA_VERSION || entry.cache_key != context.cache_key
+    {
         return Ok(None);
     }
     if !compiled_artifacts_exist(&entry.compiled) {
@@ -564,8 +566,9 @@ fn store_compile_cache_entry(
         metadata: context.metadata.clone(),
         compiled: compiled.clone(),
     };
-    let serialized = serde_json::to_string(&entry)
-        .map_err(|error| CliError::Codegen(format!("failed to serialize compile cache entry: {error}")))?;
+    let serialized = serde_json::to_string(&entry).map_err(|error| {
+        CliError::Codegen(format!("failed to serialize compile cache entry: {error}"))
+    })?;
     write_atomic_file(&context.cache_path, serialized.as_bytes())
 }
 
@@ -771,7 +774,10 @@ fn compile_group(
         false,
         OutputFlavor::TypeScript,
     )?;
-    let entries = group.files.iter().map(|input| {
+    let entries = group
+        .files
+        .iter()
+        .map(|input| {
             let module_id = entry_module_key(input)?;
             let output = compiled
                 .module_outputs
@@ -853,7 +859,9 @@ fn compile_single_file_command(
                 &project_error.to_string(),
                 project_error_json_details(&project_error, "file", file, serde_json::Map::new()),
             );
-            return Err(CliError::ModuleGraph(ModuleGraphError::ProjectConfig(project_error)));
+            return Err(CliError::ModuleGraph(ModuleGraphError::ProjectConfig(
+                project_error,
+            )));
         }
         Err(error) => {
             let message = error.to_string();
@@ -1445,9 +1453,9 @@ fn write_public_package_module_aliases(
                 public_module_id.replace("::", "/"),
                 output_flavor.output_extension()
             ));
-        let alias_parent = alias_output_path
-            .parent()
-            .ok_or_else(|| CliError::Codegen("package alias output had no parent directory".to_string()))?;
+        let alias_parent = alias_output_path.parent().ok_or_else(|| {
+            CliError::Codegen("package alias output had no parent directory".to_string())
+        })?;
         fs::create_dir_all(alias_parent)?;
         let import_path = relative_import_path(alias_parent, target_output_path);
         let alias_source = format!("export * from '{}';\n", import_path);
@@ -1713,7 +1721,7 @@ function __sigil_runtime_read_world(configExports) {{
   if (!world || typeof world !== 'object') {{
     __sigil_runtime_fail("{invalid_config}", "config module must export a 'world' value");
   }}
-  for (const field of ['clock', 'fs', 'http', 'log', 'process', 'random', 'tcp', 'timer']) {{
+  for (const field of ['clock', 'fs', 'http', 'log', 'process', 'random', 'stream', 'tcp', 'timer']) {{
     if (!(field in world)) {{
       __sigil_runtime_fail("{invalid_config}", `world is missing '${{field}}'`);
     }}
@@ -1848,7 +1856,9 @@ await globalThis.__sigil_runtime_apply_program_world(__sigil_program_module);
     )
 }
 
-fn project_root_and_runtime(path: &Path) -> Result<Option<(PathBuf, bool)>, crate::project::ProjectConfigError> {
+fn project_root_and_runtime(
+    path: &Path,
+) -> Result<Option<(PathBuf, bool)>, crate::project::ProjectConfigError> {
     let Some(project) = get_project_config(path)? else {
         return Ok(None);
     };
@@ -1906,18 +1916,19 @@ fn build_imported_namespaces(
 
     for (source_module_id, resolved_module_id) in &module.source_imports {
         if let Some(namespace) = imported.get(resolved_module_id).cloned() {
-            let aliased_namespace = if let (Some(public_package_root), Some(internal_package_root)) = (
-                public_package_root(source_module_id),
-                internal_package_root(resolved_module_id),
-            ) {
-                rewrite_public_package_inference_type(
-                    &namespace,
-                    &internal_package_root,
-                    &public_package_root,
-                )
-            } else {
-                namespace
-            };
+            let aliased_namespace =
+                if let (Some(public_package_root), Some(internal_package_root)) = (
+                    public_package_root(source_module_id),
+                    internal_package_root(resolved_module_id),
+                ) {
+                    rewrite_public_package_inference_type(
+                        &namespace,
+                        &internal_package_root,
+                        &public_package_root,
+                    )
+                } else {
+                    namespace
+                };
             imported.insert(source_module_id.clone(), aliased_namespace);
         }
     }
@@ -2149,9 +2160,12 @@ fn public_package_module_id(module_id: &str) -> Option<String> {
     }
 
     Some(
-        [vec![parts[0].to_string(), parts[1].to_string()], parts[3..].iter().map(|part| (*part).to_string()).collect()]
-            .concat()
-            .join("::"),
+        [
+            vec![parts[0].to_string(), parts[1].to_string()],
+            parts[3..].iter().map(|part| (*part).to_string()).collect(),
+        ]
+        .concat()
+        .join("::"),
     )
 }
 
@@ -2182,7 +2196,9 @@ fn rewrite_public_package_inference_type(
             params: function
                 .params
                 .iter()
-                .map(|param| rewrite_public_package_inference_type(param, internal_root, public_root))
+                .map(|param| {
+                    rewrite_public_package_inference_type(param, internal_root, public_root)
+                })
                 .collect(),
             return_type: rewrite_public_package_inference_type(
                 &function.return_type,
@@ -2199,7 +2215,11 @@ fn rewrite_public_package_inference_type(
             ),
         })),
         InferenceType::Map(map) => InferenceType::Map(Box::new(TMap {
-            key_type: rewrite_public_package_inference_type(&map.key_type, internal_root, public_root),
+            key_type: rewrite_public_package_inference_type(
+                &map.key_type,
+                internal_root,
+                public_root,
+            ),
             value_type: rewrite_public_package_inference_type(
                 &map.value_type,
                 internal_root,
@@ -2927,10 +2947,11 @@ fn get_module_output_path(module: &LoadedModule, output_flavor: OutputFlavor) ->
         .or_else(|| module.project.clone())
     {
         let path_str = module.id.replace("::", "/");
-        return project
-            .root
-            .join(&project.layout.out)
-            .join(format!("{}.{}", path_str, output_flavor.output_extension()));
+        return project.root.join(&project.layout.out).join(format!(
+            "{}.{}",
+            path_str,
+            output_flavor.output_extension()
+        ));
     }
 
     let abs_source =
@@ -2947,13 +2968,11 @@ fn get_module_output_path(module: &LoadedModule, output_flavor: OutputFlavor) ->
     }
 
     if module.id.contains("::") {
-        return repo_root
-            .join(".local")
-            .join(format!(
-                "{}.{}",
-                module.id.replace("::", "/"),
-                output_flavor.output_extension()
-            ));
+        return repo_root.join(".local").join(format!(
+            "{}.{}",
+            module.id.replace("::", "/"),
+            output_flavor.output_extension()
+        ));
     }
 
     let rel_source = abs_source.strip_prefix(&repo_root).unwrap_or(&abs_source);

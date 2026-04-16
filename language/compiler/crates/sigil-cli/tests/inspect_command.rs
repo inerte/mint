@@ -464,6 +464,7 @@ fn validate_succeeds_when_pnpm_is_shadowed() {
             "  †log.stdout(),\n",
             "  †process.real(),\n",
             "  †random.seeded(7),\n",
+            "  †stream.live(),\n",
             "  [],\n",
             "  †timer.real()\n",
             "):†runtime.World)\n",
@@ -640,6 +641,7 @@ fn inspect_world_reports_normalized_runtime_world_for_topology_project() {
             "  †log.capture(),\n",
             "  †process.real(),\n",
             "  †random.seeded(1337),\n",
+            "  †stream.live(),\n",
             "  [],\n",
             "  †timer.virtual()\n",
             "):†runtime.World)\n",
@@ -670,6 +672,7 @@ fn inspect_world_reports_normalized_runtime_world_for_topology_project() {
     assert_eq!(json["data"]["topology"]["httpDependencies"][0], "mailerApi");
     assert_eq!(json["data"]["summary"]["logKind"], "capture");
     assert_eq!(json["data"]["summary"]["randomKind"], "seeded");
+    assert_eq!(json["data"]["summary"]["streamKind"], "live");
     assert_eq!(json["data"]["summary"]["timerKind"], "virtual");
     assert_eq!(json["data"]["summary"]["httpBindings"], 1);
     assert_eq!(
@@ -701,6 +704,7 @@ fn inspect_world_supports_config_only_projects_without_topology() {
             "  †log.stdout(),\n",
             "  †process.real(),\n",
             "  †random.seeded(7),\n",
+            "  †stream.live(),\n",
             "  [],\n",
             "  †timer.real()\n",
             "):†runtime.World)\n",
@@ -731,6 +735,7 @@ fn inspect_world_supports_config_only_projects_without_topology() {
     );
     assert_eq!(json["data"]["summary"]["httpBindings"], 0);
     assert_eq!(json["data"]["summary"]["tcpBindings"], 0);
+    assert_eq!(json["data"]["summary"]["streamKind"], "live");
     assert_eq!(json["data"]["normalizedWorld"]["random"]["kind"], "seeded");
     assert_eq!(json["data"]["normalizedWorld"]["timer"]["kind"], "real");
 }
@@ -759,6 +764,7 @@ fn inspect_world_emits_json_error_when_env_is_undeclared() {
             "  †log.stdout(),\n",
             "  †process.real(),\n",
             "  †random.real(),\n",
+            "  †stream.live(),\n",
             "  [],\n",
             "  †timer.real()\n",
             "):†runtime.World)\n",
@@ -836,6 +842,7 @@ fn inspect_world_supports_standalone_single_file_worlds() {
             "    †log.capture(),\n",
             "    †process.real(),\n",
             "    †random.seeded(7),\n",
+            "    †stream.live(),\n",
             "    [],\n",
             "    †timer.virtual()\n",
             "  )\n",
@@ -861,6 +868,7 @@ fn inspect_world_supports_standalone_single_file_worlds() {
     assert_eq!(json["data"]["environment"], Value::Null);
     assert_eq!(json["data"]["topology"]["present"], true);
     assert_eq!(json["data"]["summary"]["logKind"], "capture");
+    assert_eq!(json["data"]["summary"]["streamKind"], "live");
     assert_eq!(
         json["data"]["normalizedWorld"]["logSinks"]["auditLog"]["kind"],
         "capture"
@@ -884,6 +892,7 @@ fn inspect_world_succeeds_when_pnpm_is_shadowed() {
             "    †log.capture(),\n",
             "    †process.real(),\n",
             "    †random.seeded(7),\n",
+            "    †stream.live(),\n",
             "    [],\n",
             "    †timer.virtual()\n",
             "  )\n",

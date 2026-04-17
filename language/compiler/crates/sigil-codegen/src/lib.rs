@@ -4924,23 +4924,21 @@ impl TypeScriptGenerator {
             self.emit("    }");
             self.emit("    const routeHandleNames = new Set(Object.keys(routeStates));");
             self.emit("    const world = __sigil_current_world();");
-            self.emit("    for (const state of Array.from(world.websocketClients?.values() ?? [])) {");
+            self.emit(
+                "    for (const state of Array.from(world.websocketClients?.values() ?? [])) {",
+            );
             self.emit("      if (routeHandleNames.has(String(state.handleName ?? ''))) {");
             self.emit("        state.closed = true;");
             self.emit("        __sigil_world_stream_finish(state.source);");
             self.emit("      }");
             self.emit("    }");
             self.emit("  }");
-            self.emit(
-                "  if (typeof serverState?.websocketAttachment?.close === 'function') {",
-            );
+            self.emit("  if (typeof serverState?.websocketAttachment?.close === 'function') {");
             self.emit("    await serverState.websocketAttachment.close();");
             self.emit("  }");
             self.emit("  return null;");
             self.emit("}");
-            self.emit(
-                "async function __sigil_http_attach_websocket_routes(serverState, routes) {",
-            );
+            self.emit("async function __sigil_http_attach_websocket_routes(serverState, routes) {");
             self.emit("  const world = __sigil_current_world();");
             self.emit("  const normalizedRoutes = __sigil_http_websocket_routes(routes);");
             self.emit("  const routeStates = Object.create(null);");
@@ -4975,9 +4973,7 @@ impl TypeScriptGenerator {
                 "        __sigil_world_stream_push(routeStates[route.handleName].source, client);",
             );
             self.emit("      }");
-            self.emit(
-                "      __sigil_world_stream_finish(routeStates[route.handleName].source);",
-            );
+            self.emit("      __sigil_world_stream_finish(routeStates[route.handleName].source);");
             self.emit("    } else {");
             self.emit("      realRoutes.push(route);");
             self.emit("    }");
@@ -4990,9 +4986,7 @@ impl TypeScriptGenerator {
             self.emit("  let websocketRuntime = null;");
             self.emit("  try {");
             self.emit("    websocketRuntime =");
-            self.emit(
-                "      typeof globalThis.__sigil_load_websocket_runtime === 'function'",
-            );
+            self.emit("      typeof globalThis.__sigil_load_websocket_runtime === 'function'");
             self.emit("        ? await globalThis.__sigil_load_websocket_runtime()");
             self.emit("        : null;");
             self.emit("  } catch (error) {");
@@ -5003,11 +4997,11 @@ impl TypeScriptGenerator {
             self.emit(
                 "  if (!websocketRuntime || typeof websocketRuntime.attachServer !== 'function') {",
             );
-            self.emit("    __sigil_world_error('§httpServer websocket runtime helper is unavailable');");
-            self.emit("  }");
             self.emit(
-                "  serverState.websocketAttachment = await websocketRuntime.attachServer(",
+                "    __sigil_world_error('§httpServer websocket runtime helper is unavailable');",
             );
+            self.emit("  }");
+            self.emit("  serverState.websocketAttachment = await websocketRuntime.attachServer(");
             self.emit("    serverState.server,");
             self.emit("    realRoutes,");
             self.emit("    (handleName, socket) => {");
@@ -5031,9 +5025,7 @@ impl TypeScriptGenerator {
             self.emit("        __sigil_world_stream_push(source, text);");
             self.emit("      });");
             self.emit("      const finish = () => {");
-            self.emit(
-                "        const state = world.websocketClients?.get(client.id) ?? null;",
-            );
+            self.emit("        const state = world.websocketClients?.get(client.id) ?? null;");
             self.emit("        if (state) {");
             self.emit("          state.closed = true;");
             self.emit("        }");
@@ -5131,7 +5123,9 @@ impl TypeScriptGenerator {
             self.emit("    websocketAttachment: null");
             self.emit("  });");
             self.emit("}");
-            self.emit("async function __sigil_http_listen_requests_with_websockets(port, routes) {");
+            self.emit(
+                "async function __sigil_http_listen_requests_with_websockets(port, routes) {",
+            );
             self.emit("  const { createServer } = await import('node:http');");
             self.emit("  const { text } = await import('stream/consumers');");
             self.emit("  let assignedPort = Number(port ?? 0);");
@@ -5193,7 +5187,9 @@ impl TypeScriptGenerator {
             self.emit("  return __sigil_http_register_server_state(serverState);");
             self.emit("}");
             self.emit("async function __sigil_http_requests(serverHandle) {");
-            self.emit("  const requestSource = __sigil_http_server_state(serverHandle).requestSource;");
+            self.emit(
+                "  const requestSource = __sigil_http_server_state(serverHandle).requestSource;",
+            );
             self.emit("  if (!requestSource) {");
             self.emit("    throw new Error(`HTTP server '${String(serverHandle?.port ?? '')}' does not expose request streams`);");
             self.emit("  }");
@@ -5205,7 +5201,9 @@ impl TypeScriptGenerator {
             self.emit("  }");
             self.emit("  return await responder.__sigil_reply(response);");
             self.emit("}");
-            self.emit("async function __sigil_http_websocket_connections(handleName, serverHandle) {");
+            self.emit(
+                "async function __sigil_http_websocket_connections(handleName, serverHandle) {",
+            );
             self.emit(
                 "  return __sigil_http_websocket_route_state(__sigil_http_server_state(serverHandle), handleName).source;",
             );
@@ -6685,7 +6683,11 @@ impl TypeScriptGenerator {
             .source_file
             .as_deref()
             .and_then(find_project_root_for_path)
-            .or_else(|| self.output_file.as_deref().and_then(find_project_root_for_path))
+            .or_else(|| {
+                self.output_file
+                    .as_deref()
+                    .and_then(find_project_root_for_path)
+            })
             .ok_or_else(|| {
                 CodegenError::General(
                     "bridge:: externs require a Sigil project root with sigil.json".to_string(),
@@ -6697,20 +6699,18 @@ impl TypeScriptGenerator {
                     .to_string(),
             )
         })?;
-        let bridge_segments = extern_decl
-            .module_path
-            .iter()
-            .skip(1)
-            .collect::<Vec<_>>();
+        let bridge_segments = extern_decl.module_path.iter().skip(1).collect::<Vec<_>>();
         if bridge_segments.is_empty() {
             return Err(CodegenError::General(
                 "bridge:: externs must reference at least one bridge module segment".to_string(),
             ));
         }
 
-        let bridge_target = bridge_segments.iter().fold(project_root.join("bridges"), |acc, segment| {
-            acc.join(segment)
-        });
+        let bridge_target = bridge_segments
+            .iter()
+            .fold(project_root.join("bridges"), |acc, segment| {
+                acc.join(segment)
+            });
         let target_abs = bridge_target.with_extension(&self.import_extension);
         let output_path = Path::new(output_file);
         Ok(relative_import_path(
@@ -10942,9 +10942,7 @@ mod tests {
 
         let mut gen = TypeScriptGenerator::new(CodegenOptions {
             module_id: Some("src::runtime".to_string()),
-            source_file: Some(
-                "/tmp/workspace/projects/syntarch/src/runtime.lib.sigil".to_string(),
-            ),
+            source_file: Some("/tmp/workspace/projects/syntarch/src/runtime.lib.sigil".to_string()),
             output_file: Some(
                 "/tmp/workspace/projects/syntarch/.local/generated/runtime.ts".to_string(),
             ),

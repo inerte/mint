@@ -498,7 +498,10 @@ fn run_project_bridge_subscription_succeeds() {
 
 #[test]
 fn run_http_server_websocket_shared_port_smoke_succeeds_when_runtime_bridge_is_available() {
-    if !repo_root().join("language/runtime/node/node_modules/ws").exists() {
+    if !repo_root()
+        .join("language/runtime/node/node_modules/ws")
+        .exists()
+    {
         return;
     }
     if !node_has_global_websocket() {

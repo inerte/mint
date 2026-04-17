@@ -260,8 +260,9 @@ process.env.mailerApiUrl
 ```
 
 For labelled boundary handling, projects use the handle-based `§file.*At`,
-`§fsWatch.watchAt`, `§log.write`, `§process.runAt` / `§process.startAt`, and
-`§pty.spawnAt` surfaces so policy rules can target exact `•topology...`
+`§fsWatch.watchAt`, `§log.write`, `§process.runAt` / `§process.startAt`,
+`§pty.spawnAt` / `§pty.spawnManagedAt`, and websocket route surfaces under
+`§websocket` / `§httpServer` so policy rules can target exact `•topology...`
 boundaries.
 
 Example:
@@ -317,7 +318,7 @@ Compile-time:
 - topology-aware HTTP/TCP APIs require dependency handles
 - label-aware filesystem and fsWatch crossings use named `FsRoot` handles
 - label-aware log, process, and PTY crossings use named `LogSink`, `ProcessHandle`, and `PtyHandle` handles
-- `§websocket.route` and `§websocket.connections` use named `WebSocketHandle` handles
+- `§websocket.route` / `§websocket.connections` and `§httpServer.websocketRoute` / `§httpServer.websocketConnections` use named `WebSocketHandle` handles
 - raw endpoint usage is rejected
 - in project mode, `process.env` is only allowed in `config/*.lib.sigil`
 - standalone files may read `process.env` directly because there is no separate config module

@@ -25,9 +25,11 @@ ModulePath = RootedModulePath ;
 RootedModulePath = RootSigil , Identifier , { "::" , Identifier } ;
 RootSigil = "§" | "•" | "¶" | "¤" | "†" | "※" | "☴" ;
 
-ExternDecl = "e" , ModulePath , [ ":" , TypedMembers ] ;
+ExternDecl = "e" , ExternModulePath , [ ":" , TypedMembers ] ;
+ExternModulePath = Identifier , { "::" , Identifier } ;
 TypedMembers = "{" , TypedMember , { "," , TypedMember } , "}" ;
-TypedMember = Identifier , ":" , Type ;
+TypedMember = Identifier , ":" , ( Type | SubscriptionType ) ;
+SubscriptionType = "subscribes" , FunctionType ;
 
 LabelDecl = "label" , UpperIdentifier , [ "combines" , LabelRefList ] ;
 LabelRefList = LabelRef | "[" , LabelRef , { "," , LabelRef } , "]" ;

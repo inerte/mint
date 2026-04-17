@@ -876,7 +876,10 @@ function __sigil_world_fresh(template) {
   world.fsWatchNextId = 1;
   world.fsWatches = new Map();
   world.ptyNextId = 1;
+  world.ptyManagedNextId = 1;
+  world.ptyManagedRefs = new Map();
   world.ptySessions = new Map();
+  world.httpServers = new Map();
   world.websocketNextClientId = 1;
   world.websocketNextServerId = 1;
   world.websocketClients = new Map();
@@ -1199,6 +1202,21 @@ async function __sigil_world_stream_close_hub(hub) {
   delete world.stream.hubs[String(hubId)];
   return null;
 }
+async function __sigil_world_stream_finish_hub(hub) {
+  const world = __sigil_current_world();
+  const hubId = Number(hub?.__fields?.[0] ?? Number.NaN);
+  const state = __sigil_world_stream_resolve_hub(hub);
+  if (state.closed) {
+    return null;
+  }
+  state.closed = true;
+  for (const source of Array.from(state.subscribers ?? [])) {
+    __sigil_world_stream_finish(source);
+  }
+  state.subscribers.clear();
+  delete world.stream.hubs[String(hubId)];
+  return null;
+}
 function __sigil_owned_wrap(value, dispose) {
   return {
     __sigil_dispose: typeof dispose === 'function' ? dispose : async () => null,
@@ -1274,12 +1292,47 @@ function __sigil_world_pty_exit_code(events) {
 function __sigil_world_pty_session_from_state(pid) {
   return { pid: Number(pid) };
 }
+function __sigil_world_pty_managed_ref_from_state(refId) {
+  return { id: String(refId) };
+}
+function __sigil_world_pty_managed_ref_state(sessionRef) {
+  const world = __sigil_current_world();
+  const refId = String(sessionRef?.id ?? '');
+  const state = world.ptyManagedRefs?.get(refId) ?? null;
+  if (!state) {
+    __sigil_world_error(`unknown managed pty session '${refId}' in current world`);
+  }
+  return state;
+}
+async function __sigil_world_pty_finish_managed_hub(state) {
+  if (!state?.managedHub) {
+    return null;
+  }
+  const hub = state.managedHub;
+  state.managedHub = null;
+  await __sigil_world_stream_finish_hub(hub);
+  return null;
+}
+function __sigil_world_pty_queue_managed_event(state, event) {
+  if (state?.managedHub) {
+    void __sigil_world_stream_publish(state.managedHub, event);
+    return;
+  }
+  if (!Array.isArray(state.pendingManagedEvents)) {
+    state.pendingManagedEvents = [];
+  }
+  state.pendingManagedEvents.push(event);
+}
 function __sigil_world_pty_track_session(world, handleName, command, source, state) {
   const pid = Number(state?.pid ?? -1);
   world.ptySessions.set(pid, {
     ...state,
     command: __sigil_world_clone(command),
     handleName: handleName == null ? null : String(handleName),
+    managedHub: null,
+    pendingManagedEvents: Array.isArray(state?.pendingManagedEvents)
+      ? state.pendingManagedEvents.slice()
+      : [],
     source
   });
   __sigil_world_pty_trace(world, 'spawn', handleName, {
@@ -1303,8 +1356,9 @@ async function __sigil_world_pty_spawn_from_entry(entry, handleName, command) {
   }
   if (entry.kind === 'fixture') {
     const rule = __sigil_world_pty_fixture_rule(entry, command);
-    const source = await __sigil_world_pty_source(rule.events ?? []);
-    const exitCode = __sigil_world_pty_exit_code(rule.events ?? []);
+    const events = Array.isArray(rule.events) ? rule.events.slice() : [];
+    const source = await __sigil_world_pty_source(events);
+    const exitCode = __sigil_world_pty_exit_code(events);
     const pid = -Math.max(1, Number(world.ptyNextId ?? 1));
     world.ptyNextId = Math.abs(pid) + 1;
     return __sigil_world_pty_track_session(world, handleName, command, source, {
@@ -1312,6 +1366,7 @@ async function __sigil_world_pty_spawn_from_entry(entry, handleName, command) {
       exitCode,
       expectedWrites: Array.isArray(rule.writes) ? rule.writes.slice() : [],
       fixture: true,
+      pendingManagedEvents: events,
       pid
     });
   }
@@ -1339,23 +1394,29 @@ async function __sigil_world_pty_spawn_from_entry(entry, handleName, command) {
     done: null,
     exitCode: null,
     fixture: false,
+    pendingManagedEvents: [],
     pid,
     pty
   };
   state.done = new Promise((resolve) => {
     let settled = false;
+    const emitEvent = (event) => {
+      __sigil_world_stream_push(source, event);
+      __sigil_world_pty_queue_managed_event(state, event);
+    };
     const finish = (code) => {
       if (settled) {
         return;
       }
       settled = true;
       state.exitCode = Number(code);
-      __sigil_world_stream_push(source, { __tag: 'Exit', __fields: [state.exitCode] });
+      emitEvent({ __tag: 'Exit', __fields: [state.exitCode] });
       __sigil_world_stream_finish(source);
+      void __sigil_world_pty_finish_managed_hub(state);
       resolve(state.exitCode);
     };
     pty.onData?.((chunk) => {
-      __sigil_world_stream_push(source, { __tag: 'Output', __fields: [String(chunk)] });
+      emitEvent({ __tag: 'Output', __fields: [String(chunk)] });
     });
     pty.onExit?.((event) => {
       finish(Number(event?.exitCode ?? -1));
@@ -1373,8 +1434,59 @@ async function __sigil_world_pty_spawn_at(handleName, command) {
     command
   );
 }
+async function __sigil_world_pty_register_managed(session) {
+  const world = __sigil_current_world();
+  const sessionState = __sigil_world_pty_session_state(session);
+  const refId = `pty-${String(world.ptyManagedNextId ?? 1)}`;
+  world.ptyManagedNextId = Number(world.ptyManagedNextId ?? 1) + 1;
+  world.ptyManagedRefs.set(refId, {
+    disposed: false,
+    pid: Number(sessionState.pid),
+    refId
+  });
+  return __sigil_world_pty_managed_ref_from_state(refId);
+}
+async function __sigil_world_pty_spawn_managed(command) {
+  const session = await __sigil_world_pty_spawn(command);
+  return await __sigil_world_pty_register_managed(session);
+}
+async function __sigil_world_pty_spawn_managed_at(handleName, command) {
+  const session = await __sigil_world_pty_spawn_at(handleName, command);
+  return await __sigil_world_pty_register_managed(session);
+}
 async function __sigil_world_pty_events(session) {
   return __sigil_world_pty_session_state(session).source;
+}
+async function __sigil_world_pty_events_managed(sessionRef) {
+  const refState = __sigil_world_pty_managed_ref_state(sessionRef);
+  if (refState.disposed) {
+    __sigil_world_error(`managed pty session '${refState.refId}' has been disposed`);
+  }
+  const sessionState = __sigil_current_world().ptySessions?.get(Number(refState.pid)) ?? null;
+  if (!sessionState) {
+    __sigil_world_error(`managed pty session '${refState.refId}' is unavailable`);
+  }
+  if (!sessionState.managedHub) {
+    const pendingEvents = Array.isArray(sessionState.pendingManagedEvents)
+      ? sessionState.pendingManagedEvents.slice()
+      : [];
+    sessionState.pendingManagedEvents = [];
+    if (sessionState.closed || sessionState.exitCode != null) {
+      const source = await __sigil_world_pty_source(pendingEvents);
+      return __sigil_owned_wrap(source, async () => {
+        await __sigil_world_stream_close(source);
+        return null;
+      });
+    }
+    const hubOwned = __sigil_world_stream_open_hub();
+    sessionState.managedHub = __sigil_owned_take(hubOwned);
+    const subscription = await __sigil_world_stream_subscribe(sessionState.managedHub);
+    for (const event of pendingEvents) {
+      await __sigil_world_stream_publish(sessionState.managedHub, event);
+    }
+    return subscription;
+  }
+  return await __sigil_world_stream_subscribe(sessionState.managedHub);
 }
 async function __sigil_world_pty_write(session, input) {
   const world = __sigil_current_world();
@@ -1395,6 +1507,13 @@ async function __sigil_world_pty_write(session, input) {
   }
   return null;
 }
+async function __sigil_world_pty_write_managed(sessionRef, input) {
+  const refState = __sigil_world_pty_managed_ref_state(sessionRef);
+  if (refState.disposed) {
+    __sigil_world_error(`managed pty session '${refState.refId}' has been disposed`);
+  }
+  return __sigil_world_pty_write(__sigil_world_pty_session_from_state(refState.pid), input);
+}
 async function __sigil_world_pty_resize(session, cols, rows) {
   const world = __sigil_current_world();
   const state = __sigil_world_pty_session_state(session);
@@ -1409,6 +1528,17 @@ async function __sigil_world_pty_resize(session, cols, rows) {
   }
   return null;
 }
+async function __sigil_world_pty_resize_managed(sessionRef, cols, rows) {
+  const refState = __sigil_world_pty_managed_ref_state(sessionRef);
+  if (refState.disposed) {
+    __sigil_world_error(`managed pty session '${refState.refId}' has been disposed`);
+  }
+  return __sigil_world_pty_resize(
+    __sigil_world_pty_session_from_state(refState.pid),
+    cols,
+    rows
+  );
+}
 async function __sigil_world_pty_close(session) {
   const world = __sigil_current_world();
   const state = __sigil_world_pty_session_state(session);
@@ -1418,6 +1548,7 @@ async function __sigil_world_pty_close(session) {
   state.closed = true;
   __sigil_world_pty_trace(world, 'close', state.handleName, {});
   await __sigil_world_stream_close(state.source);
+  await __sigil_world_pty_finish_managed_hub(state);
   if (!state.fixture) {
     try {
       state.pty?.kill?.();
@@ -1425,9 +1556,24 @@ async function __sigil_world_pty_close(session) {
   }
   return null;
 }
+async function __sigil_world_pty_close_managed(sessionRef) {
+  const refState = __sigil_world_pty_managed_ref_state(sessionRef);
+  if (refState.disposed) {
+    return null;
+  }
+  refState.disposed = true;
+  return __sigil_world_pty_close(__sigil_world_pty_session_from_state(refState.pid));
+}
 async function __sigil_world_pty_wait(session) {
   const state = __sigil_world_pty_session_state(session);
   return Number(await state.done);
+}
+async function __sigil_world_pty_wait_managed(sessionRef) {
+  const refState = __sigil_world_pty_managed_ref_state(sessionRef);
+  if (refState.disposed) {
+    __sigil_world_error(`managed pty session '${refState.refId}' has been disposed`);
+  }
+  return __sigil_world_pty_wait(__sigil_world_pty_session_from_state(refState.pid));
 }
 function __sigil_world_websocket_client_from_state(clientId) {
   return {
@@ -3598,7 +3744,9 @@ impl TypeScriptGenerator {
 
     fn requires_websocket_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
         runtime_modules.contains("stdlib::websocket")
+            || runtime_modules.contains("stdlib::httpServer")
             || self.source_file_is("language/stdlib/websocket.lib.sigil")
+            || self.source_file_is("language/stdlib/httpServer.lib.sigil")
     }
 
     fn requires_http_server_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
@@ -4736,21 +4884,183 @@ impl TypeScriptGenerator {
             self.emit("  }");
             self.emit("  return { __tag: 'Some', __fields: [{ params: __sigil_map_from_entries(params) }] };");
             self.emit("}");
-            self.emit("function __sigil_http_listen_result(server, port, done) {");
+            self.emit("function __sigil_http_listen_result(port) {");
+            self.emit("  return { port: Number(port) };");
+            self.emit("}");
+            self.emit("function __sigil_http_server_state(serverHandle) {");
+            self.emit("  const world = __sigil_current_world();");
+            self.emit("  const port = Number(serverHandle?.port ?? Number.NaN);");
+            self.emit("  const state = world.httpServers?.get(port) ?? null;");
+            self.emit("  if (!state) {");
             self.emit(
-                "  return { __sigil_server: server, __sigil_done: done, port: Number(port) };",
+                "    throw new Error(`unknown http server '${String(serverHandle?.port ?? '')}' in current world`);",
             );
+            self.emit("  }");
+            self.emit("  return state;");
+            self.emit("}");
+            self.emit("function __sigil_http_register_server_state(serverState) {");
+            self.emit("  const world = __sigil_current_world();");
+            self.emit("  world.httpServers.set(Number(serverState.port), serverState);");
+            self.emit("  return __sigil_http_listen_result(serverState.port);");
+            self.emit("}");
+            self.emit("function __sigil_http_websocket_routes(routes) {");
+            self.emit("  return __sigil_world_websocket_normalize_routes(routes);");
+            self.emit("}");
+            self.emit("function __sigil_http_websocket_route_state(serverState, handleName) {");
+            self.emit("  const routeStates = serverState?.routeStates ?? Object.create(null);");
+            self.emit("  const state = routeStates[String(handleName)] ?? null;");
+            self.emit("  if (!state) {");
+            self.emit(
+                "    throw new Error(`HTTP server does not expose websocket route '${String(handleName)}'`);",
+            );
+            self.emit("  }");
+            self.emit("  return state;");
+            self.emit("}");
+            self.emit("async function __sigil_http_finish_websocket_routes(serverState) {");
+            self.emit("  const routeStates = serverState?.routeStates ?? null;");
+            self.emit("  if (routeStates) {");
+            self.emit("    for (const routeState of Object.values(routeStates)) {");
+            self.emit("      await __sigil_world_stream_close(routeState.source);");
+            self.emit("    }");
+            self.emit("    const routeHandleNames = new Set(Object.keys(routeStates));");
+            self.emit("    const world = __sigil_current_world();");
+            self.emit("    for (const state of Array.from(world.websocketClients?.values() ?? [])) {");
+            self.emit("      if (routeHandleNames.has(String(state.handleName ?? ''))) {");
+            self.emit("        state.closed = true;");
+            self.emit("        __sigil_world_stream_finish(state.source);");
+            self.emit("      }");
+            self.emit("    }");
+            self.emit("  }");
+            self.emit(
+                "  if (typeof serverState?.websocketAttachment?.close === 'function') {",
+            );
+            self.emit("    await serverState.websocketAttachment.close();");
+            self.emit("  }");
+            self.emit("  return null;");
+            self.emit("}");
+            self.emit(
+                "async function __sigil_http_attach_websocket_routes(serverState, routes) {",
+            );
+            self.emit("  const world = __sigil_current_world();");
+            self.emit("  const normalizedRoutes = __sigil_http_websocket_routes(routes);");
+            self.emit("  const routeStates = Object.create(null);");
+            self.emit("  const realRoutes = [];");
+            self.emit("  for (const route of normalizedRoutes) {");
+            self.emit(
+                "    const entry = __sigil_world_websocket_entry_for_handle(world, route.handleName);",
+            );
+            self.emit("    if (entry.kind === 'deny') {");
+            self.emit(
+                "      __sigil_world_error(`WebSocketHandle '${route.handleName}' is denied by the current world`);",
+            );
+            self.emit("    }");
+            self.emit("    routeStates[route.handleName] = {");
+            self.emit("      handleName: route.handleName,");
+            self.emit("      path: route.path,");
+            self.emit("      source: __sigil_world_stream_open()");
+            self.emit("    };");
+            self.emit("    if (entry.kind === 'fixture') {");
+            self.emit("      for (const rule of entry.rules ?? []) {");
+            self.emit(
+                "        const source = await __sigil_world_websocket_fixture_messages(world, route.handleName, rule.messages ?? []);",
+            );
+            self.emit(
+                "        const client = __sigil_world_websocket_register_client(world, route.handleName, source, {",
+            );
+            self.emit("          closed: false,");
+            self.emit("          fixture: true,");
+            self.emit("          socket: null");
+            self.emit("        });");
+            self.emit(
+                "        __sigil_world_stream_push(routeStates[route.handleName].source, client);",
+            );
+            self.emit("      }");
+            self.emit(
+                "      __sigil_world_stream_finish(routeStates[route.handleName].source);",
+            );
+            self.emit("    } else {");
+            self.emit("      realRoutes.push(route);");
+            self.emit("    }");
+            self.emit("  }");
+            self.emit("  serverState.routeStates = routeStates;");
+            self.emit("  if (realRoutes.length === 0) {");
+            self.emit("    serverState.websocketAttachment = null;");
+            self.emit("    return serverState;");
+            self.emit("  }");
+            self.emit("  let websocketRuntime = null;");
+            self.emit("  try {");
+            self.emit("    websocketRuntime =");
+            self.emit(
+                "      typeof globalThis.__sigil_load_websocket_runtime === 'function'",
+            );
+            self.emit("        ? await globalThis.__sigil_load_websocket_runtime()");
+            self.emit("        : null;");
+            self.emit("  } catch (error) {");
+            self.emit(
+                "    __sigil_world_error(`§httpServer websocket runtime helper is unavailable: ${String(error?.message ?? error ?? '')}`);",
+            );
+            self.emit("  }");
+            self.emit(
+                "  if (!websocketRuntime || typeof websocketRuntime.attachServer !== 'function') {",
+            );
+            self.emit("    __sigil_world_error('§httpServer websocket runtime helper is unavailable');");
+            self.emit("  }");
+            self.emit(
+                "  serverState.websocketAttachment = await websocketRuntime.attachServer(",
+            );
+            self.emit("    serverState.server,");
+            self.emit("    realRoutes,");
+            self.emit("    (handleName, socket) => {");
+            self.emit(
+                "      const routeState = __sigil_http_websocket_route_state(serverState, handleName);",
+            );
+            self.emit("      const source = __sigil_world_stream_open();");
+            self.emit(
+                "      const client = __sigil_world_websocket_register_client(world, handleName, source, {",
+            );
+            self.emit("        closed: false,");
+            self.emit("        fixture: false,");
+            self.emit("        socket");
+            self.emit("      });");
+            self.emit("      socket.on?.('message', (value) => {");
+            self.emit("        const text = __sigil_world_websocket_message_text(value);");
+            self.emit("        __sigil_world_websocket_trace(world, 'received', handleName, {");
+            self.emit("          clientId: client.id,");
+            self.emit("          text");
+            self.emit("        });");
+            self.emit("        __sigil_world_stream_push(source, text);");
+            self.emit("      });");
+            self.emit("      const finish = () => {");
+            self.emit(
+                "        const state = world.websocketClients?.get(client.id) ?? null;",
+            );
+            self.emit("        if (state) {");
+            self.emit("          state.closed = true;");
+            self.emit("        }");
+            self.emit("        __sigil_world_stream_finish(source);");
+            self.emit("      };");
+            self.emit("      socket.once?.('close', finish);");
+            self.emit("      socket.once?.('error', finish);");
+            self.emit("      __sigil_world_stream_push(routeState.source, client);");
+            self.emit("    }");
+            self.emit("  );");
+            self.emit("  return serverState;");
             self.emit("}");
             self.emit("async function __sigil_http_close(serverHandle) {");
-            self.emit("  if (!serverHandle || serverHandle.__sigil_closed) {");
+            self.emit("  const world = __sigil_current_world();");
+            self.emit("  const port = Number(serverHandle?.port ?? Number.NaN);");
+            self.emit("  const serverState = world.httpServers?.get(port) ?? null;");
+            self.emit("  if (!serverState || serverState.closed) {");
             self.emit("    return null;");
             self.emit("  }");
-            self.emit("  serverHandle.__sigil_closed = true;");
-            self.emit("  if (serverHandle.__sigil_request_source) {");
-            self.emit("    await __sigil_world_stream_close(serverHandle.__sigil_request_source);");
+            self.emit("  serverState.closed = true;");
+            self.emit("  if (serverState.requestSource) {");
+            self.emit("    await __sigil_world_stream_close(serverState.requestSource);");
             self.emit("  }");
-            self.emit("  const server = serverHandle.__sigil_server;");
+            self.emit("  await __sigil_http_finish_websocket_routes(serverState);");
+            self.emit("  const server = serverState.server;");
             self.emit("  if (!server) {");
+            self.emit("    world.httpServers?.delete(port);");
             self.emit("    return null;");
             self.emit("  }");
             self.emit("  await new Promise((resolve) => {");
@@ -4760,6 +5070,7 @@ impl TypeScriptGenerator {
             self.emit("      resolve(undefined);");
             self.emit("    }");
             self.emit("  });");
+            self.emit("  world.httpServers?.delete(port);");
             self.emit("  return null;");
             self.emit("}");
             self.emit("async function __sigil_http_listen_requests(port) {");
@@ -4810,25 +5121,103 @@ impl TypeScriptGenerator {
             self.emit("  if (address && typeof address === 'object' && 'port' in address) {");
             self.emit("    assignedPort = Number(address.port ?? assignedPort);");
             self.emit("  }");
+            self.emit("  return __sigil_http_register_server_state({");
+            self.emit("    closed: false,");
+            self.emit("    done,");
+            self.emit("    port: assignedPort,");
+            self.emit("    requestSource,");
+            self.emit("    routeStates: Object.create(null),");
+            self.emit("    server,");
+            self.emit("    websocketAttachment: null");
+            self.emit("  });");
+            self.emit("}");
+            self.emit("async function __sigil_http_listen_requests_with_websockets(port, routes) {");
+            self.emit("  const { createServer } = await import('node:http');");
+            self.emit("  const { text } = await import('stream/consumers');");
+            self.emit("  let assignedPort = Number(port ?? 0);");
+            self.emit("  let nextResponderId = 1;");
+            self.emit("  const requestSource = __sigil_world_stream_open();");
+            self.emit("  const server = createServer(async (req, res) => {");
+            self.emit("    try {");
+            self.emit("      const request = {");
+            self.emit("        body: await text(req),");
+            self.emit("        headers: __sigil_http_headers_from_node(req.headers),");
+            self.emit("        method: String(req.method ?? 'GET'),");
+            self.emit("        path: __sigil_http_request_path(req.url)");
+            self.emit("      };");
+            self.emit("      let replied = false;");
+            self.emit("      const responder = { id: `http-${String(nextResponderId++)}` };");
+            self.emit("      responder.__sigil_reply = async (response) => {");
+            self.emit("        if (replied) {");
+            self.emit("          throw new Error(`HTTP responder '${responder.id}' has already replied`);");
+            self.emit("        }");
+            self.emit("        replied = true;");
+            self.emit("        res.writeHead(Number(response?.status ?? 200), __sigil_http_headers_to_js(response?.headers));");
+            self.emit("        res.end(String(response?.body ?? ''));");
+            self.emit("        return null;");
+            self.emit("      };");
+            self.emit("      req.once('aborted', () => { replied = true; });");
+            self.emit("      res.once('close', () => { replied = true; });");
+            self.emit("      __sigil_world_stream_push(requestSource, { request, responder });");
+            self.emit("    } catch (error) {");
             self.emit(
-                "  console.log(`Server running at http://localhost:${String(assignedPort)}`);",
+                "      const message = error instanceof Error ? error.message : String(error);",
             );
-            self.emit(
-                "  const serverHandle = __sigil_http_listen_result(server, assignedPort, done);",
-            );
-            self.emit("  serverHandle.__sigil_request_source = requestSource;");
-            self.emit("  return serverHandle;");
+            self.emit("      res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });");
+            self.emit("      res.end(message);");
+            self.emit("    }");
+            self.emit("  });");
+            self.emit("  const done = new Promise((resolve, reject) => {");
+            self.emit("    server.once('close', () => resolve(undefined));");
+            self.emit("    server.once('error', reject);");
+            self.emit("  });");
+            self.emit("  const serverState = {");
+            self.emit("    closed: false,");
+            self.emit("    done,");
+            self.emit("    port: assignedPort,");
+            self.emit("    requestSource,");
+            self.emit("    routeStates: Object.create(null),");
+            self.emit("    server,");
+            self.emit("    websocketAttachment: null");
+            self.emit("  };");
+            self.emit("  await __sigil_http_attach_websocket_routes(serverState, routes);");
+            self.emit("  await new Promise((resolve, reject) => {");
+            self.emit("    server.once('error', reject);");
+            self.emit("    server.listen(port, () => resolve(undefined));");
+            self.emit("  });");
+            self.emit("  const address = server.address();");
+            self.emit("  if (address && typeof address === 'object' && 'port' in address) {");
+            self.emit("    assignedPort = Number(address.port ?? assignedPort);");
+            self.emit("  }");
+            self.emit("  serverState.port = assignedPort;");
+            self.emit("  return __sigil_http_register_server_state(serverState);");
             self.emit("}");
             self.emit("async function __sigil_http_requests(serverHandle) {");
-            self.emit(
-                "  return serverHandle?.__sigil_request_source ?? __sigil_world_stream_open();",
-            );
+            self.emit("  const requestSource = __sigil_http_server_state(serverHandle).requestSource;");
+            self.emit("  if (!requestSource) {");
+            self.emit("    throw new Error(`HTTP server '${String(serverHandle?.port ?? '')}' does not expose request streams`);");
+            self.emit("  }");
+            self.emit("  return requestSource;");
             self.emit("}");
             self.emit("async function __sigil_http_reply(response, responder) {");
             self.emit("  if (typeof responder?.__sigil_reply !== 'function') {");
             self.emit("    throw new Error(`HTTP responder '${String(responder?.id ?? '')}' is unavailable`);");
             self.emit("  }");
             self.emit("  return await responder.__sigil_reply(response);");
+            self.emit("}");
+            self.emit("async function __sigil_http_websocket_connections(handleName, serverHandle) {");
+            self.emit(
+                "  return __sigil_http_websocket_route_state(__sigil_http_server_state(serverHandle), handleName).source;",
+            );
+            self.emit("}");
+            self.emit("async function __sigil_http_websocket_messages(client) {");
+            self.emit("  return __sigil_world_websocket_messages(client);");
+            self.emit("}");
+            self.emit("async function __sigil_http_websocket_send(client, text) {");
+            self.emit("  return __sigil_world_websocket_send(client, text);");
+            self.emit("}");
+            self.emit("async function __sigil_http_websocket_close(client) {");
+            self.emit("  return __sigil_world_websocket_close(client);");
             self.emit("}");
             self.emit("async function __sigil_http_listen(handler, port) {");
             self.emit("  const { createServer } = await import('node:http');");
@@ -4867,13 +5256,18 @@ impl TypeScriptGenerator {
             self.emit("  if (address && typeof address === 'object' && 'port' in address) {");
             self.emit("    assignedPort = Number(address.port ?? assignedPort);");
             self.emit("  }");
-            self.emit(
-                "  console.log(`Server running at http://localhost:${String(assignedPort)}`);",
-            );
-            self.emit("  return __sigil_http_listen_result(server, assignedPort, done);");
+            self.emit("  return __sigil_http_register_server_state({");
+            self.emit("    closed: false,");
+            self.emit("    done,");
+            self.emit("    port: assignedPort,");
+            self.emit("    requestSource: null,");
+            self.emit("    routeStates: Object.create(null),");
+            self.emit("    server,");
+            self.emit("    websocketAttachment: null");
+            self.emit("  });");
             self.emit("}");
             self.emit("async function __sigil_http_wait(serverHandle) {");
-            self.emit("  await Promise.resolve(serverHandle?.__sigil_done);");
+            self.emit("  await Promise.resolve(__sigil_http_server_state(serverHandle).done);");
             self.emit("  return null;");
             self.emit("}");
             self.emit("async function __sigil_http_serve(handler, port) {");
@@ -5055,7 +5449,13 @@ impl TypeScriptGenerator {
             self.emit("      case 'extern:stdlib/httpServer.jsonBody':");
             self.emit("        return __sigil_http_json_body_result(args[0]);");
             self.emit("      case 'extern:stdlib/httpServer.listen':");
-            self.emit("        return __sigil_http_listen_requests(args[0]);");
+            self.emit(
+                "        return __sigil_http_listen_requests(args[0]).then((__server) => __sigil_owned_wrap(__server, async () => { await __sigil_http_close(__server); return null; }));",
+            );
+            self.emit("      case 'extern:stdlib/httpServer.listenWithWebSockets':");
+            self.emit(
+                "        return __sigil_http_listen_requests_with_websockets(args[0], args[1]).then((__server) => __sigil_owned_wrap(__server, async () => { await __sigil_http_close(__server); return null; }));",
+            );
             self.emit("      case 'extern:stdlib/httpServer.listenWith':");
             self.emit("        return __sigil_http_listen(args[0], args[1]);");
             self.emit("      case 'extern:stdlib/httpServer.match':");
@@ -5065,11 +5465,27 @@ impl TypeScriptGenerator {
             self.emit("      case 'extern:stdlib/httpServer.reply':");
             self.emit("        return __sigil_http_reply(args[1], args[0]);");
             self.emit("      case 'extern:stdlib/httpServer.requests':");
-            self.emit("        return __sigil_http_requests(args[0]);");
+            self.emit(
+                "        return __sigil_http_requests(args[0]).then((__source) => __sigil_owned_wrap(__source, async () => { await __sigil_world_stream_close(__source); return null; }));",
+            );
             self.emit("      case 'extern:stdlib/httpServer.serve':");
             self.emit("        return __sigil_http_serve(args[0], args[1]);");
             self.emit("      case 'extern:stdlib/httpServer.wait':");
             self.emit("        return __sigil_http_wait(args[0]);");
+            self.emit("      case 'extern:stdlib/httpServer.websocketClose':");
+            self.emit("        return __sigil_http_websocket_close(args[0]);");
+            self.emit("      case 'extern:stdlib/httpServer.websocketConnections':");
+            self.emit(
+                "        return __sigil_http_websocket_connections(args[0]?.__fields?.[0] ?? '', args[1]).then((__source) => __sigil_owned_wrap(__source, async () => { await __sigil_world_stream_close(__source); return null; }));",
+            );
+            self.emit("      case 'extern:stdlib/httpServer.websocketMessages':");
+            self.emit(
+                "        return __sigil_http_websocket_messages(args[0]).then((__source) => __sigil_owned_wrap(__source, async () => { await __sigil_world_stream_close(__source); return null; }));",
+            );
+            self.emit("      case 'extern:stdlib/httpServer.websocketRoute':");
+            self.emit("        return { handle: args[0], path: String(args[1] ?? '') };");
+            self.emit("      case 'extern:stdlib/httpServer.websocketSend':");
+            self.emit("        return __sigil_http_websocket_send(args[0], args[1]);");
         }
         if include_tcp_server_runtime {
             self.emit("      case 'extern:stdlib/tcpServer.listen':");
@@ -5081,6 +5497,12 @@ impl TypeScriptGenerator {
             self.emit("      case 'extern:stdlib/tcpServer.wait':");
             self.emit("        return __sigil_tcp_wait(args[0]);");
         }
+        self.emit("      case 'extern:stdlib/task.cancel':");
+        self.emit("        return __sigil_world_task_cancel(args[0]);");
+        self.emit("      case 'extern:stdlib/task.spawn':");
+        self.emit("        return __sigil_world_task_spawn(args[0]);");
+        self.emit("      case 'extern:stdlib/task.wait':");
+        self.emit("        return __sigil_world_task_wait(args[0]);");
         self.emit("      default:");
         self.emit("        return actualFn(...args);");
         self.emit("    }");
@@ -6208,12 +6630,12 @@ impl TypeScriptGenerator {
     }
 
     fn generate_extern(&mut self, extern_decl: &ExternDecl) -> Result<(), CodegenError> {
+        let import_path = self.extern_import_path(extern_decl)?;
         if self.lazy_extern_namespaces {
             let namespace = sanitize_js_identifier(&extern_decl.module_path.join("_"));
             let namespace_label_json =
                 serde_json::to_string(&extern_decl.module_path.join("::")).unwrap();
-            let module_path_json =
-                serde_json::to_string(&extern_decl.module_path.join("/")).unwrap();
+            let module_path_json = serde_json::to_string(&import_path).unwrap();
             self.emit(&format!(
                 "const {} = __sigil_runtime_extern_namespace({}, {});",
                 namespace, namespace_label_json, module_path_json
@@ -6222,7 +6644,6 @@ impl TypeScriptGenerator {
         }
 
         // Extern declarations become ES module imports
-        let module_path = extern_decl.module_path.join("/");
         if extern_decl
             .members
             .as_ref()
@@ -6236,18 +6657,66 @@ impl TypeScriptGenerator {
                     .map(|member| member.name.as_str())
                     .collect::<Vec<_>>()
                     .join(", ");
-                self.emit(&format!("import {{ {} }} from '{}';", imports, module_path));
+                self.emit(&format!("import {{ {} }} from '{}';", imports, import_path));
             }
         } else {
             // Untyped extern or no declared members: namespace import
             let namespace = sanitize_js_identifier(&extern_decl.module_path.join("_"));
             self.emit(&format!(
                 "import * as {} from '{}';",
-                namespace, module_path
+                namespace, import_path
             ));
         }
 
         Ok(())
+    }
+
+    fn extern_import_path(&self, extern_decl: &ExternDecl) -> Result<String, CodegenError> {
+        let module_path = extern_decl.module_path.join("/");
+        if !extern_decl
+            .module_path
+            .first()
+            .is_some_and(|segment| segment == "bridge")
+        {
+            return Ok(module_path);
+        }
+
+        let project_root = self
+            .source_file
+            .as_deref()
+            .and_then(find_project_root_for_path)
+            .or_else(|| self.output_file.as_deref().and_then(find_project_root_for_path))
+            .ok_or_else(|| {
+                CodegenError::General(
+                    "bridge:: externs require a Sigil project root with sigil.json".to_string(),
+                )
+            })?;
+        let output_file = self.output_file.as_deref().ok_or_else(|| {
+            CodegenError::General(
+                "bridge:: externs require an output file to compute a relative import path"
+                    .to_string(),
+            )
+        })?;
+        let bridge_segments = extern_decl
+            .module_path
+            .iter()
+            .skip(1)
+            .collect::<Vec<_>>();
+        if bridge_segments.is_empty() {
+            return Err(CodegenError::General(
+                "bridge:: externs must reference at least one bridge module segment".to_string(),
+            ));
+        }
+
+        let bridge_target = bridge_segments.iter().fold(project_root.join("bridges"), |acc, segment| {
+            acc.join(segment)
+        });
+        let target_abs = bridge_target.with_extension(&self.import_extension);
+        let output_path = Path::new(output_file);
+        Ok(relative_import_path(
+            output_path.parent().unwrap_or_else(|| Path::new(".")),
+            &target_abs,
+        ))
     }
 
     fn generate_test(&mut self, test: &TypedTestDecl) -> Result<(), CodegenError> {
@@ -8057,6 +8526,18 @@ impl TypeScriptGenerator {
                     None
                 )?
             ))),
+            "closeManaged" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__sessionRef) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "closeManaged",
+                    "[__sessionRef]",
+                    "__sigil_world_pty_close_managed(__sessionRef)",
+                    None
+                )?
+            ))),
             "events" if generated_args.len() == 1 => Ok(Some(format!(
                 "{}.then((__session) => {})",
                 generated_args[0],
@@ -8066,6 +8547,18 @@ impl TypeScriptGenerator {
                     "events",
                     "[__session]",
                     "__sigil_world_pty_events(__session)",
+                    None
+                )?
+            ))),
+            "eventsManaged" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__sessionRef) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "eventsManaged",
+                    "[__sessionRef]",
+                    "__sigil_world_pty_events_managed(__sessionRef)",
                     None
                 )?
             ))),
@@ -8081,6 +8574,18 @@ impl TypeScriptGenerator {
                     None
                 )?
             ))),
+            "resizeManaged" if generated_args.len() == 3 => Ok(Some(format!(
+                "{}.then(([__cols, __rows, __sessionRef]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "resizeManaged",
+                    "[__cols, __rows, __sessionRef]",
+                    "__sigil_world_pty_resize_managed(__sessionRef, __cols, __rows)",
+                    None
+                )?
+            ))),
             "spawn" if generated_args.len() == 1 => Ok(Some(format!(
                 "{}.then((__spawn) => {}).then((__session) => __sigil_owned_wrap(__session, async () => {{ await __sigil_world_pty_close(__session); return null; }}))",
                 generated_args[0],
@@ -8090,6 +8595,18 @@ impl TypeScriptGenerator {
                     "spawn",
                     "[__spawn]",
                     "__sigil_world_pty_spawn(__spawn)",
+                    None
+                )?
+            ))),
+            "spawnManaged" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__spawn) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "spawnManaged",
+                    "[__spawn]",
+                    "__sigil_world_pty_spawn_managed(__spawn)",
                     None
                 )?
             ))),
@@ -8105,6 +8622,18 @@ impl TypeScriptGenerator {
                     None
                 )?
             ))),
+            "spawnManagedAt" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __spawn]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "spawnManagedAt",
+                    "[__handle, __spawn]",
+                    "__sigil_world_pty_spawn_managed_at(__handle?.__fields?.[0] ?? '', __spawn)",
+                    None
+                )?
+            ))),
             "wait" if generated_args.len() == 1 => Ok(Some(format!(
                 "{}.then((__session) => {})",
                 generated_args[0],
@@ -8117,6 +8646,18 @@ impl TypeScriptGenerator {
                     None
                 )?
             ))),
+            "waitManaged" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__sessionRef) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "waitManaged",
+                    "[__sessionRef]",
+                    "__sigil_world_pty_wait_managed(__sessionRef)",
+                    None
+                )?
+            ))),
             "write" if generated_args.len() == 2 => Ok(Some(format!(
                 "{}.then(([__input, __session]) => {})",
                 self.js_all(&generated_args),
@@ -8126,6 +8667,18 @@ impl TypeScriptGenerator {
                     "write",
                     "[__input, __session]",
                     "__sigil_world_pty_write(__session, __input)",
+                    None
+                )?
+            ))),
+            "writeManaged" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__input, __sessionRef]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "pty",
+                    "writeManaged",
+                    "[__input, __sessionRef]",
+                    "__sigil_world_pty_write_managed(__sessionRef, __input)",
                     None
                 )?
             ))),
@@ -8570,6 +9123,18 @@ impl TypeScriptGenerator {
                     None
                 )?
             ))),
+            "listenWithWebSockets" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__port, __routes]) => {}).then((__server) => __sigil_owned_wrap(__server, async () => {{ await __sigil_http_close(__server); return null; }}))",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "httpServer",
+                    "listenWithWebSockets",
+                    "[__port, __routes]",
+                    "__sigil_http_listen_requests_with_websockets(__port, __routes)",
+                    None
+                )?
+            ))),
             "listenWith" if generated_args.len() == 2 => Ok(Some(format!(
                 "{}.then(([__handler, __port]) => {})",
                 self.js_all(&generated_args),
@@ -8635,6 +9200,58 @@ impl TypeScriptGenerator {
                     "wait",
                     "[__server]",
                     "__sigil_http_wait(__server)",
+                    None
+                )?
+            ))),
+            "websocketClose" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__client) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "httpServer",
+                    "websocketClose",
+                    "[__client]",
+                    "__sigil_http_websocket_close(__client)",
+                    None
+                )?
+            ))),
+            "websocketConnections" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __server]) => {}).then((__source) => __sigil_owned_wrap(__source, async () => {{ await __sigil_world_stream_close(__source); return null; }}))",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "httpServer",
+                    "websocketConnections",
+                    "[__handle, __server]",
+                    "__sigil_http_websocket_connections(__handle?.__fields?.[0] ?? '', __server)",
+                    None
+                )?
+            ))),
+            "websocketMessages" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__client) => {}).then((__source) => __sigil_owned_wrap(__source, async () => {{ await __sigil_world_stream_close(__source); return null; }}))",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "httpServer",
+                    "websocketMessages",
+                    "[__client]",
+                    "__sigil_http_websocket_messages(__client)",
+                    None
+                )?
+            ))),
+            "websocketRoute" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __path]) => ({{ handle: __handle, path: String(__path ?? '') }}))",
+                self.js_all(&generated_args)
+            ))),
+            "websocketSend" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__client, __text]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "httpServer",
+                    "websocketSend",
+                    "[__client, __text]",
+                    "__sigil_http_websocket_send(__client, __text)",
                     None
                 )?
             ))),
@@ -9814,6 +10431,27 @@ fn find_output_root(output_path: &Path) -> Option<PathBuf> {
     last_local_root
 }
 
+fn find_project_root_for_path(path: &str) -> Option<PathBuf> {
+    let path = Path::new(path);
+    let start = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent()?.to_path_buf()
+    };
+
+    for ancestor in start.ancestors() {
+        if ancestor.join("sigil.json").is_file() {
+            return Some(ancestor.to_path_buf());
+        }
+    }
+
+    if let Some(local_root) = find_output_root(path) {
+        return local_root.parent().map(Path::to_path_buf);
+    }
+
+    None
+}
+
 fn relative_import_path(from_dir: &Path, target_file: &Path) -> String {
     let from_components: Vec<_> = from_dir.components().collect();
     let target_components: Vec<_> = target_file.components().collect();
@@ -10294,6 +10932,61 @@ mod tests {
         let result = gen.generate(&program).unwrap();
 
         assert!(result.contains("import * as fs_promises from 'fs/promises';"));
+    }
+
+    #[test]
+    fn test_generate_project_bridge_typed_extern_uses_relative_import() {
+        let source =
+            "e bridge::ptyAdapter:{open:λ()=>String}\nλmain()=>String=bridge::ptyAdapter.open()";
+        let program = typed_program_for(source, "projects/syntarch/src/runtime.lib.sigil");
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: Some("src::runtime".to_string()),
+            source_file: Some(
+                "/tmp/workspace/projects/syntarch/src/runtime.lib.sigil".to_string(),
+            ),
+            output_file: Some(
+                "/tmp/workspace/projects/syntarch/.local/generated/runtime.ts".to_string(),
+            ),
+            import_extension: "js".to_string(),
+            fswatch_runtime_import_specifier: None,
+            pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
+            lazy_extern_namespaces: false,
+            trace: false,
+            breakpoints: false,
+            expression_debug: false,
+        });
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains("import { open } from '../../bridges/ptyAdapter.js';"));
+    }
+
+    #[test]
+    fn test_generate_project_bridge_lazy_extern_uses_relative_runtime_import() {
+        let source = "e bridge::ptyAdapter\nλmain()=>Unit=()";
+        let program = typed_program_for(source, "projects/syntarch/src/runtime.sigil");
+
+        let mut gen = TypeScriptGenerator::new(CodegenOptions {
+            module_id: Some("src::runtime".to_string()),
+            source_file: Some("/tmp/workspace/projects/syntarch/src/runtime.sigil".to_string()),
+            output_file: Some(
+                "/tmp/workspace/projects/syntarch/.local/generated/runtime.mjs".to_string(),
+            ),
+            import_extension: "mjs".to_string(),
+            fswatch_runtime_import_specifier: None,
+            pty_runtime_import_specifier: None,
+            websocket_runtime_import_specifier: None,
+            lazy_extern_namespaces: true,
+            trace: false,
+            breakpoints: false,
+            expression_debug: false,
+        });
+        let result = gen.generate(&program).unwrap();
+
+        assert!(result.contains(
+            "const bridge_ptyAdapter = __sigil_runtime_extern_namespace(\"bridge::ptyAdapter\", \"../../bridges/ptyAdapter.mjs\");"
+        ));
     }
 
     #[test]

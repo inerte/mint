@@ -26,6 +26,13 @@ t RouteMatch={params:{String↦String}}
 
 t Server={port:Int}
 
+t WebSocketClient={id:String}
+
+t WebSocketRoute={
+  handle:§topology.WebSocketHandle,
+  path:String
+}
+
 e console:{log:λ(String)=>Unit}
 
 λjson(body:String,status:Int)=>Response={
@@ -42,6 +49,8 @@ e console:{log:λ(String)=>Unit}
 λlisten(port:Int)=>!Http Owned[Server]=({port:port}:Owned[Server])
 
 λlistenWith(handler:λ(Request)=>Response,port:Int)=>!Http Server={port:port}
+
+λlistenWithWebSockets(port:Int,routes:[WebSocketRoute])=>!Http Owned[Server]=({port:port}:Owned[Server])
 
 λlogRequest(req:Request)=>!Log Unit=console.log((req.method
   ++" "
@@ -92,3 +101,16 @@ e console:{log:λ(String)=>Unit}
 }
 
 λwait(server:Server)=>!Http Unit=()
+
+λwebsocketClose(client:WebSocketClient)=>!Http Unit=()
+
+λwebsocketConnections(handle:§topology.WebSocketHandle,server:Server)=>!Http Owned[§stream.Source[WebSocketClient]]=((§stream.StreamSource(0):§stream.Source[WebSocketClient]):Owned[§stream.Source[WebSocketClient]])
+
+λwebsocketMessages(client:WebSocketClient)=>!Http Owned[§stream.Source[String]]=((§stream.StreamSource(0):§stream.Source[String]):Owned[§stream.Source[String]])
+
+λwebsocketRoute(handle:§topology.WebSocketHandle,path:String)=>WebSocketRoute={
+  handle:handle,
+  path:path
+}
+
+λwebsocketSend(client:WebSocketClient,text:String)=>!Http Unit=()

@@ -205,6 +205,24 @@ fn test_pty_example_fixture_suite_passes() {
 }
 
 #[test]
+fn test_managed_pty_example_fixture_suite_passes() {
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("test")
+        .arg(repo_root().join("language/examples/ptyManagedBasics.sigil"))
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc test");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["summary"]["passed"], 2);
+}
+
+#[test]
 fn test_fswatch_example_fixture_suite_passes() {
     let output = Command::new(sigil_bin())
         .current_dir(repo_root())
@@ -228,6 +246,24 @@ fn test_websocket_example_fixture_suite_passes() {
         .current_dir(repo_root())
         .arg("test")
         .arg(repo_root().join("language/examples/websocketBasics.sigil"))
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["command"], "sigilc test");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["summary"]["passed"], 1);
+}
+
+#[test]
+fn test_http_server_websocket_example_fixture_suite_passes() {
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("test")
+        .arg(repo_root().join("language/examples/httpServerWebsocketBasics.sigil"))
         .output()
         .unwrap();
 

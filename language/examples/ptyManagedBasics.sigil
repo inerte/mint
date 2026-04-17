@@ -1,0 +1,117 @@
+c assistantShell=(§topology.ptyHandle("assistantShell"):§topology.PtyHandle)
+
+c world=(†runtime.withPtyHandles(
+  [†pty.realHandle(assistantShell)],
+  †runtime.world(
+    †clock.systemClock(),
+    †fs.real(),
+    †fsWatch.real(),
+    [],
+    †log.capture(),
+    †process.real(),
+    †pty.real(),
+    †random.seeded(1337),
+    †stream.live(),
+    †task.real(),
+    [],
+    †timer.virtual(),
+    †websocket.real()
+  )
+):†runtime.World)
+
+λmain()=>Unit=()
+
+test "managed pty refs can live in ordinary state and expose event streams" =>!Pty!Stream world {
+  c pty=(†pty.fixture([†pty.rule(
+  [
+    §pty.Output("ready
+"),
+    §pty.Exit(0)
+  ],
+  {
+    argv:["codex"],
+    cols:120,
+    cwd:Some("/tmp/syntarch"),
+    env:({↦}:{String↦String}),
+    rows:40
+  },
+  ["help
+"]
+)]):†pty.PtyEntry)
+} {
+  l registry={session:(§pty.spawnManaged({
+    argv:["codex"],
+    cols:120,
+    cwd:Some("/tmp/syntarch"),
+    env:({↦}:{String↦String}),
+    rows:40
+  }):§pty.SessionRef)};
+  {
+    using events=§pty.eventsManaged(registry.session){
+      l _=(§pty.writeManaged(
+        "help
+",
+        registry.session
+      ):Unit);
+      l first=(§stream.next(events):§stream.Next[§pty.Event]);
+      l second=(§stream.next(events):§stream.Next[§pty.Event]);
+      l _=(§pty.closeManaged(registry.session):Unit);
+      (match first{
+        §stream.Item(§pty.Output(text))=>text="ready
+"|
+        _=>false
+      })
+        and (match second{
+          §stream.Item(§pty.Exit(code))=>code=0|
+          _=>false
+        })
+        and ※check::pty.spawnedOnce()
+        and ※check::pty.wrote("help
+")
+        and ※check::pty.closed()
+    }
+  }
+}
+
+test "managed pty handle refs support named handle operations" =>!Pty!Stream world {
+  c ptyHandle=(†pty.fixtureHandle(
+  assistantShell,
+  [†pty.rule(
+    [§pty.Exit(0)],
+    {
+      argv:["claude"],
+      cols:100,
+      cwd:Some("/tmp/syntarch"),
+      env:({↦}:{String↦String}),
+      rows:30
+    },
+    []
+  )]
+):†pty.PtyHandleEntry)
+} {
+  l registry={session:(§pty.spawnManagedAt(
+    assistantShell,
+    {
+      argv:["claude"],
+      cols:100,
+      cwd:Some("/tmp/syntarch"),
+      env:({↦}:{String↦String}),
+      rows:30
+    }
+  ):§pty.SessionRef)};
+  l _=(§pty.resizeManaged(
+    132,
+    48,
+    registry.session
+  ):Unit);
+  l code=(§pty.waitManaged(registry.session):Int);
+  l _=(§pty.closeManaged(registry.session):Unit);
+  code=0
+    and ※check::pty.spawnedOnceAt(assistantShell)
+    and ※check::pty.resizedToAt(
+      132,
+      assistantShell,
+      48
+    )
+    and ※check::pty.closedAt(assistantShell)
+}

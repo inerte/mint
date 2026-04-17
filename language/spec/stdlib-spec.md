@@ -329,15 +329,23 @@ FsWatch rules:
 ```sigil decl §pty
 t Event=Output(String)|Exit(Int)
 t Session={pid:Int}
+t SessionRef={id:String}
 t Spawn={argv:[String],cols:Int,cwd:Option[String],env:{String↦String},rows:Int}
 
 λclose(session:Session)=>!Pty Unit
+λcloseManaged(session:SessionRef)=>!Pty Unit
 λevents(session:Session)=>!Pty §stream.Source[Event]
+λeventsManaged(session:SessionRef)=>!Pty Owned[§stream.Source[Event]]
 λresize(cols:Int,rows:Int,session:Session)=>!Pty Unit
+λresizeManaged(cols:Int,rows:Int,session:SessionRef)=>!Pty Unit
 λspawn(request:Spawn)=>!Pty Owned[Session]
+λspawnManaged(request:Spawn)=>!Pty SessionRef
 λspawnAt(handle:§topology.PtyHandle,request:Spawn)=>!Pty Owned[Session]
+λspawnManagedAt(handle:§topology.PtyHandle,request:Spawn)=>!Pty SessionRef
 λwait(session:Session)=>!Pty Int
+λwaitManaged(session:SessionRef)=>!Pty Int
 λwrite(input:String,session:Session)=>!Pty Unit
+λwriteManaged(input:String,session:SessionRef)=>!Pty Unit
 ```
 
 PTY rules:
@@ -346,7 +354,11 @@ PTY rules:
 - `wait` resolves to the final exit code for that session
 - `close` is a normal session shutdown request
 - `spawn` and `spawnAt` return owned session handles
+- `spawnManaged` and `spawnManagedAt` return storable runtime-managed session refs
+- `eventsManaged` returns an owned subscription stream for one managed session ref
+- `closeManaged` is idempotent
 - `spawnAt` is the topology-aware named-boundary variant and requires `§topology.PtyHandle`
+- `spawnManagedAt` is the topology-aware managed-ref variant and requires `§topology.PtyHandle`
 
 ### Implemented `§stream` Types and Functions
 
@@ -834,12 +846,15 @@ t Responder={id:String}
 t Response={body:String,headers:Headers,status:Int}
 t RouteMatch={params:{String↦String}}
 t Server={port:Int}
+t WebSocketClient={id:String}
+t WebSocketRoute={handle:§topology.WebSocketHandle,path:String}
 
 λresponse(body:String,contentType:String,status:Int)=>Response
 λok(body:String)=>Response
 λjson(body:String,status:Int)=>Response
 λjsonBody(request:Request)=>Result[§json.JsonValue,HttpBodyError]
 λlisten(port:Int)=>!Http Owned[Server]
+λlistenWithWebSockets(port:Int,routes:[WebSocketRoute])=>!Http Owned[Server]
 λlistenWith(handler:λ(Request)=>Response,port:Int)=>!Http Server
 λmatch(method:String,pathPattern:String,request:Request)=>Option[RouteMatch]
 λnotFound()=>Response
@@ -851,16 +866,26 @@ t Server={port:Int}
 λlogRequest(request:Request)=>!Log Unit
 λserve(handler:λ(Request)=>Response,port:Int)=>!Http Unit
 λwait(server:Server)=>!Http Unit
+λwebsocketClose(client:WebSocketClient)=>!Http Unit
+λwebsocketConnections(handle:§topology.WebSocketHandle,server:Server)=>!Http Owned[§stream.Source[WebSocketClient]]
+λwebsocketMessages(client:WebSocketClient)=>!Http Owned[§stream.Source[String]]
+λwebsocketRoute(handle:§topology.WebSocketHandle,path:String)=>WebSocketRoute
+λwebsocketSend(client:WebSocketClient,text:String)=>!Http Unit
 ```
 
 Semantics:
 - `listen(port)` returns an owned server handle for request-stream orchestration
+- `listenWithWebSockets(port,routes)` returns one owned HTTP server handle that also owns exact-path websocket upgrades on the same bound port
 - `requests(server)` returns an owned stream of `PendingRequest` values
 - `reply` answers one pending request through its `Responder`
 - `listenWith(handler,port)` and `serve(handler,port)` remain available for simple pure-handler programs
 - passing `0` as the port asks the OS to choose any free ephemeral port
 - `port(server)` returns the actual bound port, including after a `0` bind
 - `serve` and `wait` are long-lived once listening succeeds
+- `websocketRoute` declares one exact websocket upgrade path for one `§topology.WebSocketHandle`
+- `websocketConnections` yields accepted websocket clients for one shared-listener route
+- `websocketMessages` yields text frames for one websocket client
+- `websocketSend` and `websocketClose` act on one websocket client connected through the shared listener
 
 ### §tcpClient
 

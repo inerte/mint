@@ -274,6 +274,9 @@ impl Printer {
                 }
                 self.push(&member.name);
                 self.push(":");
+                if matches!(member.kind, ExternMemberKind::Subscription) {
+                    self.push(" subscribes ");
+                }
                 self.push(&self.type_text(&member.member_type));
             }
             self.push("}");

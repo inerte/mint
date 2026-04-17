@@ -1,0 +1,75 @@
+c liveUpdates=(§topology.websocketHandle("liveUpdates"):§topology.WebSocketHandle)
+
+c world=(†runtime.withWebSocketHandles(
+  [†websocket.realHandle(liveUpdates)],
+  †runtime.world(
+    †clock.systemClock(),
+    †fs.real(),
+    †fsWatch.real(),
+    [],
+    †log.capture(),
+    †process.real(),
+    †pty.real(),
+    †random.seeded(1337),
+    †stream.live(),
+    †task.real(),
+    [],
+    †timer.virtual(),
+    †websocket.real()
+  )
+):†runtime.World)
+
+λmain()=>Unit=()
+
+test "http server websocket routes stream fixture clients on one server handle" =>!Http!Stream!WebSocket world {
+  c websocketHandle=(†websocket.fixtureHandle(
+  liveUpdates,
+  [†websocket.rule(["ping"])]
+):†websocket.WebSocketHandleEntry)
+} {
+  {
+    using server=§httpServer.listenWithWebSockets(
+      0,
+      [§httpServer.websocketRoute(
+        liveUpdates,
+        "/ws"
+      )]
+    ){
+      {
+        using clients=§httpServer.websocketConnections(
+          liveUpdates,
+          server
+        ){
+          match §stream.next(clients){
+            §stream.Item(client)=>{
+              using messages=§httpServer.websocketMessages(client){
+                l first=(§stream.next(messages):§stream.Next[String]);
+                l _=(§httpServer.websocketSend(
+                  client,
+                  "pong"
+                ):Unit);
+                l _=(§httpServer.websocketClose(client):Unit);
+                (§httpServer.port(server):Int)>0
+                  and (match first{
+                    §stream.Item(text)=>text="ping"|
+                    §stream.Done()=>false
+                  })
+                  and ※check::websocket.connectedOnceAt(liveUpdates)
+                  and ※check::websocket.receivedAt(
+                    liveUpdates,
+                    "ping"
+                  )
+                  and ※check::websocket.sentAt(
+                    liveUpdates,
+                    "pong"
+                  )
+                  and ※check::websocket.closedAt(liveUpdates)
+              }
+            }|
+            §stream.Done()=>false
+          }
+        }
+      }
+    }
+  }
+}

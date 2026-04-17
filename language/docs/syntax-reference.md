@@ -532,6 +532,8 @@ e console:{log:λ(String)=>!Log Unit}
 e axios:{get:λ(String)=>!Http String}
 
 e nodePty:{onData: subscribes λ(Session)=>String}
+
+e bridge::ptyAdapter:{onData: subscribes λ(SessionRef)=>String}
 ```
 
 Unused extern declarations are non-canonical.
@@ -542,6 +544,10 @@ Typed extern member types may be either:
 - `subscribes λ(...)=>...` for foreign subscription ingress
 
 `subscribes` is only valid inside typed extern member declarations.
+
+Project-local foreign bridges use the reserved `bridge::...` namespace and map
+to files under `bridges/` in the owning project root. Other extern module paths
+continue to compile as package-style imports.
 
 ## Local Bindings
 

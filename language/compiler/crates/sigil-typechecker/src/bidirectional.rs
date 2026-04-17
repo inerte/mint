@@ -5346,13 +5346,17 @@ fn validate_topology_application(
         } else {
             None
         };
-    let pty_handle_arg_index = if module_id == "stdlib::pty" && matches!(member, "spawnAt") {
-        Some(0)
-    } else {
-        None
-    };
+    let pty_handle_arg_index =
+        if module_id == "stdlib::pty" && matches!(member, "spawnAt" | "spawnManagedAt") {
+            Some(0)
+        } else {
+            None
+        };
     let websocket_handle_arg_index =
-        if module_id == "stdlib::websocket" && matches!(member, "connections" | "route") {
+        if (module_id == "stdlib::websocket" && matches!(member, "connections" | "route"))
+            || (module_id == "stdlib::httpServer"
+                && matches!(member, "websocketConnections" | "websocketRoute"))
+        {
             Some(0)
         } else {
             None
@@ -5459,13 +5463,17 @@ fn validate_topology_application(
     }
     if pty_handle_arg_index.is_some() && !is_pty_handle_type(&handle_type) {
         return Err(TypeError::new(
-            "stdlib::pty.spawnAt requires a named PtyHandle".to_string(),
+            "stdlib::pty.spawnAt/spawnManagedAt requires a named PtyHandle".to_string(),
             Some(app.location),
         ));
     }
     if websocket_handle_arg_index.is_some() && !is_websocket_handle_type(&handle_type) {
         return Err(TypeError::new(
-            "stdlib::websocket.connections/route requires a named WebSocketHandle".to_string(),
+            if module_id == "stdlib::httpServer" {
+                "stdlib::httpServer.websocketConnections/websocketRoute requires a named WebSocketHandle".to_string()
+            } else {
+                "stdlib::websocket.connections/route requires a named WebSocketHandle".to_string()
+            },
             Some(app.location),
         ));
     }

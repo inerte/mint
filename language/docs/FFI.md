@@ -54,6 +54,32 @@ e axios
 λmain()=>Unit=fetchUser(123)
 ```
 
+### Project-Local Bridges
+
+Project-local JS/TS bridge modules use the reserved `bridge::...` namespace.
+
+```sigil program
+e bridge::subscriptionProbe:{tick: subscribes λ()=>String}
+
+λmain()=>!Stream String={
+  using source=bridge::subscriptionProbe.tick(){
+    match §stream.next(source){
+      §stream.Item(text)=>text|
+      §stream.Done()=>\"done\"
+    }
+  }
+}
+```
+
+`bridge::foo` resolves to `bridges/foo.(js|mjs)` relative to the owning Sigil
+project root. Nested bridge paths map the same way:
+
+- `e bridge::ptyAdapter` => `bridges/ptyAdapter.(js|mjs)`
+- `e bridge::ws::client` => `bridges/ws/client.(js|mjs)`
+
+This is the canonical project-local boundary surface for app-owned foreign code.
+Do not use the project package name as an extern namespace.
+
 ## How It Works
 
 ### 1. Declaration
@@ -217,6 +243,7 @@ This gives Sigil one canonical model for host events:
 - foreign adapters stay in JS/TS
 - Sigil receives owned `§stream.Source[...]` handles
 - callers use those handles with `using`
+- in projects, local adapters should be declared under `bridge::...`
 
 Nullary foreign callbacks map to `Unit`.
 

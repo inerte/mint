@@ -111,6 +111,180 @@ fn write_topology_project(root: &Path) -> PathBuf {
     write_program(root, "src/main.sigil", "λmain()=>String=\"cache ok\"\n")
 }
 
+fn node_has_global_websocket() -> bool {
+    Command::new("node")
+        .arg("-e")
+        .arg("process.exit(typeof WebSocket === 'function' ? 0 : 1)")
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn write_bridge_subscription_project(root: &Path) -> PathBuf {
+    write_program(
+        root,
+        "sigil.json",
+        "{\n  \"name\": \"bridgeRuntime\",\n  \"version\": \"2026-04-17T00-00-00Z\"\n}\n",
+    );
+    write_program(
+        root,
+        "bridges/subscriptionProbe.mjs",
+        "export function tick(emit) {\n  emit('ready');\n  return () => {};\n}\n",
+    );
+    write_program(
+        root,
+        "src/main.sigil",
+        concat!(
+            "e bridge::subscriptionProbe:{tick: subscribes λ()=>String}\n\n",
+            "λmain()=>!Stream String={\n",
+            "  using source=bridge::subscriptionProbe.tick(){\n",
+            "    match §stream.next(source){\n",
+            "      §stream.Item(text)=>text|\n",
+            "      §stream.Done()=>\"done\"\n",
+            "    }\n",
+            "  }\n",
+            "}\n",
+        ),
+    )
+}
+
+fn write_http_websocket_bridge_project(root: &Path) -> PathBuf {
+    write_program(
+        root,
+        "sigil.json",
+        "{\n  \"name\": \"httpWsBridge\",\n  \"version\": \"2026-04-17T00-00-00Z\"\n}\n",
+    );
+    write_program(
+        root,
+        "src/topology.lib.sigil",
+        concat!(
+            "c liveUpdates=(§topology.websocketHandle(\"liveUpdates\"):§topology.WebSocketHandle)\n\n",
+            "c test=(§topology.environment(\"test\"):§topology.Environment)\n",
+        ),
+    );
+    write_program(
+        root,
+        "config/test.lib.sigil",
+        concat!(
+            "c world=(†runtime.withWebSocketHandles(\n",
+            "  [†websocket.realHandle(•topology.liveUpdates)],\n",
+            "  †runtime.world(\n",
+            "    †clock.systemClock(),\n",
+            "    †fs.real(),\n",
+            "    †fsWatch.real(),\n",
+            "    [],\n",
+            "    †log.capture(),\n",
+            "    †process.real(),\n",
+            "    †pty.real(),\n",
+            "    †random.seeded(7),\n",
+            "    †stream.live(),\n",
+            "    †task.real(),\n",
+            "    [],\n",
+            "    †timer.virtual(),\n",
+            "    †websocket.real()\n",
+            "  )\n",
+            "):†runtime.World)\n",
+        ),
+    );
+    write_program(root, "src/types.lib.sigil", "t WsClient={id:String}\n");
+    write_program(
+        root,
+        "bridges/wsClient.mjs",
+        concat!(
+            "export async function roundTrip(url) {\n",
+            "  const socket = new WebSocket(String(url));\n",
+            "  await new Promise((resolve, reject) => {\n",
+            "    const onOpen = () => { cleanup(); resolve(); };\n",
+            "    const onError = (event) => {\n",
+            "      cleanup();\n",
+            "      reject(new Error(String(event?.message ?? 'websocket open failed')));\n",
+            "    };\n",
+            "    const cleanup = () => {\n",
+            "      socket.removeEventListener('open', onOpen);\n",
+            "      socket.removeEventListener('error', onError);\n",
+            "    };\n",
+            "    socket.addEventListener('open', onOpen);\n",
+            "    socket.addEventListener('error', onError);\n",
+            "  });\n",
+            "  const reply = await new Promise((resolve, reject) => {\n",
+            "    const onMessage = (event) => { cleanup(); resolve(String(event?.data ?? '')); };\n",
+            "    const onError = (event) => { cleanup(); reject(new Error(String(event?.message ?? 'websocket message failed'))); };\n",
+            "    const onClose = () => { cleanup(); resolve('closed'); };\n",
+            "    const cleanup = () => {\n",
+            "      socket.removeEventListener('message', onMessage);\n",
+            "      socket.removeEventListener('error', onError);\n",
+            "      socket.removeEventListener('close', onClose);\n",
+            "    };\n",
+            "    socket.addEventListener('message', onMessage);\n",
+            "    socket.addEventListener('error', onError);\n",
+            "    socket.addEventListener('close', onClose);\n",
+            "    socket.send('ping');\n",
+            "  });\n",
+            "  try {\n",
+            "    socket.close();\n",
+            "  } catch {\n",
+            "    // best effort\n",
+            "  }\n",
+            "  return reply;\n",
+            "}\n",
+        ),
+    );
+    write_program(
+        root,
+        "src/main.sigil",
+        concat!(
+            "e bridge::wsClient:{roundTrip:λ(String)=>String}\n\n",
+            "λmain()=>!Http!Stream!Task String={\n",
+            "  using server=§httpServer.listenWithWebSockets(\n",
+            "    0,\n",
+            "    [§httpServer.websocketRoute(\n",
+            "      •topology.liveUpdates,\n",
+            "      \"/ws\"\n",
+            "    )]\n",
+            "  ){\n",
+            "    {\n",
+            "      using clientTask=(§task.spawn(λ()=>String=bridge::wsClient.roundTrip((\"ws://127.0.0.1:\"\n",
+            "        ++§string.intToString(§httpServer.port(server))\n",
+            "        ++\"/ws\":String))):Owned[§task.Task[String]]){\n",
+            "        {\n",
+            "          using clients=§httpServer.websocketConnections(\n",
+            "            •topology.liveUpdates,\n",
+            "            server\n",
+            "          ){\n",
+            "            match §stream.next(clients){\n",
+            "              §stream.Item(client)=>{\n",
+            "                using messages=§httpServer.websocketMessages(client){\n",
+            "                  l received=(§stream.next(messages):§stream.Next[String]);\n",
+            "                  l _=(§httpServer.websocketSend(\n",
+            "                    client,\n",
+            "                    \"pong\"\n",
+            "                  ):Unit);\n",
+            "                  l _=(§httpServer.websocketClose(client):Unit);\n",
+            "                  match received{\n",
+            "                    §stream.Item(text)=>match (§task.wait(clientTask):§task.TaskResult[String]){\n",
+            "                      §task.Succeeded(reply)=>match text=\"ping\" and reply=\"pong\"{\n",
+            "                        true=>\"ok\"|\n",
+            "                        false=>\"mismatch\"\n",
+            "                      }|\n",
+            "                      §task.Failed(message)=>message|\n",
+            "                      §task.Cancelled()=>\"cancelled\"\n",
+            "                    }|\n",
+            "                    §stream.Done()=>\"no-message\"\n",
+            "                  }\n",
+            "                }\n",
+            "              }|\n",
+            "              §stream.Done()=>\"no-client\"\n",
+            "            }\n",
+            "          }\n",
+            "        }\n",
+            "      }\n",
+            "    }\n",
+            "  }\n",
+            "}\n",
+        ),
+    )
+}
+
 fn parse_json(text: &[u8]) -> Value {
     serde_json::from_slice(text).unwrap()
 }
@@ -298,6 +472,57 @@ fn run_real_fswatch_smoke_succeeds_when_recursive_watch_is_available() {
 
     assert!(output.status.success());
     assert_eq!(String::from_utf8_lossy(&output.stdout), "true\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn run_project_bridge_subscription_succeeds() {
+    let dir = temp_dir("bridge-subscription");
+    let file = write_bridge_subscription_project(&dir);
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ready\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn run_http_server_websocket_shared_port_smoke_succeeds_when_runtime_bridge_is_available() {
+    if !repo_root().join("language/runtime/node/node_modules/ws").exists() {
+        return;
+    }
+    if !node_has_global_websocket() {
+        return;
+    }
+
+    let dir = temp_dir("http-websocket-shared-port");
+    let file = write_http_websocket_bridge_project(&dir);
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("run")
+        .arg("--env")
+        .arg("test")
+        .arg(&file)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
     assert!(output.stderr.is_empty());
 }
 

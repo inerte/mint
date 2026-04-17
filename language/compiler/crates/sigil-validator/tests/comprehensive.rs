@@ -216,6 +216,15 @@ fn test_printer_feature_flag_declaration() {
 }
 
 #[test]
+fn test_printer_preserves_subscription_extern_members() {
+    let source = "e nodePty:{onData: subscribes λ(Session)=>String}\n";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(tokens, "test.lib.sigil").unwrap();
+
+    assert_eq!(print_canonical_program(&program), source);
+}
+
+#[test]
 fn test_feature_flags_must_live_in_src_flags() {
     let source =
         "featureFlag NewCheckout:Bool\n  createdAt \"2026-04-12T00-00-00Z\"\n  default false\n";

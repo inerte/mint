@@ -270,15 +270,23 @@ with `using`.
 ```sigil decl §pty
 t Event=Output(String)|Exit(Int)
 t Session={pid:Int}
+t SessionRef={id:String}
 t Spawn={argv:[String],cols:Int,cwd:Option[String],env:{String↦String},rows:Int}
 
 λclose(session:Session)=>!Pty Unit
+λcloseManaged(session:SessionRef)=>!Pty Unit
 λevents(session:Session)=>!Pty §stream.Source[Event]
+λeventsManaged(session:SessionRef)=>!Pty Owned[§stream.Source[Event]]
 λresize(cols:Int,rows:Int,session:Session)=>!Pty Unit
+λresizeManaged(cols:Int,rows:Int,session:SessionRef)=>!Pty Unit
 λspawn(request:Spawn)=>!Pty Owned[Session]
+λspawnManaged(request:Spawn)=>!Pty SessionRef
 λspawnAt(handle:§topology.PtyHandle,request:Spawn)=>!Pty Owned[Session]
+λspawnManagedAt(handle:§topology.PtyHandle,request:Spawn)=>!Pty SessionRef
 λwait(session:Session)=>!Pty Int
+λwaitManaged(session:SessionRef)=>!Pty Int
 λwrite(input:String,session:Session)=>!Pty Unit
+λwriteManaged(input:String,session:SessionRef)=>!Pty Unit
 ```
 
 PTY rules:
@@ -287,7 +295,11 @@ PTY rules:
 - `Exit(code)` is emitted once when the session terminates
 - `wait` resolves to the same exit code reported by the session
 - `spawn` and `spawnAt` return owned session handles and are intended to be used with `using`
+- `spawnManaged` and `spawnManagedAt` return storable runtime-managed session refs for long-lived server state
+- `eventsManaged` returns an owned subscription stream for one managed session ref
+- `closeManaged` is idempotent
 - `spawnAt` is the named-boundary variant for topology-aware projects and takes a `§topology.PtyHandle`
+- `spawnManagedAt` is the named-boundary managed-ref variant for topology-aware projects and takes a `§topology.PtyHandle`
 
 `§stream` exposes canonical pull-based runtime event sources:
 
@@ -600,10 +612,13 @@ t Responder={id:String}
 t Response={body:String,headers:Headers,status:Int}
 t RouteMatch={params:{String↦String}}
 t Server={port:Int}
+t WebSocketClient={id:String}
+t WebSocketRoute={handle:§topology.WebSocketHandle,path:String}
 
 λjson(body:String,status:Int)=>Response
 λjsonBody(request:Request)=>Result[§json.JsonValue,HttpBodyError]
 λlisten(port:Int)=>!Http Owned[Server]
+λlistenWithWebSockets(port:Int,routes:[WebSocketRoute])=>!Http Owned[Server]
 λlistenWith(handler:λ(Request)=>Response,port:Int)=>!Http Server
 λlogRequest(request:Request)=>!Log Unit
 λmatch(method:String,pathPattern:String,request:Request)=>Option[RouteMatch]
@@ -617,10 +632,16 @@ t Server={port:Int}
 λserve(handler:λ(Request)=>Response,port:Int)=>!Http Unit
 λserverError(message:String)=>Response
 λwait(server:Server)=>!Http Unit
+λwebsocketClose(client:WebSocketClient)=>!Http Unit
+λwebsocketConnections(handle:§topology.WebSocketHandle,server:Server)=>!Http Owned[§stream.Source[WebSocketClient]]
+λwebsocketMessages(client:WebSocketClient)=>!Http Owned[§stream.Source[String]]
+λwebsocketRoute(handle:§topology.WebSocketHandle,path:String)=>WebSocketRoute
+λwebsocketSend(client:WebSocketClient,text:String)=>!Http Unit
 ```
 
 The public server surface is:
 - `listen`
+- `listenWithWebSockets`
 - `requests`
 - `reply`
 - `jsonBody`
@@ -629,10 +650,21 @@ The public server surface is:
 - `port`
 - `serve`
 - `wait`
+- `websocketRoute`
+- `websocketConnections`
+- `websocketMessages`
+- `websocketSend`
+- `websocketClose`
 
 `listen` returns an owned server handle. `requests(server)` opens an owned
 request stream of `PendingRequest` values, and `reply` answers one pending
 request through its `Responder`.
+
+`listenWithWebSockets(port,routes)` returns one owned HTTP server handle that
+also owns exact-path websocket upgrades on the same bound port. Use
+`websocketRoute` to declare websocket upgrade paths and
+`websocketConnections(handle,server)` / `websocketMessages(client)` to consume
+the resulting connection and message streams.
 
 `listenWith(handler,port)` and `serve(handler,port)` remain available for simple
 pure-handler programs. The request-stream surface is the canonical app/server

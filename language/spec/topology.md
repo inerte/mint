@@ -121,8 +121,9 @@ Label-aware boundary rules operate on exact named boundaries:
 - `§fsWatch.watchAt` requires `FsRoot`
 - `§log.write` requires `LogSink`
 - `§process.runAt` / `§process.startAt` require `ProcessHandle`
-- `§pty.spawnAt` requires `PtyHandle`
+- `§pty.spawnAt` / `§pty.spawnManagedAt` require `PtyHandle`
 - `§websocket.route` / `§websocket.connections` require `WebSocketHandle`
+- `§httpServer.websocketRoute` / `§httpServer.websocketConnections` require `WebSocketHandle`
 
 ## Validate-Time Rules
 

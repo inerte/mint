@@ -77,6 +77,34 @@ fn write_feature_flag_project(root: &Path) -> PathBuf {
     root.join("src/main.sigil")
 }
 
+fn write_bridge_subscription_project(root: &Path) -> PathBuf {
+    write_program(
+        root,
+        "sigil.json",
+        "{\n  \"name\": \"bridgeSubscription\",\n  \"version\": \"2026-04-17T00-00-00Z\"\n}\n",
+    );
+    write_program(
+        root,
+        "bridges/subscriptionProbe.js",
+        "export function tick(emit) {\n  emit('ready');\n  return () => {};\n}\n",
+    );
+    write_program(
+        root,
+        "src/main.sigil",
+        concat!(
+            "e bridge::subscriptionProbe:{tick: subscribes λ()=>String}\n\n",
+            "λmain()=>!Stream String={\n",
+            "  using source=bridge::subscriptionProbe.tick(){\n",
+            "    match §stream.next(source){\n",
+            "      §stream.Item(text)=>text|\n",
+            "      §stream.Done()=>\"done\"\n",
+            "    }\n",
+            "  }\n",
+            "}\n",
+        ),
+    )
+}
+
 #[test]
 fn compile_emits_root_span_map_for_single_file() {
     let dir = temp_dir("single");
@@ -396,4 +424,30 @@ fn compile_project_cache_misses_after_source_changes() {
         String::from_utf8_lossy(&second.stdout)
     );
     assert!(modified_time(&root_ts) > first_mtime);
+}
+
+#[test]
+fn compile_project_bridge_subscription_preserves_subscribes_and_relative_bridge_imports() {
+    let dir = temp_dir("bridge-subscription");
+    let main = write_bridge_subscription_project(&dir);
+
+    let output = Command::new(sigil_bin())
+        .current_dir(repo_root())
+        .arg("compile")
+        .arg(&main)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let json = parse_json(&output.stdout);
+    let root_ts = PathBuf::from(json["data"]["outputs"]["rootTs"].as_str().unwrap());
+    let generated = fs::read_to_string(root_ts).unwrap();
+
+    assert!(generated.contains("__sigil_extern_subscribe("));
+    assert!(generated.contains("bridges/subscriptionProbe.js"));
+    assert!(generated.contains("import { tick } from"));
 }

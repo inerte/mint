@@ -98,6 +98,9 @@ That creates the common project baseline:
 - `tests/`
 - `.local/`
 
+`sigil init` also creates or updates the project-root `.gitignore` so `.local/`
+stays ignored by default.
+
 `sigil init` does not choose app or package mode. Add `src/main.sigil` later when
 the project should expose a default runnable entrypoint. Add `src/package.lib.sigil`
 plus `publish` in `sigil.json` later when the project should be publishable.

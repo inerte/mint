@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use time::OffsetDateTime;
 
 const COMMAND_NAME: &str = "sigil init";
+const LOCAL_GITIGNORE_ENTRY: &[u8] = b".local/\n";
 
 #[derive(Debug)]
 enum InitError {
@@ -111,6 +112,7 @@ fn init_project(path: Option<&Path>) -> Result<InitSuccess, InitError> {
         dependencies: Default::default(),
         publish: None,
     };
+    ensure_gitignore_ignores_local(&target_root, &mut created)?;
     write_project_manifest(&target_root, &manifest)?;
     created.push("sigil.json".to_string());
 
@@ -225,7 +227,69 @@ fn ensure_target_is_safe(target_root: &Path) -> Result<(), InitError> {
         }
     }
 
+    let gitignore_path = target_root.join(".gitignore");
+    if gitignore_path.exists() {
+        let metadata = fs::metadata(&gitignore_path).map_err(|source| InitError::Io {
+            path: gitignore_path.clone(),
+            source,
+        })?;
+        if !metadata.is_file() {
+            return Err(InitError::Conflict {
+                target_root: target_root.to_path_buf(),
+                reason: "target already contains non-file scaffold path `.gitignore`".to_string(),
+                existing_entries: vec![".gitignore".to_string()],
+            });
+        }
+    }
+
     Ok(())
+}
+
+fn ensure_gitignore_ignores_local(
+    target_root: &Path,
+    created: &mut Vec<String>,
+) -> Result<(), InitError> {
+    let gitignore_path = target_root.join(".gitignore");
+    if !gitignore_path.exists() {
+        fs::write(&gitignore_path, LOCAL_GITIGNORE_ENTRY).map_err(|source| InitError::Io {
+            path: gitignore_path.clone(),
+            source,
+        })?;
+        created.push(".gitignore".to_string());
+        return Ok(());
+    }
+
+    let mut contents = fs::read(&gitignore_path).map_err(|source| InitError::Io {
+        path: gitignore_path.clone(),
+        source,
+    })?;
+    if gitignore_ignores_local(&contents) {
+        return Ok(());
+    }
+
+    if !contents.is_empty() && !contents.ends_with(b"\n") {
+        contents.push(b'\n');
+    }
+    contents.extend_from_slice(LOCAL_GITIGNORE_ENTRY);
+    fs::write(&gitignore_path, contents).map_err(|source| InitError::Io {
+        path: gitignore_path,
+        source,
+    })?;
+    Ok(())
+}
+
+fn gitignore_ignores_local(contents: &[u8]) -> bool {
+    String::from_utf8_lossy(contents).lines().any(|line| {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
+            return false;
+        }
+
+        matches!(
+            trimmed,
+            ".local" | ".local/" | "/.local" | "/.local/" | "**/.local" | "**/.local/"
+        )
+    })
 }
 
 fn current_utc_timestamp() -> String {

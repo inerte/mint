@@ -46,6 +46,10 @@ fn parse_json(text: &[u8]) -> Value {
     serde_json::from_slice(text).unwrap()
 }
 
+fn gitignore_text(target: &std::path::Path) -> String {
+    fs::read_to_string(target.join(".gitignore")).unwrap()
+}
+
 fn is_canonical_timestamp(value: &str) -> bool {
     if value.len() != 20 {
         return false;
@@ -90,6 +94,10 @@ fn init_without_path_creates_neutral_project_in_current_directory() {
     assert_eq!(json["data"]["manifest"]["name"], "neutralProject");
     let version = json["data"]["manifest"]["version"].as_str().unwrap();
     assert!(is_canonical_timestamp(version));
+    assert_eq!(
+        json["data"]["created"],
+        serde_json::json!(["src", "tests", ".local", ".gitignore", "sigil.json"])
+    );
 
     let manifest_text = fs::read_to_string(target.join("sigil.json")).unwrap();
     let manifest: Value = serde_json::from_str(&manifest_text).unwrap();
@@ -100,6 +108,7 @@ fn init_without_path_creates_neutral_project_in_current_directory() {
     assert!(target.join("src").is_dir());
     assert!(target.join("tests").is_dir());
     assert!(target.join(".local").is_dir());
+    assert_eq!(gitignore_text(&target), ".local/\n");
 }
 
 #[test]
@@ -119,6 +128,10 @@ fn init_with_path_creates_target_directory_and_derives_name() {
     let json = parse_json(&output.stdout);
     assert_eq!(json["data"]["manifest"]["name"], "helloWorld");
     assert_eq!(
+        json["data"]["created"],
+        serde_json::json!(["src", "tests", ".local", ".gitignore", "sigil.json"])
+    );
+    assert_eq!(
         json["data"]["root"],
         fs::canonicalize(&target)
             .unwrap()
@@ -128,6 +141,7 @@ fn init_with_path_creates_target_directory_and_derives_name() {
     assert!(target.join("src").is_dir());
     assert!(target.join("tests").is_dir());
     assert!(target.join(".local").is_dir());
+    assert_eq!(gitignore_text(&target), ".local/\n");
 }
 
 #[test]
@@ -172,7 +186,7 @@ fn init_allows_non_empty_target_directory_with_unrelated_files() {
     assert_eq!(json["ok"], true);
     assert_eq!(
         json["data"]["created"],
-        serde_json::json!(["src", "tests", ".local", "sigil.json"])
+        serde_json::json!(["src", "tests", ".local", ".gitignore", "sigil.json"])
     );
     assert!(target.join("README.md").is_file());
     assert!(target.join(".git").is_dir());
@@ -180,6 +194,7 @@ fn init_allows_non_empty_target_directory_with_unrelated_files() {
     assert!(target.join("src").is_dir());
     assert!(target.join("tests").is_dir());
     assert!(target.join(".local").is_dir());
+    assert_eq!(gitignore_text(&target), ".local/\n");
 }
 
 #[test]
@@ -244,6 +259,7 @@ fn init_reuses_existing_scaffold_directories() {
     fs::create_dir_all(target.join("tests")).unwrap();
     fs::create_dir_all(target.join(".local")).unwrap();
     fs::write(target.join("README.md"), "existing\n").unwrap();
+    fs::write(target.join(".gitignore"), "/.local/\n").unwrap();
 
     let output = Command::new(sigil_bin())
         .current_dir(&workspace)
@@ -258,4 +274,57 @@ fn init_reuses_existing_scaffold_directories() {
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["created"], serde_json::json!(["sigil.json"]));
     assert!(target.join("sigil.json").is_file());
+    assert_eq!(gitignore_text(&target), "/.local/\n");
+}
+
+#[test]
+fn init_appends_local_to_existing_gitignore_when_only_comment_or_negation_exists() {
+    let workspace = temp_dir("append-gitignore");
+    let target = workspace.join("existing-project");
+    fs::create_dir_all(&target).unwrap();
+    fs::write(target.join(".gitignore"), "# .local/\n!.local/\ndist/\n").unwrap();
+
+    let output = Command::new(sigil_bin())
+        .current_dir(&workspace)
+        .arg("init")
+        .arg("existing-project")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{:?}", output);
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["ok"], true);
+    assert_eq!(
+        json["data"]["created"],
+        serde_json::json!(["src", "tests", ".local", "sigil.json"])
+    );
+    assert_eq!(
+        gitignore_text(&target),
+        "# .local/\n!.local/\ndist/\n.local/\n"
+    );
+}
+
+#[test]
+fn init_rejects_target_with_directory_gitignore_conflict() {
+    let workspace = temp_dir("gitignore-dir-conflict");
+    let target = workspace.join("existing-project");
+    fs::create_dir_all(target.join(".gitignore")).unwrap();
+
+    let output = Command::new(sigil_bin())
+        .current_dir(&workspace)
+        .arg("init")
+        .arg("existing-project")
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+
+    let json = parse_json(&output.stdout);
+    assert_eq!(json["error"]["code"], "SIGIL-CLI-PROJECT-INIT-CONFLICT");
+    assert!(json["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("non-file scaffold path `.gitignore`"));
+    assert_eq!(json["error"]["details"]["existingEntries"][0], ".gitignore");
 }

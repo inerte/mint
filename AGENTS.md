@@ -148,6 +148,13 @@ bd automatically syncs via Dolt:
 - Use `bd dolt push`/`bd dolt pull` for remote sync
 - No manual export/import needed!
 
+### Git Worktrees
+
+- Treat Beads state as shared per repository, not per linked git worktree, unless a worktree was explicitly initialized with its own separate Beads state.
+- When working in a linked worktree, run `bd` commands from the primary checkout that owns the shared `.beads/` state. If unsure, resolve it with `git rev-parse --git-common-dir` or inspect `git worktree list`.
+- Keep code edits, builds, tests, and git commits in the active worktree. Keep issue tracking, Beads sync, and Beads cleanup in the primary checkout.
+- Do not treat worktree-local `.beads/` diffs or exported `issues.jsonl` snapshots as intentional source edits unless the task is specifically about Beads storage or export behavior.
+
 ### Important Rules
 
 - ✅ Use bd for ALL task tracking

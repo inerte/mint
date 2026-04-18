@@ -14,6 +14,22 @@
   severity:"error"
 }
 
+λauditProgram()=>§cli.Program[µAuditInvocation]=§cli.program(
+  "Audit first-party repository invariants.",
+  "repoAudit",
+  Some(§cli.root1(
+    §cli.manyOption(
+      "Run only the named check. Repeat to select multiple checks.",
+      "check",
+      Some("c"),
+      "ID"
+    ),
+    λ(requestedChecks:[String])=>µAuditInvocation={requestedChecks:requestedChecks},
+    "Run one or more repo audit checks."
+  )),
+  []
+)
+
 λbuildCheckResult(check:String,outcome:µAuditCheckOutcome)=>µAuditCheckResult={
   check:check,
   issueCount:#outcome.issues,
@@ -146,45 +162,6 @@
 
 λmapRepoCompileIssues(issues:[µRepoCompileIssue])=>[µAuditIssue]=issues map mapRepoCompileIssue
 
-λparseSelection(args:[String])=>Result[
-  µAuditSelection,
-  String
-] match #args=0{
-  true=>Ok({checks:allCheckIds()})|
-  false=>match parseSelectionArgs(
-    [],
-    args
-  ){
-    Ok(requested)=>validateRequestedChecks(requested)|
-    Err(message)=>Err(message)
-  }
-}
-
-λparseSelectionArgs(acc:[String],args:[String])=>Result[
-  [String],
-  String
-] match args{
-  []=>Ok(acc)|
-  ["--check"]=>Err("expected check id after --check")|
-  [
-  "--check",
-  checkId,
-  .tail
-]=>parseSelectionArgs(
-    insertUnique(
-      checkId,
-      acc
-    ),
-    tail
-  )|
-  [
-  arg,
-  .tail
-]=>Err("unknown argument '"
-    ++arg
-    ++"'")
-}
-
 λrenderError(message:String)=>String=§json.stringify(§json.JsonObject({
   "command"↦§json.JsonString("repoAudit"),
   "error"↦encodeError(message),
@@ -238,10 +215,10 @@
     ++"'")
 }
 
-λrunFromArgs(args:[String])=>!AuditIo Result[
+λrunInvocation(invocation:µAuditInvocation)=>!AuditIo Result[
   µAuditData,
   String
-] match parseSelection(args){
+] match selectionFromRequestedChecks(invocation.requestedChecks){
   Ok(selection)=>runSelection(selection)|
   Err(message)=>Err(message)
 }
@@ -326,6 +303,14 @@
       requested
     )
   }
+}
+
+λselectionFromRequestedChecks(requested:[String])=>Result[
+  µAuditSelection,
+  String
+] match #requested=0{
+  true=>Ok({checks:allCheckIds()})|
+  false=>validateRequestedChecks(requested)
 }
 
 λunknownCheck(requested:[String])=>Option[String] match requested{

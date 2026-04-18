@@ -1,0 +1,37 @@
+λcliProgram()=>§cli.Program[String]=§cli.program(
+  "Parse a small canonical CLI surface.",
+  "cliBasics",
+  Some(§cli.root3(
+    §cli.flag(
+      "Enable verbose mode.",
+      "verbose",
+      Some("v")
+    ),
+    §cli.manyOption(
+      "Attach a tag. Repeat to add multiple tags.",
+      "tag",
+      Some("t"),
+      "TAG"
+    ),
+    §cli.manyPositionals(
+      "Input paths.",
+      "PATH"
+    ),
+    λ(verbose:Bool,tags:[String],paths:[String])=>String="verbose="
+      ++(match verbose{
+        true=>"true"|
+        false=>"false"
+      })
+      ++";tags="
+      ++§string.intToString(#tags)
+      ++";paths="
+      ++§string.intToString(#paths),
+    "Accept a flag, a repeated option, and trailing paths."
+  )),
+  []
+)
+
+λmain()=>!Log!Process String=§cli.run(
+  §process.argv(),
+  cliProgram()
+)

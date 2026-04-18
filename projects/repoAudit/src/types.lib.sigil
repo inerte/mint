@@ -16,6 +16,8 @@ t AuditData={
   summary:AuditSummary
 }
 
+t AuditInvocation={requestedChecks:[String]}
+
 t AuditIssue={
   check:String,
   code:String,

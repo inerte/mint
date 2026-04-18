@@ -128,6 +128,9 @@ Use repeated `--check <id>` flags to run a subset such as `docs-drift`,
 `canonical-stdlib`, or `repo-compile`.
 The full repo audit also includes `package-publishability` for publishable packages.
 
+First-party CLI apps should treat `§process.argv()` as the raw input surface and
+layer canonical typed parsing above it with `§cli.run(...)`.
+
 ## Module System (Typed Rooted References)
 
 Sigil-to-Sigil references are typechecked across modules. There is no separate

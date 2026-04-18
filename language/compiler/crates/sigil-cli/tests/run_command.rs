@@ -42,6 +42,54 @@ fn write_program(dir: &Path, name: &str, source: &str) -> PathBuf {
     file
 }
 
+fn compile_runner(file: &Path) -> PathBuf {
+    compile_runner_with_env(file, None)
+}
+
+fn compile_runner_with_env(file: &Path, selected_env: Option<&str>) -> PathBuf {
+    let mut compile = Command::new(sigil_bin());
+    compile.current_dir(repo_root()).arg("compile");
+    if let Some(env_name) = selected_env {
+        compile.arg("--env").arg(env_name);
+    }
+    let output = compile.arg(file).output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let compile_json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let root_ts = PathBuf::from(
+        compile_json["data"]["outputs"]["rootTs"]
+            .as_str()
+            .expect("compile output should include rootTs"),
+    );
+    let runner = root_ts.with_extension("run.mjs");
+    let mut warm = Command::new(sigil_bin());
+    warm.current_dir(repo_root()).arg("run");
+    if let Some(env_name) = selected_env {
+        warm.arg("--env").arg(env_name);
+    }
+    let warm_output = warm.arg(file).arg("--").arg("--help").output().unwrap();
+    assert!(
+        warm_output.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&warm_output.stdout),
+        String::from_utf8_lossy(&warm_output.stderr)
+    );
+    assert!(runner.exists(), "expected runner at {}", runner.display());
+    runner
+}
+
+fn run_compiled_runner(runner: &Path, args: &[&str]) -> std::process::Output {
+    Command::new("node")
+        .current_dir(repo_root())
+        .arg(runner)
+        .args(args)
+        .output()
+        .unwrap()
+}
+
 fn modified_time(path: &Path) -> SystemTime {
     fs::metadata(path).unwrap().modified().unwrap()
 }
@@ -370,6 +418,206 @@ fn run_succeeds_when_pnpm_is_shadowed() {
 
     assert!(output.status.success());
     assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn run_cli_parses_many_options_and_double_dash() {
+    let dir = temp_dir("cli-many-options");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        concat!(
+            "λcliProgram()=>§cli.Program[String]=§cli.program(\n",
+            "  \"Exercise canonical CLI parsing.\",\n",
+            "  \"cliTest\",\n",
+            "  Some(§cli.root3(\n",
+            "    §cli.flag(\n",
+            "      \"Enable verbose mode.\",\n",
+            "      \"verbose\",\n",
+            "      Some(\"v\")\n",
+            "    ),\n",
+            "    §cli.manyOption(\n",
+            "      \"Select a check id.\",\n",
+            "      \"check\",\n",
+            "      Some(\"c\"),\n",
+            "      \"ID\"\n",
+            "    ),\n",
+            "    §cli.manyPositionals(\n",
+            "      \"Input paths.\",\n",
+            "      \"PATH\"\n",
+            "    ),\n",
+            "    λ(verbose:Bool,checks:[String],paths:[String])=>String=(match verbose{\n",
+            "      true=>\"true\"|\n",
+            "      false=>\"false\"\n",
+            "    })\n",
+            "      ++\"|\"\n",
+            "      ++§string.join(\n",
+            "        \",\",\n",
+            "        checks\n",
+            "      )\n",
+            "      ++\"|\"\n",
+            "      ++§string.join(\n",
+            "        \",\",\n",
+            "        paths\n",
+            "      ),\n",
+            "    \"Accept a flag, repeated options, and trailing paths.\"\n",
+            "  )),\n",
+            "  []\n",
+            ")\n",
+            "\n",
+            "λmain()=>!Log!Process String=§cli.run(\n",
+            "  §process.argv(),\n",
+            "  cliProgram()\n",
+            ")\n",
+        ),
+    );
+
+    let runner = compile_runner(&file);
+    let output = run_compiled_runner(
+        &runner,
+        &[
+            "--verbose",
+            "--check",
+            "repo-compile",
+            "--check=docs-drift",
+            "--",
+            "alpha",
+            "--check",
+        ],
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "true|repo-compile,docs-drift|alpha,--check\n"
+    );
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn run_cli_help_exits_zero_and_prints_usage() {
+    let dir = temp_dir("cli-help");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        concat!(
+            "λmain()=>!Log!Process String=§cli.run(\n",
+            "  §process.argv(),\n",
+            "  §cli.program(\n",
+            "    \"Exercise canonical help output.\",\n",
+            "    \"cliHelp\",\n",
+            "    Some(§cli.root2(\n",
+            "      §cli.option(\n",
+            "        \"Optional name.\",\n",
+            "        \"name\",\n",
+            "        Some(\"n\"),\n",
+            "        \"TEXT\"\n",
+            "      ),\n",
+            "      §cli.manyPositionals(\n",
+            "        \"Input paths.\",\n",
+            "        \"PATH\"\n",
+            "      ),\n",
+            "      λ(name:Option[String],paths:[String])=>String=§string.intToString(#paths),\n",
+            "      \"Accept one option and trailing paths.\"\n",
+            "    )),\n",
+            "    []\n",
+            "  )\n",
+            ")\n",
+        ),
+    );
+
+    let runner = compile_runner(&file);
+    let output = run_compiled_runner(&runner, &["--help"]);
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Exercise canonical help output."));
+    assert!(stdout.contains("Usage: cliHelp [--name TEXT] [PATH ...]"));
+    assert!(stdout.contains("--name, -n TEXT  Optional name."));
+    assert!(stdout.contains("[PATH ...]  Input paths."));
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn run_cli_parse_errors_exit_two_and_print_usage() {
+    let dir = temp_dir("cli-parse-error");
+    let file = write_program(
+        &dir,
+        "main.sigil",
+        concat!(
+            "λmain()=>!Log!Process String=§cli.run(\n",
+            "  §process.argv(),\n",
+            "  §cli.program(\n",
+            "    \"Exercise canonical parse failures.\",\n",
+            "    \"cliParse\",\n",
+            "    Some(§cli.root2(\n",
+            "      §cli.flag(\n",
+            "        \"Enable verbose mode.\",\n",
+            "        \"verbose\",\n",
+            "        Some(\"v\")\n",
+            "      ),\n",
+            "      §cli.option(\n",
+            "        \"Optional name.\",\n",
+            "        \"name\",\n",
+            "        Some(\"n\"),\n",
+            "        \"TEXT\"\n",
+            "      ),\n",
+            "      λ(verbose:Bool,name:Option[String])=>String=\"ok\",\n",
+            "      \"Accept one flag and one optional option.\"\n",
+            "    )),\n",
+            "    []\n",
+            "  )\n",
+            ")\n",
+        ),
+    );
+
+    let runner = compile_runner(&file);
+    let output = run_compiled_runner(&runner, &["-v", "-v"]);
+
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("error: option '-v' may only appear once"));
+    assert!(stderr.contains("Usage: cliParse [--verbose] [--name TEXT]"));
+    assert!(output.stdout.is_empty());
+}
+
+#[test]
+fn run_repo_audit_help_and_parse_failures_use_canonical_cli_output() {
+    let repo_audit = repo_root().join("projects/repoAudit/src/main.sigil");
+    let help_runner = compile_runner(&repo_audit);
+    let help = run_compiled_runner(&help_runner, &["--help"]);
+
+    assert!(help.status.success(), "{help:?}");
+    let help_stdout = String::from_utf8_lossy(&help.stdout);
+    assert!(help_stdout.contains("Audit first-party repository invariants."));
+    assert!(help_stdout.contains("Usage: repoAudit [--check ID ...]"));
+    assert!(help_stdout
+        .contains("--check, -c ID  Run only the named check. Repeat to select multiple checks."));
+    assert!(help.stderr.is_empty());
+
+    let parse_error = run_compiled_runner(&help_runner, &["--check"]);
+
+    assert_eq!(parse_error.status.code(), Some(2), "{parse_error:?}");
+    let parse_stderr = String::from_utf8_lossy(&parse_error.stderr);
+    assert!(parse_stderr.contains("error: expected value after '--check'"));
+    assert!(parse_stderr.contains("Usage: repoAudit [--check ID ...]"));
+    assert!(!parse_stderr.trim_start().starts_with('{'));
+    assert!(parse_error.stdout.is_empty());
+}
+
+#[test]
+fn run_topology_tcp_help_uses_canonical_cli_output() {
+    let topology_tcp = repo_root().join("projects/topology-tcp/src/tcpRoundtripServer.sigil");
+    let runner = compile_runner_with_env(&topology_tcp, Some("test"));
+    let output = run_compiled_runner(&runner, &["--help"]);
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Run the TCP roundtrip server."));
+    assert!(stdout.contains("Usage: tcpRoundtripServer [port] [ready-file]"));
+    assert!(stdout.contains("[port]  TCP port to listen on."));
+    assert!(stdout.contains("[ready-file]  Path to write the ready port file."));
     assert!(output.stderr.is_empty());
 }
 

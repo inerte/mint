@@ -1,4 +1,7 @@
-λmain()=>!CliIo Unit match •repoAudit.runFromArgs(§process.argv()){
+λmain()=>!CliIo Unit match •repoAudit.runInvocation(§cli.run(
+  §process.argv(),
+  •repoAudit.auditProgram()
+)){
   Ok(data)=>{
     l _=(§io.println(•repoAudit.renderSuccess(data)):Unit);
     §process.exit(match data.summary.issueCount=0{

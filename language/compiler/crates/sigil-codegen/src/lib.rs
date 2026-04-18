@@ -3754,13 +3754,19 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/httpServer.lib.sigil")
     }
 
+    fn requires_cli_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
+        runtime_modules.contains("stdlib::cli")
+            || self.source_file_is("language/stdlib/cli.lib.sigil")
+    }
+
     fn requires_tcp_server_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
         runtime_modules.contains("stdlib::tcpServer")
             || self.source_file_is("language/stdlib/tcpServer.lib.sigil")
     }
 
     fn requires_world_runtime_for_source(&self) -> bool {
-        self.source_file_is("language/stdlib/file.lib.sigil")
+        self.source_file_is("language/stdlib/cli.lib.sigil")
+            || self.source_file_is("language/stdlib/file.lib.sigil")
             || self.source_file_is("language/stdlib/fsWatch.lib.sigil")
             || self.source_file_is("language/stdlib/httpClient.lib.sigil")
             || self.source_file_is("language/stdlib/httpServer.lib.sigil")
@@ -4100,6 +4106,7 @@ impl TypeScriptGenerator {
         let include_pty_runtime = self.requires_pty_runtime(runtime_modules);
         let include_websocket_runtime = self.requires_websocket_runtime(runtime_modules);
         let include_http_server_runtime = self.requires_http_server_runtime(runtime_modules);
+        let include_cli_runtime = self.requires_cli_runtime(runtime_modules);
         let include_tcp_server_runtime = self.requires_tcp_server_runtime(runtime_modules);
         self.emit("function __sigil_ready(value) {");
         self.emit("  return Promise.resolve(value);");
@@ -4654,6 +4661,345 @@ impl TypeScriptGenerator {
             self.emit("async function __sigil_process_exit(code) {");
             self.emit("  process.exit(Number(code));");
             self.emit("  return null;");
+            self.emit("}");
+        }
+        if include_cli_runtime {
+            self.emit("function __sigil_cli_none() {");
+            self.emit("  return { __tag: 'None', __fields: [] };");
+            self.emit("}");
+            self.emit("function __sigil_cli_some(value) {");
+            self.emit("  return { __tag: 'Some', __fields: [value] };");
+            self.emit("}");
+            self.emit("function __sigil_cli_arg(kind, fields) {");
+            self.emit("  return { kind, ...fields };");
+            self.emit("}");
+            self.emit("function __sigil_cli_command(kind, name, description, args, build) {");
+            self.emit("  return { args, build, description: String(description), kind, name: name == null ? null : String(name) };");
+            self.emit("}");
+            self.emit("function __sigil_cli_program(name, description, root, subcommands) {");
+            self.emit("  return { description: String(description), name: String(name), root: root ?? null, subcommands: Array.isArray(subcommands) ? subcommands : [] };");
+            self.emit("}");
+            self.emit("function __sigil_cli_eprintln(message) {");
+            self.emit("  console.error(String(message ?? ''));");
+            self.emit("  return null;");
+            self.emit("}");
+            self.emit("function __sigil_cli_println(message) {");
+            self.emit("  console.log(String(message ?? ''));");
+            self.emit("  return null;");
+            self.emit("}");
+            self.emit("function __sigil_cli_usage_piece(arg) {");
+            self.emit("  switch (String(arg?.kind ?? '')) {");
+            self.emit("    case 'flag': return `[--${String(arg.long)}]`;");
+            self.emit(
+                "    case 'option': return `[--${String(arg.long)} ${String(arg.valueName)}]`;",
+            );
+            self.emit("    case 'requiredOption': return `--${String(arg.long)} ${String(arg.valueName)}`;");
+            self.emit("    case 'manyOption': return `[--${String(arg.long)} ${String(arg.valueName)} ...]`;");
+            self.emit("    case 'positional': return String(arg.name);");
+            self.emit("    case 'optionalPositional': return `[${String(arg.name)}]`;");
+            self.emit("    case 'manyPositionals': return `[${String(arg.name)} ...]`;");
+            self.emit("    default: return '';");
+            self.emit("  }");
+            self.emit("}");
+            self.emit("function __sigil_cli_usage(program, command) {");
+            self.emit("  const base = command?.kind === 'command' ? `${program.name} ${String(command?.name ?? '')}` : program.name;");
+            self.emit("  const pieces = (Array.isArray(command?.args) ? command.args : []).map(__sigil_cli_usage_piece).filter((piece) => piece.length > 0);");
+            self.emit("  return pieces.length === 0 ? base : `${base} ${pieces.join(' ')}`;");
+            self.emit("}");
+            self.emit("function __sigil_cli_argument_label(arg) {");
+            self.emit("  switch (String(arg?.kind ?? '')) {");
+            self.emit("    case 'flag': return arg.short?.__tag === 'Some' ? `--${String(arg.long)}, -${String(arg.short.__fields[0])}` : `--${String(arg.long)}`;");
+            self.emit("    case 'option':");
+            self.emit("    case 'requiredOption':");
+            self.emit("    case 'manyOption': {");
+            self.emit("      const valueName = String(arg.valueName ?? 'VALUE');");
+            self.emit("      return arg.short?.__tag === 'Some' ? `--${String(arg.long)}, -${String(arg.short.__fields[0])} ${valueName}` : `--${String(arg.long)} ${valueName}`;");
+            self.emit("    }");
+            self.emit("    case 'positional': return String(arg.name);");
+            self.emit("    case 'optionalPositional': return `[${String(arg.name)}]`;");
+            self.emit("    case 'manyPositionals': return `[${String(arg.name)} ...]`;");
+            self.emit("    default: return String(arg?.name ?? arg?.long ?? '');");
+            self.emit("  }");
+            self.emit("}");
+            self.emit("function __sigil_cli_help(program, command) {");
+            self.emit("  const lines = [];");
+            self.emit("  const summary = String((command?.kind === 'root' ? program?.description : command?.description) ?? program?.description ?? command?.description ?? '').trim();");
+            self.emit("  if (summary.length > 0) {");
+            self.emit("    lines.push(summary);");
+            self.emit("    lines.push('');");
+            self.emit("  }");
+            self.emit("  lines.push(`Usage: ${__sigil_cli_usage(program, command)}`);");
+            self.emit("  if (Array.isArray(program?.subcommands) && program.subcommands.length > 0 && command?.kind !== 'command') {");
+            self.emit("    lines.push(`       ${program.name} <subcommand> ...`);");
+            self.emit("  }");
+            self.emit("  const args = Array.isArray(command?.args) ? command.args : [];");
+            self.emit("  if (Array.isArray(program?.subcommands) && program.subcommands.length > 0 && command?.kind !== 'command') {");
+            self.emit("    lines.push('');");
+            self.emit("    lines.push('Commands:');");
+            self.emit("    for (const subcommand of program.subcommands) {");
+            self.emit("      lines.push(`  ${String(subcommand.name)}  ${String(subcommand.description ?? '')}`);");
+            self.emit("    }");
+            self.emit("  }");
+            self.emit("  if (args.length > 0) {");
+            self.emit("    lines.push('');");
+            self.emit("    lines.push('Arguments:');");
+            self.emit("    for (const arg of args) {");
+            self.emit("      lines.push(`  ${__sigil_cli_argument_label(arg)}  ${String(arg.description ?? '')}`);");
+            self.emit("    }");
+            self.emit("  }");
+            self.emit("  return lines.join('\\n');");
+            self.emit("}");
+            self.emit("function __sigil_cli_fail(message, command, program) {");
+            self.emit("  return { kind: 'error', message: String(message), text: __sigil_cli_help(program, command) };");
+            self.emit("}");
+            self.emit("function __sigil_cli_find_command(program, argv) {");
+            self.emit("  const commands = Array.isArray(program?.subcommands) ? program.subcommands : [];");
+            self.emit(
+                "  const first = Array.isArray(argv) && argv.length > 0 ? String(argv[0]) : null;",
+            );
+            self.emit("  const command = first == null ? null : commands.find((entry) => String(entry?.name ?? '') === first) ?? null;");
+            self.emit("  if (command) {");
+            self.emit("    return { command, argv: argv.slice(1) };");
+            self.emit("  }");
+            self.emit("  if (program?.root) {");
+            self.emit("    return { command: program.root, argv };");
+            self.emit("  }");
+            self.emit("  return { command: null, argv };");
+            self.emit("}");
+            self.emit("function __sigil_cli_parse(command, argv, program) {");
+            self.emit("  if (!command) {");
+            self.emit("    return __sigil_cli_fail(`unknown command '${String(argv?.[0] ?? '')}'`, program, program);");
+            self.emit("  }");
+            self.emit("  const args = Array.isArray(command.args) ? command.args : [];");
+            self.emit("  const positionals = [];");
+            self.emit("  const optionStates = new Map();");
+            self.emit("  const longOptions = new Map();");
+            self.emit("  const shortOptions = new Map();");
+            self.emit("  for (let index = 0; index < args.length; index += 1) {");
+            self.emit("    const arg = args[index];");
+            self.emit("    switch (String(arg?.kind ?? '')) {");
+            self.emit("      case 'flag':");
+            self.emit("        optionStates.set(index, false);");
+            self.emit("        longOptions.set(String(arg.long), { arg, index });");
+            self.emit("        if (arg.short?.__tag === 'Some') shortOptions.set(String(arg.short.__fields[0]), { arg, index });");
+            self.emit("        break;");
+            self.emit("      case 'option':");
+            self.emit("        optionStates.set(index, __sigil_cli_none());");
+            self.emit("        longOptions.set(String(arg.long), { arg, index });");
+            self.emit("        if (arg.short?.__tag === 'Some') shortOptions.set(String(arg.short.__fields[0]), { arg, index });");
+            self.emit("        break;");
+            self.emit("      case 'requiredOption':");
+            self.emit("        optionStates.set(index, null);");
+            self.emit("        longOptions.set(String(arg.long), { arg, index });");
+            self.emit("        if (arg.short?.__tag === 'Some') shortOptions.set(String(arg.short.__fields[0]), { arg, index });");
+            self.emit("        break;");
+            self.emit("      case 'manyOption':");
+            self.emit("        optionStates.set(index, []);");
+            self.emit("        longOptions.set(String(arg.long), { arg, index });");
+            self.emit("        if (arg.short?.__tag === 'Some') shortOptions.set(String(arg.short.__fields[0]), { arg, index });");
+            self.emit("        break;");
+            self.emit("      case 'positional':");
+            self.emit("      case 'optionalPositional':");
+            self.emit("      case 'manyPositionals':");
+            self.emit("        positionals.push({ arg, index });");
+            self.emit("        break;");
+            self.emit("      default:");
+            self.emit("        break;");
+            self.emit("    }");
+            self.emit("  }");
+            self.emit("  for (let index = 0; index < positionals.length; index += 1) {");
+            self.emit("    if (String(positionals[index].arg?.kind ?? '') === 'manyPositionals' && index !== positionals.length - 1) {");
+            self.emit("      throw new Error('§cli manyPositionals(...) must be the final positional argument');");
+            self.emit("    }");
+            self.emit("  }");
+            self.emit("  const positionalTokens = [];");
+            self.emit("  let optionParsing = true;");
+            self.emit("  for (let index = 0; index < argv.length; index += 1) {");
+            self.emit("    const token = String(argv[index]);");
+            self.emit("    if (optionParsing && (token === '--help' || token === '-h')) {");
+            self.emit("      return { kind: 'help', text: __sigil_cli_help(program, command) };");
+            self.emit("    }");
+            self.emit("    if (optionParsing && token === '--') {");
+            self.emit("      optionParsing = false;");
+            self.emit("      continue;");
+            self.emit("    }");
+            self.emit("    if (optionParsing && token.startsWith('--') && token.length > 2) {");
+            self.emit("      const eq = token.indexOf('=');");
+            self.emit("      const key = eq >= 0 ? token.slice(2, eq) : token.slice(2);");
+            self.emit("      const attached = eq >= 0 ? token.slice(eq + 1) : null;");
+            self.emit("      const entry = longOptions.get(key) ?? null;");
+            self.emit("      if (!entry) {");
+            self.emit(
+                "        return __sigil_cli_fail(`unknown option '--${key}'`, command, program);",
+            );
+            self.emit("      }");
+            self.emit("      const kind = String(entry.arg?.kind ?? '');");
+            self.emit("      if (kind === 'flag') {");
+            self.emit("        if (attached !== null) {");
+            self.emit("          return __sigil_cli_fail(`flag '--${key}' does not take a value`, command, program);");
+            self.emit("        }");
+            self.emit("        if (optionStates.get(entry.index) === true) {");
+            self.emit("          return __sigil_cli_fail(`option '--${key}' may only appear once`, command, program);");
+            self.emit("        }");
+            self.emit("        optionStates.set(entry.index, true);");
+            self.emit("        continue;");
+            self.emit("      }");
+            self.emit("      const value = attached !== null ? attached : (index + 1 < argv.length ? String(argv[++index]) : null);");
+            self.emit("      if (value === null) {");
+            self.emit("        return __sigil_cli_fail(`expected value after '--${key}'`, command, program);");
+            self.emit("      }");
+            self.emit("      if (kind === 'option') {");
+            self.emit("        if (optionStates.get(entry.index)?.__tag === 'Some') {");
+            self.emit("          return __sigil_cli_fail(`option '--${key}' may only appear once`, command, program);");
+            self.emit("        }");
+            self.emit("        optionStates.set(entry.index, __sigil_cli_some(value));");
+            self.emit("        continue;");
+            self.emit("      }");
+            self.emit("      if (kind === 'requiredOption') {");
+            self.emit("        if (typeof optionStates.get(entry.index) === 'string') {");
+            self.emit("          return __sigil_cli_fail(`option '--${key}' may only appear once`, command, program);");
+            self.emit("        }");
+            self.emit("        optionStates.set(entry.index, value);");
+            self.emit("        continue;");
+            self.emit("      }");
+            self.emit("      if (kind === 'manyOption') {");
+            self.emit("        optionStates.get(entry.index).push(value);");
+            self.emit("        continue;");
+            self.emit("      }");
+            self.emit(
+                "      return __sigil_cli_fail(`unexpected option '--${key}'`, command, program);",
+            );
+            self.emit("    }");
+            self.emit("    if (optionParsing && token.startsWith('-') && token.length > 1) {");
+            self.emit("      if (token.length !== 2) {");
+            self.emit(
+                "        return __sigil_cli_fail(`unknown option '${token}'`, command, program);",
+            );
+            self.emit("      }");
+            self.emit("      const key = token.slice(1);");
+            self.emit("      const entry = shortOptions.get(key) ?? null;");
+            self.emit("      if (!entry) {");
+            self.emit(
+                "        return __sigil_cli_fail(`unknown option '-${key}'`, command, program);",
+            );
+            self.emit("      }");
+            self.emit("      const longKey = String(entry.arg?.long ?? key);");
+            self.emit("      const kind = String(entry.arg?.kind ?? '');");
+            self.emit("      if (kind === 'flag') {");
+            self.emit("        if (optionStates.get(entry.index) === true) {");
+            self.emit("          return __sigil_cli_fail(`option '-${key}' may only appear once`, command, program);");
+            self.emit("        }");
+            self.emit("        optionStates.set(entry.index, true);");
+            self.emit("        continue;");
+            self.emit("      }");
+            self.emit(
+                "      const value = index + 1 < argv.length ? String(argv[++index]) : null;",
+            );
+            self.emit("      if (value === null) {");
+            self.emit("        return __sigil_cli_fail(`expected value after '-${key}'`, command, program);");
+            self.emit("      }");
+            self.emit("      if (kind === 'option') {");
+            self.emit("        if (optionStates.get(entry.index)?.__tag === 'Some') {");
+            self.emit("          return __sigil_cli_fail(`option '--${longKey}' may only appear once`, command, program);");
+            self.emit("        }");
+            self.emit("        optionStates.set(entry.index, __sigil_cli_some(value));");
+            self.emit("        continue;");
+            self.emit("      }");
+            self.emit("      if (kind === 'requiredOption') {");
+            self.emit("        if (typeof optionStates.get(entry.index) === 'string') {");
+            self.emit("          return __sigil_cli_fail(`option '--${longKey}' may only appear once`, command, program);");
+            self.emit("        }");
+            self.emit("        optionStates.set(entry.index, value);");
+            self.emit("        continue;");
+            self.emit("      }");
+            self.emit("      if (kind === 'manyOption') {");
+            self.emit("        optionStates.get(entry.index).push(value);");
+            self.emit("        continue;");
+            self.emit("      }");
+            self.emit("    }");
+            self.emit("    positionalTokens.push(token);");
+            self.emit("  }");
+            self.emit("  const positionalValues = new Map();");
+            self.emit("  let cursor = 0;");
+            self.emit("  for (const entry of positionals) {");
+            self.emit("    const kind = String(entry.arg?.kind ?? '');");
+            self.emit("    if (kind === 'positional') {");
+            self.emit("      if (cursor >= positionalTokens.length) {");
+            self.emit("        return __sigil_cli_fail(`missing required argument '${String(entry.arg?.name ?? '')}'`, command, program);");
+            self.emit("      }");
+            self.emit("      positionalValues.set(entry.index, positionalTokens[cursor]);");
+            self.emit("      cursor += 1;");
+            self.emit("      continue;");
+            self.emit("    }");
+            self.emit("    if (kind === 'optionalPositional') {");
+            self.emit("      if (cursor < positionalTokens.length) {");
+            self.emit("        positionalValues.set(entry.index, __sigil_cli_some(positionalTokens[cursor]));");
+            self.emit("        cursor += 1;");
+            self.emit("      } else {");
+            self.emit("        positionalValues.set(entry.index, __sigil_cli_none());");
+            self.emit("      }");
+            self.emit("      continue;");
+            self.emit("    }");
+            self.emit("    if (kind === 'manyPositionals') {");
+            self.emit("      positionalValues.set(entry.index, positionalTokens.slice(cursor));");
+            self.emit("      cursor = positionalTokens.length;");
+            self.emit("    }");
+            self.emit("  }");
+            self.emit("  if (cursor < positionalTokens.length) {");
+            self.emit("    return __sigil_cli_fail(`unexpected argument '${String(positionalTokens[cursor])}'`, command, program);");
+            self.emit("  }");
+            self.emit("  const values = [];");
+            self.emit("  for (let index = 0; index < args.length; index += 1) {");
+            self.emit("    const arg = args[index];");
+            self.emit("    switch (String(arg?.kind ?? '')) {");
+            self.emit("      case 'flag':");
+            self.emit("      case 'option':");
+            self.emit("      case 'manyOption':");
+            self.emit("        values.push(optionStates.get(index));");
+            self.emit("        break;");
+            self.emit("      case 'requiredOption': {");
+            self.emit("        const value = optionStates.get(index);");
+            self.emit("        if (typeof value !== 'string') {");
+            self.emit("          return __sigil_cli_fail(`missing required option '--${String(arg.long)}'`, command, program);");
+            self.emit("        }");
+            self.emit("        values.push(value);");
+            self.emit("        break;");
+            self.emit("      }");
+            self.emit("      case 'positional':");
+            self.emit("      case 'optionalPositional':");
+            self.emit("      case 'manyPositionals':");
+            self.emit("        values.push(positionalValues.get(index));");
+            self.emit("        break;");
+            self.emit("      default:");
+            self.emit("        values.push(null);");
+            self.emit("        break;");
+            self.emit("    }");
+            self.emit("  }");
+            self.emit("  return { kind: 'ok', value: values };");
+            self.emit("}");
+            self.emit("async function __sigil_cli_run(argv, program) {");
+            self.emit("  const selected = __sigil_cli_find_command(program, Array.isArray(argv) ? argv : []);");
+            self.emit("  const command = selected.command;");
+            self.emit("  if (!command && Array.isArray(program?.subcommands) && program.subcommands.length > 0) {");
+            self.emit("    const text = __sigil_cli_help(program, program);");
+            self.emit("    await __sigil_cli_eprintln(`error: unknown command '${String(selected.argv?.[0] ?? '')}'`);");
+            self.emit("    await __sigil_cli_eprintln(text);");
+            self.emit("    await __sigil_world_process_exit(2);");
+            self.emit("    return null;");
+            self.emit("  }");
+            self.emit("  const parsed = __sigil_cli_parse(command, selected.argv, program);");
+            self.emit("  if (parsed.kind === 'help') {");
+            self.emit("    await __sigil_cli_println(parsed.text);");
+            self.emit("    await __sigil_world_process_exit(0);");
+            self.emit("    return null;");
+            self.emit("  }");
+            self.emit("  if (parsed.kind === 'error') {");
+            self.emit("    await __sigil_cli_eprintln(`error: ${parsed.message}`);");
+            self.emit("    await __sigil_cli_eprintln(parsed.text);");
+            self.emit("    await __sigil_world_process_exit(2);");
+            self.emit("    return null;");
+            self.emit("  }");
+            self.emit("  return await command.build(...parsed.value);");
             self.emit("}");
         }
         self.emit("function __sigil_regex_compile_result(flags, pattern) {");
@@ -5484,6 +5830,54 @@ impl TypeScriptGenerator {
             self.emit("        return { handle: args[0], path: String(args[1] ?? '') };");
             self.emit("      case 'extern:stdlib/httpServer.websocketSend':");
             self.emit("        return __sigil_http_websocket_send(args[0], args[1]);");
+        }
+        if include_cli_runtime {
+            self.emit("      case 'extern:stdlib/cli.command0':");
+            self.emit("        return __sigil_cli_command('command', String(args[1] ?? ''), String(args[0] ?? ''), [], async () => args[2]);");
+            self.emit("      case 'extern:stdlib/cli.command1':");
+            self.emit("        return __sigil_cli_command('command', String(args[3] ?? ''), String(args[2] ?? ''), [args[0]], args[1]);");
+            self.emit("      case 'extern:stdlib/cli.command2':");
+            self.emit("        return __sigil_cli_command('command', String(args[4] ?? ''), String(args[3] ?? ''), [args[0], args[1]], args[2]);");
+            self.emit("      case 'extern:stdlib/cli.command3':");
+            self.emit("        return __sigil_cli_command('command', String(args[5] ?? ''), String(args[4] ?? ''), [args[0], args[1], args[2]], args[3]);");
+            self.emit("      case 'extern:stdlib/cli.command4':");
+            self.emit("        return __sigil_cli_command('command', String(args[6] ?? ''), String(args[5] ?? ''), [args[0], args[1], args[2], args[3]], args[4]);");
+            self.emit("      case 'extern:stdlib/cli.command5':");
+            self.emit("        return __sigil_cli_command('command', String(args[7] ?? ''), String(args[6] ?? ''), [args[0], args[1], args[2], args[3], args[4]], args[5]);");
+            self.emit("      case 'extern:stdlib/cli.command6':");
+            self.emit("        return __sigil_cli_command('command', String(args[8] ?? ''), String(args[7] ?? ''), [args[0], args[1], args[2], args[3], args[4], args[5]], args[6]);");
+            self.emit("      case 'extern:stdlib/cli.flag':");
+            self.emit("        return __sigil_cli_arg('flag', { description: String(args[0] ?? ''), long: String(args[1] ?? ''), short: args[2] });");
+            self.emit("      case 'extern:stdlib/cli.manyOption':");
+            self.emit("        return __sigil_cli_arg('manyOption', { description: String(args[0] ?? ''), long: String(args[1] ?? ''), short: args[2], valueName: String(args[3] ?? '') });");
+            self.emit("      case 'extern:stdlib/cli.manyPositionals':");
+            self.emit("        return __sigil_cli_arg('manyPositionals', { description: String(args[0] ?? ''), name: String(args[1] ?? '') });");
+            self.emit("      case 'extern:stdlib/cli.option':");
+            self.emit("        return __sigil_cli_arg('option', { description: String(args[0] ?? ''), long: String(args[1] ?? ''), short: args[2], valueName: String(args[3] ?? '') });");
+            self.emit("      case 'extern:stdlib/cli.optionalPositional':");
+            self.emit("        return __sigil_cli_arg('optionalPositional', { description: String(args[0] ?? ''), name: String(args[1] ?? '') });");
+            self.emit("      case 'extern:stdlib/cli.positional':");
+            self.emit("        return __sigil_cli_arg('positional', { description: String(args[0] ?? ''), name: String(args[1] ?? '') });");
+            self.emit("      case 'extern:stdlib/cli.program':");
+            self.emit("        return __sigil_cli_program(String(args[1] ?? ''), String(args[0] ?? ''), args[2]?.__tag === 'Some' ? args[2].__fields?.[0] ?? null : null, Array.isArray(args[3]) ? args[3] : []);");
+            self.emit("      case 'extern:stdlib/cli.requiredOption':");
+            self.emit("        return __sigil_cli_arg('requiredOption', { description: String(args[0] ?? ''), long: String(args[1] ?? ''), short: args[2], valueName: String(args[3] ?? '') });");
+            self.emit("      case 'extern:stdlib/cli.root0':");
+            self.emit("        return __sigil_cli_command('root', null, String(args[0] ?? ''), [], async () => args[1]);");
+            self.emit("      case 'extern:stdlib/cli.root1':");
+            self.emit("        return __sigil_cli_command('root', null, String(args[2] ?? ''), [args[0]], args[1]);");
+            self.emit("      case 'extern:stdlib/cli.root2':");
+            self.emit("        return __sigil_cli_command('root', null, String(args[3] ?? ''), [args[0], args[1]], args[2]);");
+            self.emit("      case 'extern:stdlib/cli.root3':");
+            self.emit("        return __sigil_cli_command('root', null, String(args[4] ?? ''), [args[0], args[1], args[2]], args[3]);");
+            self.emit("      case 'extern:stdlib/cli.root4':");
+            self.emit("        return __sigil_cli_command('root', null, String(args[5] ?? ''), [args[0], args[1], args[2], args[3]], args[4]);");
+            self.emit("      case 'extern:stdlib/cli.root5':");
+            self.emit("        return __sigil_cli_command('root', null, String(args[6] ?? ''), [args[0], args[1], args[2], args[3], args[4]], args[5]);");
+            self.emit("      case 'extern:stdlib/cli.root6':");
+            self.emit("        return __sigil_cli_command('root', null, String(args[7] ?? ''), [args[0], args[1], args[2], args[3], args[4], args[5]], args[6]);");
+            self.emit("      case 'extern:stdlib/cli.run':");
+            self.emit("        return __sigil_cli_run(args[0], args[1]);");
         }
         if include_tcp_server_runtime {
             self.emit("      case 'extern:stdlib/tcpServer.listen':");
@@ -7038,6 +7432,9 @@ impl TypeScriptGenerator {
                 if module == "stdlib/httpServer" {
                     return self.generate_http_server_intrinsic(call_expr, member, args);
                 }
+                if module == "stdlib/cli" {
+                    return self.generate_cli_intrinsic(call_expr, member, args);
+                }
                 if module == "stdlib/tcpClient" {
                     return self.generate_tcp_client_intrinsic(call_expr, member, args);
                 }
@@ -7116,6 +7513,13 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/fsWatch.lib.sigil"))
                 {
                     return self.generate_fswatch_intrinsic(call_expr, &name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/cli.lib.sigil"))
+                {
+                    return self.generate_cli_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
@@ -8286,6 +8690,114 @@ impl TypeScriptGenerator {
                     "__sigil_world_task_wait(__task)",
                     None
                 )?
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn generate_cli_intrinsic(
+        &mut self,
+        _call_expr: &TypedExpr,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+
+        match member {
+            "program" if generated_args.len() == 4 => Ok(Some(format!(
+                "{}.then(([__description, __name, __root, __subcommands]) => __sigil_cli_program(__name, __description, __root?.__tag === 'Some' ? __root.__fields[0] : null, __subcommands))",
+                self.js_all(&generated_args)
+            ))),
+            "run" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__argv, __program]) => __sigil_cli_run(__argv, __program))",
+                self.js_all(&generated_args)
+            ))),
+            "root0" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__description, __result]) => __sigil_cli_command('root', null, __description, [], async () => __result))",
+                self.js_all(&generated_args)
+            ))),
+            "root1" if generated_args.len() == 3 => Ok(Some(format!(
+                "{}.then(([__arg1, __build, __description]) => __sigil_cli_command('root', null, __description, [__arg1], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "root2" if generated_args.len() == 4 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __build, __description]) => __sigil_cli_command('root', null, __description, [__arg1, __arg2], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "root3" if generated_args.len() == 5 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __arg3, __build, __description]) => __sigil_cli_command('root', null, __description, [__arg1, __arg2, __arg3], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "root4" if generated_args.len() == 6 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __arg3, __arg4, __build, __description]) => __sigil_cli_command('root', null, __description, [__arg1, __arg2, __arg3, __arg4], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "root5" if generated_args.len() == 7 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __arg3, __arg4, __arg5, __build, __description]) => __sigil_cli_command('root', null, __description, [__arg1, __arg2, __arg3, __arg4, __arg5], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "root6" if generated_args.len() == 8 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __arg3, __arg4, __arg5, __arg6, __build, __description]) => __sigil_cli_command('root', null, __description, [__arg1, __arg2, __arg3, __arg4, __arg5, __arg6], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "command0" if generated_args.len() == 3 => Ok(Some(format!(
+                "{}.then(([__description, __name, __result]) => __sigil_cli_command('command', __name, __description, [], async () => __result))",
+                self.js_all(&generated_args)
+            ))),
+            "command1" if generated_args.len() == 4 => Ok(Some(format!(
+                "{}.then(([__arg1, __build, __description, __name]) => __sigil_cli_command('command', __name, __description, [__arg1], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "command2" if generated_args.len() == 5 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __build, __description, __name]) => __sigil_cli_command('command', __name, __description, [__arg1, __arg2], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "command3" if generated_args.len() == 6 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __arg3, __build, __description, __name]) => __sigil_cli_command('command', __name, __description, [__arg1, __arg2, __arg3], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "command4" if generated_args.len() == 7 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __arg3, __arg4, __build, __description, __name]) => __sigil_cli_command('command', __name, __description, [__arg1, __arg2, __arg3, __arg4], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "command5" if generated_args.len() == 8 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __arg3, __arg4, __arg5, __build, __description, __name]) => __sigil_cli_command('command', __name, __description, [__arg1, __arg2, __arg3, __arg4, __arg5], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "command6" if generated_args.len() == 9 => Ok(Some(format!(
+                "{}.then(([__arg1, __arg2, __arg3, __arg4, __arg5, __arg6, __build, __description, __name]) => __sigil_cli_command('command', __name, __description, [__arg1, __arg2, __arg3, __arg4, __arg5, __arg6], __build))",
+                self.js_all(&generated_args)
+            ))),
+            "flag" if generated_args.len() == 3 => Ok(Some(format!(
+                "{}.then(([__description, __long, __short]) => __sigil_cli_arg('flag', {{ description: String(__description), long: String(__long), short: __short }}))",
+                self.js_all(&generated_args)
+            ))),
+            "option" if generated_args.len() == 4 => Ok(Some(format!(
+                "{}.then(([__description, __long, __short, __valueName]) => __sigil_cli_arg('option', {{ description: String(__description), long: String(__long), short: __short, valueName: String(__valueName) }}))",
+                self.js_all(&generated_args)
+            ))),
+            "requiredOption" if generated_args.len() == 4 => Ok(Some(format!(
+                "{}.then(([__description, __long, __short, __valueName]) => __sigil_cli_arg('requiredOption', {{ description: String(__description), long: String(__long), short: __short, valueName: String(__valueName) }}))",
+                self.js_all(&generated_args)
+            ))),
+            "manyOption" if generated_args.len() == 4 => Ok(Some(format!(
+                "{}.then(([__description, __long, __short, __valueName]) => __sigil_cli_arg('manyOption', {{ description: String(__description), long: String(__long), short: __short, valueName: String(__valueName) }}))",
+                self.js_all(&generated_args)
+            ))),
+            "positional" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__description, __name]) => __sigil_cli_arg('positional', {{ description: String(__description), name: String(__name) }}))",
+                self.js_all(&generated_args)
+            ))),
+            "optionalPositional" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__description, __name]) => __sigil_cli_arg('optionalPositional', {{ description: String(__description), name: String(__name) }}))",
+                self.js_all(&generated_args)
+            ))),
+            "manyPositionals" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__description, __name]) => __sigil_cli_arg('manyPositionals', {{ description: String(__description), name: String(__name) }}))",
+                self.js_all(&generated_args)
             ))),
             _ => Ok(None),
         }
@@ -10721,7 +11233,8 @@ fn requires_world_runtime_module(module_id: &str) -> bool {
         || module_id.starts_with("test::")
         || matches!(
             module_id,
-            "stdlib::file"
+            "stdlib::cli"
+                | "stdlib::file"
                 | "stdlib::fsWatch"
                 | "stdlib::httpClient"
                 | "stdlib::httpServer"

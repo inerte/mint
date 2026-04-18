@@ -1,0 +1,53 @@
+t Arg[A]=CliArg(Int)
+
+t Command[T]=CliCommand(Int)
+
+t Program[T]=CliProgram(Int)
+
+t RootCommand[T]=CliRootCommand(Int)
+
+λcommand0[T](description:String,name:String,result:T)=>Command[T]=CliCommand(0)
+
+λcommand1[A,T](arg1:Arg[A],build:λ(A)=>T,description:String,name:String)=>Command[T]=CliCommand(0)
+
+λcommand2[A,B,T](arg1:Arg[A],arg2:Arg[B],build:λ(A,B)=>T,description:String,name:String)=>Command[T]=CliCommand(0)
+
+λcommand3[A,B,C,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],build:λ(A,B,C)=>T,description:String,name:String)=>Command[T]=CliCommand(0)
+
+λcommand4[A,B,C,D,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],build:λ(A,B,C,D)=>T,description:String,name:String)=>Command[T]=CliCommand(0)
+
+λcommand5[A,B,C,D,E,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],arg5:Arg[E],build:λ(A,B,C,D,E)=>T,description:String,name:String)=>Command[T]=CliCommand(0)
+
+λcommand6[A,B,C,D,E,F,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],arg5:Arg[E],arg6:Arg[F],build:λ(A,B,C,D,E,F)=>T,description:String,name:String)=>Command[T]=CliCommand(0)
+
+λflag(description:String,long:String,short:Option[String])=>Arg[Bool]=CliArg(0)
+
+λmanyOption(description:String,long:String,short:Option[String],valueName:String)=>Arg[[String]]=CliArg(0)
+
+λmanyPositionals(description:String,name:String)=>Arg[[String]]=CliArg(0)
+
+λoption(description:String,long:String,short:Option[String],valueName:String)=>Arg[Option[String]]=CliArg(0)
+
+λoptionalPositional(description:String,name:String)=>Arg[Option[String]]=CliArg(0)
+
+λpositional(description:String,name:String)=>Arg[String]=CliArg(0)
+
+λprogram[T](description:String,name:String,root:Option[RootCommand[T]],subcommands:[Command[T]])=>Program[T]=CliProgram(0)
+
+λrequiredOption(description:String,long:String,short:Option[String],valueName:String)=>Arg[String]=CliArg(0)
+
+λroot0[T](description:String,result:T)=>RootCommand[T]=CliRootCommand(0)
+
+λroot1[A,T](arg1:Arg[A],build:λ(A)=>T,description:String)=>RootCommand[T]=CliRootCommand(0)
+
+λroot2[A,B,T](arg1:Arg[A],arg2:Arg[B],build:λ(A,B)=>T,description:String)=>RootCommand[T]=CliRootCommand(0)
+
+λroot3[A,B,C,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],build:λ(A,B,C)=>T,description:String)=>RootCommand[T]=CliRootCommand(0)
+
+λroot4[A,B,C,D,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],build:λ(A,B,C,D)=>T,description:String)=>RootCommand[T]=CliRootCommand(0)
+
+λroot5[A,B,C,D,E,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],arg5:Arg[E],build:λ(A,B,C,D,E)=>T,description:String)=>RootCommand[T]=CliRootCommand(0)
+
+λroot6[A,B,C,D,E,F,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],arg5:Arg[E],arg6:Arg[F],build:λ(A,B,C,D,E,F)=>T,description:String)=>RootCommand[T]=CliRootCommand(0)
+
+λrun[T](argv:[String],program:Program[T])=>!Log!Process T=§process.exit(2)

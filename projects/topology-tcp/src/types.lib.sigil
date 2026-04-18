@@ -1,0 +1,4 @@
+t CliCommand={
+  portText:Option[String],
+  readyFile:Option[String]
+}

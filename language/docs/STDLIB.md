@@ -226,6 +226,74 @@ FsWatch rules:
 ]
 ```
 
+`§cli` is the canonical typed CLI layer above `§process.argv()`:
+
+```sigil decl §cli
+t Program[T]
+t RootCommand[T]
+t Command[T]
+t Arg[A]
+
+λprogram[T](description:String,name:String,root:Option[RootCommand[T]],subcommands:[Command[T]])=>Program[T]
+
+λrun[T](argv:[String],program:Program[T])=>!Log!Process T
+
+λroot0[T](description:String,result:T)=>RootCommand[T]
+λroot1[A,T](arg1:Arg[A],build:λ(A)=>T,description:String)=>RootCommand[T]
+λroot2[A,B,T](arg1:Arg[A],arg2:Arg[B],build:λ(A,B)=>T,description:String)=>RootCommand[T]
+λroot3[A,B,C,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],build:λ(A,B,C)=>T,description:String)=>RootCommand[T]
+λroot4[A,B,C,D,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],build:λ(A,B,C,D)=>T,description:String)=>RootCommand[T]
+λroot5[A,B,C,D,E,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],arg5:Arg[E],build:λ(A,B,C,D,E)=>T,description:String)=>RootCommand[T]
+λroot6[A,B,C,D,E,F,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],arg5:Arg[E],arg6:Arg[F],build:λ(A,B,C,D,E,F)=>T,description:String)=>RootCommand[T]
+
+λcommand0[T](description:String,name:String,result:T)=>Command[T]
+λcommand1[A,T](arg1:Arg[A],build:λ(A)=>T,description:String,name:String)=>Command[T]
+λcommand2[A,B,T](arg1:Arg[A],arg2:Arg[B],build:λ(A,B)=>T,description:String,name:String)=>Command[T]
+λcommand3[A,B,C,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],build:λ(A,B,C)=>T,description:String,name:String)=>Command[T]
+λcommand4[A,B,C,D,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],build:λ(A,B,C,D)=>T,description:String,name:String)=>Command[T]
+λcommand5[A,B,C,D,E,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],arg5:Arg[E],build:λ(A,B,C,D,E)=>T,description:String,name:String)=>Command[T]
+λcommand6[A,B,C,D,E,F,T](arg1:Arg[A],arg2:Arg[B],arg3:Arg[C],arg4:Arg[D],arg5:Arg[E],arg6:Arg[F],build:λ(A,B,C,D,E,F)=>T,description:String,name:String)=>Command[T]
+
+λflag(description:String,long:String,short:Option[String])=>Arg[Bool]
+λoption(description:String,long:String,short:Option[String],valueName:String)=>Arg[Option[String]]
+λrequiredOption(description:String,long:String,short:Option[String],valueName:String)=>Arg[String]
+λmanyOption(description:String,long:String,short:Option[String],valueName:String)=>Arg[[String]]
+λpositional(description:String,name:String)=>Arg[String]
+λoptionalPositional(description:String,name:String)=>Arg[Option[String]]
+λmanyPositionals(description:String,name:String)=>Arg[[String]]
+```
+
+```sigil program
+λmain()=>!Log!Process String={
+  l command=(§cli.run(
+    §process.argv(),
+    §cli.program(
+      "Parse a small canonical CLI surface.",
+      "cliBasics",
+      Some(§cli.root1(
+        §cli.manyOption(
+          "Select a check id.",
+          "check",
+          Some("c"),
+          "ID"
+        ),
+        λ(checks:[String])=>checks,
+        "Accept repeated check ids."
+      )),
+      []
+    )
+  ):[String]);
+  §string.intToString(#command)
+}
+```
+
+CLI rules:
+- `§process.argv()` remains the only raw argv surface
+- `§cli.run` prints canonical help on `--help` / `-h` and exits `0`
+- `§cli.run` prints canonical parse errors plus usage/help and exits `2`
+- v1 supports one subcommand layer, long/short options, `--name=value`, `--`, and trailing variadic positionals
+- argument values stay string-based in v1; domain conversion remains app logic after `run` returns
+
 `§process` exposes canonical argv-based child-process execution:
 
 ```sigil program

@@ -1,3 +1,24 @@
+λcliProgram()=>§cli.Program[µCliCommand]=§cli.program(
+  "Run the TCP roundtrip server.",
+  "tcpRoundtripServer",
+  Some(§cli.root2(
+    §cli.optionalPositional(
+      "TCP port to listen on.",
+      "port"
+    ),
+    §cli.optionalPositional(
+      "Path to write the ready port file.",
+      "ready-file"
+    ),
+    λ(portText:Option[String],readyFile:Option[String])=>µCliCommand={
+      portText:portText,
+      readyFile:readyFile
+    },
+    "Accept an optional port and ready-file path."
+  )),
+  []
+)
+
 λhandleRequest(request:§tcpServer.Request)=>§tcpServer.Response match request.message{
   "ping"=>§tcpServer.response("pong")|
   "upper:hello"=>§tcpServer.response("HELLO")|
@@ -16,21 +37,17 @@
   §tcpServer.wait(server)
 }
 
-λmain()=>!Fs!Process!Tcp Unit match §process.argv(){
-  [
-  portText,
-  readyFile
-]=>listenAndServe(
-    parseRequestedPort(portText),
-    Some(readyFile)
-  )|
-  [portText]=>listenAndServe(
-    parseRequestedPort(portText),
-    None()
-  )|
-  _=>listenAndServe(
-    45120,
-    None()
+λmain()=>!Fs!Log!Process!Tcp Unit={
+  l command=(§cli.run(
+    §process.argv(),
+    cliProgram()
+  ):µCliCommand);
+  listenAndServe(
+    match command.portText{
+      Some(text)=>parseRequestedPort(text)|
+      None()=>45120
+    },
+    command.readyFile
   )
 }
 

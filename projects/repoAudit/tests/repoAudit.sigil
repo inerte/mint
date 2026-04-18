@@ -186,8 +186,8 @@ test "docs drift messages map to stable codes" {
   ])
 }
 
-test "parse selection defaults to all checks" {
-  match •repoAudit.parseSelection([]){
+test "selection defaults to all checks" {
+  match •repoAudit.selectionFromRequestedChecks([]){
     Ok(selection)=>selection.checks=[
       "docs-drift",
       "canonical-stdlib",
@@ -198,13 +198,10 @@ test "parse selection defaults to all checks" {
   }
 }
 
-test "parse selection dedupes and preserves canonical order" {
-  match •repoAudit.parseSelection([
-    "--check",
+test "selection dedupes and preserves canonical order" {
+  match •repoAudit.selectionFromRequestedChecks([
     "repo-compile",
-    "--check",
     "docs-drift",
-    "--check",
     "repo-compile"
   ]){
     Ok(selection)=>selection.checks=[
@@ -215,11 +212,9 @@ test "parse selection dedupes and preserves canonical order" {
   }
 }
 
-test "parse selection supports package publishability checks" {
-  match •repoAudit.parseSelection([
-    "--check",
+test "selection supports package publishability checks" {
+  match •repoAudit.selectionFromRequestedChecks([
     "package-publishability",
-    "--check",
     "docs-drift"
   ]){
     Ok(selection)=>selection.checks=[
@@ -227,13 +222,6 @@ test "parse selection supports package publishability checks" {
       "package-publishability"
     ]|
     Err(_)=>false
-  }
-}
-
-test "parse selection rejects missing check id" {
-  match •repoAudit.parseSelection(["--check"]){
-    Ok(_)=>false|
-    Err(message)=>message="expected check id after --check"
   }
 }
 
@@ -254,11 +242,11 @@ test "run check rejects unknown ids" =>!AuditIo {
   }
 }
 
-test "runner surfaces argument and selection errors" =>!AuditIo {
+test "runner surfaces invocation and selection errors" =>!AuditIo {
   allOk([
-    match •repoAudit.runFromArgs(["--check"]){
+    match •repoAudit.runInvocation({requestedChecks:["mystery-check"]}){
       Ok(_)=>false|
-      Err(message)=>message="expected check id after --check"
+      Err(message)=>message="unknown check 'mystery-check'"
     },
     match •repoAudit.runSelection({checks:["mystery-check"]}){
       Ok(_)=>false|
@@ -375,10 +363,7 @@ projects/router/sigil.json
       Ok(outcome)=>outcome.issues=[] and outcome.repoCompileStats=(None():Option[µRepoCompileStats])|
       Err(_)=>false
     },
-    match •repoAudit.runFromArgs([
-      "--check",
-      "repo-compile"
-    ]){
+    match •repoAudit.runInvocation({requestedChecks:["repo-compile"]}){
       Ok(data)=>data.summary.checks=1
         and data.summary.issueCount=0
         and data.summary.selectedChecks=["repo-compile"]
@@ -437,10 +422,7 @@ projects/router/sigil.json
         })|
       Err(_)=>false
     },
-    match •repoAudit.runFromArgs([
-      "--check",
-      "package-publishability"
-    ]){
+    match •repoAudit.runInvocation({requestedChecks:["package-publishability"]}){
       Ok(data)=>data.summary.checks=1
         and data.summary.issueCount=0
         and data.summary.selectedChecks=["package-publishability"]|

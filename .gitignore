@@ -18,7 +18,9 @@ language/runtime/*
 language/runtime/node/*
 !language/runtime/node/package.json
 !language/runtime/node/package-lock.json
+!language/runtime/node/fswatch-runtime.mjs
 !language/runtime/node/pty-runtime.mjs
+!language/runtime/node/sql-runtime.mjs
 !language/runtime/node/websocket-runtime.mjs
 
 # Compiled Sigil programs and temporary files

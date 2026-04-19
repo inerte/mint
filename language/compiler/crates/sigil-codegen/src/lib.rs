@@ -12241,7 +12241,10 @@ mod tests {
     use sigil_typechecker::typed_ir::{PurityClass, StrictnessClass};
     use sigil_typechecker::types::{InferenceType, TList};
     use std::collections::HashSet;
+    use std::fs;
+    use std::path::PathBuf;
     use std::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn typed_program_for(source: &str, path: &str) -> TypedProgram {
         let tokens = tokenize(source).unwrap();
@@ -12251,6 +12254,19 @@ mod tests {
 
     fn test_location() -> SourceLocation {
         SourceLocation::single(Position::new(1, 1, 0))
+    }
+
+    fn temp_node_script_path(prefix: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "sigil-codegen-{}-{}-{}.mjs",
+            prefix,
+            std::process::id(),
+            nanos
+        ))
     }
 
     #[test]
@@ -13023,12 +13039,10 @@ console.log(JSON.stringify(__sigil_result));
             world_runtime_helpers_source()
         );
 
-        let output = Command::new("node")
-            .arg("--input-type=module")
-            .arg("-e")
-            .arg(script)
-            .output()
-            .unwrap();
+        let script_path = temp_node_script_path("stream-runtime");
+        fs::write(&script_path, script).unwrap();
+        let output = Command::new("node").arg(&script_path).output().unwrap();
+        let _ = fs::remove_file(&script_path);
 
         assert!(output.status.success(), "{:?}", output);
         let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();

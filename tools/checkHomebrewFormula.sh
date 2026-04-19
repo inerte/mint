@@ -25,6 +25,21 @@ fi
 
 sigil_bin="language/compiler/target/debug/sigil"
 
+npm install --prefix language/runtime/node --registry=https://registry.npmjs.org
+
+archive_base="sigil-${version}-darwin-arm64"
+archive_stage_dir="$tmp_dir/$archive_base"
+archive_extract_dir="$tmp_dir/extracted"
+homebrew_prefix_dir="$tmp_dir/homebrew-prefix"
+
+mkdir -p "$archive_stage_dir/runtime" "$archive_extract_dir" "$homebrew_prefix_dir/share/sigil"
+cp -R "language/runtime/node" "$archive_stage_dir/runtime/node"
+tar -C "$tmp_dir" -czf "$tmp_dir/$archive_base.tar.gz" "$archive_base"
+tar -C "$archive_extract_dir" -xzf "$tmp_dir/$archive_base.tar.gz"
+"$repo_root/tools/checkBundledNodeRuntime.sh" "$archive_extract_dir/$archive_base"
+cp -R "$archive_extract_dir/$archive_base/runtime" "$homebrew_prefix_dir/share/sigil/runtime"
+"$repo_root/tools/checkBundledNodeRuntime.sh" "$homebrew_prefix_dir"
+
 "$sigil_bin" test projects/homebrewPackaging/tests --env release
 
 sigilHomebrewVersion="$version" \

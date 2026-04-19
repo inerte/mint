@@ -64,6 +64,12 @@ jobs:
       - name: Run compiler tests
         run: cargo test --manifest-path language/compiler/Cargo.toml --workspace --no-default-features
 
+      - name: Build Sigil CLI for packaging checks
+        run: cargo build --quiet --manifest-path language/compiler/Cargo.toml -p sigil-cli --no-default-features
+
+      - name: Check Homebrew packaging inputs
+        run: tools/checkHomebrewFormula.sh
+
   todo-app:
     runs-on: ubuntu-latest
 

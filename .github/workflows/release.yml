@@ -218,6 +218,18 @@ jobs:
           printf "Sigil %s\n\nRun ./sigil --help\n" "${SIGIL_VERSION}" > "${stage_dir}/README.txt"
           tar -C dist -czf "dist/${base}.tar.gz" "${base}"
 
+      - name: Validate packaged unix archive
+        if: runner.os != 'Windows'
+        env:
+          SIGIL_VERSION: ${{ needs.prepare-release.outputs.version }}
+        shell: bash
+        run: |
+          base="sigil-${SIGIL_VERSION}-${{ matrix.platform }}"
+          extract_dir="$(mktemp -d)"
+          trap 'rm -rf "$extract_dir"' EXIT
+          tar -C "$extract_dir" -xzf "dist/${base}.tar.gz"
+          tools/checkBundledNodeRuntime.sh "$extract_dir/${base}"
+
       - name: Smoke test binary
         if: runner.os == 'Windows'
         env:

@@ -63,6 +63,8 @@ c auditLog=(§topology.logSink("auditLog"):§topology.LogSink)
 
 c assistantShell=(§topology.ptyHandle("assistantShell"):§topology.PtyHandle)
 
+c appDb=(§topology.sqlHandle("appDb"):§topology.SqlHandle)
+
 c exportsDir=(§topology.fsRoot("exportsDir"):§topology.FsRoot)
 
 c local=(§topology.environment("local"):§topology.Environment)
@@ -101,23 +103,30 @@ c world=(†runtime.withFsWatchRoots(
         [†process.realHandle(•topology.mailerCli)],
         †runtime.withPtyHandles(
           [†pty.realHandle(•topology.assistantShell)],
-          †runtime.world(
-            †clock.systemClock(),
-            †fs.real(),
-            †fsWatch.real(),
-            [†http.proxy(
-              mailerApiBaseUrl(),
-              •topology.mailerApi
+          †runtime.withSqlHandles(
+            [†sql.sqliteHandle(
+              •topology.appDb,
+              ".local/app.sqlite"
             )],
-            †log.capture(),
-            †process.real(),
-            †pty.real(),
-            †random.seeded(1337),
-            †stream.live(),
-            †task.real(),
-            [],
-            †timer.virtual(),
-            †websocket.real()
+            †runtime.world(
+              †clock.systemClock(),
+              †fs.real(),
+              †fsWatch.real(),
+              [†http.proxy(
+                mailerApiBaseUrl(),
+                •topology.mailerApi
+              )],
+              †log.capture(),
+              †process.real(),
+              †pty.real(),
+              †random.seeded(1337),
+              †sql.deny(),
+              †stream.live(),
+              †task.real(),
+              [],
+              †timer.virtual(),
+              †websocket.real()
+            )
           )
         )
       )
@@ -148,23 +157,30 @@ c world=(†runtime.withFsWatchRoots(
         [†process.realHandle(•topology.mailerCli)],
         †runtime.withPtyHandles(
           [†pty.realHandle(•topology.assistantShell)],
-          †runtime.world(
-            †clock.systemClock(),
-            †fs.real(),
-            †fsWatch.real(),
-            [†http.proxy(
-              (process.env.mailerApiUrl:String),
-              •topology.mailerApi
+          †runtime.withSqlHandles(
+            [†sql.postgresHandle(
+              (process.env.appDbUrl:String),
+              •topology.appDb
             )],
-            †log.stdout(),
-            †process.real(),
-            †pty.real(),
-            †random.real(),
-            †stream.live(),
-            †task.real(),
-            [],
-            †timer.real(),
-            †websocket.real()
+            †runtime.world(
+              †clock.systemClock(),
+              †fs.real(),
+              †fsWatch.real(),
+              [†http.proxy(
+                (process.env.mailerApiUrl:String),
+                •topology.mailerApi
+              )],
+              †log.stdout(),
+              †process.real(),
+              †pty.real(),
+              †random.real(),
+              †sql.deny(),
+              †stream.live(),
+              †task.real(),
+              [],
+              †timer.real(),
+              †websocket.real()
+            )
           )
         )
       )
@@ -222,6 +238,24 @@ Canonical PTY usage:
     env:{↦},
     rows:40
   }
+)
+```
+
+Canonical SQL usage:
+
+```sigil program projects/topology-sql/src/main.sigil
+λmain()=>!Sql Result[
+  Option[µTodo],
+  §sql.SqlFailure
+]=§sql.one(
+  •topology.appDb,
+  §sql.where(
+    §sql.eq(
+      •sqlRoundtripApp.columnId,
+      1
+    ),
+    §sql.select(•sqlRoundtripApp.tableTodos)
+  )
 )
 ```
 
@@ -318,6 +352,7 @@ Compile-time:
 - topology-aware HTTP/TCP APIs require dependency handles
 - label-aware filesystem and fsWatch crossings use named `FsRoot` handles
 - label-aware log, process, and PTY crossings use named `LogSink`, `ProcessHandle`, and `PtyHandle` handles
+- relational database crossings use named `SqlHandle` handles
 - `§websocket.route` / `§websocket.connections` and `§httpServer.websocketRoute` / `§httpServer.websocketConnections` use named `WebSocketHandle` handles
 - raw endpoint usage is rejected
 - in project mode, `process.env` is only allowed in `config/*.lib.sigil`
@@ -330,6 +365,7 @@ Validate-time:
 - the config module must export `world`
 - `world` must include every primitive effect entry
 - every declared `FsRoot` must appear in both `fsRoots` and `fsWatchRoots`
+- every declared `SqlHandle` should appear in `sqlHandles`
 - every other declared named boundary must appear in the matching `world` entry collection
 - no undeclared boundary handles are allowed in `world`
 

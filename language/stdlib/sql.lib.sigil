@@ -1,0 +1,534 @@
+t Bytes={base64:String}
+
+t Column[Row,A]=SqlColumn(
+  Int,
+  Option[A],
+  Option[Row]
+)
+
+t Delete[Row]=SqlDelete(
+  Int,
+  Option[Row]
+)
+
+t Direction=Asc()|Desc()
+
+t Insert[Row]=SqlInsert(
+  Int,
+  Option[Row]
+)
+
+t Predicate[Row]=SqlPredicate(
+  Int,
+  Option[Row]
+)
+
+t RawRow={String↦Value}
+
+t RawStatement=SqlRawStatement(Int)
+
+t Select[Row]=SqlSelect(
+  Int,
+  Option[Row]
+)
+
+t SqlFailure={
+  kind:SqlFailureKind,
+  message:String
+}
+
+t SqlFailureKind=Connection()|Constraint()|Decode()|Denied()|InvalidQuery()|MissingHandle()|Transaction()|Unsupported()
+
+t Table[Row]=SqlTable(
+  Int,
+  Option[Row]
+)
+
+t Transaction={id:String}
+
+t Update[Row]=SqlUpdate(
+  Int,
+  Option[Row]
+)
+
+t Value=BoolValue(Bool)|BytesValue(Bytes)|FloatValue(Float)|IntValue(Int)|NullValue()|TextValue(String)
+
+λall[Row](handle:§topology.SqlHandle,select:Select[Row])=>!Sql Result[
+  [Row],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λallIn[Row](select:Select[Row],transaction:Transaction)=>!Sql Result[
+  [Row],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λand[Row](left:Predicate[Row],right:Predicate[Row])=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λbegin(handle:§topology.SqlHandle)=>!Sql Result[
+  Owned[Transaction],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λboolColumn[Row](field:String,name:String)=>Column[
+  Row,
+  Bool
+]=SqlColumn(
+  0,
+  None(),
+  None()
+)
+
+λbytes(base64:String)=>Bytes={base64:base64}
+
+λbytesColumn[Row](field:String,name:String)=>Column[
+  Row,
+  Bytes
+]=SqlColumn(
+  0,
+  None(),
+  None()
+)
+
+λcommit(transaction:Transaction)=>!Sql Result[
+  Unit,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λdelete[Row](table:Table[Row])=>Delete[Row]=SqlDelete(
+  0,
+  None()
+)
+
+λdeleteWhere[Row](predicate:Predicate[Row],statement:Delete[Row])=>Delete[Row]=SqlDelete(
+  0,
+  None()
+)
+
+λeq[Row,A](column:Column[
+  Row,
+  A
+],value:A)=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λexecDelete[Row](handle:§topology.SqlHandle,statement:Delete[Row])=>!Sql Result[
+  Int,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λexecDeleteIn[Row](statement:Delete[Row],transaction:Transaction)=>!Sql Result[
+  Int,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λexecInsert[Row](handle:§topology.SqlHandle,statement:Insert[Row])=>!Sql Result[
+  Int,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λexecInsertIn[Row](statement:Insert[Row],transaction:Transaction)=>!Sql Result[
+  Int,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λexecUpdate[Row](handle:§topology.SqlHandle,statement:Update[Row])=>!Sql Result[
+  Int,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λexecUpdateIn[Row](statement:Update[Row],transaction:Transaction)=>!Sql Result[
+  Int,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λfloatColumn[Row](field:String,name:String)=>Column[
+  Row,
+  Float
+]=SqlColumn(
+  0,
+  None(),
+  None()
+)
+
+λgt[Row,A](column:Column[
+  Row,
+  A
+],value:A)=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λgte[Row,A](column:Column[
+  Row,
+  A
+],value:A)=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λinsert[Row](row:Row,table:Table[Row])=>Insert[Row]=SqlInsert(
+  0,
+  None()
+)
+
+λintColumn[Row](field:String,name:String)=>Column[
+  Row,
+  Int
+]=SqlColumn(
+  0,
+  None(),
+  None()
+)
+
+λlimit[Row](count:Int,select:Select[Row])=>Select[Row]=SqlSelect(
+  0,
+  None()
+)
+
+λlt[Row,A](column:Column[
+  Row,
+  A
+],value:A)=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λlte[Row,A](column:Column[
+  Row,
+  A
+],value:A)=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λneq[Row,A](column:Column[
+  Row,
+  A
+],value:A)=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λnot[Row](predicate:Predicate[Row])=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λnullable[Row,A](column:Column[
+  Row,
+  A
+])=>Column[
+  Row,
+  Option[A]
+]=SqlColumn(
+  0,
+  None(),
+  None()
+)
+
+λone[Row](handle:§topology.SqlHandle,select:Select[Row])=>!Sql Result[
+  Option[Row],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λoneIn[Row](select:Select[Row],transaction:Transaction)=>!Sql Result[
+  Option[Row],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λor[Row](left:Predicate[Row],right:Predicate[Row])=>Predicate[Row]=SqlPredicate(
+  0,
+  None()
+)
+
+λorderBy[Row,A](column:Column[
+  Row,
+  A
+],direction:Direction,select:Select[Row])=>Select[Row]=SqlSelect(
+  0,
+  None()
+)
+
+λraw(params:{String↦Value},sql:String)=>RawStatement=SqlRawStatement(0)
+
+λrawExec(handle:§topology.SqlHandle,statement:RawStatement)=>!Sql Result[
+  Int,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λrawExecIn(statement:RawStatement,transaction:Transaction)=>!Sql Result[
+  Int,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λrawQuery(handle:§topology.SqlHandle,statement:RawStatement)=>!Sql Result[
+  [RawRow],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λrawQueryIn(statement:RawStatement,transaction:Transaction)=>!Sql Result[
+  [RawRow],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λrawQueryOne(handle:§topology.SqlHandle,statement:RawStatement)=>!Sql Result[
+  Option[RawRow],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λrawQueryOneIn(statement:RawStatement,transaction:Transaction)=>!Sql Result[
+  Option[RawRow],
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λrollback(transaction:Transaction)=>!Sql Result[
+  Unit,
+  SqlFailure
+]=Err({
+  kind:Unsupported(),
+  message:"sql intrinsic unavailable"
+})
+
+λselect[Row](table:Table[Row])=>Select[Row]=SqlSelect(
+  0,
+  None()
+)
+
+λset[Row,A](column:Column[
+  Row,
+  A
+],statement:Update[Row],value:A)=>Update[Row]=SqlUpdate(
+  0,
+  None()
+)
+
+λtable1[Row,A](column1:Column[
+  Row,
+  A
+],name:String)=>Table[Row]=SqlTable(
+  0,
+  None()
+)
+
+λtable2[Row,A,B](column1:Column[
+  Row,
+  A
+],column2:Column[
+  Row,
+  B
+],name:String)=>Table[Row]=SqlTable(
+  0,
+  None()
+)
+
+λtable3[Row,A,B,C](column1:Column[
+  Row,
+  A
+],column2:Column[
+  Row,
+  B
+],column3:Column[
+  Row,
+  C
+],name:String)=>Table[Row]=SqlTable(
+  0,
+  None()
+)
+
+λtable4[Row,A,B,C,D](column1:Column[
+  Row,
+  A
+],column2:Column[
+  Row,
+  B
+],column3:Column[
+  Row,
+  C
+],column4:Column[
+  Row,
+  D
+],name:String)=>Table[Row]=SqlTable(
+  0,
+  None()
+)
+
+λtable5[Row,A,B,C,D,E](column1:Column[
+  Row,
+  A
+],column2:Column[
+  Row,
+  B
+],column3:Column[
+  Row,
+  C
+],column4:Column[
+  Row,
+  D
+],column5:Column[
+  Row,
+  E
+],name:String)=>Table[Row]=SqlTable(
+  0,
+  None()
+)
+
+λtable6[Row,A,B,C,D,E,F](column1:Column[
+  Row,
+  A
+],column2:Column[
+  Row,
+  B
+],column3:Column[
+  Row,
+  C
+],column4:Column[
+  Row,
+  D
+],column5:Column[
+  Row,
+  E
+],column6:Column[
+  Row,
+  F
+],name:String)=>Table[Row]=SqlTable(
+  0,
+  None()
+)
+
+λtable7[Row,A,B,C,D,E,F,G](column1:Column[
+  Row,
+  A
+],column2:Column[
+  Row,
+  B
+],column3:Column[
+  Row,
+  C
+],column4:Column[
+  Row,
+  D
+],column5:Column[
+  Row,
+  E
+],column6:Column[
+  Row,
+  F
+],column7:Column[
+  Row,
+  G
+],name:String)=>Table[Row]=SqlTable(
+  0,
+  None()
+)
+
+λtable8[Row,A,B,C,D,E,F,G,H](column1:Column[
+  Row,
+  A
+],column2:Column[
+  Row,
+  B
+],column3:Column[
+  Row,
+  C
+],column4:Column[
+  Row,
+  D
+],column5:Column[
+  Row,
+  E
+],column6:Column[
+  Row,
+  F
+],column7:Column[
+  Row,
+  G
+],column8:Column[
+  Row,
+  H
+],name:String)=>Table[Row]=SqlTable(
+  0,
+  None()
+)
+
+λtextColumn[Row](field:String,name:String)=>Column[
+  Row,
+  String
+]=SqlColumn(
+  0,
+  None(),
+  None()
+)
+
+λupdate[Row](table:Table[Row])=>Update[Row]=SqlUpdate(
+  0,
+  None()
+)
+
+λupdateWhere[Row](predicate:Predicate[Row],statement:Update[Row])=>Update[Row]=SqlUpdate(
+  0,
+  None()
+)
+
+λwhere[Row](predicate:Predicate[Row],select:Select[Row])=>Select[Row]=SqlSelect(
+  0,
+  None()
+)

@@ -9,6 +9,7 @@ c world=(†runtime.world(
   †process.real(),
   †pty.real(),
   †random.seeded(1337),
+  †sql.deny(),
   †stream.live(),
   †task.real(),
   [†tcp.proxy(

@@ -466,6 +466,7 @@ fn validate_succeeds_when_pnpm_is_shadowed() {
             "  †process.real(),\n",
             "  †pty.real(),\n",
             "  †random.seeded(7),\n",
+            "  †sql.deny(),\n",
             "  †stream.live(),\n",
             "  †task.real(),\n",
             "  [],\n",
@@ -629,29 +630,40 @@ fn inspect_world_reports_normalized_runtime_world_for_topology_project() {
     write_program(
         &dir,
         "src/topology.lib.sigil",
-        "c local=(§topology.environment(\"local\"):§topology.Environment)\n\nc mailerApi=(§topology.httpService(\"mailerApi\"):§topology.HttpServiceDependency)\n",
+        concat!(
+            "c appDb=(§topology.sqlHandle(\"appDb\"):§topology.SqlHandle)\n\n",
+            "c local=(§topology.environment(\"local\"):§topology.Environment)\n\n",
+            "c mailerApi=(§topology.httpService(\"mailerApi\"):§topology.HttpServiceDependency)\n",
+        ),
     );
     write_program(
         &dir,
         "config/local.lib.sigil",
         concat!(
-            "c world=(†runtime.world(\n",
-            "  †clock.systemClock(),\n",
-            "  †fs.real(),\n",
-            "  †fsWatch.real(),\n",
-            "  [†http.proxy(\n",
-            "    \"http://127.0.0.1:45110\",\n",
-            "    •topology.mailerApi\n",
+            "c world=(†runtime.withSqlHandles(\n",
+            "  [†sql.sqliteHandle(\n",
+            "    •topology.appDb,\n",
+            "    \".local/app.sqlite\"\n",
             "  )],\n",
-            "  †log.capture(),\n",
-            "  †process.real(),\n",
-            "  †pty.real(),\n",
-            "  †random.seeded(1337),\n",
-            "  †stream.live(),\n",
-            "  †task.real(),\n",
-            "  [],\n",
-            "  †timer.virtual(),\n",
-            "  †websocket.real()\n",
+            "  †runtime.world(\n",
+            "    †clock.systemClock(),\n",
+            "    †fs.real(),\n",
+            "    †fsWatch.real(),\n",
+            "    [†http.proxy(\n",
+            "      \"http://127.0.0.1:45110\",\n",
+            "      •topology.mailerApi\n",
+            "    )],\n",
+            "    †log.capture(),\n",
+            "    †process.real(),\n",
+            "    †pty.real(),\n",
+            "    †random.seeded(1337),\n",
+            "    †sql.deny(),\n",
+            "    †stream.live(),\n",
+            "    †task.real(),\n",
+            "    [],\n",
+            "    †timer.virtual(),\n",
+            "    †websocket.real()\n",
+            "  )\n",
             "):†runtime.World)\n",
         ),
     );
@@ -676,11 +688,14 @@ fn inspect_world_reports_normalized_runtime_world_for_topology_project() {
     assert_eq!(json["data"]["environment"], "local");
     assert!(json["data"].get("sources").is_none());
     assert_eq!(json["data"]["topology"]["present"], true);
+    assert_eq!(json["data"]["topology"]["sqlHandles"][0], "appDb");
     assert_eq!(json["data"]["topology"]["declaredEnvs"][0], "local");
     assert_eq!(json["data"]["topology"]["httpDependencies"][0], "mailerApi");
     assert_eq!(json["data"]["summary"]["logKind"], "capture");
     assert_eq!(json["data"]["summary"]["randomKind"], "seeded");
     assert_eq!(json["data"]["summary"]["fsWatchKind"], "real");
+    assert_eq!(json["data"]["summary"]["sqlKind"], "deny");
+    assert_eq!(json["data"]["summary"]["sqlBindings"], 1);
     assert_eq!(json["data"]["summary"]["streamKind"], "live");
     assert_eq!(json["data"]["summary"]["timerKind"], "virtual");
     assert_eq!(json["data"]["summary"]["httpBindings"], 1);
@@ -691,6 +706,14 @@ fn inspect_world_reports_normalized_runtime_world_for_topology_project() {
     assert_eq!(
         json["data"]["normalizedWorld"]["http"]["mailerApi"]["baseUrl"],
         "http://127.0.0.1:45110"
+    );
+    assert_eq!(
+        json["data"]["normalizedWorld"]["sqlHandles"]["appDb"]["kind"],
+        "sqlite"
+    );
+    assert_eq!(
+        json["data"]["normalizedWorld"]["sqlHandles"]["appDb"]["path"],
+        ".local/app.sqlite"
     );
 }
 
@@ -715,6 +738,7 @@ fn inspect_world_supports_config_only_projects_without_topology() {
             "  †process.real(),\n",
             "  †pty.real(),\n",
             "  †random.seeded(7),\n",
+            "  †sql.deny(),\n",
             "  †stream.live(),\n",
             "  †task.real(),\n",
             "  [],\n",
@@ -749,6 +773,8 @@ fn inspect_world_supports_config_only_projects_without_topology() {
     assert_eq!(json["data"]["summary"]["httpBindings"], 0);
     assert_eq!(json["data"]["summary"]["tcpBindings"], 0);
     assert_eq!(json["data"]["summary"]["fsWatchKind"], "real");
+    assert_eq!(json["data"]["summary"]["sqlKind"], "deny");
+    assert_eq!(json["data"]["summary"]["sqlBindings"], 0);
     assert_eq!(json["data"]["summary"]["streamKind"], "live");
     assert_eq!(json["data"]["normalizedWorld"]["random"]["kind"], "seeded");
     assert_eq!(json["data"]["normalizedWorld"]["timer"]["kind"], "real");
@@ -780,6 +806,7 @@ fn inspect_world_emits_json_error_when_env_is_undeclared() {
             "  †process.real(),\n",
             "  †pty.real(),\n",
             "  †random.real(),\n",
+            "  †sql.deny(),\n",
             "  †stream.live(),\n",
             "  †task.real(),\n",
             "  [],\n",
@@ -862,6 +889,7 @@ fn inspect_world_supports_standalone_single_file_worlds() {
             "    †process.real(),\n",
             "    †pty.real(),\n",
             "    †random.seeded(7),\n",
+            "    †sql.deny(),\n",
             "    †stream.live(),\n",
             "    †task.real(),\n",
             "    [],\n",
@@ -919,6 +947,7 @@ fn inspect_world_succeeds_when_pnpm_is_shadowed() {
             "    †process.real(),\n",
             "    †pty.real(),\n",
             "    †random.seeded(7),\n",
+            "    †sql.deny(),\n",
             "    †stream.live(),\n",
             "    †task.real(),\n",
             "    [],\n",

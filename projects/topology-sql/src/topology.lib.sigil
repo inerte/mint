@@ -1,0 +1,5 @@
+c db=(§topology.sqlHandle("db"):§topology.SqlHandle)
+
+c postgres=(§topology.environment("postgres"):§topology.Environment)
+
+c sqlite=(§topology.environment("sqlite"):§topology.Environment)

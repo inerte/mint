@@ -413,6 +413,69 @@ fn fswatch_runtime_import_specifier() -> Result<String, CliError> {
     ))
 }
 
+fn resolve_sql_runtime_helper_path() -> Result<PathBuf, CliError> {
+    let executable = std::env::current_exe().map_err(|error| {
+        CliError::Codegen(format!(
+            "failed to resolve compiler executable path: {error}"
+        ))
+    })?;
+    let executable_dir = executable.parent().ok_or_else(|| {
+        CliError::Codegen(format!(
+            "failed to resolve compiler executable directory for '{}'",
+            executable.display()
+        ))
+    })?;
+
+    let mut candidates = vec![
+        executable_dir
+            .join("runtime")
+            .join("node")
+            .join("sql-runtime.mjs"),
+        executable_dir
+            .parent()
+            .map(|root| {
+                root.join("share")
+                    .join("sigil")
+                    .join("runtime")
+                    .join("node")
+                    .join("sql-runtime.mjs")
+            })
+            .unwrap_or_else(|| PathBuf::from("__missing__")),
+    ];
+
+    for ancestor in executable_dir.ancestors() {
+        candidates.push(
+            ancestor
+                .join("language")
+                .join("runtime")
+                .join("node")
+                .join("sql-runtime.mjs"),
+        );
+    }
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return fs::canonicalize(candidate).map_err(|error| {
+                CliError::Codegen(format!(
+                    "failed to canonicalize sql runtime helper path: {error}"
+                ))
+            });
+        }
+    }
+
+    Err(CliError::Codegen(format!(
+        "failed to locate bundled sql runtime helper next to '{}'",
+        executable.display()
+    )))
+}
+
+fn sql_runtime_import_specifier() -> Result<String, CliError> {
+    Ok(format!(
+        "file://{}",
+        resolve_sql_runtime_helper_path()?.display()
+    ))
+}
+
 fn resolve_websocket_runtime_helper_path() -> Result<PathBuf, CliError> {
     let executable = std::env::current_exe().map_err(|error| {
         CliError::Codegen(format!(
@@ -1530,6 +1593,7 @@ pub(super) fn generate_module_graph_outputs(
             fswatch_runtime_import_specifier: fswatch_runtime_import_specifier().ok(),
             import_extension: output_flavor.import_extension().to_string(),
             pty_runtime_import_specifier: pty_runtime_import_specifier().ok(),
+            sql_runtime_import_specifier: sql_runtime_import_specifier().ok(),
             websocket_runtime_import_specifier: websocket_runtime_import_specifier().ok(),
             lazy_extern_namespaces: output_flavor == OutputFlavor::RuntimeEsm,
             trace,
@@ -1883,6 +1947,7 @@ function __sigil_runtime_collect_topology(moduleExports) {{
   const envs = new Set();
   const http = new Set();
   const ptyHandles = new Set();
+  const sqlHandles = new Set();
   const tcp = new Set();
   const websocketHandles = new Set();
   for (const value of Object.values(moduleExports ?? {{}})) {{
@@ -1892,13 +1957,15 @@ function __sigil_runtime_collect_topology(moduleExports) {{
       http.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'PtyHandle') {{
       ptyHandles.add(String(value.__fields?.[0] ?? ''));
+    }} else if (value?.__tag === 'SqlHandle') {{
+      sqlHandles.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'TcpServiceDependency') {{
       tcp.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'WebSocketHandle') {{
       websocketHandles.add(String(value.__fields?.[0] ?? ''));
     }}
   }}
-  return {{ envs, http, ptyHandles, tcp, websocketHandles }};
+  return {{ envs, http, ptyHandles, sqlHandles, tcp, websocketHandles }};
 }}
 
 function __sigil_runtime_collect_world_dependency_names(entries, expectedTag) {{
@@ -1929,7 +1996,7 @@ function __sigil_runtime_read_world(configExports) {{
   if (!world || typeof world !== 'object') {{
     __sigil_runtime_fail("{invalid_config}", "config module must export a 'world' value");
   }}
-  for (const field of ['clock', 'fs', 'fsWatch', 'http', 'log', 'pty', 'process', 'random', 'stream', 'tcp', 'timer', 'websocket']) {{
+  for (const field of ['clock', 'fs', 'fsWatch', 'http', 'log', 'pty', 'process', 'random', 'sql', 'stream', 'tcp', 'timer', 'websocket']) {{
     if (!(field in world)) {{
       __sigil_runtime_fail("{invalid_config}", `world is missing '${{field}}'`);
     }}
@@ -2012,6 +2079,7 @@ function __sigil_runtime_collect_local_topology(moduleExports) {{
   const logSinks = new Set();
   const processHandles = new Set();
   const ptyHandles = new Set();
+  const sqlHandles = new Set();
   const tcp = new Set();
   const websocketHandles = new Set();
   for (const value of Object.values(moduleExports ?? {{}})) {{
@@ -2027,13 +2095,15 @@ function __sigil_runtime_collect_local_topology(moduleExports) {{
       processHandles.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'PtyHandle') {{
       ptyHandles.add(String(value.__fields?.[0] ?? ''));
+    }} else if (value?.__tag === 'SqlHandle') {{
+      sqlHandles.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'TcpServiceDependency') {{
       tcp.add(String(value.__fields?.[0] ?? ''));
     }} else if (value?.__tag === 'WebSocketHandle') {{
       websocketHandles.add(String(value.__fields?.[0] ?? ''));
     }}
   }}
-  return {{ envs, fsRoots, http, logSinks, processHandles, ptyHandles, tcp, websocketHandles }};
+  return {{ envs, fsRoots, http, logSinks, processHandles, ptyHandles, sqlHandles, tcp, websocketHandles }};
 }}
 
 function __sigil_runtime_local_topology_declared(topology) {{
@@ -2043,6 +2113,7 @@ function __sigil_runtime_local_topology_declared(topology) {{
     topology.logSinks.size > 0 ||
     topology.ptyHandles.size > 0 ||
     topology.processHandles.size > 0 ||
+    topology.sqlHandles.size > 0 ||
     topology.tcp.size > 0 ||
     topology.websocketHandles.size > 0;
 }}

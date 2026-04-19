@@ -10,6 +10,8 @@ t ProcessHandle=ProcessHandle(String)
 
 t PtyHandle=PtyHandle(String)
 
+t SqlHandle=SqlHandle(String)
+
 t TcpServiceDependency=TcpServiceDependency(String)
 
 t WebSocketHandle=WebSocketHandle(String)
@@ -25,6 +27,8 @@ t WebSocketHandle=WebSocketHandle(String)
 λprocessHandle(name:String)=>ProcessHandle=ProcessHandle(name)
 
 λptyHandle(name:String)=>PtyHandle=PtyHandle(name)
+
+λsqlHandle(name:String)=>SqlHandle=SqlHandle(name)
 
 λtcpService(name:String)=>TcpServiceDependency=TcpServiceDependency(name)
 

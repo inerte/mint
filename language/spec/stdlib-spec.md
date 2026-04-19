@@ -352,6 +352,91 @@ Process rules:
 - `kill` is a normal termination request, not a timeout/escalation protocol
 - `exit` terminates the current process and has result type `Never`
 
+### Implemented `§sql` Types and Functions
+
+```sigil decl §sql
+t Bytes={base64:String}
+t Column[Row,A]
+t Delete[Row]
+t Direction=Asc()|Desc()
+t Insert[Row]
+t Predicate[Row]
+t RawRow={String↦Value}
+t RawStatement
+t Select[Row]
+t SqlFailure={kind:SqlFailureKind,message:String}
+t SqlFailureKind=Connection()|Constraint()|Decode()|Denied()|InvalidQuery()|MissingHandle()|Transaction()|Unsupported()
+t Table[Row]
+t Transaction={id:String}
+t Update[Row]
+t Value=BoolValue(Bool)|BytesValue(Bytes)|FloatValue(Float)|IntValue(Int)|NullValue()|TextValue(String)
+
+λall[Row](handle:§topology.SqlHandle,select:Select[Row])=>!Sql Result[[Row],SqlFailure]
+λallIn[Row](select:Select[Row],transaction:Transaction)=>!Sql Result[[Row],SqlFailure]
+λand[Row](left:Predicate[Row],right:Predicate[Row])=>Predicate[Row]
+λbegin(handle:§topology.SqlHandle)=>!Sql Result[Owned[Transaction],SqlFailure]
+λboolColumn[Row](field:String,name:String)=>Column[Row,Bool]
+λbytes(base64:String)=>Bytes
+λbytesColumn[Row](field:String,name:String)=>Column[Row,Bytes]
+λcommit(transaction:Transaction)=>!Sql Result[Unit,SqlFailure]
+λdelete[Row](table:Table[Row])=>Delete[Row]
+λdeleteWhere[Row](predicate:Predicate[Row],statement:Delete[Row])=>Delete[Row]
+λeq[Row,A](column:Column[Row,A],value:A)=>Predicate[Row]
+λexecDelete[Row](handle:§topology.SqlHandle,statement:Delete[Row])=>!Sql Result[Int,SqlFailure]
+λexecDeleteIn[Row](statement:Delete[Row],transaction:Transaction)=>!Sql Result[Int,SqlFailure]
+λexecInsert[Row](handle:§topology.SqlHandle,statement:Insert[Row])=>!Sql Result[Int,SqlFailure]
+λexecInsertIn[Row](statement:Insert[Row],transaction:Transaction)=>!Sql Result[Int,SqlFailure]
+λexecUpdate[Row](handle:§topology.SqlHandle,statement:Update[Row])=>!Sql Result[Int,SqlFailure]
+λexecUpdateIn[Row](statement:Update[Row],transaction:Transaction)=>!Sql Result[Int,SqlFailure]
+λfloatColumn[Row](field:String,name:String)=>Column[Row,Float]
+λgt[Row,A](column:Column[Row,A],value:A)=>Predicate[Row]
+λgte[Row,A](column:Column[Row,A],value:A)=>Predicate[Row]
+λinsert[Row](row:Row,table:Table[Row])=>Insert[Row]
+λintColumn[Row](field:String,name:String)=>Column[Row,Int]
+λlimit[Row](count:Int,select:Select[Row])=>Select[Row]
+λlt[Row,A](column:Column[Row,A],value:A)=>Predicate[Row]
+λlte[Row,A](column:Column[Row,A],value:A)=>Predicate[Row]
+λneq[Row,A](column:Column[Row,A],value:A)=>Predicate[Row]
+λnot[Row](predicate:Predicate[Row])=>Predicate[Row]
+λnullable[Row,A](column:Column[Row,A])=>Column[Row,Option[A]]
+λone[Row](handle:§topology.SqlHandle,select:Select[Row])=>!Sql Result[Option[Row],SqlFailure]
+λoneIn[Row](select:Select[Row],transaction:Transaction)=>!Sql Result[Option[Row],SqlFailure]
+λor[Row](left:Predicate[Row],right:Predicate[Row])=>Predicate[Row]
+λorderBy[Row,A](column:Column[Row,A],direction:Direction,select:Select[Row])=>Select[Row]
+λraw(params:{String↦Value},sql:String)=>RawStatement
+λrawExec(handle:§topology.SqlHandle,statement:RawStatement)=>!Sql Result[Int,SqlFailure]
+λrawExecIn(statement:RawStatement,transaction:Transaction)=>!Sql Result[Int,SqlFailure]
+λrawQuery(handle:§topology.SqlHandle,statement:RawStatement)=>!Sql Result[[RawRow],SqlFailure]
+λrawQueryIn(statement:RawStatement,transaction:Transaction)=>!Sql Result[[RawRow],SqlFailure]
+λrawQueryOne(handle:§topology.SqlHandle,statement:RawStatement)=>!Sql Result[Option[RawRow],SqlFailure]
+λrawQueryOneIn(statement:RawStatement,transaction:Transaction)=>!Sql Result[Option[RawRow],SqlFailure]
+λrollback(transaction:Transaction)=>!Sql Result[Unit,SqlFailure]
+λselect[Row](table:Table[Row])=>Select[Row]
+λset[Row,A](column:Column[Row,A],statement:Update[Row],value:A)=>Update[Row]
+λtable1[Row,A](column1:Column[Row,A],name:String)=>Table[Row]
+λtable2[Row,A,B](column1:Column[Row,A],column2:Column[Row,B],name:String)=>Table[Row]
+λtable3[Row,A,B,C](column1:Column[Row,A],column2:Column[Row,B],column3:Column[Row,C],name:String)=>Table[Row]
+λtable4[Row,A,B,C,D](column1:Column[Row,A],column2:Column[Row,B],column3:Column[Row,C],column4:Column[Row,D],name:String)=>Table[Row]
+λtable5[Row,A,B,C,D,E](column1:Column[Row,A],column2:Column[Row,B],column3:Column[Row,C],column4:Column[Row,D],column5:Column[Row,E],name:String)=>Table[Row]
+λtable6[Row,A,B,C,D,E,F](column1:Column[Row,A],column2:Column[Row,B],column3:Column[Row,C],column4:Column[Row,D],column5:Column[Row,E],column6:Column[Row,F],name:String)=>Table[Row]
+λtable7[Row,A,B,C,D,E,F,G](column1:Column[Row,A],column2:Column[Row,B],column3:Column[Row,C],column4:Column[Row,D],column5:Column[Row,E],column6:Column[Row,F],column7:Column[Row,G],name:String)=>Table[Row]
+λtable8[Row,A,B,C,D,E,F,G,H](column1:Column[Row,A],column2:Column[Row,B],column3:Column[Row,C],column4:Column[Row,D],column5:Column[Row,E],column6:Column[Row,F],column7:Column[Row,G],column8:Column[Row,H],name:String)=>Table[Row]
+λtextColumn[Row](field:String,name:String)=>Column[Row,String]
+λupdate[Row](table:Table[Row])=>Update[Row]
+λupdateWhere[Row](predicate:Predicate[Row],statement:Update[Row])=>Update[Row]
+```
+
+SQL rules:
+- the portable path is topology-backed through `§topology.SqlHandle`
+- SQLite and Postgres are runtime bindings, not separate public stdlib modules
+- the portable subset covers one-table full-row `select`, `insert`, `update`, `delete`, predicates, ordering, limit, and transactions
+- `begin` returns an owned transaction handle
+- leaving a transaction scope without `commit` rolls back
+- `§sql.raw...` is the only blessed escape hatch for non-portable SQL
+- raw statements use named parameters written as `:name`
+- raw SQL is non-portable by definition even though parameter binding stays canonical
+- joins, projections, aggregates, upsert, `returning`, DDL, and vendor-specific operators are outside the v1 portable DSL
+
 ### Implemented `§fsWatch` Types and Functions
 
 ```sigil decl §fsWatch

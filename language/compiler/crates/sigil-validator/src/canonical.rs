@@ -3099,6 +3099,7 @@ fn executable_runtime_export_type(typ: &Type) -> bool {
                     | ("stdlib::topology", "LogSink")
                     | ("stdlib::topology", "PtyHandle")
                     | ("stdlib::topology", "ProcessHandle")
+                    | ("stdlib::topology", "SqlHandle")
                     | ("stdlib::topology", "TcpServiceDependency")
                     | ("stdlib::topology", "WebSocketHandle")
             )

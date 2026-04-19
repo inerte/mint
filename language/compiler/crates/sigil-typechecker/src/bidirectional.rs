@@ -5405,6 +5405,10 @@ fn is_process_handle_type(typ: &InferenceType) -> bool {
     matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".ProcessHandle") || tcons.name == "ProcessHandle")
 }
 
+fn is_sql_handle_type(typ: &InferenceType) -> bool {
+    matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".SqlHandle") || tcons.name == "SqlHandle")
+}
+
 fn is_tcp_dependency_type(typ: &InferenceType) -> bool {
     matches!(typ, InferenceType::Constructor(tcons) if tcons.name.ends_with(".TcpServiceDependency") || tcons.name == "TcpServiceDependency")
 }
@@ -5419,6 +5423,7 @@ fn is_named_topology_boundary_type(typ: &InferenceType) -> bool {
         || is_log_sink_type(typ)
         || is_pty_handle_type(typ)
         || is_process_handle_type(typ)
+        || is_sql_handle_type(typ)
         || is_tcp_dependency_type(typ)
         || is_websocket_handle_type(typ)
 }
@@ -5459,6 +5464,7 @@ fn validate_topology_application(
                 | "logSink"
                 | "ptyHandle"
                 | "processHandle"
+                | "sqlHandle"
                 | "tcpService"
                 | "websocketHandle"
         );
@@ -5534,6 +5540,23 @@ fn validate_topology_application(
         } else {
             None
         };
+    let sql_handle_arg_index = if module_id == "stdlib::sql"
+        && matches!(
+            member,
+            "all"
+                | "begin"
+                | "execDelete"
+                | "execInsert"
+                | "execUpdate"
+                | "one"
+                | "rawExec"
+                | "rawQuery"
+                | "rawQueryOne"
+        ) {
+        Some(0)
+    } else {
+        None
+    };
     let websocket_handle_arg_index = if (module_id == "stdlib::websocket"
         && matches!(member, "connections" | "route"))
         || (module_id == "stdlib::httpServer"
@@ -5550,6 +5573,7 @@ fn validate_topology_application(
         && log_handle_arg_index.is_none()
         && process_handle_arg_index.is_none()
         && pty_handle_arg_index.is_none()
+        && sql_handle_arg_index.is_none()
         && websocket_handle_arg_index.is_none()
     {
         return Ok(());
@@ -5561,6 +5585,7 @@ fn validate_topology_application(
         .or(log_handle_arg_index)
         .or(process_handle_arg_index)
         .or(pty_handle_arg_index)
+        .or(sql_handle_arg_index)
         .or(websocket_handle_arg_index)
         .unwrap();
     let Some(handle_arg) = app.args.get(handle_index) else {
@@ -5646,6 +5671,12 @@ fn validate_topology_application(
     if pty_handle_arg_index.is_some() && !is_pty_handle_type(&handle_type) {
         return Err(TypeError::new(
             "stdlib::pty.spawnAt/spawnManagedAt requires a named PtyHandle".to_string(),
+            Some(app.location),
+        ));
+    }
+    if sql_handle_arg_index.is_some() && !is_sql_handle_type(&handle_type) {
+        return Err(TypeError::new(
+            "stdlib::sql execution requires a named SqlHandle".to_string(),
             Some(app.location),
         ));
     }

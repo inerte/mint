@@ -1,0 +1,31 @@
+e process
+
+c world=(†runtime.withSqlHandles(
+  [†sql.postgresHandle(
+    postgresConnection(),
+    •topology.db
+  )],
+  †runtime.world(
+    †clock.systemClock(),
+    †fs.real(),
+    †fsWatch.real(),
+    [],
+    †log.stdout(),
+    †process.real(),
+    †pty.real(),
+    †random.real(),
+    †sql.deny(),
+    †stream.live(),
+    †task.real(),
+    [],
+    †timer.real(),
+    †websocket.real()
+  )
+):†runtime.World)
+
+λpostgresConnection()=>String=postgresConnectionFromProperty(process.env.hasOwnProperty("sigilSqlPostgresUrl"))
+
+λpostgresConnectionFromProperty(hasValue:Bool)=>String match hasValue{
+  true=>(process.env.sigilSqlPostgresUrl:String)|
+  false=>"postgres://postgres:postgres@127.0.0.1:55432/sigil"
+}

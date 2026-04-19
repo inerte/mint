@@ -1,0 +1,48 @@
+t SqlEntry=DenySql()|FixtureSql(SqlFixture)|PostgresSql(String)|SqliteSql(String)
+
+t SqlFixture={seed:[§sql.RawStatement]}
+
+t SqlHandleEntry=SqlHandleEntry(SqlHandleEntryValue)
+
+t SqlHandleEntryValue={
+  handleName:String,
+  mode:SqlEntry
+}
+
+λdeny()=>SqlEntry=DenySql()
+
+λdenyHandle(handle:§topology.SqlHandle)=>SqlHandleEntry match handle{
+  §topology.SqlHandle(handleName)=>SqlHandleEntry({
+    handleName:handleName,
+    mode:DenySql()
+  })
+}
+
+λfixture(seed:[§sql.RawStatement])=>SqlEntry=FixtureSql({seed:seed})
+
+λfixtureHandle(fixture:SqlFixture,handle:§topology.SqlHandle)=>SqlHandleEntry match handle{
+  §topology.SqlHandle(handleName)=>SqlHandleEntry({
+    handleName:handleName,
+    mode:FixtureSql(fixture)
+  })
+}
+
+λfixtureSeed(seed:[§sql.RawStatement])=>SqlFixture={seed:seed}
+
+λpostgres(connection:String)=>SqlEntry=PostgresSql(connection)
+
+λpostgresHandle(connection:String,handle:§topology.SqlHandle)=>SqlHandleEntry match handle{
+  §topology.SqlHandle(handleName)=>SqlHandleEntry({
+    handleName:handleName,
+    mode:PostgresSql(connection)
+  })
+}
+
+λsqlite(path:String)=>SqlEntry=SqliteSql(path)
+
+λsqliteHandle(handle:§topology.SqlHandle,path:String)=>SqlHandleEntry match handle{
+  §topology.SqlHandle(handleName)=>SqlHandleEntry({
+    handleName:handleName,
+    mode:SqliteSql(path)
+  })
+}

@@ -1,0 +1,22 @@
+c world=(†runtime.withSqlHandles(
+  [†sql.sqliteHandle(
+    •topology.db,
+    ".local/topology-sql.sqlite"
+  )],
+  †runtime.world(
+    †clock.systemClock(),
+    †fs.real(),
+    †fsWatch.real(),
+    [],
+    †log.stdout(),
+    †process.real(),
+    †pty.real(),
+    †random.real(),
+    †sql.deny(),
+    †stream.live(),
+    †task.real(),
+    [],
+    †timer.real(),
+    †websocket.real()
+  )
+):†runtime.World)

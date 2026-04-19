@@ -225,7 +225,7 @@ Sigil also has a very small implicit core prelude:
 
 These are available without qualification because they define everyday control
 and data vocabulary. Most operational helpers still live in rooted modules like
-`¶map`, `§string`, `§file`, `§path`, `§process`, and `§time`.
+`¶map`, `§string`, `§file`, `§path`, `§process`, `§sql`, and `§time`.
 
 ## Why Machine-First Design?
 

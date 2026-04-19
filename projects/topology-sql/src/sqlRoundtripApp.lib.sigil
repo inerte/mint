@@ -1,0 +1,95 @@
+c columnDone=(§sql.boolColumn(
+  "done",
+  "done"
+):§sql.Column[
+  µTodo,
+  Bool
+])
+
+c columnId=(§sql.intColumn(
+  "id",
+  "id"
+):§sql.Column[
+  µTodo,
+  Int
+])
+
+c columnTitle=(§sql.textColumn(
+  "title",
+  "title"
+):§sql.Column[
+  µTodo,
+  String
+])
+
+c tableTodos=(§sql.table3(
+  columnDone,
+  columnId,
+  columnTitle,
+  "todos"
+):§sql.Table[µTodo])
+
+λensureSchema()=>!Sql Result[
+  Unit,
+  §sql.SqlFailure
+] match §sql.rawExec(
+  •topology.db,
+  §sql.raw(
+    (¶map.empty():{String↦§sql.Value}),
+    "create table if not exists todos (id integer not null primary key, title text not null, done boolean not null)"
+  )
+){
+  Ok(_)=>Ok(())|
+  Err(failure)=>Err(failure)
+}
+
+λresetTodos()=>!Sql Result[
+  Unit,
+  §sql.SqlFailure
+] match §sql.rawExec(
+  •topology.db,
+  §sql.raw(
+    (¶map.empty():{String↦§sql.Value}),
+    "delete from todos"
+  )
+){
+  Ok(_)=>Ok(())|
+  Err(failure)=>Err(failure)
+}
+
+λrun()=>!Sql Result[
+  String,
+  §sql.SqlFailure
+] match ensureSchema(){
+  Ok(_)=>match resetTodos(){
+    Ok(_)=>match §sql.execInsert(
+      •topology.db,
+      §sql.insert(
+        {
+          done:false,
+          id:1,
+          title:"shared sql"
+        },
+        tableTodos
+      )
+    ){
+      Ok(_)=>match §sql.one(
+        •topology.db,
+        §sql.where(
+          §sql.eq(
+            columnId,
+            1
+          ),
+          §sql.select(tableTodos)
+        )
+      ){
+        Ok(Some(todo))=>Ok(todo.title)|
+        Ok(None())=>Ok("missing")|
+        Err(failure)=>Err(failure)
+      }|
+      Err(failure)=>Err(failure)
+    }|
+    Err(failure)=>Err(failure)
+  }|
+  Err(failure)=>Err(failure)
+}

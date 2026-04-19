@@ -123,6 +123,7 @@ fn test_directory_runs_inline_tests_in_standalone_files() {
             "    †process.real(),\n",
             "    †pty.real(),\n",
             "    †random.seeded(1337),\n",
+            "    †sql.deny(),\n",
             "    †stream.live(),\n",
             "    †task.real(),\n",
             "    [],\n",

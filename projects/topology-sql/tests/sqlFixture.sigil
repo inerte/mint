@@ -1,0 +1,215 @@
+c columnDone=(§sql.boolColumn(
+  "done",
+  "done"
+):§sql.Column[
+  µTodo,
+  Bool
+])
+
+c columnId=(§sql.intColumn(
+  "id",
+  "id"
+):§sql.Column[
+  µTodo,
+  Int
+])
+
+c columnTitle=(§sql.textColumn(
+  "title",
+  "title"
+):§sql.Column[
+  µTodo,
+  String
+])
+
+c tableTodos=(§sql.table3(
+  columnDone,
+  columnId,
+  columnTitle,
+  "todos"
+):§sql.Table[µTodo])
+
+c fixtureSqlHandle=(†sql.fixtureHandle(
+  †sql.fixtureSeed([
+    §sql.raw(
+      (¶map.empty():{String↦§sql.Value}),
+      "create table todos (id integer not null primary key, title text not null, done boolean not null)"
+    ),
+    §sql.raw(
+      ({
+        "done"↦§sql.BoolValue(false),
+        "id"↦§sql.IntValue(1),
+        "title"↦§sql.TextValue("first")
+      }:{String↦§sql.Value}),
+      "insert into todos (done, id, title) values (:done, :id, :title)"
+    )
+  ]),
+  •topology.db
+):†sql.SqlHandleEntry)
+
+λmain()=>Unit=()
+
+test "portable sql operations update and delete rows" =>!Sql world {
+  c db=(fixtureSqlHandle:†sql.SqlHandleEntry)
+} {
+  l deleted=(§sql.execDelete(
+    •topology.db,
+    §sql.deleteWhere(
+      §sql.eq(
+        columnId,
+        2
+      ),
+      §sql.delete(tableTodos)
+    )
+  ):Result[
+  Int,
+  §sql.SqlFailure
+]);
+  l inserted=(§sql.execInsert(
+    •topology.db,
+    §sql.insert(
+      {
+        done:false,
+        id:2,
+        title:"second"
+      },
+      tableTodos
+    )
+  ):Result[
+  Int,
+  §sql.SqlFailure
+]);
+  l updated=(§sql.execUpdate(
+    •topology.db,
+    §sql.updateWhere(
+      §sql.eq(
+        columnId,
+        2
+      ),
+      §sql.set(
+        columnDone,
+        §sql.update(tableTodos),
+        true
+      )
+    )
+  ):Result[
+  Int,
+  §sql.SqlFailure
+]);
+  l selected=(§sql.one(
+    •topology.db,
+    §sql.where(
+      §sql.eq(
+        columnId,
+        2
+      ),
+      §sql.select(tableTodos)
+    )
+  ):Result[
+  Option[µTodo],
+  §sql.SqlFailure
+]);
+  l removed=(§sql.execDelete(
+    •topology.db,
+    §sql.deleteWhere(
+      §sql.eq(
+        columnId,
+        2
+      ),
+      §sql.delete(tableTodos)
+    )
+  ):Result[
+  Int,
+  §sql.SqlFailure
+]);
+  (match deleted{
+    Ok(_)=>true|
+    Err(_)=>false
+  })
+    and (match inserted{
+      Ok(count)=>count=1|
+      Err(_)=>false
+    })
+    and (match updated{
+      Ok(count)=>count=1|
+      Err(_)=>false
+    })
+    and (match selected{
+      Ok(Some(todo))=>todo.done
+        and todo.id=2
+        and todo.title="second"|
+      _=>false
+    })
+    and (match removed{
+      Ok(count)=>count=1|
+      Err(_)=>false
+    })
+}
+
+test "raw sql named parameters decode canonical values" =>!Sql world {
+  c db=(fixtureSqlHandle:†sql.SqlHandleEntry)
+} {
+  match §sql.rawQueryOne(
+    •topology.db,
+    §sql.raw(
+      ({"todoId"↦§sql.IntValue(1)}:{String↦§sql.Value}),
+      "select done, id, title from todos where id = :todoId"
+    )
+  ){
+    Ok(Some(row))=>(match ¶map.get(
+      "done",
+      row
+    ){
+      Some(§sql.BoolValue(done))=>done=false|
+      _=>false
+    }) and (match ¶map.get(
+      "title",
+      row
+    ){
+      Some(§sql.TextValue(text))=>text="first"|
+      _=>false
+    })|
+    _=>false
+  }
+}
+
+test "transaction cleanup rolls back uncommitted changes" =>!Sql world {
+  c db=(fixtureSqlHandle:†sql.SqlHandleEntry)
+} {
+  match §sql.begin(•topology.db){
+    Ok(ownedTransaction)=>{
+      l insertedDuringTransaction={
+        using transaction=ownedTransaction{
+          match §sql.execInsertIn(
+            §sql.insert(
+              {
+                done:false,
+                id:3,
+                title:"temporary"
+              },
+              tableTodos
+            ),
+            transaction
+          ){
+            Ok(count)=>count=1|
+            Err(_)=>false
+          }
+        }
+      };
+      insertedDuringTransaction and (match §sql.one(
+        •topology.db,
+        §sql.where(
+          §sql.eq(
+            columnId,
+            3
+          ),
+          §sql.select(tableTodos)
+        )
+      ){
+        Ok(None())=>true|
+        _=>false
+      })
+    }|
+    Err(_)=>false
+  }
+}

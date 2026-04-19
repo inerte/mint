@@ -12,6 +12,7 @@ c world=(†runtime.world(
   †process.deny(),
   †pty.real(),
   †random.seeded(1337),
+  †sql.deny(),
   †stream.live(),
   †task.real(),
   [],

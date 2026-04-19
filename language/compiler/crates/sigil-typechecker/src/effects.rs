@@ -1,7 +1,7 @@
 use sigil_ast::{Declaration, EffectDecl, Program};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-pub const PRIMITIVE_EFFECTS: [&str; 14] = [
+pub const PRIMITIVE_EFFECTS: [&str; 15] = [
     "Clock",
     "Fs",
     "FsWatch",
@@ -10,6 +10,7 @@ pub const PRIMITIVE_EFFECTS: [&str; 14] = [
     "Process",
     "Pty",
     "Random",
+    "Sql",
     "Stream",
     "Task",
     "Tcp",
@@ -40,6 +41,11 @@ mod tests {
     #[test]
     fn websocket_is_a_primitive_effect() {
         assert!(EffectCatalog::is_primitive("WebSocket"));
+    }
+
+    #[test]
+    fn sql_is_a_primitive_effect() {
+        assert!(EffectCatalog::is_primitive("Sql"));
     }
 
     #[test]

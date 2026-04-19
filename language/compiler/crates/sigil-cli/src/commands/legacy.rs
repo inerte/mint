@@ -2429,6 +2429,7 @@ console.log(JSON.stringify({{
     "present": Boolean(globalThis.__sigil_topology_exports),
     "declaredEnvs": Array.from(__sigil_inspect_topology.envs).sort(),
     "httpDependencies": Array.from(__sigil_inspect_topology.http).sort(),
+    "sqlHandles": Array.from(__sigil_inspect_topology.sqlHandles ?? []).sort(),
     "tcpDependencies": Array.from(__sigil_inspect_topology.tcp).sort()
   }},
   "summary": {{
@@ -2439,10 +2440,12 @@ console.log(JSON.stringify({{
     "ptyKind": String(__sigil_inspect_world.pty?.kind ?? ""),
     "processKind": String(__sigil_inspect_world.process?.kind ?? ""),
     "randomKind": String(__sigil_inspect_world.random?.kind ?? ""),
+    "sqlKind": String(__sigil_inspect_world.sql?.kind ?? ""),
     "streamKind": String(__sigil_inspect_world.stream?.kind ?? ""),
     "timerKind": String(__sigil_inspect_world.timer?.kind ?? ""),
     "websocketKind": String(__sigil_inspect_world.websocket?.kind ?? ""),
     "httpBindings": Object.keys(__sigil_inspect_world.http ?? {{}}).length,
+    "sqlBindings": Object.keys(__sigil_inspect_world.sqlHandles ?? {{}}).length,
     "tcpBindings": Object.keys(__sigil_inspect_world.tcp ?? {{}}).length
   }},
   "normalizedWorld": __sigil_inspect_world
@@ -2519,6 +2522,7 @@ const __sigil_has_topology =
   __sigil_inspect_topology.logSinks.size > 0 ||
   __sigil_inspect_topology.ptyHandles.size > 0 ||
   __sigil_inspect_topology.processHandles.size > 0 ||
+  __sigil_inspect_topology.sqlHandles.size > 0 ||
   __sigil_inspect_topology.tcp.size > 0 ||
   __sigil_inspect_topology.websocketHandles.size > 0;
 if (!__sigil_has_world && __sigil_has_topology) {{
@@ -2534,6 +2538,7 @@ console.log(JSON.stringify({{
     "present": __sigil_has_world,
     "declaredEnvs": Array.from(__sigil_inspect_topology.envs).sort(),
     "httpDependencies": Array.from(__sigil_inspect_topology.http).sort(),
+    "sqlHandles": Array.from(__sigil_inspect_topology.sqlHandles ?? []).sort(),
     "tcpDependencies": Array.from(__sigil_inspect_topology.tcp).sort()
   }},
   "summary": {{
@@ -2544,10 +2549,12 @@ console.log(JSON.stringify({{
     "ptyKind": String(__sigil_inspect_world.pty?.kind ?? ""),
     "processKind": String(__sigil_inspect_world.process?.kind ?? ""),
     "randomKind": String(__sigil_inspect_world.random?.kind ?? ""),
+    "sqlKind": String(__sigil_inspect_world.sql?.kind ?? ""),
     "streamKind": String(__sigil_inspect_world.stream?.kind ?? ""),
     "timerKind": String(__sigil_inspect_world.timer?.kind ?? ""),
     "websocketKind": String(__sigil_inspect_world.websocket?.kind ?? ""),
     "httpBindings": Object.keys(__sigil_inspect_world.http ?? {{}}).length,
+    "sqlBindings": Object.keys(__sigil_inspect_world.sqlHandles ?? {{}}).length,
     "tcpBindings": Object.keys(__sigil_inspect_world.tcp ?? {{}}).length
   }},
   "normalizedWorld": __sigil_inspect_world

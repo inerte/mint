@@ -1,0 +1,5 @@
+t Todo={
+  done:Bool,
+  id:Int,
+  title:String
+}

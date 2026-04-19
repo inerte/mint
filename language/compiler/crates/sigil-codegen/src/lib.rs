@@ -319,6 +319,8 @@ function __sigil_world_host_template() {
     process: { kind: 'real' },
     processHandles: Object.create(null),
     random: { kind: 'real' },
+    sql: { kind: 'deny' },
+    sqlHandles: Object.create(null),
     stream: { kind: 'live' },
     task: { kind: 'real' },
     tcp: Object.create(null),
@@ -334,10 +336,11 @@ function __sigil_world_collect_topology(topologyExports) {
   const logSinks = new Set();
   const ptyHandles = new Set();
   const processHandles = new Set();
+  const sqlHandles = new Set();
   const tcp = new Set();
   const websocketHandles = new Set();
   if (!topologyExports || typeof topologyExports !== 'object') {
-    return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, tcp, websocketHandles };
+    return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, sqlHandles, tcp, websocketHandles };
   }
   for (const value of Object.values(topologyExports)) {
     if (value?.__tag === 'Environment') {
@@ -352,13 +355,15 @@ function __sigil_world_collect_topology(topologyExports) {
       ptyHandles.add(String(value.__fields?.[0] ?? ''));
     } else if (value?.__tag === 'ProcessHandle') {
       processHandles.add(String(value.__fields?.[0] ?? ''));
+    } else if (value?.__tag === 'SqlHandle') {
+      sqlHandles.add(String(value.__fields?.[0] ?? ''));
     } else if (value?.__tag === 'TcpServiceDependency') {
       tcp.add(String(value.__fields?.[0] ?? ''));
     } else if (value?.__tag === 'WebSocketHandle') {
       websocketHandles.add(String(value.__fields?.[0] ?? ''));
     }
   }
-  return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, tcp, websocketHandles };
+  return { envs, fsRoots, http, logSinks, ptyHandles, processHandles, sqlHandles, tcp, websocketHandles };
 }
 function __sigil_world_parse_clock(value) {
   if (value?.__tag === 'SystemClock') {
@@ -452,6 +457,36 @@ function __sigil_world_parse_process(value) {
   if (value?.__tag === 'RealProcess') return { kind: 'real' };
   __sigil_world_error('world.process must be world::process.ProcessEntry');
 }
+function __sigil_world_parse_sql(value) {
+  if (value?.__tag === 'DenySql') return { kind: 'deny' };
+  if (value?.__tag === 'FixtureSql') {
+    const fixture = value.__fields?.[0] ?? {};
+    return {
+      kind: 'fixture',
+      seed: Array.isArray(fixture?.seed)
+        ? fixture.seed.map((statement) => ({
+            params: statement?.params ?? {},
+            sql: String(statement?.sql ?? '')
+          }))
+        : []
+    };
+  }
+  if (value?.__tag === 'SqliteSql') {
+    const path = String(value.__fields?.[0] ?? '');
+    if (!path) {
+      __sigil_world_error('sqlite sql path must be a non-empty string');
+    }
+    return { kind: 'sqlite', path };
+  }
+  if (value?.__tag === 'PostgresSql') {
+    const connection = String(value.__fields?.[0] ?? '');
+    if (!connection) {
+      __sigil_world_error('postgres sql connection must be a non-empty string');
+    }
+    return { kind: 'postgres', connection };
+  }
+  __sigil_world_error('world.sql must be world::sql.SqlEntry');
+}
 function __sigil_world_parse_fs_root_entry(value) {
   if (value?.__tag !== 'FsRootEntry') {
     __sigil_world_error('FS root overrides must be world::fs.FsRootEntry');
@@ -534,6 +569,20 @@ function __sigil_world_parse_process_handle_entry(value) {
   return {
     handleName,
     ...__sigil_world_parse_process(payload?.mode ?? null)
+  };
+}
+function __sigil_world_parse_sql_handle_entry(value) {
+  if (value?.__tag !== 'SqlHandleEntry') {
+    __sigil_world_error('SQL handle overrides must be world::sql.SqlHandleEntry');
+  }
+  const payload = value.__fields?.[0] ?? {};
+  const handleName = String(payload?.handleName ?? '');
+  if (!handleName) {
+    __sigil_world_error('world::sql.SqlHandleEntry handleName must be a non-empty string');
+  }
+  return {
+    handleName,
+    ...__sigil_world_parse_sql(payload?.mode ?? null)
   };
 }
 function __sigil_world_random_normalize_seed(seed) {
@@ -732,6 +781,12 @@ function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
     template.processHandles[entry.handleName] = entry;
   }
   template.random = __sigil_world_parse_random(worldValue.random);
+  template.sql = __sigil_world_parse_sql(worldValue.sql);
+  template.sqlHandles = Object.create(null);
+  for (const value of worldValue.sqlHandles ?? []) {
+    const entry = __sigil_world_parse_sql_handle_entry(value);
+    template.sqlHandles[entry.handleName] = entry;
+  }
   template.stream = __sigil_world_parse_stream(worldValue.stream);
   template.task = __sigil_world_parse_task(worldValue.task);
   template.timer = __sigil_world_parse_timer(worldValue.timer);
@@ -821,6 +876,18 @@ function __sigil_world_prepare_template(worldValue, topologyExports, envName) {
       }
     }
   }
+  if (topology.sqlHandles.size > 0) {
+    for (const name of topology.sqlHandles) {
+      if (!(name in template.sqlHandles)) {
+        __sigil_world_error(`missing sql handle world entry for '${name}' in environment '${envName ?? '<unknown>'}'`);
+      }
+    }
+    for (const name of Object.keys(template.sqlHandles)) {
+      if (!topology.sqlHandles.has(name)) {
+        __sigil_world_error(`sql handle world entry references undeclared boundary '${name}'`);
+      }
+    }
+  }
   if (topology.tcp.size > 0) {
     for (const name of topology.tcp) {
       if (!(name in template.tcp)) {
@@ -880,6 +947,9 @@ function __sigil_world_fresh(template) {
   world.ptyManagedRefs = new Map();
   world.ptySessions = new Map();
   world.httpServers = new Map();
+  world.sqlBackends = new Map();
+  world.sqlNextTransactionId = 1;
+  world.sqlTransactions = new Map();
   world.websocketNextClientId = 1;
   world.websocketNextServerId = 1;
   world.websocketClients = new Map();
@@ -974,6 +1044,17 @@ function __sigil_world_apply_overrides(world, overrides) {
       case 'SeededRandom':
         world.random = __sigil_world_parse_random(value);
         break;
+      case 'DenySql':
+      case 'FixtureSql':
+      case 'PostgresSql':
+      case 'SqliteSql':
+        world.sql = __sigil_world_parse_sql(value);
+        break;
+      case 'SqlHandleEntry': {
+        const entry = __sigil_world_parse_sql_handle_entry(value);
+        world.sqlHandles[entry.handleName] = entry;
+        break;
+      }
       case 'LiveStream':
         world.stream = __sigil_world_parse_stream(value);
         break;
@@ -2211,6 +2292,14 @@ function __sigil_world_named_process_handle(handleName) {
   }
   return entry;
 }
+function __sigil_world_named_sql_handle(handleName) {
+  const world = __sigil_current_world();
+  const entry = world.sqlHandles?.[String(handleName)] ?? null;
+  if (!entry) {
+    return null;
+  }
+  return entry;
+}
 async function __sigil_world_file_text_summary(content) {
   const { createHash } = await import('node:crypto');
   const text = String(content ?? '');
@@ -3000,6 +3089,345 @@ async function __sigil_world_process_run(command) {
   const handle = await __sigil_world_process_spawn(command);
   return await __sigil_world_process_wait(handle);
 }
+function __sigil_sql_failure(kind, message) {
+  return { kind: { __tag: String(kind), __fields: [] }, message: String(message ?? '') };
+}
+function __sigil_sql_err(kind, message) {
+  return { __tag: 'Err', __fields: [__sigil_sql_failure(kind, message)] };
+}
+function __sigil_sql_ok(value) {
+  return { __tag: 'Ok', __fields: [value] };
+}
+function __sigil_sql_column(field, name, scalar) {
+  return {
+    field: String(field ?? ''),
+    name: String(name ?? ''),
+    nullable: false,
+    scalar: String(scalar ?? '')
+  };
+}
+function __sigil_sql_nullable(column) {
+  return {
+    field: String(column?.field ?? ''),
+    name: String(column?.name ?? ''),
+    nullable: true,
+    scalar: String(column?.scalar ?? '')
+  };
+}
+function __sigil_sql_table(name, columns) {
+  return {
+    columns: [...(Array.isArray(columns) ? columns : [])].sort((left, right) =>
+      String(left?.field ?? '').localeCompare(String(right?.field ?? ''))
+    ),
+    name: String(name ?? '')
+  };
+}
+function __sigil_sql_begin_wrap(result) {
+  if (result?.__tag !== 'Ok') {
+    return result;
+  }
+  const transaction = result.__fields?.[0] ?? { id: '' };
+  return {
+    __tag: 'Ok',
+    __fields: [
+      __sigil_owned_wrap(transaction, async () => {
+        await __sigil_world_sql_transaction_cleanup(transaction);
+        return null;
+      })
+    ]
+  };
+}
+function __sigil_sql_runtime_failure(runtime, error) {
+  const kind = typeof runtime?.failureKind === 'function' ? runtime.failureKind(error) : 'InvalidQuery';
+  const message = typeof runtime?.failureMessage === 'function' ? runtime.failureMessage(error) : String(error instanceof Error ? error.message ?? error : error);
+  return __sigil_sql_err(kind, message);
+}
+async function __sigil_world_sql_backend_for_handle(handleName) {
+  const world = __sigil_current_world();
+  const entry = __sigil_world_named_sql_handle(handleName);
+  if (!entry) {
+    return __sigil_sql_err('MissingHandle', `SqlHandle '${String(handleName)}' is not configured in the current world`);
+  }
+  if (entry.kind === 'deny') {
+    return __sigil_sql_err('Denied', `SqlHandle '${String(handleName)}' is denied by the current world`);
+  }
+  let backend = world.sqlBackends.get(String(handleName));
+  if (!backend) {
+    const runtime = await globalThis.__sigil_load_sql_runtime();
+    try {
+      backend = await runtime.connect(entry);
+    } catch (error) {
+      return __sigil_sql_runtime_failure(runtime, error);
+    }
+    world.sqlBackends.set(String(handleName), backend);
+  }
+  return __sigil_sql_ok(backend);
+}
+function __sigil_world_sql_transaction_state(transaction) {
+  const world = __sigil_current_world();
+  const transactionId = String(transaction?.id ?? '');
+  const state = world.sqlTransactions.get(transactionId) ?? null;
+  if (!state) {
+    return __sigil_sql_err('Transaction', `unknown SQL transaction '${transactionId}'`);
+  }
+  return __sigil_sql_ok(state);
+}
+async function __sigil_world_sql_transaction_cleanup(transaction) {
+  const world = __sigil_current_world();
+  const transactionId = String(transaction?.id ?? '');
+  const state = world.sqlTransactions.get(transactionId) ?? null;
+  if (!state) {
+    return null;
+  }
+  world.sqlTransactions.delete(transactionId);
+  if (state.active !== true) {
+    return null;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    await runtime.rollback(state);
+  } catch {
+    // best-effort cleanup
+  }
+  return null;
+}
+async function __sigil_world_sql_all(handleName, select) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.all(backendResult.__fields?.[0], select));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_one(handleName, select) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.one(backendResult.__fields?.[0], select));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_exec_insert(handleName, statement) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.execInsert(backendResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_exec_update(handleName, statement) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.execUpdate(backendResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_exec_delete(handleName, statement) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.execDelete(backendResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_raw_exec(handleName, statement) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.rawExec(backendResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_raw_query(handleName, statement) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.rawQuery(backendResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_raw_query_one(handleName, statement) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.rawQueryOne(backendResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_begin(handleName) {
+  const backendResult = await __sigil_world_sql_backend_for_handle(handleName);
+  if (backendResult?.__tag !== 'Ok') {
+    return backendResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    const state = await runtime.begin(backendResult.__fields?.[0]);
+    const world = __sigil_current_world();
+    const transactionId = `sql-${String(world.sqlNextTransactionId ?? 1)}`;
+    world.sqlNextTransactionId = Number(world.sqlNextTransactionId ?? 1) + 1;
+    world.sqlTransactions.set(transactionId, state);
+    return __sigil_sql_ok({ id: transactionId });
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_commit(transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    await runtime.commit(stateResult.__fields?.[0]);
+    __sigil_current_world().sqlTransactions.delete(String(transaction?.id ?? ''));
+    return __sigil_sql_ok(null);
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_rollback(transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    await runtime.rollback(stateResult.__fields?.[0]);
+    __sigil_current_world().sqlTransactions.delete(String(transaction?.id ?? ''));
+    return __sigil_sql_ok(null);
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_all_in(select, transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.allIn(stateResult.__fields?.[0], select));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_one_in(select, transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.oneIn(stateResult.__fields?.[0], select));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_exec_insert_in(statement, transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.execInsertIn(stateResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_exec_update_in(statement, transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.execUpdateIn(stateResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_exec_delete_in(statement, transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.execDeleteIn(stateResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_raw_exec_in(statement, transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.rawExecIn(stateResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_raw_query_in(statement, transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.rawQueryIn(stateResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
+async function __sigil_world_sql_raw_query_one_in(statement, transaction) {
+  const stateResult = __sigil_world_sql_transaction_state(transaction);
+  if (stateResult?.__tag !== 'Ok') {
+    return stateResult;
+  }
+  const runtime = await globalThis.__sigil_load_sql_runtime();
+  try {
+    return __sigil_sql_ok(await runtime.rawQueryOneIn(stateResult.__fields?.[0], statement));
+  } catch (error) {
+    return __sigil_sql_runtime_failure(runtime, error);
+  }
+}
 async function __sigil_world_process_spawn_at(handleName, command) {
   const replay = __sigil_replay_take_event('process', 'spawnAt');
   if (replay.active) {
@@ -3463,6 +3891,7 @@ pub struct CodegenOptions {
     pub import_extension: String,
     pub fswatch_runtime_import_specifier: Option<String>,
     pub pty_runtime_import_specifier: Option<String>,
+    pub sql_runtime_import_specifier: Option<String>,
     pub websocket_runtime_import_specifier: Option<String>,
     pub lazy_extern_namespaces: bool,
     pub trace: bool,
@@ -3479,6 +3908,7 @@ impl Default for CodegenOptions {
             import_extension: "js".to_string(),
             fswatch_runtime_import_specifier: None,
             pty_runtime_import_specifier: None,
+            sql_runtime_import_specifier: None,
             websocket_runtime_import_specifier: None,
             lazy_extern_namespaces: false,
             trace: false,
@@ -3507,6 +3937,7 @@ pub struct TypeScriptGenerator {
     import_extension: String,
     fswatch_runtime_import_specifier: Option<String>,
     pty_runtime_import_specifier: Option<String>,
+    sql_runtime_import_specifier: Option<String>,
     websocket_runtime_import_specifier: Option<String>,
     lazy_extern_namespaces: bool,
     test_meta_entries: Vec<String>,
@@ -3531,6 +3962,7 @@ impl TypeScriptGenerator {
             import_extension: options.import_extension,
             fswatch_runtime_import_specifier: options.fswatch_runtime_import_specifier,
             pty_runtime_import_specifier: options.pty_runtime_import_specifier,
+            sql_runtime_import_specifier: options.sql_runtime_import_specifier,
             websocket_runtime_import_specifier: options.websocket_runtime_import_specifier,
             lazy_extern_namespaces: options.lazy_extern_namespaces,
             test_meta_entries: Vec::new(),
@@ -3742,6 +4174,11 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/pty.lib.sigil")
     }
 
+    fn requires_sql_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
+        runtime_modules.contains("stdlib::sql")
+            || self.source_file_is("language/stdlib/sql.lib.sigil")
+    }
+
     fn requires_websocket_runtime(&self, runtime_modules: &BTreeSet<String>) -> bool {
         runtime_modules.contains("stdlib::websocket")
             || runtime_modules.contains("stdlib::httpServer")
@@ -3775,6 +4212,7 @@ impl TypeScriptGenerator {
             || self.source_file_is("language/stdlib/process.lib.sigil")
             || self.source_file_is("language/stdlib/pty.lib.sigil")
             || self.source_file_is("language/stdlib/random.lib.sigil")
+            || self.source_file_is("language/stdlib/sql.lib.sigil")
             || self.source_file_is("language/stdlib/stream.lib.sigil")
             || self.source_file_is("language/stdlib/task.lib.sigil")
             || self.source_file_is("language/stdlib/tcpClient.lib.sigil")
@@ -4104,6 +4542,7 @@ impl TypeScriptGenerator {
         let include_process_runtime = self.requires_process_runtime(runtime_modules);
         let include_fswatch_runtime = self.requires_fswatch_runtime(runtime_modules);
         let include_pty_runtime = self.requires_pty_runtime(runtime_modules);
+        let include_sql_runtime = self.requires_sql_runtime(runtime_modules);
         let include_websocket_runtime = self.requires_websocket_runtime(runtime_modules);
         let include_http_server_runtime = self.requires_http_server_runtime(runtime_modules);
         let include_cli_runtime = self.requires_cli_runtime(runtime_modules);
@@ -4228,6 +4667,24 @@ impl TypeScriptGenerator {
                     self.emit("globalThis.__sigil_load_pty_runtime = async () => ({");
                     self.emit("  async spawnPty() {");
                     self.emit("    throw new Error('§pty runtime helper is unavailable');");
+                    self.emit("  }");
+                    self.emit("});");
+                }
+            }
+        }
+        if include_sql_runtime {
+            match self.sql_runtime_import_specifier.as_deref() {
+                Some(specifier) => {
+                    let specifier = self
+                        .json_string_literal(specifier)
+                        .unwrap_or_else(|_| "\"\"".to_string());
+                    self.emit("globalThis.__sigil_sql_runtime = null;");
+                    self.emit(&format!("globalThis.__sigil_load_sql_runtime = async () => {{ if (!globalThis.__sigil_sql_runtime) {{ globalThis.__sigil_sql_runtime = await import({specifier}); }} return globalThis.__sigil_sql_runtime; }};"));
+                }
+                None => {
+                    self.emit("globalThis.__sigil_load_sql_runtime = async () => ({");
+                    self.emit("  async connect() {");
+                    self.emit("    throw new Error('§sql runtime helper is unavailable');");
                     self.emit("  }");
                     self.emit("});");
                 }
@@ -5879,6 +6336,126 @@ impl TypeScriptGenerator {
             self.emit("      case 'extern:stdlib/cli.run':");
             self.emit("        return __sigil_cli_run(args[0], args[1]);");
         }
+        if include_sql_runtime {
+            self.emit("      case 'extern:stdlib/sql.all':");
+            self.emit(
+                "        return __sigil_world_sql_all(args[0]?.__fields?.[0] ?? '', args[1]);",
+            );
+            self.emit("      case 'extern:stdlib/sql.allIn':");
+            self.emit("        return __sigil_world_sql_all_in(args[0], args[1]);");
+            self.emit("      case 'extern:stdlib/sql.and':");
+            self.emit("        return { kind: 'and', left: args[0], right: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.begin':");
+            self.emit("        return __sigil_world_sql_begin(args[0]?.__fields?.[0] ?? '').then(__sigil_sql_begin_wrap);");
+            self.emit("      case 'extern:stdlib/sql.boolColumn':");
+            self.emit("        return __sigil_sql_column(args[0], args[1], 'bool');");
+            self.emit("      case 'extern:stdlib/sql.bytes':");
+            self.emit("        return { base64: String(args[0] ?? '') };");
+            self.emit("      case 'extern:stdlib/sql.bytesColumn':");
+            self.emit("        return __sigil_sql_column(args[0], args[1], 'bytes');");
+            self.emit("      case 'extern:stdlib/sql.commit':");
+            self.emit("        return __sigil_world_sql_commit(args[0]);");
+            self.emit("      case 'extern:stdlib/sql.delete':");
+            self.emit("        return { predicate: null, table: args[0] };");
+            self.emit("      case 'extern:stdlib/sql.deleteWhere':");
+            self.emit("        return { ...args[1], predicate: args[0] };");
+            self.emit("      case 'extern:stdlib/sql.eq':");
+            self.emit("        return { kind: 'eq', column: args[0], value: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.execDelete':");
+            self.emit("        return __sigil_world_sql_exec_delete(args[0]?.__fields?.[0] ?? '', args[1]);");
+            self.emit("      case 'extern:stdlib/sql.execDeleteIn':");
+            self.emit("        return __sigil_world_sql_exec_delete_in(args[0], args[1]);");
+            self.emit("      case 'extern:stdlib/sql.execInsert':");
+            self.emit("        return __sigil_world_sql_exec_insert(args[0]?.__fields?.[0] ?? '', args[1]);");
+            self.emit("      case 'extern:stdlib/sql.execInsertIn':");
+            self.emit("        return __sigil_world_sql_exec_insert_in(args[0], args[1]);");
+            self.emit("      case 'extern:stdlib/sql.execUpdate':");
+            self.emit("        return __sigil_world_sql_exec_update(args[0]?.__fields?.[0] ?? '', args[1]);");
+            self.emit("      case 'extern:stdlib/sql.execUpdateIn':");
+            self.emit("        return __sigil_world_sql_exec_update_in(args[0], args[1]);");
+            self.emit("      case 'extern:stdlib/sql.floatColumn':");
+            self.emit("        return __sigil_sql_column(args[0], args[1], 'float');");
+            self.emit("      case 'extern:stdlib/sql.gt':");
+            self.emit("        return { kind: 'gt', column: args[0], value: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.gte':");
+            self.emit("        return { kind: 'gte', column: args[0], value: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.insert':");
+            self.emit("        return { row: args[0], table: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.intColumn':");
+            self.emit("        return __sigil_sql_column(args[0], args[1], 'int');");
+            self.emit("      case 'extern:stdlib/sql.limit':");
+            self.emit("        return { ...args[1], limit: Number(args[0] ?? 0) };");
+            self.emit("      case 'extern:stdlib/sql.lt':");
+            self.emit("        return { kind: 'lt', column: args[0], value: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.lte':");
+            self.emit("        return { kind: 'lte', column: args[0], value: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.neq':");
+            self.emit("        return { kind: 'neq', column: args[0], value: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.not':");
+            self.emit("        return { kind: 'not', predicate: args[0] };");
+            self.emit("      case 'extern:stdlib/sql.nullable':");
+            self.emit("        return __sigil_sql_nullable(args[0]);");
+            self.emit("      case 'extern:stdlib/sql.one':");
+            self.emit(
+                "        return __sigil_world_sql_one(args[0]?.__fields?.[0] ?? '', args[1]);",
+            );
+            self.emit("      case 'extern:stdlib/sql.oneIn':");
+            self.emit("        return __sigil_world_sql_one_in(args[0], args[1]);");
+            self.emit("      case 'extern:stdlib/sql.or':");
+            self.emit("        return { kind: 'or', left: args[0], right: args[1] };");
+            self.emit("      case 'extern:stdlib/sql.orderBy':");
+            self.emit("        return { ...args[2], order: { column: args[0], direction: args[1]?.__tag === 'Desc' ? 'Desc' : 'Asc' } };");
+            self.emit("      case 'extern:stdlib/sql.raw':");
+            self.emit("        return { params: args[0] ?? {}, sql: String(args[1] ?? '') };");
+            self.emit("      case 'extern:stdlib/sql.rawExec':");
+            self.emit(
+                "        return __sigil_world_sql_raw_exec(args[0]?.__fields?.[0] ?? '', args[1]);",
+            );
+            self.emit("      case 'extern:stdlib/sql.rawExecIn':");
+            self.emit("        return __sigil_world_sql_raw_exec_in(args[0], args[1]);");
+            self.emit("      case 'extern:stdlib/sql.rawQuery':");
+            self.emit("        return __sigil_world_sql_raw_query(args[0]?.__fields?.[0] ?? '', args[1]);");
+            self.emit("      case 'extern:stdlib/sql.rawQueryIn':");
+            self.emit("        return __sigil_world_sql_raw_query_in(args[0], args[1]);");
+            self.emit("      case 'extern:stdlib/sql.rawQueryOne':");
+            self.emit("        return __sigil_world_sql_raw_query_one(args[0]?.__fields?.[0] ?? '', args[1]);");
+            self.emit("      case 'extern:stdlib/sql.rawQueryOneIn':");
+            self.emit("        return __sigil_world_sql_raw_query_one_in(args[0], args[1]);");
+            self.emit("      case 'extern:stdlib/sql.rollback':");
+            self.emit("        return __sigil_world_sql_rollback(args[0]);");
+            self.emit("      case 'extern:stdlib/sql.select':");
+            self.emit(
+                "        return { limit: null, order: null, predicate: null, table: args[0] };",
+            );
+            self.emit("      case 'extern:stdlib/sql.set':");
+            self.emit("        return { ...args[1], assignments: [...(Array.isArray(args[1]?.assignments) ? args[1].assignments : []), { column: args[0], value: args[2] }] };");
+            self.emit("      case 'extern:stdlib/sql.table1':");
+            self.emit("        return __sigil_sql_table(args[1], [args[0]]);");
+            self.emit("      case 'extern:stdlib/sql.table2':");
+            self.emit("        return __sigil_sql_table(args[2], [args[0], args[1]]);");
+            self.emit("      case 'extern:stdlib/sql.table3':");
+            self.emit("        return __sigil_sql_table(args[3], [args[0], args[1], args[2]]);");
+            self.emit("      case 'extern:stdlib/sql.table4':");
+            self.emit(
+                "        return __sigil_sql_table(args[4], [args[0], args[1], args[2], args[3]]);",
+            );
+            self.emit("      case 'extern:stdlib/sql.table5':");
+            self.emit("        return __sigil_sql_table(args[5], [args[0], args[1], args[2], args[3], args[4]]);");
+            self.emit("      case 'extern:stdlib/sql.table6':");
+            self.emit("        return __sigil_sql_table(args[6], [args[0], args[1], args[2], args[3], args[4], args[5]]);");
+            self.emit("      case 'extern:stdlib/sql.table7':");
+            self.emit("        return __sigil_sql_table(args[7], [args[0], args[1], args[2], args[3], args[4], args[5], args[6]]);");
+            self.emit("      case 'extern:stdlib/sql.table8':");
+            self.emit("        return __sigil_sql_table(args[8], [args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]]);");
+            self.emit("      case 'extern:stdlib/sql.textColumn':");
+            self.emit("        return __sigil_sql_column(args[0], args[1], 'text');");
+            self.emit("      case 'extern:stdlib/sql.update':");
+            self.emit("        return { assignments: [], predicate: null, table: args[0] };");
+            self.emit("      case 'extern:stdlib/sql.updateWhere':");
+            self.emit("        return { ...args[1], predicate: args[0] };");
+            self.emit("      case 'extern:stdlib/sql.where':");
+            self.emit("        return { ...args[1], predicate: args[0] };");
+        }
         if include_tcp_server_runtime {
             self.emit("      case 'extern:stdlib/tcpServer.listen':");
             self.emit("        return __sigil_tcp_listen(args[0], args[1]);");
@@ -7456,6 +8033,9 @@ impl TypeScriptGenerator {
                 if module == "stdlib/terminal" {
                     return self.generate_terminal_intrinsic(call_expr, member, args);
                 }
+                if module == "stdlib/sql" {
+                    return self.generate_sql_intrinsic(call_expr, member, args);
+                }
                 if module == "stdlib/process" {
                     return self.generate_process_intrinsic(call_expr, member, args);
                 }
@@ -7583,6 +8163,13 @@ impl TypeScriptGenerator {
                     .is_some_and(|path| path.ends_with("language/stdlib/terminal.lib.sigil"))
                 {
                     return self.generate_terminal_intrinsic(call_expr, &name.name, args);
+                }
+                if self
+                    .source_file
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with("language/stdlib/sql.lib.sigil"))
+                {
+                    return self.generate_sql_intrinsic(call_expr, &name.name, args);
                 }
                 if self
                     .source_file
@@ -8637,6 +9224,391 @@ impl TypeScriptGenerator {
                     "__sigil_world_timer_every(__ms)",
                     None
                 )?
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn generate_sql_intrinsic(
+        &mut self,
+        call_expr: &TypedExpr,
+        member: &str,
+        args: &[TypedExpr],
+    ) -> Result<Option<String>, CodegenError> {
+        let generated_args = args
+            .iter()
+            .map(|arg| self.generate_expression(arg))
+            .collect::<Result<Vec<_>, CodegenError>>()?;
+        let span_id = self.span_id_for_expr(DebugSpanKind::ExprCall, call_expr.location);
+
+        match member {
+            "all" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __select]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "all",
+                    "[__handle, __select]",
+                    "__sigil_world_sql_all(__handle?.__fields?.[0] ?? '', __select)",
+                    None
+                )?
+            ))),
+            "allIn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__select, __transaction]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "allIn",
+                    "[__select, __transaction]",
+                    "__sigil_world_sql_all_in(__select, __transaction)",
+                    None
+                )?
+            ))),
+            "and" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__left, __right]) => ({{ kind: 'and', left: __left, right: __right }}))",
+                self.js_all(&generated_args)
+            ))),
+            "begin" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__handle) => {}).then(__sigil_sql_begin_wrap)",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "begin",
+                    "[__handle]",
+                    "__sigil_world_sql_begin(__handle?.__fields?.[0] ?? '')",
+                    None
+                )?
+            ))),
+            "boolColumn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__field, __name]) => __sigil_sql_column(__field, __name, 'bool'))",
+                self.js_all(&generated_args)
+            ))),
+            "bytes" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__base64) => ({{ base64: String(__base64 ?? '') }}))",
+                generated_args[0]
+            ))),
+            "bytesColumn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__field, __name]) => __sigil_sql_column(__field, __name, 'bytes'))",
+                self.js_all(&generated_args)
+            ))),
+            "commit" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__transaction) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "commit",
+                    "[__transaction]",
+                    "__sigil_world_sql_commit(__transaction)",
+                    None
+                )?
+            ))),
+            "delete" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__table) => ({{ predicate: null, table: __table }}))",
+                generated_args[0]
+            ))),
+            "deleteWhere" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__predicate, __statement]) => ({{ ...__statement, predicate: __predicate }}))",
+                self.js_all(&generated_args)
+            ))),
+            "eq" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__column, __value]) => ({{ kind: 'eq', column: __column, value: __value }}))",
+                self.js_all(&generated_args)
+            ))),
+            "execDelete" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __statement]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "execDelete",
+                    "[__handle, __statement]",
+                    "__sigil_world_sql_exec_delete(__handle?.__fields?.[0] ?? '', __statement)",
+                    None
+                )?
+            ))),
+            "execDeleteIn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__statement, __transaction]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "execDeleteIn",
+                    "[__statement, __transaction]",
+                    "__sigil_world_sql_exec_delete_in(__statement, __transaction)",
+                    None
+                )?
+            ))),
+            "execInsert" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __statement]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "execInsert",
+                    "[__handle, __statement]",
+                    "__sigil_world_sql_exec_insert(__handle?.__fields?.[0] ?? '', __statement)",
+                    None
+                )?
+            ))),
+            "execInsertIn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__statement, __transaction]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "execInsertIn",
+                    "[__statement, __transaction]",
+                    "__sigil_world_sql_exec_insert_in(__statement, __transaction)",
+                    None
+                )?
+            ))),
+            "execUpdate" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __statement]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "execUpdate",
+                    "[__handle, __statement]",
+                    "__sigil_world_sql_exec_update(__handle?.__fields?.[0] ?? '', __statement)",
+                    None
+                )?
+            ))),
+            "execUpdateIn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__statement, __transaction]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "execUpdateIn",
+                    "[__statement, __transaction]",
+                    "__sigil_world_sql_exec_update_in(__statement, __transaction)",
+                    None
+                )?
+            ))),
+            "floatColumn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__field, __name]) => __sigil_sql_column(__field, __name, 'float'))",
+                self.js_all(&generated_args)
+            ))),
+            "gt" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__column, __value]) => ({{ kind: 'gt', column: __column, value: __value }}))",
+                self.js_all(&generated_args)
+            ))),
+            "gte" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__column, __value]) => ({{ kind: 'gte', column: __column, value: __value }}))",
+                self.js_all(&generated_args)
+            ))),
+            "insert" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__row, __table]) => ({{ row: __row, table: __table }}))",
+                self.js_all(&generated_args)
+            ))),
+            "intColumn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__field, __name]) => __sigil_sql_column(__field, __name, 'int'))",
+                self.js_all(&generated_args)
+            ))),
+            "limit" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__count, __select]) => ({{ ...__select, limit: Number(__count ?? 0) }}))",
+                self.js_all(&generated_args)
+            ))),
+            "lt" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__column, __value]) => ({{ kind: 'lt', column: __column, value: __value }}))",
+                self.js_all(&generated_args)
+            ))),
+            "lte" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__column, __value]) => ({{ kind: 'lte', column: __column, value: __value }}))",
+                self.js_all(&generated_args)
+            ))),
+            "neq" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__column, __value]) => ({{ kind: 'neq', column: __column, value: __value }}))",
+                self.js_all(&generated_args)
+            ))),
+            "not" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__predicate) => ({{ kind: 'not', predicate: __predicate }}))",
+                generated_args[0]
+            ))),
+            "nullable" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__column) => __sigil_sql_nullable(__column))",
+                generated_args[0]
+            ))),
+            "one" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __select]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "one",
+                    "[__handle, __select]",
+                    "__sigil_world_sql_one(__handle?.__fields?.[0] ?? '', __select)",
+                    None
+                )?
+            ))),
+            "oneIn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__select, __transaction]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "oneIn",
+                    "[__select, __transaction]",
+                    "__sigil_world_sql_one_in(__select, __transaction)",
+                    None
+                )?
+            ))),
+            "or" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__left, __right]) => ({{ kind: 'or', left: __left, right: __right }}))",
+                self.js_all(&generated_args)
+            ))),
+            "orderBy" if generated_args.len() == 3 => Ok(Some(format!(
+                "{}.then(([__column, __direction, __select]) => ({{ ...__select, order: {{ column: __column, direction: __direction?.__tag === 'Desc' ? 'Desc' : 'Asc' }} }}))",
+                self.js_all(&generated_args)
+            ))),
+            "raw" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__params, __sql]) => ({{ params: __params ?? {{}}, sql: String(__sql ?? '') }}))",
+                self.js_all(&generated_args)
+            ))),
+            "rawExec" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __statement]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "rawExec",
+                    "[__handle, __statement]",
+                    "__sigil_world_sql_raw_exec(__handle?.__fields?.[0] ?? '', __statement)",
+                    None
+                )?
+            ))),
+            "rawExecIn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__statement, __transaction]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "rawExecIn",
+                    "[__statement, __transaction]",
+                    "__sigil_world_sql_raw_exec_in(__statement, __transaction)",
+                    None
+                )?
+            ))),
+            "rawQuery" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __statement]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "rawQuery",
+                    "[__handle, __statement]",
+                    "__sigil_world_sql_raw_query(__handle?.__fields?.[0] ?? '', __statement)",
+                    None
+                )?
+            ))),
+            "rawQueryIn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__statement, __transaction]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "rawQueryIn",
+                    "[__statement, __transaction]",
+                    "__sigil_world_sql_raw_query_in(__statement, __transaction)",
+                    None
+                )?
+            ))),
+            "rawQueryOne" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__handle, __statement]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "rawQueryOne",
+                    "[__handle, __statement]",
+                    "__sigil_world_sql_raw_query_one(__handle?.__fields?.[0] ?? '', __statement)",
+                    None
+                )?
+            ))),
+            "rawQueryOneIn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__statement, __transaction]) => {})",
+                self.js_all(&generated_args),
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "rawQueryOneIn",
+                    "[__statement, __transaction]",
+                    "__sigil_world_sql_raw_query_one_in(__statement, __transaction)",
+                    None
+                )?
+            ))),
+            "rollback" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__transaction) => {})",
+                generated_args[0],
+                self.wrap_effect_trace(
+                    span_id,
+                    "sql",
+                    "rollback",
+                    "[__transaction]",
+                    "__sigil_world_sql_rollback(__transaction)",
+                    None
+                )?
+            ))),
+            "select" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__table) => ({{ limit: null, order: null, predicate: null, table: __table }}))",
+                generated_args[0]
+            ))),
+            "set" if generated_args.len() == 3 => Ok(Some(format!(
+                "{}.then(([__column, __statement, __value]) => ({{ ...__statement, assignments: [...(Array.isArray(__statement?.assignments) ? __statement.assignments : []), {{ column: __column, value: __value }}] }}))",
+                self.js_all(&generated_args)
+            ))),
+            "table1" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__column1, __name]) => __sigil_sql_table(__name, [__column1]))",
+                self.js_all(&generated_args)
+            ))),
+            "table2" if generated_args.len() == 3 => Ok(Some(format!(
+                "{}.then(([__column1, __column2, __name]) => __sigil_sql_table(__name, [__column1, __column2]))",
+                self.js_all(&generated_args)
+            ))),
+            "table3" if generated_args.len() == 4 => Ok(Some(format!(
+                "{}.then(([__column1, __column2, __column3, __name]) => __sigil_sql_table(__name, [__column1, __column2, __column3]))",
+                self.js_all(&generated_args)
+            ))),
+            "table4" if generated_args.len() == 5 => Ok(Some(format!(
+                "{}.then(([__column1, __column2, __column3, __column4, __name]) => __sigil_sql_table(__name, [__column1, __column2, __column3, __column4]))",
+                self.js_all(&generated_args)
+            ))),
+            "table5" if generated_args.len() == 6 => Ok(Some(format!(
+                "{}.then(([__column1, __column2, __column3, __column4, __column5, __name]) => __sigil_sql_table(__name, [__column1, __column2, __column3, __column4, __column5]))",
+                self.js_all(&generated_args)
+            ))),
+            "table6" if generated_args.len() == 7 => Ok(Some(format!(
+                "{}.then(([__column1, __column2, __column3, __column4, __column5, __column6, __name]) => __sigil_sql_table(__name, [__column1, __column2, __column3, __column4, __column5, __column6]))",
+                self.js_all(&generated_args)
+            ))),
+            "table7" if generated_args.len() == 8 => Ok(Some(format!(
+                "{}.then(([__column1, __column2, __column3, __column4, __column5, __column6, __column7, __name]) => __sigil_sql_table(__name, [__column1, __column2, __column3, __column4, __column5, __column6, __column7]))",
+                self.js_all(&generated_args)
+            ))),
+            "table8" if generated_args.len() == 9 => Ok(Some(format!(
+                "{}.then(([__column1, __column2, __column3, __column4, __column5, __column6, __column7, __column8, __name]) => __sigil_sql_table(__name, [__column1, __column2, __column3, __column4, __column5, __column6, __column7, __column8]))",
+                self.js_all(&generated_args)
+            ))),
+            "textColumn" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__field, __name]) => __sigil_sql_column(__field, __name, 'text'))",
+                self.js_all(&generated_args)
+            ))),
+            "update" if generated_args.len() == 1 => Ok(Some(format!(
+                "{}.then((__table) => ({{ assignments: [], predicate: null, table: __table }}))",
+                generated_args[0]
+            ))),
+            "updateWhere" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__predicate, __statement]) => ({{ ...__statement, predicate: __predicate }}))",
+                self.js_all(&generated_args)
+            ))),
+            "where" if generated_args.len() == 2 => Ok(Some(format!(
+                "{}.then(([__predicate, __select]) => ({{ ...__select, predicate: __predicate }}))",
+                self.js_all(&generated_args)
             ))),
             _ => Ok(None),
         }
@@ -9994,6 +10966,11 @@ impl TypeScriptGenerator {
                 return Ok(intrinsic);
             }
         }
+        if call.namespace.join("/") == "stdlib/sql" {
+            if let Some(intrinsic) = self.generate_sql_intrinsic(expr, &call.member, &call.args)? {
+                return Ok(intrinsic);
+            }
+        }
         if call.namespace.join("/") == "stdlib/process" {
             if let Some(intrinsic) =
                 self.generate_process_intrinsic(expr, &call.member, &call.args)?
@@ -11243,6 +12220,7 @@ fn requires_world_runtime_module(module_id: &str) -> bool {
                 | "stdlib::process"
                 | "stdlib::pty"
                 | "stdlib::random"
+                | "stdlib::sql"
                 | "stdlib::stream"
                 | "stdlib::task"
                 | "stdlib::tcpClient"

@@ -7,6 +7,11 @@
 //! This is simpler than Hindley-Milner because Sigil requires mandatory
 //! type annotations everywhere, making the inference burden much lighter.
 
+use crate::proof_context::{
+    proof_outcome_reason, refinement_type_support_error, solve_exact_single_var,
+    solve_single_var_interval, AssumptionCollector, ConstraintProofResult, ProofContext,
+    SymbolicCollection, SymbolicRecord, SymbolicValue, MATCH_SCRUTINEE_BINDING,
+};
 use crate::environment::{
     collect_type_var_ids, explicit_scheme, BindingMeta, BoundaryRule, BoundaryRuleKind,
     FunctionContract, LabelInfo, TypeEnvironment, TypeInfo,
@@ -1706,93 +1711,6 @@ fn resolve_constrained_type(
         }))
 }
 
-#[derive(Debug, Clone)]
-enum SymbolicValue {
-    Int(LinearExpr),
-    Bool(Formula),
-    Collection(SymbolicCollection),
-    Record(SymbolicRecord),
-    /// The protocol state of a handle — produced by `handle.state` field access.
-    State { path: SymbolPath, protocol: String },
-    /// An UpperCamelCase state name literal on the RHS of a state equality check.
-    StateLabel(String),
-}
-
-#[derive(Debug, Clone)]
-enum SymbolicCollection {
-    Path(SymbolPath),
-    KnownLength(LinearExpr),
-}
-
-impl SymbolicCollection {
-    fn length_expr(&self) -> LinearExpr {
-        match self {
-            Self::Path(path) => LinearExpr::from_path(path.length()),
-            Self::KnownLength(length) => length.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-enum SymbolicRecord {
-    Literal(BTreeMap<String, Expr>),
-    Path {
-        base: SymbolPath,
-        fields: HashMap<String, InferenceType>,
-    },
-}
-
-#[derive(Default)]
-struct AssumptionCollector {
-    assumptions: Vec<Formula>,
-    seen_bindings: HashSet<String>,
-}
-
-#[derive(Debug, Clone, Default)]
-struct ProofContext {
-    assumptions: Vec<Formula>,
-    symbolic_bindings: HashMap<String, SymbolicValue>,
-}
-
-impl ProofContext {
-    fn with_assumptions<I>(&self, assumptions: I) -> Self
-    where
-        I: IntoIterator<Item = Formula>,
-    {
-        let mut next = self.clone();
-        next.assumptions.extend(assumptions);
-        next
-    }
-
-    fn with_assumption(&self, assumption: Formula) -> Self {
-        self.with_assumptions([assumption])
-    }
-
-    fn with_symbolic_bindings<I>(&self, bindings: I) -> Self
-    where
-        I: IntoIterator<Item = (String, SymbolicValue)>,
-    {
-        let mut next = self.clone();
-        next.symbolic_bindings.extend(bindings);
-        next
-    }
-
-    fn lookup_symbolic_binding(&self, name: &str) -> Option<SymbolicValue> {
-        self.symbolic_bindings.get(name).cloned()
-    }
-}
-
-const MATCH_SCRUTINEE_BINDING: &str = "$match_scrutinee";
-
-fn refinement_type_support_error(name: &str, reason: &str) -> TypeError {
-    TypeError::new(
-        format!(
-            "Type constraint for '{}' uses unsupported refinement syntax: {}. Supported refinement constraints use Bool/Int literals, value, #value, field access, +, -, comparisons, and/or/not.",
-            name, reason
-        ),
-        None,
-    )
-}
 
 fn symbolic_value_for_type_path(
     env: &TypeEnvironment,
@@ -2386,108 +2304,6 @@ fn validate_refinement_constraint_shape(
     Ok(())
 }
 
-#[derive(Debug, Clone)]
-enum ConstraintProofResult {
-    Proved,
-    Failed(sigil_solver::ProofCheck),
-}
-
-impl ConstraintProofResult {
-    fn proved(&self) -> bool {
-        matches!(self, Self::Proved)
-    }
-
-    fn proved_trivially() -> Self {
-        Self::Proved
-    }
-
-    fn failed_check(&self) -> Option<&sigil_solver::ProofCheck> {
-        match self {
-            Self::Proved => None,
-            Self::Failed(check) => Some(check),
-        }
-    }
-}
-
-fn proof_outcome_reason(outcome: &SolverOutcome) -> String {
-    match outcome {
-        SolverOutcome::Proved => "proved".to_string(),
-        SolverOutcome::Refuted { model } => {
-            if model.is_empty() {
-                "solver found a counterexample".to_string()
-            } else {
-                format!(
-                    "solver found a counterexample: {}",
-                    serde_json::to_string(model).unwrap_or_else(|_| "{}".to_string())
-                )
-            }
-        }
-        SolverOutcome::Unknown { reason } => format!("solver returned unknown: {}", reason),
-    }
-}
-
-fn solve_exact_single_var(coeff: i64, rhs: i64) -> Option<i64> {
-    if coeff == 0 || rhs % coeff != 0 {
-        return None;
-    }
-    Some(rhs / coeff)
-}
-
-fn solve_single_var_interval(
-    coeff: i64,
-    op: ComparisonOp,
-    rhs: i64,
-) -> Option<(Option<i64>, Option<i64>)> {
-    if coeff == 0 {
-        return None;
-    }
-
-    let (normalized_op, normalized_rhs) = if coeff > 0 {
-        (op, rhs)
-    } else {
-        (
-            match op {
-                ComparisonOp::Lt => ComparisonOp::Gt,
-                ComparisonOp::Le => ComparisonOp::Ge,
-                ComparisonOp::Gt => ComparisonOp::Lt,
-                ComparisonOp::Ge => ComparisonOp::Le,
-                other => other,
-            },
-            -rhs,
-        )
-    };
-    let divisor = coeff.abs();
-
-    let interval = match normalized_op {
-        ComparisonOp::Lt => (None, Some(div_floor(normalized_rhs - 1, divisor))),
-        ComparisonOp::Le => (None, Some(div_floor(normalized_rhs, divisor))),
-        ComparisonOp::Gt => (Some(div_ceil(normalized_rhs + 1, divisor)), None),
-        ComparisonOp::Ge => (Some(div_ceil(normalized_rhs, divisor)), None),
-        ComparisonOp::Eq | ComparisonOp::Ne => return None,
-    };
-
-    Some(interval)
-}
-
-fn div_floor(numerator: i64, denominator: i64) -> i64 {
-    let quotient = numerator / denominator;
-    let remainder = numerator % denominator;
-    if remainder != 0 && ((remainder > 0) != (denominator > 0)) {
-        quotient - 1
-    } else {
-        quotient
-    }
-}
-
-fn div_ceil(numerator: i64, denominator: i64) -> i64 {
-    let quotient = numerator / denominator;
-    let remainder = numerator % denominator;
-    if remainder != 0 && ((remainder > 0) == (denominator > 0)) {
-        quotient + 1
-    } else {
-        quotient
-    }
-}
 
 fn lower_symbolic_formula(
     env: &TypeEnvironment,

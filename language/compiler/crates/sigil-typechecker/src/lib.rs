@@ -6,6 +6,7 @@ pub mod bidirectional;
 pub mod effects;
 pub mod environment;
 pub mod errors;
+pub mod proof_context;
 pub mod typed_ir;
 pub mod types;
 

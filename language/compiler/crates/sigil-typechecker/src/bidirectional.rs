@@ -7,6 +7,10 @@
 //! This is simpler than Hindley-Milner because Sigil requires mandatory
 //! type annotations everywhere, making the inference burden much lighter.
 
+use crate::effects::{
+    declared_effects_cover_actual, effects_option_to_set, merge_effects, purity_from_effects,
+    resolve_effect_names,
+};
 use crate::proof_context::{
     proof_outcome_reason, refinement_type_support_error, solve_exact_single_var,
     solve_single_var_interval, AssumptionCollector, ConstraintProofResult, ProofContext,
@@ -18,7 +22,7 @@ use crate::environment::{
 };
 use crate::errors::{format_type, TypeError};
 use crate::typed_ir::{
-    MethodSelector, PurityClass, StrictnessClass, TypeCheckResult, TypedBinaryExpr, TypedCallExpr,
+    MethodSelector, StrictnessClass, TypeCheckResult, TypedBinaryExpr, TypedCallExpr,
     TypedConcurrentConfig, TypedConcurrentExpr, TypedConcurrentStep, TypedConstDecl,
     TypedConstructorCallExpr, TypedDeclaration, TypedExpr, TypedExprKind, TypedExternCallExpr,
     TypedExternDecl, TypedFieldAccessExpr, TypedFilterExpr, TypedFoldExpr, TypedFunctionDecl,
@@ -43,7 +47,7 @@ use sigil_solver::{
     formula_and, formula_or, prove_formula, Atom, ComparisonOp, Formula, LinearExpr, SolverOutcome,
     SymbolPath, SymbolPathStep,
 };
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -3710,70 +3714,6 @@ fn check_transform_decl(env: &TypeEnvironment, func_decl: &FunctionDecl) -> Resu
     )?;
 
     Ok(())
-}
-
-fn effects_option_to_set(effects: &Option<EffectSet>) -> EffectSet {
-    effects.clone().unwrap_or_default()
-}
-
-fn resolve_effect_names(
-    env: &TypeEnvironment,
-    effects: &[String],
-    location: sigil_ast::SourceLocation,
-    context: &str,
-) -> Result<EffectSet, TypeError> {
-    env.effect_catalog()
-        .expand_effect_names(effects)
-        .map(|expanded| expanded.into_iter().collect())
-        .map_err(|message| TypeError::new(format!("{}: {}", context, message), Some(location)))
-}
-
-fn declared_effects_cover_actual(
-    env: &TypeEnvironment,
-    declared_surface_effects: &[String],
-    actual_effects: &EffectSet,
-    location: sigil_ast::SourceLocation,
-    context: &str,
-) -> Result<(), TypeError> {
-    let declared_effects = resolve_effect_names(env, declared_surface_effects, location, context)?;
-    if actual_effects.is_subset(&declared_effects) {
-        return Ok(());
-    }
-
-    let mut missing: Vec<String> = actual_effects
-        .difference(&declared_effects)
-        .cloned()
-        .collect();
-    missing.sort();
-
-    Err(TypeError::new(
-        format!(
-            "{} is missing declared effects: {}",
-            context,
-            missing
-                .into_iter()
-                .map(|effect| format!("!{}", effect))
-                .collect::<Vec<_>>()
-                .join(" ")
-        ),
-        Some(location),
-    ))
-}
-
-fn merge_effects(values: impl IntoIterator<Item = EffectSet>) -> EffectSet {
-    let mut merged = HashSet::new();
-    for value in values {
-        merged.extend(value);
-    }
-    merged
-}
-
-fn purity_from_effects(effects: &EffectSet) -> PurityClass {
-    if effects.is_empty() {
-        PurityClass::Pure
-    } else {
-        PurityClass::Effectful
-    }
 }
 
 fn typed_expr(

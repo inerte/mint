@@ -1,3 +1,7 @@
+use crate::errors::TypeError;
+use crate::types::EffectSet;
+use crate::typed_ir::PurityClass;
+use crate::environment::TypeEnvironment;
 use sigil_ast::{Declaration, EffectDecl, Program};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
@@ -246,4 +250,72 @@ fn expand_alias(
     resolving.remove(name);
     resolved.insert(name.to_string(), expanded.clone());
     Ok(expanded)
+}
+
+// ============================================================================
+// Effect utilities used by the typechecker
+// ============================================================================
+
+pub(crate) fn effects_option_to_set(effects: &Option<EffectSet>) -> EffectSet {
+    effects.clone().unwrap_or_default()
+}
+
+pub(crate) fn resolve_effect_names(
+    env: &TypeEnvironment,
+    effects: &[String],
+    location: sigil_ast::SourceLocation,
+    context: &str,
+) -> Result<EffectSet, TypeError> {
+    env.effect_catalog()
+        .expand_effect_names(effects)
+        .map(|expanded| expanded.into_iter().collect())
+        .map_err(|message| TypeError::new(format!("{}: {}", context, message), Some(location)))
+}
+
+pub(crate) fn declared_effects_cover_actual(
+    env: &TypeEnvironment,
+    declared_surface_effects: &[String],
+    actual_effects: &EffectSet,
+    location: sigil_ast::SourceLocation,
+    context: &str,
+) -> Result<(), TypeError> {
+    let declared_effects = resolve_effect_names(env, declared_surface_effects, location, context)?;
+    if actual_effects.is_subset(&declared_effects) {
+        return Ok(());
+    }
+
+    let mut missing: Vec<String> = actual_effects
+        .difference(&declared_effects)
+        .cloned()
+        .collect();
+    missing.sort();
+
+    Err(TypeError::new(
+        format!(
+            "{} is missing declared effects: {}",
+            context,
+            missing
+                .into_iter()
+                .map(|effect| format!("!{}", effect))
+                .collect::<Vec<_>>()
+                .join(" ")
+        ),
+        Some(location),
+    ))
+}
+
+pub(crate) fn merge_effects(values: impl IntoIterator<Item = EffectSet>) -> EffectSet {
+    let mut merged = HashSet::new();
+    for value in values {
+        merged.extend(value);
+    }
+    merged
+}
+
+pub(crate) fn purity_from_effects(effects: &EffectSet) -> PurityClass {
+    if effects.is_empty() {
+        PurityClass::Pure
+    } else {
+        PurityClass::Effectful
+    }
 }

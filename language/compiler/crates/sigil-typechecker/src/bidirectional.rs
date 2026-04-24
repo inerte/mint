@@ -1288,24 +1288,6 @@ fn expr_has_state_access(expr: &Expr) -> bool {
     }
 }
 
-/// Returns true if the expression contains an identifier with the given name anywhere.
-fn expr_mentions_identifier(expr: &Expr, name: &str) -> bool {
-    match expr {
-        Expr::Identifier(id) => id.name == name,
-        Expr::Binary(b) => {
-            expr_mentions_identifier(&b.left, name) || expr_mentions_identifier(&b.right, name)
-        }
-        Expr::Unary(u) => expr_mentions_identifier(&u.operand, name),
-        Expr::FieldAccess(f) => expr_mentions_identifier(&f.object, name),
-        Expr::TypeAscription(t) => expr_mentions_identifier(&t.expr, name),
-        Expr::Application(a) => {
-            expr_mentions_identifier(&a.func, name)
-                || a.args.iter().any(|arg| expr_mentions_identifier(arg, name))
-        }
-        _ => false,
-    }
-}
-
 fn expr_location(expr: &Expr) -> sigil_lexer::SourceLocation {
     match expr {
         Expr::Literal(expr) => expr.location,

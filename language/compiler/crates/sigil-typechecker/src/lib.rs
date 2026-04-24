@@ -3,6 +3,7 @@
 //! Main entry point for type checking Sigil programs
 
 pub mod bidirectional;
+pub mod coverage;
 pub mod effects;
 pub mod environment;
 pub mod errors;

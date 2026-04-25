@@ -1,7 +1,7 @@
-use crate::errors::TypeError;
-use crate::types::EffectSet;
-use crate::typed_ir::PurityClass;
 use crate::environment::TypeEnvironment;
+use crate::errors::TypeError;
+use crate::typed_ir::PurityClass;
+use crate::types::EffectSet;
 use sigil_ast::{Declaration, EffectDecl, Program};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 

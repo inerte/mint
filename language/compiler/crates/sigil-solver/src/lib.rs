@@ -456,7 +456,9 @@ fn lower_atom(atom: &Atom, registry: &SymbolRegistry) -> z3::ast::Bool {
                 ComparisonOp::Ge => expr.ge(&rhs_expr),
             }
         }
-        Atom::StateEq { path, state_index, .. } => {
+        Atom::StateEq {
+            path, state_index, ..
+        } => {
             let expr = registry.int_const(path);
             let rhs_expr = z3::ast::Int::from_i64(*state_index);
             expr.eq(&rhs_expr)

@@ -7,20 +7,24 @@
 //! This is simpler than Hindley-Milner because Sigil requires mandatory
 //! type annotations everywhere, making the inference burden much lighter.
 
-use crate::coverage::{analyze_match_coverage, expr_summary, pattern_to_space, space_intersection, space_is_empty, total_space_for_type};
+use crate::coverage::{
+    analyze_match_coverage, expr_summary, pattern_to_space, space_intersection, space_is_empty,
+    total_space_for_type,
+};
 use crate::effects::{
     declared_effects_cover_actual, effects_option_to_set, merge_effects, purity_from_effects,
     resolve_effect_names,
-};
-use crate::proof_context::{
-    proof_outcome_reason, refinement_type_support_error, AssumptionCollector, ConstraintProofResult, ProofContext,
-    SymbolicCollection, SymbolicRecord, SymbolicValue, MATCH_SCRUTINEE_BINDING,
 };
 use crate::environment::{
     collect_type_var_ids, explicit_scheme, BindingMeta, BoundaryRule, BoundaryRuleKind,
     FunctionContract, LabelInfo, TypeEnvironment, TypeInfo,
 };
 use crate::errors::{format_type, TypeError};
+use crate::proof_context::{
+    proof_outcome_reason, refinement_type_support_error, AssumptionCollector,
+    ConstraintProofResult, ProofContext, SymbolicCollection, SymbolicRecord, SymbolicValue,
+    MATCH_SCRUTINEE_BINDING,
+};
 use crate::typed_ir::{
     MethodSelector, StrictnessClass, TypeCheckResult, TypedBinaryExpr, TypedCallExpr,
     TypedConcurrentConfig, TypedConcurrentExpr, TypedConcurrentStep, TypedConstDecl,
@@ -1244,10 +1248,7 @@ fn validate_type_constraints(env: &TypeEnvironment, program: &Program) -> Result
     Ok(())
 }
 
-fn validate_protocol_contracts(
-    env: &TypeEnvironment,
-    program: &Program,
-) -> Result<(), TypeError> {
+fn validate_protocol_contracts(env: &TypeEnvironment, program: &Program) -> Result<(), TypeError> {
     for decl in &program.declarations {
         let Declaration::Protocol(protocol_decl) = decl else {
             continue;
@@ -1742,7 +1743,6 @@ fn resolve_constrained_type(
         }))
 }
 
-
 fn symbolic_value_for_type_path(
     env: &TypeEnvironment,
     typ: &InferenceType,
@@ -1877,9 +1877,11 @@ fn symbolic_value_from_expr(
                 ));
             };
             // Try the standard symbolic path first.
-            if let Ok(value) =
-                symbolic_value_for_type_path(env, &binding_type, &SymbolPath::root(&identifier.name))
-            {
+            if let Ok(value) = symbolic_value_for_type_path(
+                env,
+                &binding_type,
+                &SymbolPath::root(&identifier.name),
+            ) {
                 return Ok(value);
             }
             // Fallback: if the proof context has a StateEq assumption about this binding,
@@ -2062,20 +2064,19 @@ fn symbolic_value_from_expr(
                             field_access.field
                         ));
                     };
-                    symbolic_value_for_type_path(
-                        env,
-                        field_type,
-                        &base.field(&field_access.field),
-                    )
+                    symbolic_value_for_type_path(env, field_type, &base.field(&field_access.field))
                 }
-                _ => Err(
-                    "field access in refinement proofs requires an exact record".to_string(),
-                ),
+                _ => Err("field access in refinement proofs requires an exact record".to_string()),
             }
         }
         Expr::TypeAscription(type_asc) => {
-            let inner =
-                symbolic_value_from_expr(env, proof_context, &type_asc.expr, value_binding, collector)?;
+            let inner = symbolic_value_from_expr(
+                env,
+                proof_context,
+                &type_asc.expr,
+                value_binding,
+                collector,
+            )?;
             // If the ascribed type is protocol-registered, inject the initial state assumption so
             // that inline protocol-typed values (e.g. `({id:"x"}:Ticket)`) can satisfy state requires.
             if let Ok(ascribed_type) = synthesize(env, expr) {
@@ -2093,7 +2094,10 @@ fn symbolic_value_from_expr(
                             state_index,
                             protocol: protocol_name.clone(),
                         }));
-                        return Ok(SymbolicValue::State { path, protocol: protocol_name });
+                        return Ok(SymbolicValue::State {
+                            path,
+                            protocol: protocol_name,
+                        });
                     }
                 }
             }
@@ -2334,7 +2338,6 @@ fn validate_refinement_constraint_shape(
 
     Ok(())
 }
-
 
 fn lower_symbolic_formula(
     env: &TypeEnvironment,
@@ -4812,7 +4815,12 @@ fn synthesize(env: &TypeEnvironment, expr: &Expr) -> Result<InferenceType, TypeE
             // Protocol state name labels (UpperCamelCase identifiers used as `handle.state = Label`)
             // are not regular Sigil bindings. They synthesize as Bool because they only appear
             // inside state equality comparisons which are Bool-typed.
-            if id.name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+            if id
+                .name
+                .chars()
+                .next()
+                .map(|c| c.is_uppercase())
+                .unwrap_or(false)
                 && env.lookup(&id.name).is_none()
             {
                 let is_known_state = env
@@ -7097,7 +7105,6 @@ fn check_pattern(
         }
     }
 }
-
 
 fn synthesize_type_ascription(
     env: &TypeEnvironment,
@@ -9589,7 +9596,10 @@ mod tests {
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
         let result = type_check(&program, source, TypeCheckOptions::default());
-        assert!(result.is_ok(), "Protocol declaration should parse and register: {result:?}");
+        assert!(
+            result.is_ok(),
+            "Protocol declaration should parse and register: {result:?}"
+        );
     }
 
     #[test]
@@ -9611,7 +9621,10 @@ mod tests {
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
         let result = type_check(&program, source, TypeCheckOptions::default());
-        assert!(result.is_err(), "Second close on a Closed handle should fail");
+        assert!(
+            result.is_err(),
+            "Second close on a Closed handle should fail"
+        );
         let err = result.unwrap_err();
         assert!(
             err.message.contains("requires clause") || err.message.contains("requires"),
@@ -9634,7 +9647,10 @@ mod tests {
         let result = type_check(&program, source, TypeCheckOptions::default());
         assert!(result.is_err(), "Protocol on unknown type should fail");
         assert!(
-            result.unwrap_err().message.contains("SIGIL-PROTO-UNKNOWN-TYPE"),
+            result
+                .unwrap_err()
+                .message
+                .contains("SIGIL-PROTO-UNKNOWN-TYPE"),
             "Expected SIGIL-PROTO-UNKNOWN-TYPE error"
         );
     }
@@ -9662,6 +9678,9 @@ mod tests {
         let tokens = tokenize(source).unwrap();
         let program = parse(tokens, "test.sigil").unwrap();
         let result = type_check(&program, source, TypeCheckOptions::default());
-        assert!(result.is_ok(), "Valid protocol contracts should typecheck: {result:?}");
+        assert!(
+            result.is_ok(),
+            "Valid protocol contracts should typecheck: {result:?}"
+        );
     }
 }

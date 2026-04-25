@@ -18,7 +18,9 @@ fn pipeline(source: &str) -> Result<sigil_typechecker::TypeCheckResult, String> 
 }
 
 /// Run parse + typecheck only (skip canonical validation for non-canonical test sources).
-fn typecheck_only(source: &str) -> Result<sigil_typechecker::TypeCheckResult, sigil_typechecker::TypeError> {
+fn typecheck_only(
+    source: &str,
+) -> Result<sigil_typechecker::TypeCheckResult, sigil_typechecker::TypeError> {
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
     type_check(&program, source, None)
@@ -64,9 +66,7 @@ fn pipeline_effect_annotation() {
 
 #[test]
 fn pipeline_requires_ensures() {
-    let r = typecheck_only(
-        "λpos(n:Int)=>Int\nrequires n>0\nensures result>0\n=n",
-    );
+    let r = typecheck_only("λpos(n:Int)=>Int\nrequires n>0\nensures result>0\n=n");
     assert!(r.is_ok(), "{r:?}");
 }
 
@@ -101,9 +101,7 @@ fn pipeline_protocol_state_valid() {
 
 #[test]
 fn pipeline_constrained_type() {
-    let r = typecheck_only(
-        "t Score=Int where value≥0 and value≤100\nλperfect()=>Score=100",
-    );
+    let r = typecheck_only("t Score=Int where value≥0 and value≤100\nλperfect()=>Score=100");
     assert!(r.is_ok(), "{r:?}");
 }
 
@@ -157,9 +155,8 @@ fn pipeline_non_exhaustive_match_rejected() {
 
 #[test]
 fn pipeline_effect_missing_rejected() {
-    let r = typecheck_only(
-        "e console:{log:λ(String)=>!Log Unit}\nλbad()=>Unit=console.log(\"hi\")",
-    );
+    let r =
+        typecheck_only("e console:{log:λ(String)=>!Log Unit}\nλbad()=>Unit=console.log(\"hi\")");
     assert!(r.is_err(), "Expected missing effect error");
 }
 

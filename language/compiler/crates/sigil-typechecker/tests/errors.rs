@@ -33,7 +33,10 @@ fn expect_error_code(source: &str, expected_code: &str) {
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
     let result = type_check(&program, source, None);
-    let e = result.expect_err(&format!("Expected error code {} but succeeded", expected_code));
+    let e = result.expect_err(&format!(
+        "Expected error code {} but succeeded",
+        expected_code
+    ));
     assert_eq!(
         e.code, expected_code,
         "Expected code {}, got code {}. Message: {}",
@@ -57,7 +60,10 @@ fn unbound_variable() {
 
 #[test]
 fn wrong_argument_count() {
-    expect_error("λf(x:Int,y:Int)=>Int=x+y\nλbad()=>Int=f(1)", "expects 2 arguments");
+    expect_error(
+        "λf(x:Int,y:Int)=>Int=x+y\nλbad()=>Int=f(1)",
+        "expects 2 arguments",
+    );
 }
 
 #[test]
@@ -71,7 +77,10 @@ fn argument_type_mismatch() {
 
 #[test]
 fn non_exhaustive_bool_match() {
-    expect_error_code("λbad(b:Bool)=>Int match b{true=>1}", codes::typecheck::MATCH_NON_EXHAUSTIVE);
+    expect_error_code(
+        "λbad(b:Bool)=>Int match b{true=>1}",
+        codes::typecheck::MATCH_NON_EXHAUSTIVE,
+    );
 }
 
 #[test]
@@ -96,10 +105,7 @@ fn requires_violated_at_call_site() {
 
 #[test]
 fn ensures_cannot_be_proven() {
-    expect_error(
-        "λbad(n:Int)=>Int\nensures result>n\n=n",
-        "ensures clause",
-    );
+    expect_error("λbad(n:Int)=>Int\nensures result>n\n=n", "ensures clause");
 }
 
 // ============================================================================

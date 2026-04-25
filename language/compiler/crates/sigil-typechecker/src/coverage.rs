@@ -5,8 +5,8 @@
 
 use crate::bidirectional::{
     constructor_display_name, create_constructor_type_with_result_name, lookup_constructor_type,
-    match_arm_refinement, scrutinee_proof_context,
-    scrutinee_symbolic_value, sorted_record_field_types, split_qualified_constructor_name,
+    match_arm_refinement, scrutinee_proof_context, scrutinee_symbolic_value,
+    sorted_record_field_types, split_qualified_constructor_name,
 };
 use crate::environment::{TypeEnvironment, TypeInfo};
 use crate::errors::{format_type, TypeError};
@@ -18,8 +18,7 @@ use crate::types::{apply_subst, unify, InferenceType, TConstructor, TPrimitive};
 use sigil_ast::{Expr, LiteralValue, PrimitiveName, TypeDef};
 use sigil_diagnostics::codes;
 use sigil_solver::{
-    prove_formula, Atom, ComparisonOp, Formula, SolverOutcome, SymbolPath,
-    SymbolPathStep,
+    prove_formula, Atom, ComparisonOp, Formula, SolverOutcome, SymbolPath, SymbolPathStep,
 };
 use std::collections::HashMap;
 

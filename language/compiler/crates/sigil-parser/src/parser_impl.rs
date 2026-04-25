@@ -465,21 +465,15 @@ impl Parser {
 
                 let mut via: Vec<String> = Vec::new();
                 via.push(
-                    self.consume(
-                        TokenType::IDENTIFIER,
-                        "Expected function name after 'via'",
-                    )?
-                    .value
-                    .clone(),
+                    self.consume(TokenType::IDENTIFIER, "Expected function name after 'via'")?
+                        .value
+                        .clone(),
                 );
                 while self.match_token(TokenType::COMMA) {
                     via.push(
-                        self.consume(
-                            TokenType::IDENTIFIER,
-                            "Expected function name after ','",
-                        )?
-                        .value
-                        .clone(),
+                        self.consume(TokenType::IDENTIFIER, "Expected function name after ','")?
+                            .value
+                            .clone(),
                     );
                 }
 
@@ -497,12 +491,10 @@ impl Parser {
             break;
         }
 
-        let initial = initial.ok_or_else(|| {
-            self.error("Protocol declaration requires 'initial = StateName'")
-        })?;
-        let terminal = terminal.ok_or_else(|| {
-            self.error("Protocol declaration requires 'terminal = StateName'")
-        })?;
+        let initial = initial
+            .ok_or_else(|| self.error("Protocol declaration requires 'initial = StateName'"))?;
+        let terminal = terminal
+            .ok_or_else(|| self.error("Protocol declaration requires 'terminal = StateName'"))?;
 
         let end = self.previous();
         let location = self.make_location(start.location.start, end.location.end);

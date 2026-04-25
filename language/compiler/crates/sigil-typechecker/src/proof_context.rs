@@ -20,7 +20,10 @@ pub(crate) enum SymbolicValue {
     Collection(SymbolicCollection),
     Record(SymbolicRecord),
     /// The protocol state of a handle — produced by `handle.state` field access.
-    State { path: SymbolPath, protocol: String },
+    State {
+        path: SymbolPath,
+        protocol: String,
+    },
     /// An UpperCamelCase state name literal on the RHS of a state equality check.
     StateLabel(String),
 }

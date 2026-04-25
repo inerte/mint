@@ -10,7 +10,9 @@ use sigil_lexer::tokenize;
 use sigil_parser::parse;
 use sigil_typechecker::type_check;
 
-fn typecheck(source: &str) -> Result<sigil_typechecker::TypeCheckResult, sigil_typechecker::TypeError> {
+fn typecheck(
+    source: &str,
+) -> Result<sigil_typechecker::TypeCheckResult, sigil_typechecker::TypeError> {
     let tokens = tokenize(source).unwrap();
     let program = parse(tokens, "test.sigil").unwrap();
     type_check(&program, source, None)
@@ -117,7 +119,10 @@ fn resolve_after_resolve_is_state_violation() {
     );
     let r = typecheck(&source);
     // addNote requires ticket.state=Open but after resolve it's Closed
-    assert!(r.is_err(), "addNote after resolve should fail: ticket is Closed");
+    assert!(
+        r.is_err(),
+        "addNote after resolve should fail: ticket is Closed"
+    );
 }
 
 // ============================================================================
@@ -183,5 +188,8 @@ fn state_propagates_through_sequential_calls() {
         TICKET_PROTOCOL
     );
     let r = typecheck(&source);
-    assert!(r.is_ok(), "State propagates through sequential calls: {r:?}");
+    assert!(
+        r.is_ok(),
+        "State propagates through sequential calls: {r:?}"
+    );
 }

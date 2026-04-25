@@ -17,8 +17,8 @@ use sigil_typechecker::types::{
     InferenceType, TConstructor, TFunction, TList, TMap, TRecord, TTuple,
 };
 use sigil_typechecker::{
-    type_check, BindingMeta, BoundaryRule, LabelInfo, TypeCheckOptions, TypeInfo, TypeScheme,
-    TypedDeclaration, TypedProgram,
+    type_check, BindingMeta, BoundaryRule, FunctionContract, LabelInfo, ProtocolSpec,
+    TypeCheckOptions, TypeInfo, TypeScheme, TypedDeclaration, TypedProgram,
 };
 use sigil_validator::validate_typed_canonical_form;
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -1445,6 +1445,8 @@ pub(super) fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphO
     let mut compiled_modules = HashMap::new();
     let mut compiled_schemes = HashMap::new();
     let mut compiled_value_meta = HashMap::new();
+    let mut compiled_function_contracts = HashMap::new();
+    let mut protocol_registries = HashMap::new();
     let mut label_registries = HashMap::new();
     let mut compiled_boundary_rules = Vec::new();
     let mut coverage_targets = Vec::new();
@@ -1459,6 +1461,10 @@ pub(super) fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphO
         let imported_label_regs = build_imported_label_registries(module, &label_registries);
         let imported_value_schemes = build_imported_value_schemes(module, &compiled_schemes);
         let imported_value_meta = build_imported_value_meta(module, &compiled_value_meta);
+        let imported_function_contracts =
+            build_imported_function_contracts(module, &compiled_function_contracts);
+        let imported_protocol_regs =
+            build_imported_protocol_registries(module, &protocol_registries);
         let imported_boundary_rules =
             build_imported_boundary_rules(&module.ast, &compiled_boundary_rules);
         let effect_catalog = load_project_effect_catalog_for(&module.file_path)?;
@@ -1473,6 +1479,8 @@ pub(super) fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphO
                 imported_label_registries: Some(imported_label_regs),
                 imported_value_schemes: Some(imported_value_schemes),
                 imported_value_meta: Some(imported_value_meta),
+                imported_function_contracts: Some(imported_function_contracts),
+                imported_protocol_registries: Some(imported_protocol_regs),
                 boundary_rules: Some(imported_boundary_rules),
                 module_id: Some(module_id.clone()),
                 source_file: Some(module.file_path.to_string_lossy().to_string()),
@@ -1524,6 +1532,8 @@ pub(super) fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphO
             declaration_schemes,
             declaration_meta,
             label_registry,
+            function_contracts,
+            protocol_registry,
             boundary_rules,
             typed_program,
         } = typecheck_result;
@@ -1531,6 +1541,8 @@ pub(super) fn analyze_module_graph(graph: &ModuleGraph) -> Result<AnalyzedGraphO
         compiled_schemes.insert(module_id.clone(), declaration_schemes.clone());
         compiled_modules.insert(module_id.clone(), declaration_types.clone());
         compiled_value_meta.insert(module_id.clone(), declaration_meta.clone());
+        compiled_function_contracts.insert(module_id.clone(), function_contracts.clone());
+        protocol_registries.insert(module_id.clone(), protocol_registry.clone());
         label_registries.insert(module_id.clone(), label_registry.clone());
         compiled_boundary_rules.extend(boundary_rules.clone());
         type_registries.insert(module_id.clone(), extracted_type_registry);
@@ -2397,6 +2409,20 @@ fn build_imported_value_meta(
     build_imported_registry_map(module, compiled_value_meta)
 }
 
+fn build_imported_function_contracts(
+    module: &LoadedModule,
+    compiled_function_contracts: &HashMap<String, HashMap<String, FunctionContract>>,
+) -> HashMap<String, HashMap<String, FunctionContract>> {
+    build_imported_registry_map(module, compiled_function_contracts)
+}
+
+fn build_imported_protocol_registries(
+    module: &LoadedModule,
+    protocol_registries: &HashMap<String, HashMap<String, ProtocolSpec>>,
+) -> HashMap<String, HashMap<String, ProtocolSpec>> {
+    build_imported_registry_map(module, protocol_registries)
+}
+
 fn imported_value_scheme_for_module(
     source_module_id: &str,
     resolved_module_id: &str,
@@ -2858,6 +2884,8 @@ mod tests {
         let mut compiled_modules = HashMap::new();
         let mut compiled_schemes = HashMap::new();
         let mut compiled_value_meta = HashMap::new();
+        let mut compiled_function_contracts = HashMap::new();
+        let mut protocol_registries = HashMap::new();
         let mut label_registries = HashMap::new();
         let mut compiled_boundary_rules = Vec::new();
         let mut type_registries = HashMap::new();
@@ -2903,6 +2931,10 @@ mod tests {
             let imported_label_regs = build_imported_label_registries(module, &label_registries);
             let imported_value_schemes = build_imported_value_schemes(module, &compiled_schemes);
             let imported_value_meta = build_imported_value_meta(module, &compiled_value_meta);
+            let imported_function_contracts =
+                build_imported_function_contracts(module, &compiled_function_contracts);
+            let imported_protocol_regs =
+                build_imported_protocol_registries(module, &protocol_registries);
             let imported_boundary_rules =
                 build_imported_boundary_rules(&module.ast, &compiled_boundary_rules);
             let effect_catalog = load_project_effect_catalog_for(&module.file_path).unwrap();
@@ -2917,6 +2949,8 @@ mod tests {
                     imported_label_registries: Some(imported_label_regs),
                     imported_value_schemes: Some(imported_value_schemes),
                     imported_value_meta: Some(imported_value_meta),
+                    imported_function_contracts: Some(imported_function_contracts),
+                    imported_protocol_registries: Some(imported_protocol_regs),
                     boundary_rules: Some(imported_boundary_rules),
                     module_id: Some(module_id.clone()),
                     source_file: Some(module.file_path.to_string_lossy().to_string()),
@@ -2929,6 +2963,9 @@ mod tests {
             compiled_schemes.insert(module_id.clone(), typecheck_result.declaration_schemes);
             compiled_modules.insert(module_id.clone(), typecheck_result.declaration_types);
             compiled_value_meta.insert(module_id.clone(), typecheck_result.declaration_meta);
+            compiled_function_contracts
+                .insert(module_id.clone(), typecheck_result.function_contracts);
+            protocol_registries.insert(module_id.clone(), typecheck_result.protocol_registry);
             label_registries.insert(module_id.clone(), typecheck_result.label_registry);
             compiled_boundary_rules.extend(typecheck_result.boundary_rules);
             type_registries.insert(module_id.clone(), extracted_type_registry);

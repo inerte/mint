@@ -213,3 +213,32 @@ test "transaction cleanup rolls back uncommitted changes" =>!Sql world {
     Err(_)=>false
   }
 }
+
+test "transaction protocol allows statement then rollback" =>!Sql world {
+  c db=(fixtureSqlHandle:†sql.SqlHandleEntry)
+} {
+  match §sql.begin(•topology.db){
+    Ok(ownedTransaction)=>{
+      using transaction=ownedTransaction{
+        match §sql.execInsertIn(
+          §sql.insert(
+            {
+              done:false,
+              id:4,
+              title:"rolled back"
+            },
+            tableTodos
+          ),
+          transaction
+        ){
+          Ok(count)=>count=1 and (match §sql.rollback(transaction){
+            Ok(_)=>true|
+            Err(_)=>false
+          })|
+          Err(_)=>false
+        }
+      }
+    }|
+    Err(_)=>false
+  }
+}

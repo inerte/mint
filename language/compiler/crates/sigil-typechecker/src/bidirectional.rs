@@ -7,10 +7,7 @@
 //! This is simpler than Hindley-Milner because Sigil requires mandatory
 //! type annotations everywhere, making the inference burden much lighter.
 
-use crate::coverage::{
-    analyze_match_coverage, expr_summary, pattern_to_space, space_intersection, space_is_empty,
-    total_space_for_type,
-};
+use crate::coverage::{analyze_match_coverage, expr_summary};
 use crate::effects::{
     declared_effects_cover_actual, effects_option_to_set, merge_effects, purity_from_effects,
     resolve_effect_names,
@@ -100,6 +97,18 @@ pub fn type_check(
         if let Some(imported_value_meta) = options.imported_value_meta.as_ref() {
             for (module_id, value_meta) in imported_value_meta {
                 env.register_imported_value_meta(module_id.clone(), value_meta.clone());
+            }
+        }
+
+        if let Some(imported_function_contracts) = options.imported_function_contracts.as_ref() {
+            for (module_id, contracts) in imported_function_contracts {
+                env.register_imported_function_contracts(module_id.clone(), contracts.clone());
+            }
+        }
+
+        if let Some(imported_protocol_registries) = options.imported_protocol_registries.as_ref() {
+            for (module_id, protocols) in imported_protocol_registries {
+                env.register_imported_protocols(module_id.clone(), protocols.clone());
             }
         }
 
@@ -408,6 +417,21 @@ pub fn type_check(
                         );
                     }
 
+                    if func_decl.requires.is_some() || func_decl.ensures.is_some() {
+                        env.register_function_contract(
+                            func_decl.name.clone(),
+                            FunctionContract {
+                                params: func_decl
+                                    .params
+                                    .iter()
+                                    .map(|param| param.name.clone())
+                                    .collect(),
+                                requires: func_decl.requires.clone(),
+                                ensures: func_decl.ensures.clone(),
+                            },
+                        );
+                    }
+
                     types.insert(func_decl.name.clone(), binding_type);
                 }
 
@@ -511,6 +535,7 @@ pub fn type_check(
 
         validate_type_constraints(&env, program)?;
         validate_protocol_contracts(&env, program)?;
+        validate_protocol_state_runtime_usage(&env, program)?;
 
         let mut typed_declarations = Vec::new();
 
@@ -574,6 +599,8 @@ pub fn type_check(
             declaration_schemes: schemes,
             declaration_meta: env.binding_meta_snapshot(),
             label_registry: env.label_registry_snapshot(),
+            function_contracts: env.function_contracts_snapshot(),
+            protocol_registry: env.protocol_registry_owned_snapshot(),
             boundary_rules: env.boundary_rules_snapshot(),
             typed_program: TypedProgram {
                 declarations: typed_declarations,
@@ -1256,19 +1283,411 @@ fn validate_protocol_contracts(env: &TypeEnvironment, program: &Program) -> Resu
         let Some(spec) = env.lookup_protocol(&protocol_decl.name) else {
             continue;
         };
-        for fn_name in spec.transitions.keys() {
-            if env.lookup_function_contract(fn_name).is_none() {
-                return Err(TypeError::new(
-                    format!(
-                        "SIGIL-PROTO-MISSING-CONTRACT: function '{}' is listed in protocol '{}' via clause but has no requires/ensures state annotations",
-                        fn_name, protocol_decl.name
-                    ),
-                    Some(protocol_decl.location),
+        for (fn_name, (from_state, to_state)) in &spec.transitions {
+            let Some(func_decl) = find_protocol_function_decl(program, fn_name) else {
+                return Err(protocol_contract_error(
+                    &protocol_decl.name,
+                    fn_name,
+                    "has no local function declaration",
+                    protocol_decl.location,
+                ));
+            };
+            let Some(contract) = env.lookup_function_contract(fn_name) else {
+                return Err(protocol_contract_error(
+                    &protocol_decl.name,
+                    fn_name,
+                    "has no requires/ensures state annotations",
+                    protocol_decl.location,
+                ));
+            };
+            let Some(requires) = contract.requires.as_ref() else {
+                return Err(protocol_contract_error(
+                    &protocol_decl.name,
+                    fn_name,
+                    "does not require the protocol source state",
+                    protocol_decl.location,
+                ));
+            };
+            let Some(ensures) = contract.ensures.as_ref() else {
+                return Err(protocol_contract_error(
+                    &protocol_decl.name,
+                    fn_name,
+                    "does not ensure the protocol target state",
+                    protocol_decl.location,
+                ));
+            };
+
+            let func_env = function_contract_env(env, func_decl, false)?;
+            if !contract_clause_contains_state_assertion(
+                &func_env,
+                requires,
+                &protocol_decl.name,
+                from_state,
+            ) {
+                return Err(protocol_contract_error(
+                    &protocol_decl.name,
+                    fn_name,
+                    &format!("must require {}.state={}", protocol_decl.name, from_state),
+                    expr_location(requires),
+                ));
+            }
+
+            let ensures_env = function_contract_env(env, func_decl, true)?;
+            if !contract_clause_contains_state_assertion(
+                &ensures_env,
+                ensures,
+                &protocol_decl.name,
+                to_state,
+            ) {
+                return Err(protocol_contract_error(
+                    &protocol_decl.name,
+                    fn_name,
+                    &format!("must ensure {}.state={}", protocol_decl.name, to_state),
+                    expr_location(ensures),
                 ));
             }
         }
     }
     Ok(())
+}
+
+fn protocol_contract_error(
+    protocol_name: &str,
+    fn_name: &str,
+    reason: &str,
+    location: SourceLocation,
+) -> TypeError {
+    TypeError::new(
+        format!(
+            "SIGIL-PROTO-MISSING-CONTRACT: function '{}' is listed in protocol '{}' via clause but {}",
+            fn_name, protocol_name, reason
+        ),
+        Some(location),
+    )
+}
+
+fn find_protocol_function_decl<'a>(program: &'a Program, name: &str) -> Option<&'a FunctionDecl> {
+    program.declarations.iter().find_map(|decl| match decl {
+        Declaration::Function(func_decl) if func_decl.name == name => Some(func_decl),
+        Declaration::Transform(TransformDecl { function }) if function.name == name => {
+            Some(function)
+        }
+        _ => None,
+    })
+}
+
+fn function_contract_env(
+    env: &TypeEnvironment,
+    func_decl: &FunctionDecl,
+    include_result: bool,
+) -> Result<TypeEnvironment, TypeError> {
+    let type_param_env = make_type_param_env(&func_decl.type_params);
+    let mut bindings = HashMap::new();
+    for param in &func_decl.params {
+        let param_type = param
+            .type_annotation
+            .as_ref()
+            .map(|ty| ast_type_to_inference_type_resolved(env, Some(&type_param_env), ty))
+            .transpose()?
+            .unwrap_or(InferenceType::Any);
+        bindings.insert(param.name.clone(), env.normalize_type(&param_type));
+    }
+
+    if include_result {
+        let return_type = func_decl
+            .return_type
+            .as_ref()
+            .map(|ty| ast_type_to_inference_type_resolved(env, Some(&type_param_env), ty))
+            .transpose()?
+            .unwrap_or(InferenceType::Any);
+        bindings.insert("result".to_string(), return_type);
+    }
+
+    Ok(env.extend(Some(bindings)))
+}
+
+fn contract_clause_contains_state_assertion(
+    env: &TypeEnvironment,
+    expr: &Expr,
+    protocol_name: &str,
+    state_name: &str,
+) -> bool {
+    match expr {
+        Expr::Binary(binary) if binary.operator == BinaryOperator::And => {
+            contract_clause_contains_state_assertion(env, &binary.left, protocol_name, state_name)
+                || contract_clause_contains_state_assertion(
+                    env,
+                    &binary.right,
+                    protocol_name,
+                    state_name,
+                )
+        }
+        Expr::Binary(binary) if binary.operator == BinaryOperator::Equal => {
+            state_equality_matches_protocol(
+                env,
+                &binary.left,
+                &binary.right,
+                protocol_name,
+                state_name,
+            ) || state_equality_matches_protocol(
+                env,
+                &binary.right,
+                &binary.left,
+                protocol_name,
+                state_name,
+            )
+        }
+        Expr::TypeAscription(type_asc) => {
+            contract_clause_contains_state_assertion(env, &type_asc.expr, protocol_name, state_name)
+        }
+        _ => false,
+    }
+}
+
+fn state_equality_matches_protocol(
+    env: &TypeEnvironment,
+    state_access: &Expr,
+    state_label: &Expr,
+    protocol_name: &str,
+    state_name: &str,
+) -> bool {
+    let Expr::Identifier(label) = state_label else {
+        return false;
+    };
+    if label.name != state_name {
+        return false;
+    }
+    let Expr::FieldAccess(field_access) = state_access else {
+        return false;
+    };
+    if field_access.field != "state" {
+        return false;
+    }
+    let Ok(object_type) = synthesize(env, &field_access.object) else {
+        return false;
+    };
+    resolve_protocol_type_name(&env.normalize_type(&object_type), env).as_deref()
+        == Some(protocol_name)
+}
+
+fn validate_protocol_state_runtime_usage(
+    env: &TypeEnvironment,
+    program: &Program,
+) -> Result<(), TypeError> {
+    for decl in &program.declarations {
+        match decl {
+            Declaration::Function(func_decl) => {
+                let body_env = function_contract_env(env, func_decl, false)?;
+                validate_protocol_state_runtime_expr(&body_env, &func_decl.body)?;
+            }
+            Declaration::Transform(TransformDecl { function }) => {
+                let body_env = function_contract_env(env, function, false)?;
+                validate_protocol_state_runtime_expr(&body_env, &function.body)?;
+            }
+            Declaration::Const(const_decl) => {
+                validate_protocol_state_runtime_expr(env, &const_decl.value)?;
+            }
+            Declaration::FeatureFlag(feature_flag_decl) => {
+                validate_protocol_state_runtime_expr(env, &feature_flag_decl.default)?;
+            }
+            Declaration::Test(test_decl) => {
+                let mut body_env = env.clone();
+                for binding in &test_decl.world_bindings {
+                    validate_protocol_state_runtime_expr(&body_env, &binding.value)?;
+                    let binding_type = binding
+                        .type_annotation
+                        .as_ref()
+                        .map(|ty| ast_type_to_inference_type_resolved(&body_env, None, ty))
+                        .transpose()?
+                        .map_or_else(|| synthesize(&body_env, &binding.value), Ok)?;
+                    let mut bindings = HashMap::new();
+                    bindings.insert(binding.name.clone(), binding_type);
+                    body_env = body_env.extend(Some(bindings));
+                }
+                validate_protocol_state_runtime_expr(&body_env, &test_decl.body)?;
+            }
+            Declaration::Type(_)
+            | Declaration::Protocol(_)
+            | Declaration::Label(_)
+            | Declaration::Rule(_)
+            | Declaration::Effect(_)
+            | Declaration::Extern(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_protocol_state_runtime_expr(
+    env: &TypeEnvironment,
+    expr: &Expr,
+) -> Result<(), TypeError> {
+    match expr {
+        Expr::Identifier(identifier) => {
+            if env.lookup(&identifier.name).is_none()
+                && env.is_protocol_state_label(&identifier.name)
+            {
+                return Err(TypeError::new(
+                    format!(
+                        "Protocol state label '{}' is contract-only; use it only in requires/ensures clauses like handle.state={}",
+                        identifier.name, identifier.name
+                    ),
+                    Some(identifier.location),
+                ));
+            }
+            Ok(())
+        }
+        Expr::Literal(_) | Expr::MemberAccess(_) => Ok(()),
+        Expr::Lambda(lambda) => {
+            let mut bindings = HashMap::new();
+            for param in &lambda.params {
+                let param_type = param
+                    .type_annotation
+                    .as_ref()
+                    .map(|ty| ast_type_to_inference_type_resolved(env, None, ty))
+                    .transpose()?
+                    .unwrap_or(InferenceType::Any);
+                bindings.insert(param.name.clone(), param_type);
+            }
+            let lambda_env = env.extend(Some(bindings));
+            validate_protocol_state_runtime_expr(&lambda_env, &lambda.body)
+        }
+        Expr::Application(app) => {
+            validate_protocol_state_runtime_expr(env, &app.func)?;
+            for arg in &app.args {
+                validate_protocol_state_runtime_expr(env, arg)?;
+            }
+            Ok(())
+        }
+        Expr::Binary(binary) => {
+            validate_protocol_state_runtime_expr(env, &binary.left)?;
+            validate_protocol_state_runtime_expr(env, &binary.right)
+        }
+        Expr::Unary(unary) => validate_protocol_state_runtime_expr(env, &unary.operand),
+        Expr::Match(match_expr) => {
+            validate_protocol_state_runtime_expr(env, &match_expr.scrutinee)?;
+            let scrutinee_type = synthesize(env, &match_expr.scrutinee)?;
+            for arm in &match_expr.arms {
+                let mut bindings = HashMap::new();
+                check_pattern(env, &arm.pattern, &scrutinee_type, &mut bindings)?;
+                let arm_env = env.extend(Some(bindings));
+                if let Some(guard) = &arm.guard {
+                    validate_protocol_state_runtime_expr(&arm_env, guard)?;
+                }
+                validate_protocol_state_runtime_expr(&arm_env, &arm.body)?;
+            }
+            Ok(())
+        }
+        Expr::Let(let_expr) => {
+            validate_protocol_state_runtime_expr(env, &let_expr.value)?;
+            let value_type = synthesize(env, &let_expr.value)?;
+            let mut bindings = HashMap::new();
+            if let sigil_ast::Pattern::Identifier(identifier) = &let_expr.pattern {
+                bindings.insert(identifier.name.clone(), value_type);
+            }
+            let body_env = env.extend(Some(bindings));
+            validate_protocol_state_runtime_expr(&body_env, &let_expr.body)
+        }
+        Expr::Using(using_expr) => {
+            validate_protocol_state_runtime_expr(env, &using_expr.value)?;
+            let value_type = synthesize(env, &using_expr.value)?;
+            let body_env = if let InferenceType::Owned(inner_type) = value_type {
+                let mut bindings = HashMap::new();
+                bindings.insert(using_expr.name.clone(), (*inner_type).clone());
+                env.extend(Some(bindings))
+            } else {
+                env.clone()
+            };
+            validate_protocol_state_runtime_expr(&body_env, &using_expr.body)
+        }
+        Expr::If(if_expr) => {
+            validate_protocol_state_runtime_expr(env, &if_expr.condition)?;
+            validate_protocol_state_runtime_expr(env, &if_expr.then_branch)?;
+            if let Some(else_branch) = &if_expr.else_branch {
+                validate_protocol_state_runtime_expr(env, else_branch)?;
+            }
+            Ok(())
+        }
+        Expr::List(list) => {
+            for element in &list.elements {
+                validate_protocol_state_runtime_expr(env, element)?;
+            }
+            Ok(())
+        }
+        Expr::Record(record) => {
+            for field in &record.fields {
+                validate_protocol_state_runtime_expr(env, &field.value)?;
+            }
+            Ok(())
+        }
+        Expr::MapLiteral(map) => {
+            for entry in &map.entries {
+                validate_protocol_state_runtime_expr(env, &entry.key)?;
+                validate_protocol_state_runtime_expr(env, &entry.value)?;
+            }
+            Ok(())
+        }
+        Expr::Tuple(tuple) => {
+            for element in &tuple.elements {
+                validate_protocol_state_runtime_expr(env, element)?;
+            }
+            Ok(())
+        }
+        Expr::FieldAccess(field_access) => {
+            validate_protocol_state_runtime_expr(env, &field_access.object)?;
+            if field_access.field == "state" {
+                let object_type = synthesize(env, &field_access.object)?;
+                if resolve_protocol_type_name(&env.normalize_type(&object_type), env).is_some() {
+                    return Err(TypeError::new(
+                        "Protocol state access is contract-only; use handle.state only in requires/ensures clauses".to_string(),
+                        Some(field_access.location),
+                    ));
+                }
+            }
+            Ok(())
+        }
+        Expr::Index(index_expr) => {
+            validate_protocol_state_runtime_expr(env, &index_expr.object)?;
+            validate_protocol_state_runtime_expr(env, &index_expr.index)
+        }
+        Expr::Pipeline(pipeline) => {
+            validate_protocol_state_runtime_expr(env, &pipeline.left)?;
+            validate_protocol_state_runtime_expr(env, &pipeline.right)
+        }
+        Expr::Map(map_expr) => {
+            validate_protocol_state_runtime_expr(env, &map_expr.list)?;
+            validate_protocol_state_runtime_expr(env, &map_expr.func)
+        }
+        Expr::Filter(filter_expr) => {
+            validate_protocol_state_runtime_expr(env, &filter_expr.list)?;
+            validate_protocol_state_runtime_expr(env, &filter_expr.predicate)
+        }
+        Expr::Fold(fold_expr) => {
+            validate_protocol_state_runtime_expr(env, &fold_expr.list)?;
+            validate_protocol_state_runtime_expr(env, &fold_expr.func)?;
+            validate_protocol_state_runtime_expr(env, &fold_expr.init)
+        }
+        Expr::Concurrent(concurrent_expr) => {
+            validate_protocol_state_runtime_expr(env, &concurrent_expr.width)?;
+            if let Some(policy) = &concurrent_expr.policy {
+                for field in &policy.fields {
+                    validate_protocol_state_runtime_expr(env, &field.value)?;
+                }
+            }
+            for step in &concurrent_expr.steps {
+                match step {
+                    sigil_ast::ConcurrentStep::Spawn(spawn) => {
+                        validate_protocol_state_runtime_expr(env, &spawn.expr)?;
+                    }
+                    sigil_ast::ConcurrentStep::SpawnEach(spawn_each) => {
+                        validate_protocol_state_runtime_expr(env, &spawn_each.list)?;
+                        validate_protocol_state_runtime_expr(env, &spawn_each.func)?;
+                    }
+                }
+            }
+            Ok(())
+        }
+        Expr::TypeAscription(type_asc) => validate_protocol_state_runtime_expr(env, &type_asc.expr),
+    }
 }
 
 fn constraint_value_type_for_decl(
@@ -2223,7 +2642,7 @@ fn symbolic_equality_formula(
     }
 }
 
-/// Resolve the type name of a handle for protocol lookup, peeling `Owned[T]` wrappers.
+/// Resolve the type name of a handle for protocol lookup, peeling resource wrappers.
 /// Named product types normalize to `Record` with a `name` field, so we check both shapes.
 fn resolve_protocol_type_name(ty: &InferenceType, env: &TypeEnvironment) -> Option<String> {
     match ty {
@@ -2243,6 +2662,9 @@ fn resolve_protocol_type_name(ty: &InferenceType, env: &TypeEnvironment) -> Opti
             None
         }
         InferenceType::Owned(inner) => resolve_protocol_type_name(inner, env),
+        InferenceType::Borrowed(borrowed) => {
+            resolve_protocol_type_name(&borrowed.resource_type, env)
+        }
         _ => None,
     }
 }
@@ -2373,7 +2795,7 @@ fn prove_expr_satisfies_constraint(
             let (condition_formula, condition_assumptions) =
                 lower_symbolic_formula(env, proof_context, &if_expr.condition, None)?;
             let then_context = proof_context
-                .with_assumptions(condition_assumptions.clone())
+                .with_assumptions_replacing_state(condition_assumptions.clone())
                 .with_assumption(condition_formula.clone());
             let then_ok = prove_expr_satisfies_constraint(
                 env,
@@ -2387,7 +2809,7 @@ fn prove_expr_satisfies_constraint(
 
             if let Some(else_branch) = &if_expr.else_branch {
                 let else_context = proof_context
-                    .with_assumptions(condition_assumptions)
+                    .with_assumptions_replacing_state(condition_assumptions)
                     .with_assumption(Formula::Not(Box::new(condition_formula)));
                 prove_expr_satisfies_constraint(env, &else_context, else_branch, constraint)
             } else {
@@ -2460,7 +2882,7 @@ pub(crate) fn scrutinee_proof_context(
     scrutinee: &Expr,
 ) -> ProofContext {
     if let Ok((_, assumptions)) = lower_symbolic_value(env, proof_context, scrutinee, None) {
-        proof_context.with_assumptions(assumptions)
+        proof_context.with_assumptions_replacing_state(assumptions)
     } else {
         proof_context.clone()
     }
@@ -2473,14 +2895,17 @@ fn let_proof_context(
     value: &Expr,
     value_type: &InferenceType,
 ) -> ProofContext {
-    let sigil_ast::Pattern::Identifier(id_pattern) = pattern else {
-        return proof_context.clone();
+    let binding_name = match pattern {
+        sigil_ast::Pattern::Identifier(id_pattern) => Some(id_pattern.name.as_str()),
+        _ => None,
     };
 
     if let Expr::Application(app) = value {
         if let Some(contract) = lookup_contract_for_call(env, &app.func) {
-            if let Ok(result_symbolic) =
-                symbolic_value_for_type_path(env, value_type, &SymbolPath::root(&id_pattern.name))
+            let result_path = binding_name
+                .map(SymbolPath::root)
+                .unwrap_or_else(|| SymbolPath::root("$let_result"));
+            if let Ok(result_symbolic) = symbolic_value_for_type_path(env, value_type, &result_path)
             {
                 if let Ok(assumptions) = call_ensure_assumptions(
                     env,
@@ -2489,11 +2914,17 @@ fn let_proof_context(
                     &app.args,
                     result_symbolic,
                 ) {
-                    return proof_context.clone().with_assumptions(assumptions);
+                    return proof_context
+                        .clone()
+                        .with_assumptions_replacing_state(assumptions);
                 }
             }
         }
     }
+
+    let Some(binding_name) = binding_name else {
+        return proof_context.clone();
+    };
 
     // For protocol-typed bindings not coming from a function call (e.g. record literals or
     // non-contracted functions), inject the protocol's initial state assumption automatically.
@@ -2505,7 +2936,7 @@ fn let_proof_context(
                 .position(|s| s == &spec.initial)
                 .unwrap_or(0) as i64;
             let assumption = Formula::Atom(Atom::StateEq {
-                path: SymbolPath::root(&id_pattern.name),
+                path: SymbolPath::root(binding_name),
                 state_index,
                 protocol: protocol_name.clone(),
             });
@@ -2524,10 +2955,37 @@ fn let_proof_context(
 
     match lower_symbolic_formula(env, proof_context, value, None) {
         Ok((formula, assumptions)) => proof_context
-            .with_assumptions(assumptions)
-            .with_symbolic_bindings([(id_pattern.name.clone(), SymbolicValue::Bool(formula))]),
+            .with_assumptions_replacing_state(assumptions)
+            .with_symbolic_bindings([(binding_name.to_string(), SymbolicValue::Bool(formula))]),
         Err(_) => proof_context.clone(),
     }
+}
+
+fn protocol_initial_state_proof_context(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    binding_name: &str,
+    value_type: &InferenceType,
+) -> ProofContext {
+    let Some(protocol_name) = resolve_protocol_type_name(&env.normalize_type(value_type), env)
+    else {
+        return proof_context.clone();
+    };
+    let Some(spec) = env.lookup_protocol(&protocol_name) else {
+        return proof_context.clone();
+    };
+    let state_index = spec
+        .states
+        .iter()
+        .position(|state| state == &spec.initial)
+        .unwrap_or(0) as i64;
+    proof_context
+        .clone()
+        .with_assumption(Formula::Atom(Atom::StateEq {
+            path: SymbolPath::root(binding_name),
+            state_index,
+            protocol: protocol_name,
+        }))
 }
 
 pub(crate) fn scrutinee_symbolic_value(
@@ -2928,7 +3386,7 @@ pub(crate) fn match_arm_refinement(
         match lower_symbolic_formula(env, &body_context, guard, None) {
             Ok((guard_formula, assumptions)) => {
                 body_context = body_context
-                    .with_assumptions(assumptions)
+                    .with_assumptions_replacing_state(assumptions)
                     .with_assumption(guard_formula.clone());
                 condition_formula = Some(match condition_formula {
                     Some(pattern_formula) => formula_and(vec![pattern_formula, guard_formula]),
@@ -3019,16 +3477,36 @@ fn try_refinement_compatibility(
     expected_type: &InferenceType,
     location: sigil_lexer::SourceLocation,
 ) -> Result<bool, TypeError> {
+    try_refinement_compatibility_with_contexts(
+        env,
+        proof_context,
+        proof_context,
+        expr,
+        actual_type,
+        expected_type,
+        location,
+    )
+}
+
+fn try_refinement_compatibility_with_contexts(
+    env: &TypeEnvironment,
+    check_context: &ProofContext,
+    refinement_context: &ProofContext,
+    expr: &Expr,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+    location: sigil_lexer::SourceLocation,
+) -> Result<bool, TypeError> {
     if let Some(expected_refinement) = resolve_constrained_type(env, expected_type)? {
         check_with_context(
             env,
-            proof_context,
+            check_context,
             expr,
             &expected_refinement.underlying_type,
         )?;
         let proof_result = prove_expr_satisfies_constraint(
             env,
-            proof_context,
+            refinement_context,
             expr,
             &expected_refinement.constraint,
         )
@@ -3079,6 +3557,26 @@ fn ensure_expr_matches_expected(
     expected_type: &InferenceType,
     location: sigil_lexer::SourceLocation,
 ) -> Result<(), TypeError> {
+    ensure_expr_matches_expected_with_contexts(
+        env,
+        proof_context,
+        proof_context,
+        expr,
+        actual_type,
+        expected_type,
+        location,
+    )
+}
+
+fn ensure_expr_matches_expected_with_contexts(
+    env: &TypeEnvironment,
+    check_context: &ProofContext,
+    refinement_context: &ProofContext,
+    expr: &Expr,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+    location: sigil_lexer::SourceLocation,
+) -> Result<(), TypeError> {
     ensure_label_subset(
         env,
         actual_type,
@@ -3091,9 +3589,10 @@ fn ensure_expr_matches_expected(
         return Ok(());
     }
 
-    if try_refinement_compatibility(
+    if try_refinement_compatibility_with_contexts(
         env,
-        proof_context,
+        check_context,
+        refinement_context,
         expr,
         actual_type,
         expected_type,
@@ -3459,7 +3958,7 @@ fn contract_context_for_call(
     for (param_name, arg) in contract.params.iter().zip(args) {
         let (symbolic_arg, assumptions) = lower_symbolic_value(env, proof_context, arg, None)?;
         next = next
-            .with_assumptions(assumptions)
+            .with_assumptions_replacing_state(assumptions)
             .with_symbolic_bindings([(param_name.clone(), symbolic_arg)]);
     }
 
@@ -3488,6 +3987,9 @@ fn prove_contract_clause(
 fn lookup_contract_for_call(env: &TypeEnvironment, func: &Expr) -> Option<FunctionContract> {
     match func {
         Expr::Identifier(identifier) => env.lookup_function_contract(&identifier.name),
+        Expr::MemberAccess(member) => {
+            env.lookup_qualified_function_contract(&member.namespace, &member.member)
+        }
         _ => None,
     }
 }
@@ -3577,7 +4079,9 @@ fn call_result_proof_context(
                 None,
             )
         })?;
-    Ok(proof_context.clone().with_assumptions(assumptions))
+    Ok(proof_context
+        .clone()
+        .with_assumptions_replacing_state(assumptions))
 }
 
 /// Type check a function declaration
@@ -3630,7 +4134,7 @@ fn check_function_decl(env: &TypeEnvironment, func_decl: &FunctionDecl) -> Resul
                 },
             )?;
         ProofContext::default()
-            .with_assumptions(assumptions)
+            .with_assumptions_replacing_state(assumptions)
             .with_assumption(formula)
     } else {
         ProofContext::default()
@@ -4823,11 +5327,7 @@ fn synthesize(env: &TypeEnvironment, expr: &Expr) -> Result<InferenceType, TypeE
                 .unwrap_or(false)
                 && env.lookup(&id.name).is_none()
             {
-                let is_known_state = env
-                    .protocol_registry_snapshot()
-                    .values()
-                    .any(|spec| spec.states.contains(&id.name));
-                if is_known_state {
+                if env.is_protocol_state_label(&id.name) {
                     return Ok(InferenceType::Primitive(TPrimitive {
                         name: PrimitiveName::Bool,
                     }));
@@ -4934,14 +5434,14 @@ fn synthesize_binary(
 
             // If either operand is Float, both must be Float
             if is_float(&left_type) || is_float(&right_type) {
-                check(env, &bin.left, &float_type)?;
-                check(env, &bin.right, &float_type)?;
+                require_synthesized_operand_type(env, &left_type, &float_type, bin.location)?;
+                require_synthesized_operand_type(env, &right_type, &float_type, bin.location)?;
                 return Ok(float_type);
             }
 
             // Otherwise require both operands to be integers
-            check(env, &bin.left, &int_type)?;
-            check(env, &bin.right, &int_type)?;
+            require_synthesized_operand_type(env, &left_type, &int_type, bin.location)?;
+            require_synthesized_operand_type(env, &right_type, &int_type, bin.location)?;
             Ok(int_type)
         }
 
@@ -4951,11 +5451,11 @@ fn synthesize_binary(
         | BinaryOperator::LessEq
         | BinaryOperator::GreaterEq => {
             if is_float(&left_type) || is_float(&right_type) {
-                check(env, &bin.left, &float_type)?;
-                check(env, &bin.right, &float_type)?;
+                require_synthesized_operand_type(env, &left_type, &float_type, bin.location)?;
+                require_synthesized_operand_type(env, &right_type, &float_type, bin.location)?;
             } else {
-                check(env, &bin.left, &int_type)?;
-                check(env, &bin.right, &int_type)?;
+                require_synthesized_operand_type(env, &left_type, &int_type, bin.location)?;
+                require_synthesized_operand_type(env, &right_type, &int_type, bin.location)?;
             }
             Ok(bool_type)
         }
@@ -4990,15 +5490,15 @@ fn synthesize_binary(
 
         // Logical operators: Bool => Bool => Bool
         BinaryOperator::And | BinaryOperator::Or => {
-            check(env, &bin.left, &bool_type)?;
-            check(env, &bin.right, &bool_type)?;
+            require_synthesized_operand_type(env, &left_type, &bool_type, bin.location)?;
+            require_synthesized_operand_type(env, &right_type, &bool_type, bin.location)?;
             Ok(bool_type)
         }
 
         // String concatenation: String => String => String
         BinaryOperator::Append => {
-            check(env, &bin.left, &string_type)?;
-            check(env, &bin.right, &string_type)?;
+            require_synthesized_operand_type(env, &left_type, &string_type, bin.location)?;
+            require_synthesized_operand_type(env, &right_type, &string_type, bin.location)?;
             Ok(string_type)
         }
 
@@ -5038,6 +5538,26 @@ fn synthesize_binary(
     }
 }
 
+fn require_synthesized_operand_type(
+    env: &TypeEnvironment,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+    location: SourceLocation,
+) -> Result<(), TypeError> {
+    if type_flows_without_new_proof(env, actual_type, expected_type)? {
+        return Ok(());
+    }
+    let (normalized_actual, normalized_expected) = canonical_pair(env, actual_type, expected_type);
+    Err(TypeError::new(
+        format!(
+            "Operator operand type mismatch: expected {}, got {}",
+            format_type(&normalized_expected),
+            format_type(&normalized_actual)
+        ),
+        Some(location),
+    ))
+}
+
 fn synthesize_unary(
     env: &TypeEnvironment,
     un: &sigil_ast::UnaryExpr,
@@ -5058,15 +5578,16 @@ fn synthesize_unary(
             let operand_type = synthesize(env, &un.operand)?;
             if matches!(operand_type, InferenceType::Primitive(ref p) if p.name == PrimitiveName::Float)
             {
-                check(env, &un.operand, &float_type)?;
+                require_synthesized_operand_type(env, &operand_type, &float_type, un.location)?;
                 Ok(float_type)
             } else {
-                check(env, &un.operand, &int_type)?;
+                require_synthesized_operand_type(env, &operand_type, &int_type, un.location)?;
                 Ok(int_type)
             }
         }
         sigil_ast::UnaryOperator::Not => {
-            check(env, &un.operand, &bool_type)?;
+            let operand_type = synthesize(env, &un.operand)?;
+            require_synthesized_operand_type(env, &operand_type, &bool_type, un.location)?;
             Ok(bool_type)
         }
         sigil_ast::UnaryOperator::Length => {
@@ -5871,7 +6392,8 @@ fn synthesize_if(
     let bool_type = InferenceType::Primitive(TPrimitive {
         name: PrimitiveName::Bool,
     });
-    check(env, &if_expr.condition, &bool_type)?;
+    let condition_type = synthesize(env, &if_expr.condition)?;
+    require_synthesized_operand_type(env, &condition_type, &bool_type, if_expr.location)?;
 
     // Synthesize then branch
     let then_type = synthesize(env, &if_expr.then_branch)?;
@@ -6216,7 +6738,8 @@ fn synthesize_index(
     let int_type = InferenceType::Primitive(TPrimitive {
         name: PrimitiveName::Int,
     });
-    check(env, &index_expr.index, &int_type)?;
+    let index_type = synthesize(env, &index_expr.index)?;
+    require_synthesized_operand_type(env, &index_type, &int_type, index_expr.location)?;
 
     // Special case: 'any' type
     if matches!(obj_type, InferenceType::Any) {
@@ -7146,6 +7669,10 @@ fn check_with_context(
         return Ok(());
     }
 
+    if let Expr::Binary(binary) = expr {
+        return check_binary(env, proof_context, binary, expected_type);
+    }
+
     if let Expr::Application(app) = expr {
         return check_application(env, proof_context, app, expected_type);
     }
@@ -7212,6 +7739,64 @@ fn check_with_context(
         expected_type,
         expr_location(expr),
     )
+}
+
+fn check_binary(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    bin: &sigil_ast::BinaryExpr,
+    expected_type: &InferenceType,
+) -> Result<(), TypeError> {
+    let actual_type = synthesize_binary(env, bin)?;
+    let left_type = synthesize(env, &bin.left)?;
+    let right_type = synthesize(env, &bin.right)?;
+
+    check_with_context(env, proof_context, &bin.left, &left_type)?;
+    let right_context = expression_result_proof_context(env, proof_context, &bin.left, &left_type)?;
+    check_with_context(env, &right_context, &bin.right, &right_type)?;
+    let final_context =
+        expression_result_proof_context(env, &right_context, &bin.right, &right_type)?;
+
+    ensure_expr_matches_expected_with_contexts(
+        env,
+        proof_context,
+        &final_context,
+        &Expr::Binary(Box::new(bin.clone())),
+        &actual_type,
+        expected_type,
+        bin.location,
+    )
+}
+
+fn expression_result_proof_context(
+    env: &TypeEnvironment,
+    proof_context: &ProofContext,
+    expr: &Expr,
+    result_type: &InferenceType,
+) -> Result<ProofContext, TypeError> {
+    match expr {
+        Expr::Application(app) => {
+            let contract = lookup_contract_for_call(env, &app.func);
+            call_result_proof_context(
+                env,
+                proof_context,
+                contract.as_ref(),
+                &app.args,
+                result_type,
+            )
+        }
+        Expr::TypeAscription(type_asc) => {
+            expression_result_proof_context(env, proof_context, &type_asc.expr, result_type)
+        }
+        Expr::Binary(binary) => {
+            let left_type = synthesize(env, &binary.left)?;
+            let right_type = synthesize(env, &binary.right)?;
+            let right_context =
+                expression_result_proof_context(env, proof_context, &binary.left, &left_type)?;
+            expression_result_proof_context(env, &right_context, &binary.right, &right_type)
+        }
+        _ => Ok(proof_context.clone()),
+    }
 }
 
 fn check_application(
@@ -7313,8 +7898,9 @@ fn check_application(
         &app.args,
         &actual_return,
     )?;
-    ensure_expr_matches_expected(
+    ensure_expr_matches_expected_with_contexts(
         env,
+        proof_context,
         &result_context,
         &Expr::Application(Box::new(app.clone())),
         &actual_return,
@@ -7334,14 +7920,14 @@ fn check_if(
     let narrowed = lower_symbolic_formula(env, proof_context, &if_expr.condition, None).ok();
     let then_context = if let Some((condition_formula, condition_assumptions)) = narrowed.clone() {
         proof_context
-            .with_assumptions(condition_assumptions)
+            .with_assumptions_replacing_state(condition_assumptions)
             .with_assumption(condition_formula)
     } else {
         proof_context.clone()
     };
     let else_context = if let Some((condition_formula, condition_assumptions)) = narrowed {
         proof_context
-            .with_assumptions(condition_assumptions)
+            .with_assumptions_replacing_state(condition_assumptions)
             .with_assumption(Formula::Not(Box::new(condition_formula)))
     } else {
         proof_context.clone()
@@ -7469,8 +8055,10 @@ fn check_using(
         using_expr.name.clone(),
         borrowed_type((*inner_type).clone(), scope_id),
     );
+    let body_context =
+        protocol_initial_state_proof_context(env, proof_context, &using_expr.name, &inner_type);
     let body_env = env.extend(Some(bindings));
-    check_with_context(&body_env, proof_context, &using_expr.body, expected_type)?;
+    check_with_context(&body_env, &body_context, &using_expr.body, expected_type)?;
 
     let body_type = synthesize(&body_env, &using_expr.body)?;
     if type_contains_borrowed_scope(&body_type, scope_id) {

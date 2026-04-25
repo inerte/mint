@@ -14,8 +14,8 @@ pub mod types;
 // Re-export main types
 pub use effects::{EffectCatalog, PRIMITIVE_EFFECTS};
 pub use environment::{
-    BindingMeta, BoundaryRule, BoundaryRuleKind, FunctionContract, LabelInfo, TypeEnvironment,
-    TypeInfo,
+    BindingMeta, BoundaryRule, BoundaryRuleKind, FunctionContract, LabelInfo, ProtocolSpec,
+    TypeEnvironment, TypeInfo,
 };
 pub use errors::{format_type, TypeError};
 pub use typed_ir::{
@@ -34,6 +34,8 @@ pub struct TypeCheckOptions {
     pub imported_label_registries: Option<HashMap<String, HashMap<String, LabelInfo>>>,
     pub imported_value_schemes: Option<HashMap<String, HashMap<String, TypeScheme>>>,
     pub imported_value_meta: Option<HashMap<String, HashMap<String, BindingMeta>>>,
+    pub imported_function_contracts: Option<HashMap<String, HashMap<String, FunctionContract>>>,
+    pub imported_protocol_registries: Option<HashMap<String, HashMap<String, ProtocolSpec>>>,
     pub boundary_rules: Option<Vec<BoundaryRule>>,
     pub effect_catalog: Option<EffectCatalog>,
     pub module_id: Option<String>,

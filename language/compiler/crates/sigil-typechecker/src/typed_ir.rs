@@ -1,4 +1,4 @@
-use crate::environment::{BindingMeta, BoundaryRule, LabelInfo};
+use crate::environment::{BindingMeta, BoundaryRule, FunctionContract, LabelInfo, ProtocolSpec};
 use crate::types::{EffectSet, InferenceType, TypeScheme};
 use sigil_ast::{
     BinaryOperator, ExternDecl, IdentifierExpr, LiteralExpr, Param, Pattern, PipelineOperator,
@@ -12,6 +12,8 @@ pub struct TypeCheckResult {
     pub declaration_schemes: HashMap<String, TypeScheme>,
     pub declaration_meta: HashMap<String, BindingMeta>,
     pub label_registry: HashMap<String, LabelInfo>,
+    pub function_contracts: HashMap<String, FunctionContract>,
+    pub protocol_registry: HashMap<String, ProtocolSpec>,
     pub boundary_rules: Vec<BoundaryRule>,
     pub typed_program: TypedProgram,
 }

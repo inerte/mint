@@ -246,6 +246,30 @@ fn binary_expression_carries_left_state_transition_to_right_operand() {
 }
 
 #[test]
+fn binary_refinement_uses_state_after_both_operands() {
+    let source = format!(
+        concat!(
+            "{}",
+            "c ticket=({{id:\"fixture\"}}:Ticket)\n",
+            "t StillOpenFlag=Bool where ticket.state=Open\n",
+            "λbad(ticket:Ticket)=>StillOpenFlag\n",
+            "requires ticket.state=Open\n",
+            "ensures ticket.state=Closed\n",
+            "=resolve(ticket) or true"
+        ),
+        TICKET_PROTOCOL
+    );
+    let r = typecheck(&source);
+    let e = r.unwrap_err();
+    assert!(
+        e.message
+            .contains("Constraint for 'StillOpenFlag' could not be proven"),
+        "Expected binary refinement to see Closed state, got: {}",
+        e.message
+    );
+}
+
+#[test]
 fn via_function_must_require_and_ensure_declared_transition() {
     let source = concat!(
         "t Token={id:String}\n",

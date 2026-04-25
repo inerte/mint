@@ -3477,16 +3477,36 @@ fn try_refinement_compatibility(
     expected_type: &InferenceType,
     location: sigil_lexer::SourceLocation,
 ) -> Result<bool, TypeError> {
+    try_refinement_compatibility_with_contexts(
+        env,
+        proof_context,
+        proof_context,
+        expr,
+        actual_type,
+        expected_type,
+        location,
+    )
+}
+
+fn try_refinement_compatibility_with_contexts(
+    env: &TypeEnvironment,
+    check_context: &ProofContext,
+    refinement_context: &ProofContext,
+    expr: &Expr,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+    location: sigil_lexer::SourceLocation,
+) -> Result<bool, TypeError> {
     if let Some(expected_refinement) = resolve_constrained_type(env, expected_type)? {
         check_with_context(
             env,
-            proof_context,
+            check_context,
             expr,
             &expected_refinement.underlying_type,
         )?;
         let proof_result = prove_expr_satisfies_constraint(
             env,
-            proof_context,
+            refinement_context,
             expr,
             &expected_refinement.constraint,
         )
@@ -3537,6 +3557,26 @@ fn ensure_expr_matches_expected(
     expected_type: &InferenceType,
     location: sigil_lexer::SourceLocation,
 ) -> Result<(), TypeError> {
+    ensure_expr_matches_expected_with_contexts(
+        env,
+        proof_context,
+        proof_context,
+        expr,
+        actual_type,
+        expected_type,
+        location,
+    )
+}
+
+fn ensure_expr_matches_expected_with_contexts(
+    env: &TypeEnvironment,
+    check_context: &ProofContext,
+    refinement_context: &ProofContext,
+    expr: &Expr,
+    actual_type: &InferenceType,
+    expected_type: &InferenceType,
+    location: sigil_lexer::SourceLocation,
+) -> Result<(), TypeError> {
     ensure_label_subset(
         env,
         actual_type,
@@ -3549,9 +3589,10 @@ fn ensure_expr_matches_expected(
         return Ok(());
     }
 
-    if try_refinement_compatibility(
+    if try_refinement_compatibility_with_contexts(
         env,
-        proof_context,
+        check_context,
+        refinement_context,
         expr,
         actual_type,
         expected_type,
@@ -7713,10 +7754,13 @@ fn check_binary(
     check_with_context(env, proof_context, &bin.left, &left_type)?;
     let right_context = expression_result_proof_context(env, proof_context, &bin.left, &left_type)?;
     check_with_context(env, &right_context, &bin.right, &right_type)?;
+    let final_context =
+        expression_result_proof_context(env, &right_context, &bin.right, &right_type)?;
 
-    ensure_expr_matches_expected(
+    ensure_expr_matches_expected_with_contexts(
         env,
         proof_context,
+        &final_context,
         &Expr::Binary(Box::new(bin.clone())),
         &actual_type,
         expected_type,
@@ -7743,6 +7787,13 @@ fn expression_result_proof_context(
         }
         Expr::TypeAscription(type_asc) => {
             expression_result_proof_context(env, proof_context, &type_asc.expr, result_type)
+        }
+        Expr::Binary(binary) => {
+            let left_type = synthesize(env, &binary.left)?;
+            let right_type = synthesize(env, &binary.right)?;
+            let right_context =
+                expression_result_proof_context(env, proof_context, &binary.left, &left_type)?;
+            expression_result_proof_context(env, &right_context, &binary.right, &right_type)
         }
         _ => Ok(proof_context.clone()),
     }
@@ -7847,8 +7898,9 @@ fn check_application(
         &app.args,
         &actual_return,
     )?;
-    ensure_expr_matches_expected(
+    ensure_expr_matches_expected_with_contexts(
         env,
+        proof_context,
         &result_context,
         &Expr::Application(Box::new(app.clone())),
         &actual_return,

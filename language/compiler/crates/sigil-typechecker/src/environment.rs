@@ -36,7 +36,7 @@ pub struct BoundaryRule {
     pub action: BoundaryRuleKind,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunctionContract {
     pub params: Vec<String>,
     pub requires: Option<Expr>,
@@ -45,7 +45,7 @@ pub struct FunctionContract {
 
 /// Compile-time protocol specification for a handle type.
 /// States are sorted alphabetically; index in `states` is the Z3 integer encoding.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProtocolSpec {
     pub states: Vec<String>,
     pub transitions: HashMap<String, (String, String)>,
@@ -78,6 +78,8 @@ pub struct TypeEnvironment {
     imported_value_schemes: HashMap<String, HashMap<String, TypeScheme>>,
     imported_value_meta: HashMap<String, HashMap<String, BindingMeta>>,
     imported_label_registries: HashMap<String, HashMap<String, LabelInfo>>,
+    imported_function_contracts: HashMap<String, HashMap<String, FunctionContract>>,
+    imported_protocol_registries: HashMap<String, HashMap<String, ProtocolSpec>>,
     extern_member_kinds: HashMap<String, HashMap<String, ExternMemberKind>>,
     boundary_rules: Vec<BoundaryRule>,
     effect_catalog: EffectCatalog,
@@ -101,6 +103,8 @@ impl TypeEnvironment {
             imported_value_schemes: HashMap::new(),
             imported_value_meta: HashMap::new(),
             imported_label_registries: HashMap::new(),
+            imported_function_contracts: HashMap::new(),
+            imported_protocol_registries: HashMap::new(),
             extern_member_kinds: HashMap::new(),
             boundary_rules: Vec::new(),
             effect_catalog: EffectCatalog::empty(),
@@ -124,6 +128,8 @@ impl TypeEnvironment {
             imported_value_schemes: HashMap::new(),
             imported_value_meta: HashMap::new(),
             imported_label_registries: HashMap::new(),
+            imported_function_contracts: HashMap::new(),
+            imported_protocol_registries: HashMap::new(),
             extern_member_kinds: parent.extern_member_kinds.clone(),
             boundary_rules: parent.boundary_rules.clone(),
             effect_catalog: parent.effect_catalog.clone(),
@@ -252,6 +258,22 @@ impl TypeEnvironment {
         if let Some(spec) = self.protocol_registry.get(type_name) {
             return Some(spec);
         }
+
+        if let Some((module_id, local_name)) = type_name.rsplit_once('.') {
+            if let Some(registry) = self.imported_protocol_registries.get(module_id) {
+                if let Some(spec) = registry.get(local_name) {
+                    return Some(spec);
+                }
+            }
+            if let Some(remapped_module_id) = self.remap_package_local_module_id(module_id) {
+                if let Some(registry) = self.imported_protocol_registries.get(&remapped_module_id) {
+                    if let Some(spec) = registry.get(local_name) {
+                        return Some(spec);
+                    }
+                }
+            }
+        }
+
         self.parent.as_ref()?.lookup_protocol(type_name)
     }
 
@@ -341,6 +363,24 @@ impl TypeEnvironment {
         self.imported_value_meta.insert(module_id, value_meta);
     }
 
+    pub fn register_imported_function_contracts(
+        &mut self,
+        module_id: String,
+        contracts: HashMap<String, FunctionContract>,
+    ) {
+        self.imported_function_contracts
+            .insert(module_id, contracts);
+    }
+
+    pub fn register_imported_protocols(
+        &mut self,
+        module_id: String,
+        protocols: HashMap<String, ProtocolSpec>,
+    ) {
+        self.imported_protocol_registries
+            .insert(module_id, protocols);
+    }
+
     /// Look up a qualified type from an imported module
     ///
     /// Example: lookup_qualified_type(["src", "types"], "ArticleMeta")
@@ -419,6 +459,36 @@ impl TypeEnvironment {
         self.parent
             .as_ref()?
             .lookup_qualified_value(module_path, member_name)
+    }
+
+    pub fn lookup_qualified_function_contract(
+        &self,
+        module_path: &[String],
+        member_name: &str,
+    ) -> Option<FunctionContract> {
+        let module_id = module_path.join("::");
+        if self.module_id.as_deref() == Some(module_id.as_str()) {
+            if let Some(contract) = self.function_contracts.get(member_name) {
+                return Some(contract.clone());
+            }
+        }
+        if let Some(registry) = self.imported_function_contracts.get(&module_id) {
+            if let Some(contract) = registry.get(member_name) {
+                return Some(contract.clone());
+            }
+        }
+
+        if let Some(remapped_module_id) = self.remap_package_local_module_id(&module_id) {
+            if let Some(registry) = self.imported_function_contracts.get(&remapped_module_id) {
+                if let Some(contract) = registry.get(member_name) {
+                    return Some(contract.clone());
+                }
+            }
+        }
+
+        self.parent
+            .as_ref()?
+            .lookup_qualified_function_contract(module_path, member_name)
     }
 
     /// Look up a qualified constructor from an imported module.
@@ -572,6 +642,36 @@ impl TypeEnvironment {
 
     pub fn protocol_registry_snapshot(&self) -> &HashMap<String, ProtocolSpec> {
         &self.protocol_registry
+    }
+
+    pub fn function_contracts_snapshot(&self) -> HashMap<String, FunctionContract> {
+        self.function_contracts.clone()
+    }
+
+    pub fn protocol_registry_owned_snapshot(&self) -> HashMap<String, ProtocolSpec> {
+        self.protocol_registry.clone()
+    }
+
+    pub fn is_protocol_state_label(&self, label: &str) -> bool {
+        if self
+            .protocol_registry
+            .values()
+            .any(|spec| spec.states.iter().any(|state| state == label))
+        {
+            return true;
+        }
+
+        if self.imported_protocol_registries.values().any(|registry| {
+            registry
+                .values()
+                .any(|spec| spec.states.iter().any(|state| state == label))
+        }) {
+            return true;
+        }
+
+        self.parent
+            .as_ref()
+            .map_or(false, |parent| parent.is_protocol_state_label(label))
     }
 
     pub fn boundary_rules_snapshot(&self) -> Vec<BoundaryRule> {

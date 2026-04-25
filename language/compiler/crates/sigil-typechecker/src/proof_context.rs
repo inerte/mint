@@ -6,7 +6,7 @@
 use crate::errors::TypeError;
 use crate::types::InferenceType;
 use sigil_ast::Expr;
-use sigil_solver::{ComparisonOp, Formula, LinearExpr, SolverOutcome, SymbolPath};
+use sigil_solver::{Atom, ComparisonOp, Formula, LinearExpr, SolverOutcome, SymbolPath};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ============================================================================
@@ -20,7 +20,10 @@ pub(crate) enum SymbolicValue {
     Collection(SymbolicCollection),
     Record(SymbolicRecord),
     /// The protocol state of a handle — produced by `handle.state` field access.
-    State { path: SymbolPath, protocol: String },
+    State {
+        path: SymbolPath,
+        protocol: String,
+    },
     /// An UpperCamelCase state name literal on the RHS of a state equality check.
     StateLabel(String),
 }
@@ -83,6 +86,32 @@ impl ProofContext {
         self.with_assumptions([assumption])
     }
 
+    pub(crate) fn with_assumptions_replacing_state<I>(&self, assumptions: I) -> Self
+    where
+        I: IntoIterator<Item = Formula>,
+    {
+        let assumptions = assumptions.into_iter().collect::<Vec<_>>();
+        let state_keys = assumptions
+            .iter()
+            .filter_map(state_assumption_key)
+            .map(|(path, protocol)| (path.clone(), protocol.to_string()))
+            .collect::<Vec<_>>();
+
+        let mut next = self.clone();
+        if !state_keys.is_empty() {
+            next.assumptions.retain(|assumption| {
+                let Some((path, protocol)) = state_assumption_key(assumption) else {
+                    return true;
+                };
+                !state_keys.iter().any(|(state_path, state_protocol)| {
+                    state_path == path && state_protocol == protocol
+                })
+            });
+        }
+        next.assumptions.extend(assumptions);
+        next
+    }
+
     pub(crate) fn with_symbolic_bindings<I>(&self, bindings: I) -> Self
     where
         I: IntoIterator<Item = (String, SymbolicValue)>,
@@ -94,6 +123,13 @@ impl ProofContext {
 
     pub(crate) fn lookup_symbolic_binding(&self, name: &str) -> Option<SymbolicValue> {
         self.symbolic_bindings.get(name).cloned()
+    }
+}
+
+fn state_assumption_key(formula: &Formula) -> Option<(&SymbolPath, &str)> {
+    match formula {
+        Formula::Atom(Atom::StateEq { path, protocol, .. }) => Some((path, protocol.as_str())),
+        _ => None,
     }
 }
 

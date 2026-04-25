@@ -15,3 +15,8 @@ ensures result.state=Open
 requires ticket.state=Open
 ensures ticket.state=Closed
 =true
+
+λworkflow(id:String)=>Bool={
+  l ticket=({id:id}:Ticket);
+  ticket.id=id and resolve(ticket)
+}
